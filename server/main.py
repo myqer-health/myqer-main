@@ -54,16 +54,7 @@ def register(body: RegisterBody):
         # Surface a clean message to the UI
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/login")
-def login(body: LoginBody):
-    try:
-        res = supabase.auth.sign_in_with_password({
-            "email": body.email,
-            "password": body.password
-        })
-        # Return a minimal success message (don’t expose tokens to the browser)
-        return {"ok": True, "message": "Signed in"}
-    except Exception as e:
+
         raise HTTPException(status_code=401, detail="Invalid email or password")
         from typing import Optional
 from fastapi import Depends
