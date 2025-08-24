@@ -1,5 +1,5 @@
 // /styles/scripts/api.js
-window.MYQER_API_BASE = "https://myqer-python.onrender.com";
+window.MYQER_API_BASE = "https://myqer-main.onrender.com";
 
 window.apiPost = async function apiPost(path, data) {
   const res = await fetch(`${window.MYQER_API_BASE}${path}`, {
