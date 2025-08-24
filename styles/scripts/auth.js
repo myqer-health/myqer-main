@@ -1,53 +1,79 @@
-// scripts/auth.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+// styles/scripts/auth.js
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-// Grab config from config.js
 const supabase = createClient(window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON);
 
-// ===== SIGN UP =====
-async function registerUser(email, password, fullName) {
-  const { data, error } = await supabase.auth.signUp({
-    email: email,
-    password: password,
+// ---------- Login ----------
+async function loginUser(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+// ---------- Register ----------
+async function registerUser(fullName, email, password) {
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
     options: { data: { full_name: fullName } }
   });
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("✅ Check your email to confirm your account!");
-  }
+  if (error) throw error;
 }
 
-// ===== LOGIN =====
-async function loginUser(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    alert(error.message);
-  } else {
-    window.location.href = "app.html"; // send them to app after login
-  }
-}
+// Wire up forms on any page that has them
+document.addEventListener('DOMContentLoaded', () => {
+  // LOGIN
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    const emailEl = document.getElementById('loginEmail');
+    const passEl  = document.getElementById('loginPassword');
+    const btn     = document.getElementById('loginBtn');
+    const errBox  = document.getElementById('login-err');
 
-// ===== HOOK UP FORMS =====
-document.addEventListener("DOMContentLoaded", () => {
-  const regForm = document.getElementById("register-form");
-  if (regForm) {
-    regForm.addEventListener("submit", (e) => {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fullName = document.getElementById("fullName").value;
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      registerUser(email, password, fullName);
+      errBox.style.display = 'none';
+      btn.disabled = true;
+
+      try {
+        await loginUser(emailEl.value.trim(), passEl.value);
+        // go to app
+        window.location.href = 'app.html';
+      } catch (err) {
+        errBox.textContent = `⚠️ ${err.message}`;
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
     });
   }
 
-  const loginForm = document.getElementById("login-form");
-  if (loginForm) {
-    loginForm.addEventListener("submit", (e) => {
+  // REGISTER (works for register.html with these IDs)
+  const regForm = document.getElementById('register-form');
+  if (regForm) {
+    const nameEl = document.getElementById('fullName');
+    const emailEl = document.getElementById('registerEmail');
+    const passEl  = document.getElementById('registerPassword');
+    const btn = document.getElementById('registerBtn');
+    const ok = document.getElementById('register-ok');
+    const err = document.getElementById('register-err');
+
+    regForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      loginUser(email, password);
+      ok.style.display = 'none';
+      err.style.display = 'none';
+      btn.disabled = true;
+
+      try {
+        await registerUser(nameEl.value.trim(), emailEl.value.trim(), passEl.value);
+        ok.textContent = '✅ Check your email to confirm your account.';
+        ok.style.display = 'block';
+        regForm.reset();
+      } catch (ex) {
+        err.textContent = `⚠️ ${ex.message}`;
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
     });
   }
 });
