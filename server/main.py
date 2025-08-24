@@ -1,90 +1,67 @@
-# server/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from supabase import create_client, Client
 import os
+from supabase import create_client, Client
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 app = FastAPI()
 
-# --- CORS: allow your domain(s) to call this API from the browser ---
-origins = [
+# Allow your site to call this API from the browser
+ALLOWED_ORIGINS = [
     "https://myqer.com",
     "https://www.myqer.com",
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Supabase client (uses secure keys from Render env vars) ---
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")  # service role
-if not SUPABASE_URL or not SERVICE_KEY:
-    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-
-supabase: Client = create_client(SUPABASE_URL, SERVICE_KEY)
-
-# --- Models (request bodies) ---
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+class RegisterBody(BaseModel):
     full_name: str
-
-class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-# --- Basic health checks you already used ---
+class LoginBody(BaseModel):
+    email: EmailStr
+    password: str
+
 @app.get("/health")
 def health():
     return {"ok": True}
 
-@app.post("/echo")
-def echo(payload: dict):
-    return {"you_sent": payload}
-
-# --- Register: create auth user + save profile ---
 @app.post("/register")
-def register_user(data: RegisterRequest):
+def register(body: RegisterBody):
+    # create auth user (email confirmation will be sent if enabled)
     try:
-        result = supabase.auth.sign_up({
-            "email": data.email,
-            "password": data.password,
+        res = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+            "options": {"data": {"full_name": body.full_name}}
         })
-
-        # Supabase Python client returns dict-like results; check for error key
-        if isinstance(result, dict) and result.get("error"):
-            raise HTTPException(status_code=400, detail=result["error"]["message"])
-
-        # Save profile record (service role can insert despite RLS)
-        supabase.table("profiles").insert({
-            "email": data.email,
-            "full_name": data.full_name
-        }).execute()
-
-        return {"ok": True, "message": "Registered. Check your email to confirm."}
-
+        # res contains user or session depending on your Supabase settings
+        return {"ok": True, "message": "Check your email to confirm your account."}
     except Exception as e:
-        # surface clean error message
+        # Surface a clean message to the UI
         raise HTTPException(status_code=400, detail=str(e))
 
-# --- Login: verify credentials, return session info from Supabase ---
 @app.post("/login")
-def login_user(data: LoginRequest):
+def login(body: LoginBody):
     try:
-        result = supabase.auth.sign_in_with_password({
-            "email": data.email,
-            "password": data.password,
+        res = supabase.auth.sign_in_with_password({
+            "email": body.email,
+            "password": body.password
         })
-
-        if isinstance(result, dict) and result.get("error"):
-            raise HTTPException(status_code=400, detail=result["error"]["message"])
-
-        return {"ok": True, "session": result}
-
+        # Return a minimal success message (don’t expose tokens to the browser)
+        return {"ok": True, "message": "Signed in"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=401, detail="Invalid email or password")
