@@ -1,4 +1,4 @@
-// /styles/scripts/api.js
+// styles/scripts/api.js
 window.MYQER_API_BASE = "https://myqer-main.onrender.com";
 
 window.apiPost = async function apiPost(path, data) {
