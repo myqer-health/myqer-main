@@ -1,95 +1,88 @@
 // styles/scripts/auth.js
-// Uses Supabase directly from the browser.
-// Needs window.MYQER_SUPABASE_URL and window.MYQER_SUPABASE_ANON from config.js
+// expects window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON, window.MYQER_APP_URL
 
-// 1) Bootstrap supabase client
-const supabase = window.supabase.createClient(
-  window.MYQER_SUPABASE_URL,
-  window.MYQER_SUPABASE_ANON
-);
-
-// 2) Helpers for UI alerts
-function show(el, text) {
-  if (!el) return;
-  if (text) el.textContent = text;
-  el.style.display = "block";
-}
-function hide(el) {
-  if (!el) return;
-  el.style.display = "none";
-}
-
-// 3) SIGN IN form (login.html)
 (() => {
-  const form = document.getElementById("login-form");
-  if (!form) return;
-
-  const emailEl = document.getElementById("loginEmail");
-  const passEl  = document.getElementById("loginPassword");
-  const errEl   = document.getElementById("login-err");
-  const okEl    = document.getElementById("login-ok");
-  const toggle  = document.getElementById("togglePw");
-
-  if (toggle && passEl) {
-    toggle.onclick = () => {
-      const t = passEl.type === "password" ? "text" : "password";
-      passEl.type = t;
-      toggle.textContent = t === "text" ? "Hide" : "Show";
-    };
+  const required = ["MYQER_SUPABASE_URL", "MYQER_SUPABASE_ANON", "MYQER_APP_URL"];
+  for (const k of required) {
+    if (!window[k]) {
+      alert(`Missing ${k} in config.js`);
+      return;
+    }
   }
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    hide(errEl); hide(okEl);
-    try {
+  // init Supabase
+  const supabase = window.supabase.createClient(
+    window.MYQER_SUPABASE_URL,
+    window.MYQER_SUPABASE_ANON
+  );
+
+  // helpers
+  const byId = (id) => document.getElementById(id);
+  const show  = (el) => el && (el.style.display = "block");
+  const hide  = (el) => el && (el.style.display = "none");
+
+  // --- LOGIN PAGE ---
+  const loginForm = byId("login-form");
+  if (loginForm) {
+    const emailEl = byId("loginEmail");
+    const passEl  = byId("loginPassword");
+    const errEl   = byId("login-err");
+    const okEl    = byId("login-ok");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hide(errEl); hide(okEl);
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailEl.value.trim(),
         password: passEl.value
       });
-      if (error) throw error;
-      show(okEl, "Signed in — redirecting…");
-      setTimeout(() => location.href = window.MYQER_APP_URL || "/app.html", 600);
-    } catch (err) {
-      show(errEl, "⚠️ " + (err.message || "Sign in failed"));
-    }
-  });
-})();
 
-// 4) REGISTER form (register.html)
-(() => {
-  const form = document.getElementById("reg-form");
-  if (!form) return;
+      if (error) { errEl.textContent = "⚠️ " + error.message; show(errEl); return; }
 
-  const nameEl = document.getElementById("fullName");
-  const emailEl = document.getElementById("email");
-  const passEl = document.getElementById("password");
-  const errEl = document.getElementById("reg-err");
-  const okEl  = document.getElementById("reg-ok");
-  const toggle = document.getElementById("togglePw");
-
-  if (toggle && passEl) {
-    toggle.onclick = () => {
-      const t = passEl.type === "password" ? "text" : "password";
-      passEl.type = t;
-      toggle.textContent = t === "text" ? "Hide" : "Show";
-    };
+      show(okEl);
+      // optional: store session
+      try { localStorage.setItem("myqer_user", JSON.stringify(data.user || {})); } catch {}
+      setTimeout(() => { location.href = window.MYQER_APP_URL; }, 600);
+    });
   }
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    hide(errEl); hide(okEl);
-    try {
-      const { data, error } = await supabase.auth.signUp({
+  // --- REGISTER PAGE ---
+  const regForm = byId("reg-form");
+  if (regForm) {
+    const nameEl = byId("fullName");
+    const emailEl = byId("email");
+    const passEl  = byId("password");
+    const errEl   = byId("reg-err");
+    const okEl    = byId("reg-ok");
+
+    regForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hide(errEl); hide(okEl);
+
+      const { error } = await supabase.auth.signUp({
         email: emailEl.value.trim(),
         password: passEl.value,
         options: {
-          data: { full_name: nameEl.value.trim() }
+          data: { full_name: nameEl.value.trim() || null },
+          emailRedirectTo: window.MYQER_RESET_REDIRECT // safe to leave; Supabase uses Site URL for confirm
         }
       });
-      if (error) throw error;
-      show(okEl, "✅ Check your email to confirm your account.");
-    } catch (err) {
-      show(errEl, "⚠️ " + (err.message || "Couldn’t create account"));
-    }
-  });
+
+      if (error) { errEl.textContent = "⚠️ " + error.message; show(errEl); return; }
+      okEl.textContent = "✅ Check your email to confirm your account.";
+      show(okEl);
+    });
+  }
+
+  // --- FORGOT PASSWORD LINK (on login page) ---
+  const forgotLink = document.querySelector('[data-forgot="1"]');
+  if (forgotLink) {
+    forgotLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      const email = byId("loginEmail")?.value.trim();
+      location.href = `reset.html${email ? ("?email=" + encodeURIComponent(email)) : ""}`;
+    });
+  }
+
 })();
