@@ -99,3 +99,17 @@ def login(body: LoginBody):
         }
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+        from pydantic import BaseModel, EmailStr
+
+class ResetBody(BaseModel):
+    email: EmailStr
+
+@app.post("/reset-password")
+def reset_password(body: ResetBody):
+    # Sends a Supabase password reset email
+    supabase.auth.reset_password_for_email(
+        body.email,
+        options={"redirect_to": "https://myqer.com/app.html"}
+    )
+    # Always return success (don’t leak whether the email exists)
+    return {"ok": True, "message": "If that email exists, a reset link was sent."}
