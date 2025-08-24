@@ -1,73 +1,53 @@
 // scripts/auth.js
-// Tiny auth helper for MYQER forms
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-(async () => {
-  // Load Supabase client from CDN (light and fast)
-  if (!window.supabase) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
-    });
+// Grab config from config.js
+const supabase = createClient(window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON);
+
+// ===== SIGN UP =====
+async function registerUser(email, password, fullName) {
+  const { data, error } = await supabase.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { full_name: fullName } }
+  });
+  if (error) {
+    alert(error.message);
+  } else {
+    alert("✅ Check your email to confirm your account!");
   }
+}
 
-  const supabaseUrl = window.MYQER_SUPABASE_URL;
-  const supabaseKey = window.MYQER_SUPABASE_ANON;
-  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+// ===== LOGIN =====
+async function loginUser(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    alert(error.message);
+  } else {
+    window.location.href = "app.html"; // send them to app after login
+  }
+}
 
-  // REGISTER
-  const regForm = document.getElementById('register-form');
+// ===== HOOK UP FORMS =====
+document.addEventListener("DOMContentLoaded", () => {
+  const regForm = document.getElementById("register-form");
   if (regForm) {
-    const fullName = document.getElementById('fullName');
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
-    const ok = document.getElementById('reg-ok');
-    const err = document.getElementById('reg-err');
-
-    regForm.addEventListener('submit', async (e) => {
+    regForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      ok.style.display = 'none'; err.style.display = 'none';
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.value.trim(),
-        password: password.value,
-        options: { data: { full_name: fullName.value.trim() } }
-      });
-
-      if (error) {
-        err.style.display = 'block';
-        err.textContent = `⚠️ ${error.message}`;
-        return;
-      }
-      ok.style.display = 'block';
-      regForm.reset();
+      const fullName = document.getElementById("fullName").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      registerUser(email, password, fullName);
     });
   }
 
-  // LOGIN
-  const loginForm = document.getElementById('login-form');
+  const loginForm = document.getElementById("login-form");
   if (loginForm) {
-    const email = document.getElementById('loginEmail');
-    const password = document.getElementById('loginPassword');
-    const err = document.getElementById('login-err');
-
-    loginForm.addEventListener('submit', async (e) => {
+    loginForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      err.style.display = 'none';
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.value.trim(),
-        password: password.value
-      });
-
-      if (error) {
-        err.style.display = 'block';
-        err.textContent = `⚠️ ${error.message}`;
-        return;
-      }
-      // Logged in — go to app
-      window.location.href = 'app.html';
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      loginUser(email, password);
     });
   }
-})();
+});
