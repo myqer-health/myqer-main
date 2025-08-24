@@ -1,27 +1,31 @@
 
-from fastapi import FastAPI, Response, Query
-from fastapi.middleware.cors import CORSMiddleware
-import qrcode
-from io import BytesIO
+from fastapi import FastAPI, HTTPException, Header
+# ... (imports unchanged)
 
-app = FastAPI(title="MYQER Python Service")
+# ADD helper to require bearer token
+def require_token(authorization: str | None):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    return authorization.split(" ", 1)[1]
 
-# allow your site to call this API
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://myqer.com", "https://www.myqer.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ... keep /health and /register as you have ...
 
-@app.get("/health")
-def health():
-    return {"ok": True}
-
-@app.get("/qrcode", summary="Return a PNG QR for the given text")
-def qr(text: str = Query(..., max_length=2048), box_size: int = 10):
-    qr_img = qrcode.make(text, box_size=box_size, border=2)
-    buf = BytesIO()
-    qr_img.save(buf, format="PNG")
-    return Response(content=buf.getvalue(), media_type="image/png")
+@app.post("/login")
+def login(body: LoginBody):
+    try:
+        res = supabase.auth.sign_in_with_password({
+            "email": body.email,
+            "password": body.password
+        })
+        # res.session contains access_token
+        session = res.session
+        user = res.user
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        return {
+            "ok": True,
+            "access_token": session.access_token,
+            "user": {"id": user.id, "email": user.email, "full_name": (user.user_metadata or {}).get("full_name")}
+        }
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
