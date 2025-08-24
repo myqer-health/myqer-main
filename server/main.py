@@ -90,3 +90,21 @@ def upsert_profile(body: ProfileBody, authorization: str | None = Header(default
     uid = user.user.id
     supabase.table("profiles").upsert({"id": uid, "full_name": body.full_name}).execute()
     return {"ok": True}
+    @app.post("/login")
+def login(body: LoginBody):
+    try:
+        res = supabase.auth.sign_in_with_password({
+            "email": body.email,
+            "password": body.password
+        })
+        session = res.session
+        user = res.user
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        return {
+            "ok": True,
+            "access_token": session.access_token,
+            "user": {"id": user.id, "email": user.email, "full_name": (user.user_metadata or {}).get("full_name")}
+        }
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
