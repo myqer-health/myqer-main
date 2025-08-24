@@ -14,6 +14,7 @@
     .f input{font-size:1.05rem;padding:14px 16px;border-radius:14px;border:1px solid #e9ecef}
     .row{display:flex;gap:10px;align-items:center}
     .muted{text-align:center;color:#5b6166;margin-top:12px}
+    .muted a{color:#0f62fe}
     .alert{display:none;margin-top:12px;padding:12px 14px;border-radius:12px}
     .alert.err{background:#fff5e6;color:#9a4a00}
     .alert.ok{background:#e9f8ee;color:#0f7a2a}
@@ -28,48 +29,73 @@
         <input id="loginEmail" type="email" placeholder="Email" required inputmode="email" />
         <div class="row">
           <input id="loginPassword" type="password" placeholder="Password" required style="flex:1" />
-          <button type="button" class="btn btn-ghost" id="togglePw">Show</button>
+          <button type="button" class="btn btn-ghost" id="togglePw" aria-controls="loginPassword" aria-pressed="false">Show</button>
         </div>
-        <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+        <button id="loginBtn" class="btn btn-primary btn-lg" type="submit">Sign in</button>
       </form>
 
-      <div id="login-err" class="alert err">⚠️ Incorrect email or password.</div>
-      <div id="login-ok" class="alert ok">Signed in — redirecting…</div>
-      <p class="muted">Don’t have an account? <a href="register.html">Create one</a></p>
+      <div id="login-err" class="alert err" role="alert">⚠️ Incorrect email or password.</div>
+      <div id="login-ok" class="alert ok" role="status">Signed in — redirecting…</div>
+
+      <p class="muted">
+        <a href="register.html">Create an account</a> ·
+        <a href="#" id="forgot">Forgot password?</a>
+      </p>
     </section>
   </main>
 
+  <!-- Shared API helper -->
   <script src="styles/scripts/api.js"></script>
   <script>
     const emailEl = document.getElementById('loginEmail');
     const passEl  = document.getElementById('loginPassword');
     const errEl   = document.getElementById('login-err');
     const okEl    = document.getElementById('login-ok');
-    document.getElementById('togglePw').onclick = () => {
+    const btn     = document.getElementById('loginBtn');
+
+    // Show/Hide password
+    document.getElementById('togglePw').onclick = (e) => {
       const t = passEl.type === 'password' ? 'text' : 'password';
       passEl.type = t;
-      document.getElementById('togglePw').textContent = (t==='text'?'Hide':'Show');
+      e.currentTarget.textContent = (t==='text'?'Hide':'Show');
+      e.currentTarget.setAttribute('aria-pressed', t==='text');
     };
 
+    // Submit login
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       errEl.style.display = 'none';
       okEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Signing in…';
       try{
         const data = await apiPost('/login', {
           email: emailEl.value.trim(),
           password: passEl.value
         });
-        // Expecting { token, user:{...} } from your API
         if (data.token) localStorage.setItem('myqer_token', data.token);
         if (data.user)  localStorage.setItem('myqer_user', JSON.stringify(data.user));
         okEl.style.display = 'block';
         setTimeout(()=> location.href='app.html', 600);
       }catch(err){
-        errEl.textContent = '⚠️ ' + err.message;
+        errEl.textContent = '⚠️ ' + (err.message || 'Sign-in failed.');
         errEl.style.display = 'block';
+      }finally{
+        btn.disabled = false; btn.textContent = 'Sign in';
       }
     });
+
+    // Forgot password -> call our API to send reset email
+    document.getElementById('forgot').onclick = async (e) => {
+      e.preventDefault();
+      const email = prompt('Enter your account email:');
+      if (!email) return;
+      try {
+        await apiPost('/reset-password', { email: email.trim() });
+        alert('If that email exists, a reset link has been sent.');
+      } catch (err) {
+        alert(err.message || 'Something went wrong sending the reset email.');
+      }
+    };
   </script>
 </body>
 </html>
