@@ -1,88 +1,61 @@
-// styles/scripts/auth.js
-// expects window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON, window.MYQER_APP_URL
+// Shared auth handlers for login/register/reset pages
+const sb = supabase.createClient(window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON);
 
-(() => {
-  const required = ["MYQER_SUPABASE_URL", "MYQER_SUPABASE_ANON", "MYQER_APP_URL"];
-  for (const k of required) {
-    if (!window[k]) {
-      alert(`Missing ${k} in config.js`);
-      return;
-    }
-  }
+// UTIL
+const $ = (sel) => document.querySelector(sel);
 
-  // init Supabase
-  const supabase = window.supabase.createClient(
-    window.MYQER_SUPABASE_URL,
-    window.MYQER_SUPABASE_ANON
-  );
+// Page: login.html
+(function () {
+  const form = $('#login-form'); if (!form) return;
+  const emailEl = $('#loginEmail'); const pwEl = $('#loginPassword');
+  const err = $('#login-err'); const ok = $('#login-ok');
+  $('#togglePw').onclick = () => { pwEl.type = (pwEl.type === 'password' ? 'text':'password'); $('#togglePw').textContent = pwEl.type==='text'?'Hide':'Show'; };
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault(); err.style.display='none'; ok.style.display='none';
+    const { data, error } = await sb.auth.signInWithPassword({ email: emailEl.value.trim(), password: pwEl.value });
+    if (error){ err.textContent = '⚠️ ' + error.message; err.style.display='block'; return; }
+    ok.style.display='block'; setTimeout(()=>location.href = window.MYQER_APP_URL, 600);
+  });
+})();
 
-  // helpers
-  const byId = (id) => document.getElementById(id);
-  const show  = (el) => el && (el.style.display = "block");
-  const hide  = (el) => el && (el.style.display = "none");
-
-  // --- LOGIN PAGE ---
-  const loginForm = byId("login-form");
-  if (loginForm) {
-    const emailEl = byId("loginEmail");
-    const passEl  = byId("loginPassword");
-    const errEl   = byId("login-err");
-    const okEl    = byId("login-ok");
-
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hide(errEl); hide(okEl);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailEl.value.trim(),
-        password: passEl.value
-      });
-
-      if (error) { errEl.textContent = "⚠️ " + error.message; show(errEl); return; }
-
-      show(okEl);
-      // optional: store session
-      try { localStorage.setItem("myqer_user", JSON.stringify(data.user || {})); } catch {}
-      setTimeout(() => { location.href = window.MYQER_APP_URL; }, 600);
+// Page: register.html
+(function () {
+  const form = $('#reg-form'); if (!form) return;
+  const nameEl = $('#fullName'); const emailEl = $('#email'); const pwEl = $('#password');
+  const err = $('#reg-err'); const ok = $('#reg-ok');
+  $('#togglePw').onclick = () => { pwEl.type = (pwEl.type === 'password' ? 'text':'password'); $('#togglePw').textContent = pwEl.type==='text'?'Hide':'Show'; };
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault(); err.style.display='none'; ok.style.display='none';
+    const { error } = await sb.auth.signUp({
+      email: emailEl.value.trim(),
+      password: pwEl.value,
+      options: { data: { full_name: nameEl.value.trim() }, emailRedirectTo: window.MYQER_RESET_REDIRECT }
     });
-  }
+    if (error){ err.textContent = '⚠️ ' + error.message; err.style.display='block'; return; }
+    ok.style.display='block';
+  });
+})();
 
-  // --- REGISTER PAGE ---
-  const regForm = byId("reg-form");
-  if (regForm) {
-    const nameEl = byId("fullName");
-    const emailEl = byId("email");
-    const passEl  = byId("password");
-    const errEl   = byId("reg-err");
-    const okEl    = byId("reg-ok");
+// Page: reset.html
+(function () {
+  const reqForm = $('#reset-request-form'); if (!reqForm) return;
+  const setForm = $('#set-password-form');
+  const emailEl = $('#resetEmail'); const newPwEl = $('#newPassword');
+  const reqErr = $('#reset-err'), reqOk = $('#reset-ok');
+  const setErr = $('#set-err'), setOk = $('#set-ok');
+  $('#togglePw').onclick = () => { newPwEl.type = (newPwEl.type === 'password' ? 'text':'password'); $('#togglePw').textContent = newPwEl.type==='text'?'Hide':'Show'; };
 
-    regForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hide(errEl); hide(okEl);
+  reqForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); reqErr.style.display='none'; reqOk.style.display='none';
+    const { error } = await sb.auth.resetPasswordForEmail(emailEl.value.trim(), { redirectTo: window.MYQER_RESET_REDIRECT });
+    if (error){ reqErr.textContent = '⚠️ ' + error.message; reqErr.style.display='block'; return; }
+    reqOk.style.display='block';
+  });
 
-      const { error } = await supabase.auth.signUp({
-        email: emailEl.value.trim(),
-        password: passEl.value,
-        options: {
-          data: { full_name: nameEl.value.trim() || null },
-          emailRedirectTo: window.MYQER_RESET_REDIRECT // safe to leave; Supabase uses Site URL for confirm
-        }
-      });
-
-      if (error) { errEl.textContent = "⚠️ " + error.message; show(errEl); return; }
-      okEl.textContent = "✅ Check your email to confirm your account.";
-      show(okEl);
-    });
-  }
-
-  // --- FORGOT PASSWORD LINK (on login page) ---
-  const forgotLink = document.querySelector('[data-forgot="1"]');
-  if (forgotLink) {
-    forgotLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      const email = byId("loginEmail")?.value.trim();
-      location.href = `reset.html${email ? ("?email=" + encodeURIComponent(email)) : ""}`;
-    });
-  }
-
+  setForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); setErr.style.display='none'; setOk.style.display='none';
+    const { error } = await sb.auth.updateUser({ password: newPwEl.value });
+    if (error){ setErr.textContent = '⚠️ ' + (error.message || 'Open this page from the email link.'); setErr.style.display='block'; return; }
+    setOk.style.display='block'; setTimeout(()=>location.href='login.html',700);
+  });
 })();
