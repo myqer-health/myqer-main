@@ -65,3 +65,28 @@ def login(body: LoginBody):
         return {"ok": True, "message": "Signed in"}
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+        from typing import Optional
+from fastapi import Depends
+
+class ProfileBody(BaseModel):
+    full_name: Optional[str] = None
+
+@app.get("/profile")
+def get_profile(authorization: str | None = Header(default=None)):
+    token = require_token(authorization)
+    user = supabase.auth.get_user(token)
+    uid = user.user.id
+    row = supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute().data
+    # if missing, create a blank row to keep UX simple
+    if not row:
+        supabase.table("profiles").insert({"id": uid, "full_name": (user.user.user_metadata or {}).get("full_name")}).execute()
+        row = supabase.table("profiles").select("*").eq("id", uid).maybe_single().execute().data
+    return row
+
+@app.post("/profile")
+def upsert_profile(body: ProfileBody, authorization: str | None = Header(default=None)):
+    token = require_token(authorization)
+    user = supabase.auth.get_user(token)
+    uid = user.user.id
+    supabase.table("profiles").upsert({"id": uid, "full_name": body.full_name}).execute()
+    return {"ok": True}
