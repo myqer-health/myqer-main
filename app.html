@@ -1,53 +1,93 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MYQER App</title>
-  <link rel="stylesheet" href="styles/site.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>MYQER — Dashboard</title>
+  <link rel="stylesheet" href="styles/site.css"/>
   <style>
     .center-wrap{min-height:100dvh;display:grid;place-items:center;background:linear-gradient(135deg,#f7fafc,transparent);}
-    .glass{width:min(860px,94vw);background:rgba(255,255,255,.82);backdrop-filter:saturate(150%) blur(18px);
-      border:1px solid #eef1f4;border-radius:22px;box-shadow:0 20px 60px rgba(17,18,20,.10);padding:26px}
-    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .pill{padding:8px 12px;border-radius:999px;background:#f1f5f9;border:1px solid #e5e7eb}
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-    .card{background:#fff;border:1px solid #eef1f4;border-radius:16px;padding:14px;box-shadow:0 8px 28px rgba(17,18,20,.06)}
+    .glass{width:min(920px,96vw);background:rgba(255,255,255,.82);backdrop-filter:saturate(150%) blur(18px);
+      border:1px solid #eef1f4;border-radius:22px;box-shadow:0 20px 60px rgba(17,18,20,.10);padding:24px;}
+    .row{display:grid;grid-template-columns: 1.1fr .9fr; gap:18px;}
+    @media (max-width: 860px){ .row{grid-template-columns: 1fr;} }
+    .card{background:#fff;border:1px solid #e9ecef;border-radius:16px;box-shadow:0 8px 28px rgba(17,18,20,.06);padding:16px;}
+    .card h2{margin:0 0 10px}
+    .f{display:grid;gap:10px}
+    .f input{padding:12px 14px;border-radius:12px;border:1px solid #e9ecef}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
   </style>
 </head>
 <body>
-  <main class="center-wrap">
-    <section class="glass">
-      <div class="top">
-        <h2 style="margin:0">Welcome, <span id="who">Guest</span></h2>
+<main class="center-wrap">
+  <section class="glass">
+    <div class="topbar">
+      <strong>MYQER</strong>
+      <div>
+        <span id="userEmail" style="opacity:.7;margin-right:8px"></span>
         <button class="btn btn-ghost" id="logoutBtn">Sign out</button>
       </div>
-      <div class="pill">Glassy demo dashboard — wire to your real data next.</div>
-      <div class="cards" style="margin-top:12px">
-        <div class="card"><h3>Emergency Card</h3><p>Add allergies, meds, ICE.</p></div>
-        <div class="card"><h3>QR Tags</h3><p>Print/wear your tag.</p></div>
-        <div class="card"><h3>Settings</h3><p>Language, offline mode.</p></div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Your profile</h2>
+        <form class="f" id="profileForm">
+          <input id="fullName" type="text" placeholder="Full name"/>
+          <button class="btn btn-primary" type="submit">Save</button>
+          <div id="ok" class="alert ok" style="display:none">Saved ✅</div>
+          <div id="err" class="alert err" style="display:none">Error</div>
+        </form>
       </div>
-    </section>
-  </main>
 
-  <script>
-    // Read token & user placed by login
-    const token = localStorage.getItem('myqer_token');
-    const user  = JSON.parse(localStorage.getItem('myqer_user') || 'null');
+      <div class="card">
+        <h2>Emergency card</h2>
+        <p>We’ll add allergies, conditions, meds, ICE contacts next.</p>
+      </div>
+    </div>
+  </section>
+</main>
 
-    if (!token) {
-      // not signed in
-      location.href = 'login.html';
-    } else {
-      document.getElementById('who').textContent = (user && (user.full_name || user.email)) || 'User';
-    }
+<script src="styles/scripts/api.js"></script>
+<script src="styles/scripts/auth.js"></script>
+<script>
+  // Guard: require session
+  const sess = window.myqerAuth.load();
+  if (!sess || !sess.token) { location.href = 'login.html'; }
 
-    document.getElementById('logoutBtn').onclick = () => {
-      localStorage.removeItem('myqer_token');
-      localStorage.removeItem('myqer_user');
-      location.href = 'login.html';
-    };
-  </script>
+  document.getElementById('userEmail').textContent = sess?.user?.email || '';
+
+  // Load existing profile (from our API, next step will add endpoints)
+  async function authFetch(path, body) {
+    const res = await fetch(`${window.MYQER_API_BASE}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { "Content-Type":"application/json", "Authorization":"Bearer " + sess.token },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const json = await res.json().catch(()=> ({}));
+    if (!res.ok) throw new Error(json.detail || 'Error');
+    return json;
+  }
+
+  // Try load profile name (will work after Step 4 API)
+  (async () => {
+    try {
+      const p = await authFetch('/profile');
+      document.getElementById('fullName').value = p.full_name || (sess.user?.full_name || '');
+    } catch {}
+  })();
+
+  document.getElementById('profileForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const ok = document.getElementById('ok'), err = document.getElementById('err');
+    ok.style.display = 'none'; err.style.display='none';
+    try{
+      await authFetch('/profile', { full_name: document.getElementById('fullName').value.trim() });
+      ok.style.display = 'block';
+    }catch(ex){ err.textContent = ex.message; err.style.display='block';}
+  });
+
+  document.getElementById('logoutBtn').onclick = () => { window.myqerAuth.clear(); location.href='login.html'; };
+</script>
 </body>
 </html>
