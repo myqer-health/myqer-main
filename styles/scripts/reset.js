@@ -1,75 +1,76 @@
 // styles/scripts/reset.js
-// Requires: config.js with MYQER_SUPABASE_URL, MYQER_SUPABASE_ANON, MYQER_RESET_REDIRECT
-const supabase = supabasejs.createClient(
+// Needs window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON, window.MYQER_RESET_REDIRECT from config.js
+
+const supabase = window.supabase.createClient(
   window.MYQER_SUPABASE_URL,
   window.MYQER_SUPABASE_ANON
 );
 
-// Elements
+// UI bits
 const emailEl = document.getElementById('resetEmail');
 const newPwEl = document.getElementById('newPassword');
 
 const resetErr = document.getElementById('reset-err');
 const resetOk  = document.getElementById('reset-ok');
-const setErr   = document.getElementById('set-err');
-const setOk    = document.getElementById('set-ok');
 
-// Toggle password visibility
-document.getElementById('togglePw').onclick = () => {
-  const t = newPwEl.type === 'password' ? 'text' : 'password';
-  newPwEl.type = t;
-  document.getElementById('togglePw').textContent = (t === 'text' ? 'Hide' : 'Show');
-};
+const setErr = document.getElementById('set-err');
+const setOk  = document.getElementById('set-ok');
 
-// STEP A: Send reset link
+function show(el, msg='') { if (msg) el.textContent = msg; el.style.display = 'block'; }
+function hide(...els) { els.forEach(e => e && (e.style.display = 'none')); }
+
+// --- A) Send reset link ---
 document.getElementById('reset-request-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  resetErr.style.display = 'none';
-  resetOk.style.display = 'none';
+  hide(resetErr, resetOk);
 
-  try {
-    const { error } = await supabase.auth.resetPasswordForEmail(emailEl.value.trim(), {
-      redirectTo: window.MYQER_RESET_REDIRECT   // e.g. https://myqer.com/reset.html
-    });
-    if (error) throw error;
+  const email = (emailEl.value || '').trim();
+  if (!email) return show(resetErr, '⚠️ Please enter your email.');
 
-    resetOk.style.display = 'block';
-  } catch (err) {
-    resetErr.textContent = '⚠️ ' + (err.message || 'Could not send reset email.');
-    resetErr.style.display = 'block';
-  }
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.MYQER_RESET_REDIRECT
+  });
+
+  if (error) return show(resetErr, '⚠️ ' + error.message);
+  show(resetOk, '✅ Check your inbox for the reset link.');
 });
 
-// STEP B: If the user arrived from the email link, allow password update
-document.getElementById('set-password-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  setErr.style.display = 'none';
-  setOk.style.display  = 'none';
-
-  try {
-    // Supabase v2: if the URL contains a recovery token, the SDK can pick it up
-    // Some tenants need this explicit exchange for session:
-    // (harmless if not needed—will just no-op if there’s no code in URL)
-    try {
-      await supabase.auth.exchangeCodeForSession(window.location.href);
-    } catch (_) {}
-
-    const { error } = await supabase.auth.updateUser({ password: newPwEl.value });
-    if (error) throw error;
-
-    setOk.style.display = 'block';
-    setTimeout(() => location.href = 'login.html', 800);
-  } catch (err) {
-    setErr.textContent = '⚠️ ' + (err.message || 'Could not update password.');
-    setErr.style.display = 'block';
-  }
-});
-
-// Optional: if URL looks like a recovery (after clicking the email), auto-scroll to Step B
-(function autoFocusStepB() {
+// --- B) Handle returning from email link & update password ---
+(async () => {
+  // Supabase V2 sends `?code=...` (PKCE). Some older flows use hash tokens. Support both.
   const url = new URL(window.location.href);
-  if (url.searchParams.get('type') === 'recovery' || url.hash.includes('access_token')) {
-    document.getElementById('newPassword').focus();
-    // (You could also auto-hide Step A here if you want)
+  const code = url.searchParams.get('code');
+
+  // If we have a code, exchange it for a session so updateUser can run
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      show(setErr, '⚠️ Session exchange failed: ' + error.message);
+      return;
+    }
   }
+
+  // Enable the "Update password" form only if we have a session (either through code above,
+  // or the user was already signed in).
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    // No session yet—user just opened the page directly. That’s fine;
+    // they can still use the top form to request a link.
+    return;
+  }
+
+  // Wire the submit for setting a new password
+  document.getElementById('set-password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hide(setErr, setOk);
+
+    const newPw = (newPwEl.value || '').trim();
+    if (newPw.length < 8) return show(setErr, '⚠️ Use at least 8 characters.');
+
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) return show(setErr, '⚠️ ' + error.message);
+
+    show(setOk, '✅ Password updated. Redirecting to sign in…');
+    setTimeout(() => (window.location.href = 'login.html'), 900);
+  }, { once: true });
 })();
