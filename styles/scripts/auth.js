@@ -1,157 +1,105 @@
-// styles/scripts/auth.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+// Requires the Supabase CDN script on each page (see the HTML pages below)
+const supabase = (() => {
+  return window.supabase.createClient(
+    window.MYQER_SUPABASE_URL,
+    window.MYQER_SUPABASE_ANON
+  );
+})();
 
-const supabase = createClient(window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON);
+function show(el, on = true){ if(el){ el.style.display = on ? 'block' : 'none'; } }
 
-// ---------- Login ----------
-async function loginUser(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-}
+// ---- LOGIN ----
+const loginForm = document.querySelector('#login-form');
+if (loginForm){
+  const email = document.querySelector('#loginEmail');
+  const pass  = document.querySelector('#loginPassword');
+  const okEl  = document.querySelector('#login-ok');
+  const errEl = document.querySelector('#login-err');
 
-// ---------- Register ----------
-async function registerUser(fullName, email, password) {
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } }
+  loginForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); show(errEl,false); show(okEl,false);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.value.trim(),
+      password: pass.value
+    });
+    if (error){ errEl.textContent = '⚠️ ' + error.message; show(errEl,true); return; }
+    show(okEl,true);
+    setTimeout(()=> location.href = window.MYQER_APP_URL || '/app.html', 500);
   });
-  if (error) throw error;
 }
 
-// Wire up forms on any page that has them
-document.addEventListener('DOMContentLoaded', () => {
-  // LOGIN
-  const loginForm = document.getElementById('login-form');
-  if (loginForm) {
-    const emailEl = document.getElementById('loginEmail');
-    const passEl  = document.getElementById('loginPassword');
-    const btn     = document.getElementById('loginBtn');
-    const errBox  = document.getElementById('login-err');
+// ---- REGISTER ----
+const regForm = document.querySelector('#reg-form');
+if (regForm){
+  const name = document.querySelector('#fullName');
+  const email = document.querySelector('#email');
+  const pass  = document.querySelector('#password');
+  const okEl  = document.querySelector('#reg-ok');
+  const errEl = document.querySelector('#reg-err');
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errBox.style.display = 'none';
-      btn.disabled = true;
-
-      try {
-        await loginUser(emailEl.value.trim(), passEl.value);
-        // go to app
-        window.location.href = 'app.html';
-      } catch (err) {
-        errBox.textContent = `⚠️ ${err.message}`;
-        errBox.style.display = 'block';
-      } finally {
-        btn.disabled = false;
+  regForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); show(errEl,false); show(okEl,false);
+    const { error } = await supabase.auth.signUp({
+      email: email.value.trim(),
+      password: pass.value,
+      options: {
+        data: { full_name: name.value.trim() },
+        emailRedirectTo: window.MYQER_RESET_REDIRECT || (location.origin + '/reset.html')
       }
     });
-  }
-
-  // REGISTER (works for register.html with these IDs)
-  const regForm = document.getElementById('register-form');
-  if (regForm) {
-    const nameEl = document.getElementById('fullName');
-    const emailEl = document.getElementById('registerEmail');
-    const passEl  = document.getElementById('registerPassword');
-    const btn = document.getElementById('registerBtn');
-    const ok = document.getElementById('register-ok');
-    const err = document.getElementById('register-err');
-
-    regForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      ok.style.display = 'none';
-      err.style.display = 'none';
-      btn.disabled = true;
-
-      try {
-        await registerUser(nameEl.value.trim(), emailEl.value.trim(), passEl.value);
-        ok.textContent = '✅ Check your email to confirm your account.';
-        ok.style.display = 'block';
-        regForm.reset();
-      } catch (ex) {
-        err.textContent = `⚠️ ${ex.message}`;
-        err.style.display = 'block';
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-});// styles/scripts/auth.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-const supabase = createClient(window.MYQER_SUPABASE_URL, window.MYQER_SUPABASE_ANON);
-
-// ---------- Login ----------
-async function loginUser(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-}
-
-// ---------- Register ----------
-async function registerUser(fullName, email, password) {
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } }
+    if (error){ errEl.textContent = '⚠️ ' + error.message; show(errEl,true); return; }
+    okEl.textContent = '✅ Check your email to confirm your account.'; show(okEl,true);
   });
-  if (error) throw error;
 }
 
-// Wire up forms on any page that has them
-document.addEventListener('DOMContentLoaded', () => {
-  // LOGIN
-  const loginForm = document.getElementById('login-form');
-  if (loginForm) {
-    const emailEl = document.getElementById('loginEmail');
-    const passEl  = document.getElementById('loginPassword');
-    const btn     = document.getElementById('loginBtn');
-    const errBox  = document.getElementById('login-err');
+// ---- RESET (send email) ----
+const resetReqForm = document.querySelector('#reset-request-form');
+if (resetReqForm){
+  const email = document.querySelector('#resetEmail');
+  const okEl  = document.querySelector('#reset-ok');
+  const errEl = document.querySelector('#reset-err');
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errBox.style.display = 'none';
-      btn.disabled = true;
-
-      try {
-        await loginUser(emailEl.value.trim(), passEl.value);
-        // go to app
-        window.location.href = 'app.html';
-      } catch (err) {
-        errBox.textContent = `⚠️ ${err.message}`;
-        errBox.style.display = 'block';
-      } finally {
-        btn.disabled = false;
-      }
+  resetReqForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); show(errEl,false); show(okEl,false);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.value.trim(), {
+      redirectTo: window.MYQER_RESET_REDIRECT || (location.origin + '/reset.html')
     });
-  }
+    if (error){ errEl.textContent = '⚠️ ' + error.message; show(errEl,true); return; }
+    okEl.textContent = '✅ Check your inbox for the reset link.'; show(okEl,true);
+  });
+}
 
-  // REGISTER (works for register.html with these IDs)
-  const regForm = document.getElementById('register-form');
-  if (regForm) {
-    const nameEl = document.getElementById('fullName');
-    const emailEl = document.getElementById('registerEmail');
-    const passEl  = document.getElementById('registerPassword');
-    const btn = document.getElementById('registerBtn');
-    const ok = document.getElementById('register-ok');
-    const err = document.getElementById('register-err');
+// ---- RESET (set new password on reset.html) ----
+const setForm = document.querySelector('#set-password-form');
+if (setForm){
+  const newPw = document.querySelector('#newPassword');
+  const okEl  = document.querySelector('#set-ok');
+  const errEl = document.querySelector('#set-err');
 
-    regForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      ok.style.display = 'none';
-      err.style.display = 'none';
-      btn.disabled = true;
+  // When arriving from email link, Supabase sets a "recovery" session automatically.
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      document.body.classList.add('ready');  // (optional) if you want to reveal UI
+    }
+  });
 
-      try {
-        await registerUser(nameEl.value.trim(), emailEl.value.trim(), passEl.value);
-        ok.textContent = '✅ Check your email to confirm your account.';
-        ok.style.display = 'block';
-        regForm.reset();
-      } catch (ex) {
-        err.textContent = `⚠️ ${ex.message}`;
-        err.style.display = 'block';
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-});
+  setForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); show(errEl,false); show(okEl,false);
+    const { error } = await supabase.auth.updateUser({ password: newPw.value });
+    if (error){ errEl.textContent = '⚠️ ' + error.message; show(errEl,true); return; }
+    okEl.textContent = '✅ Password updated. You can now sign in.'; show(okEl,true);
+    setTimeout(()=> location.href='/login.html', 900);
+  });
+}
+
+// ---- DASHBOARD GUARD + SIGN OUT ----
+window.myqerRequire = async function(){
+  const { data:{ session } } = await supabase.auth.getSession();
+  if (!session) location.href = '/login.html';
+  return session;
+};
+
+window.myqerSignOut = async function(){
+  await supabase.auth.signOut();
+  location.href = '/login.html';
+};
