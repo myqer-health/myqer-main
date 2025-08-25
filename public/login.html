@@ -30,36 +30,18 @@
   </main>
 
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  import { requireAuth, signOutToLogin, supabase, q } from '/scripts/auth.js';
 
-    // If already signed in, go straight to dashboard
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) location.replace('/app.html');
+  // Gate the page
+  const session = await requireAuth();
 
-    const $ = (id)=>document.getElementById(id);
-    $('toggle').addEventListener('click', ()=>{
-      const f = $('password');
-      const show = f.type === 'password';
-      f.type = show ? 'text' : 'password';
-      $('toggle').textContent = show ? 'Hide' : 'Show';
-      $('toggle').setAttribute('aria-pressed', String(show));
-    });
+  // Wire Logout (top-right)
+  const btn = document.getElementById('logout');
+  if (btn) btn.addEventListener('click', signOutToLogin);
 
-    $('btnLogin').addEventListener('click', async ()=>{
-      const email = $('email').value.trim();
-      const password = $('password').value;
-      $('msg').textContent = '';
-      try{
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        // Success -> to dashboard
-        location.replace('/app.html');
-      }catch(err){
-        $('msg').textContent = err.message || 'Could not sign in.';
-      }
-    });
-  </script>
+  // (Optional) use the authed user id/email anywhere you need:
+  const user = session.user;
+  // e.g., q('#full_name').value = user.user_metadata?.full_name || '';
+</script>
 </body>
 </html>
