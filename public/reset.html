@@ -4,200 +4,87 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Reset Password — MYQER</title>
-
-  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
-  <link rel="apple-touch-icon" href="/images/icon-192.png" />
-  <link rel="manifest" href="/myqer_manifest.json" />
-  <meta name="theme-color" content="#c62828" />
-
-  <!-- site styles -->
-  <link rel="stylesheet" href="/styles/css" />
-  <style>
-    /* tiny page-local tweaks */
-    .auth-wrap{min-height:100svh;display:grid;place-items:center;padding:24px}
-    .auth-card{max-width:520px;width:100%;background:rgba(255,255,255,.66);
-      backdrop-filter:blur(18px);border:1px solid rgba(0,0,0,.08);border-radius:18px;
-      padding:24px 22px 26px;box-shadow:0 10px 24px rgba(0,0,0,.06)}
-    .auth-card h1{margin:0 0 10px}
-    .auth-card p{margin:.25rem 0 1rem}
-    .row{display:flex;gap:10px;align-items:center}
-    .btn{border-radius:999px}
-    .btn-primary{background:#c62828;border-color:#c62828;color:#fff}
-    .btn-ghost{background:#fff;border-color:#ddd}
-    .note{margin:.5rem 0 0;font-size:.9rem;opacity:.8}
-    .msg{display:none;border-radius:12px;padding:10px 12px;margin:0 0 10px}
-    .msg.ok{display:block;background:#eef8f0;border:1px solid #cfe8d5}
-    .msg.err{display:block;background:#fff3f2;border:1px solid #f3c1bd}
-    .pw-wrap{position:relative}
-    .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);
-      border:1px solid rgba(0,0,0,.12);background:#fff;border-radius:999px;padding:.35rem .6rem;line-height:1}
-    .spacer{height:6px}
-  </style>
+  <link rel="icon" href="/images/icon-192.png">
+  <link rel="stylesheet" href="/styles/css">
 </head>
-<body>
-  <main class="auth-wrap">
-    <section class="auth-card" id="requestView" hidden>
-      <h1>Reset your password</h1>
-      <p>Enter your email and we’ll send you a reset link.</p>
-      <div id="reqMsg" class="msg"></div>
-      <label for="resetEmail">Email</label>
-      <input id="resetEmail" type="email" autocomplete="email" placeholder="you@example.com" />
-      <div class="spacer"></div>
-      <div class="row">
-        <button id="sendReset" class="btn btn-primary">Send reset email</button>
-        <a class="btn btn-ghost" href="/login.html">Back to sign in</a>
+<body class="app-page">
+  <main class="auth-card" role="main" aria-labelledby="title">
+    <h1 id="title">Reset password</h1>
+
+    <!-- Request stage -->
+    <div id="stage-request">
+      <label class="auth-label" for="email">Email</label>
+      <input id="email" class="field" type="email" placeholder="you@example.com" required>
+      <div class="auth-actions">
+        <button id="btnSend" class="btn btn-primary">Send reset email</button>
+        <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
       </div>
-      <p class="note" id="reqNote" hidden>Check your inbox for a reset link.</p>
-    </section>
+      <p id="msg1" class="tiny muted"></p>
+    </div>
 
-    <section class="auth-card" id="newPwView" hidden>
-      <h1>Set a new password</h1>
-      <p>Enter your new password below.</p>
-      <div id="newMsg" class="msg"></div>
-
-      <label for="newPw">New password</label>
-      <div class="pw-wrap">
-        <input id="newPw" type="password" autocomplete="new-password" />
-        <button class="pw-toggle" data-for="newPw" type="button">Show</button>
+    <!-- New password stage -->
+    <div id="stage-reset" style="display:none">
+      <label class="auth-label" for="newpass">New password</label>
+      <div class="password-wrapper">
+        <input id="newpass" class="field" type="password" placeholder="********" required>
+        <button id="toggle1" type="button" class="password-toggle">Show</button>
       </div>
 
-      <label for="confirmPw" style="margin-top:.6rem">Confirm password</label>
-      <div class="pw-wrap">
-        <input id="confirmPw" type="password" autocomplete="new-password" />
-        <button class="pw-toggle" data-for="confirmPw" type="button">Show</button>
+      <label class="auth-label" for="confpass">Confirm password</label>
+      <div class="password-wrapper">
+        <input id="confpass" class="field" type="password" placeholder="********" required>
+        <button id="toggle2" type="button" class="password-toggle">Show</button>
       </div>
 
-      <div class="spacer"></div>
-      <div class="row">
-        <button id="updatePw" class="btn btn-primary">Update password</button>
-        <a class="btn btn-ghost" href="/login.html">Back to sign in</a>
+      <div class="auth-actions">
+        <button id="btnUpdate" class="btn btn-primary">Update password</button>
+        <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
       </div>
-    </section>
+      <p id="msg2" class="tiny muted"></p>
+    </div>
   </main>
 
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const requestView = document.getElementById('requestView');
-    const newPwView   = document.getElementById('newPwView');
+    const $ = id => document.getElementById(id);
+    const toggle = (btn, field)=>{
+      btn.addEventListener('click',()=>{
+        field.type = field.type === 'password' ? 'text':'password';
+        btn.textContent = field.type === 'password' ? 'Show':'Hide';
+      });
+    };
 
-    const sendBtn   = document.getElementById('sendReset');
-    const emailIn   = document.getElementById('resetEmail');
-    const reqMsg    = document.getElementById('reqMsg');
-    const reqNote   = document.getElementById('reqNote');
-
-    const updateBtn = document.getElementById('updatePw');
-    const newPw     = document.getElementById('newPw');
-    const confirmPw = document.getElementById('confirmPw');
-    const newMsg    = document.getElementById('newMsg');
-
-    // --------- helpers
-    function setMsg(el, type, text){
-      el.className = 'msg ' + (type || '');
-      el.textContent = text || '';
-      el.style.display = text ? 'block' : 'none';
-    }
-    function parseHashParams() {
-      const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-      return Object.fromEntries(h.entries());
-    }
-    async function ensureSessionFromURL() {
-      // Two possible flows:
-      // 1) access_token in hash -> setSession
-      // 2) code in query -> exchangeCodeForSession
-      const hash = parseHashParams();
-      if (hash.access_token && hash.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: hash.access_token,
-          refresh_token: hash.refresh_token
-        });
-        history.replaceState({}, '', location.pathname); // clean URL
-        return true;
-      }
-      const url = new URL(location.href);
-      const code = url.searchParams.get('code');
-      const type = url.searchParams.get('type');
-      if (code && type === 'recovery') {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) return false;
-        url.searchParams.delete('code'); url.searchParams.delete('type');
-        history.replaceState({}, '', url.toString());
-        return true;
-      }
-      return false;
+    // Supabase recovery link handling
+    const hash = new URLSearchParams(location.hash.slice(1));
+    if (hash.get('type') === 'recovery') {
+      $('stage-request').style.display = 'none';
+      $('stage-reset').style.display = '';
     }
 
-    // --------- show/hide correct pane
-    (async () => {
-      const hasRecoverySession = await ensureSessionFromURL();
-      if (hasRecoverySession) {
-        newPwView.hidden = false;
-      } else {
-        requestView.hidden = false;
-      }
-    })();
+    toggle($('toggle1'), $('newpass'));
+    toggle($('toggle2'), $('confpass'));
 
-    // --------- send reset email (no more “open it on this device” copy)
-    sendBtn?.addEventListener('click', async () => {
-      setMsg(reqMsg, '', '');
-      reqNote.hidden = true;
-
-      const email = emailIn.value.trim();
-      if (!email) { setMsg(reqMsg, 'err', 'Please enter your email.'); return; }
-
-      sendBtn.disabled = true;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    $('btnSend').onclick = async ()=>{
+      $('msg1').textContent = '';
+      const { error } = await supabase.auth.resetPasswordForEmail($('email').value, {
         redirectTo: 'https://myqer.com/reset.html'
       });
-      sendBtn.disabled = false;
+      $('msg1').textContent = error ? error.message : '✅ Check your inbox for a reset link.';
+    };
 
-      if (error) {
-        setMsg(reqMsg, 'err', error.message || 'Could not send reset email.');
-      } else {
-        // simple, neutral confirmation (no “open it on this device”)
-        reqNote.hidden = false;
-        setMsg(reqMsg, 'ok', 'Reset link sent. Check your inbox.');
+    $('btnUpdate').onclick = async ()=>{
+      $('msg2').textContent = '';
+      if ($('newpass').value !== $('confpass').value) {
+        $('msg2').textContent = 'Passwords do not match.';
+        return;
       }
-    });
-
-    // --------- update password (with show/hide toggles)
-    document.querySelectorAll('.pw-toggle').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-for');
-        const input = document.getElementById(id);
-        const isPw = input.type === 'password';
-        input.type = isPw ? 'text' : 'password';
-        btn.textContent = isPw ? 'Hide' : 'Show';
-      });
-    });
-
-    updateBtn?.addEventListener('click', async () => {
-      setMsg(newMsg, '', '');
-      const p1 = newPw.value.trim();
-      const p2 = confirmPw.value.trim();
-      if (!p1 || !p2) { setMsg(newMsg,'err','Please fill in both fields.'); return; }
-      if (p1 !== p2) { setMsg(newMsg,'err','Passwords do not match.'); return; }
-      if (p1.length < 6) { setMsg(newMsg,'err','Use at least 6 characters.'); return; }
-
-      updateBtn.disabled = true;
-      const { error } = await supabase.auth.updateUser({ password: p1 });
-      updateBtn.disabled = false;
-
-      if (error) {
-        setMsg(newMsg,'err', error.message || 'Could not update password.');
-      } else {
-        setMsg(newMsg,'ok','Password updated. You can now sign in.');
-        setTimeout(()=> location.replace('/login.html'), 900);
-      }
-    });
-
-    // PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/myqer_service_worker.js');
-    }
+      const { error } = await supabase.auth.updateUser({ password: $('newpass').value });
+      if (error) $('msg2').textContent = error.message;
+      else location.replace('/app.html');
+    };
   </script>
 </body>
 </html>
