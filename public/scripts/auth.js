@@ -1,6 +1,8 @@
+// public/scripts/auth.js
 import { supabase, APP_URL, RESET_URL } from './config.js';
 
 const byId = (id) => document.getElementById(id);
+
 const toast = (msg, ok = true) => {
   const el = document.querySelector('[data-toast]');
   if (!el) { alert(msg); return; }
@@ -10,6 +12,7 @@ const toast = (msg, ok = true) => {
   setTimeout(() => (el.style.opacity = 0), 4000);
 };
 
+// -------- Auth actions --------
 export async function loginWithPassword(email, password) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -18,25 +21,34 @@ export async function loginWithPassword(email, password) {
 
 export async function registerWithPassword(email, password, fullName = '') {
   const { error } = await supabase.auth.signUp({
-    email, password,
-    options: { emailRedirectTo: APP_URL, data: { full_name: fullName } }
+    email,
+    password,
+    options: {
+      emailRedirectTo: APP_URL,
+      data: { full_name: fullName }
+    }
   });
   if (error) throw error;
   toast('Check your email to confirm your account', true);
 }
 
 export async function loginWithOAuth(provider) {
-  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: APP_URL } });
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: APP_URL }
+  });
   if (error) throw error;
 }
 
 export async function requestPasswordReset(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: RESET_URL });
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: RESET_URL
+  });
   if (error) throw error;
   toast('Password reset email sent', true);
 }
 
-// Attach handlers if forms exist
+// -------- Wire form handlers (if present on the page) --------
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = byId('loginForm');
   const registerForm = byId('registerForm');
