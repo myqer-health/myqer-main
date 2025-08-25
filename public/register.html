@@ -1,4 +1,70 @@
-<!doctype html>
+<!doctype html><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Create account — MYQER</title>
+  <link rel="icon" href="/images/icon-192.png">
+  <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body class="app-page">
+  <main class="auth-card" role="main" aria-labelledby="title">
+    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
+    <h1 id="title" style="margin:8px 0 14px">Create account</h1>
+
+    <form id="signupForm" novalidate>
+      <label class="auth-label" for="email">Email</label>
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" required />
+
+      <label class="auth-label" for="password">Password</label>
+      <div class="password-wrapper">
+        <input id="password" class="field" type="password" autocomplete="new-password" placeholder="Choose a password" required />
+        <button type="button" class="password-toggle">Show</button>
+      </div>
+
+      <div class="auth-actions">
+        <button class="btn btn-primary" type="submit">Create account</button>
+        <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
+      </div>
+
+      <p id="msg" class="tiny" style="margin-top:12px;color:#0f5132;background:#d1e7dd;border:1px solid #badbcc;border-radius:8px;padding:8px;display:none"></p>
+      <p id="err" class="tiny" style="margin-top:12px;color:#7a271a;background:#fde2e1;border:1px solid #f5b5b2;border-radius:8px;padding:8px;display:none"></p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) location.replace('/app.html');
+
+    document.querySelectorAll('.password-toggle').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = btn.previousElementSibling;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+      });
+    });
+
+    const form = document.getElementById('signupForm');
+    const ok = document.getElementById('msg');
+    const er = document.getElementById('err');
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      ok.style.display='none'; er.style.display='none';
+      const email = document.getElementById('email').value.trim();
+      const pass  = document.getElementById('password').value;
+      const { error } = await supabase.auth.signUp({ email, password: pass });
+      if (error) { er.textContent = error.message; er.style.display='block'; return; }
+      ok.textContent = '✅ Check your email to confirm your account.';
+      ok.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
