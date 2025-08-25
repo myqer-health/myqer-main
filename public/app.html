@@ -281,5 +281,27 @@
     });
   }
 </script>
+  <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const returnTo = encodeURIComponent('/app.html');
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { location.replace(`/login.html?redirect=${returnTo}`); }
+  else {
+    document.documentElement.classList.remove('auth-checking');
+    document.documentElement.classList.add('auth-ready');
+  }
+
+  supabase.auth.onAuthStateChange((_e, sess)=>{
+    if (!sess) location.replace(`/login.html?redirect=${returnTo}`);
+  });
+
+  document.getElementById('logout')?.addEventListener('click', async ()=>{
+    await supabase.auth.signOut();
+    location.replace(`/login.html?redirect=${returnTo}`);
+  });
+</script>
 </body>
 </html>
