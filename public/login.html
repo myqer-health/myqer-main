@@ -4,79 +4,62 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sign in — MYQER</title>
-
-  <link rel="manifest" href="/myqer_manifest.json" />
-  <meta name="theme-color" content="#c62828" />
-  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
-  <link rel="apple-touch-icon" href="/images/icon-192.png" />
-
-  <link rel="stylesheet" href="/styles/app.css" />
+  <link rel="icon" href="/images/icon-192.png">
+  <link rel="stylesheet" href="/styles/css">
 </head>
 <body class="app-page">
+  <main class="auth-card" role="main" aria-labelledby="title">
+    <h1 id="title">Sign in</h1>
 
-  <header class="app-header">
-    <a class="brand" href="/" aria-label="MYQER Home">
-      <span>MYQ</span><span class="er">ER</span><sup>™</sup>
-    </a>
-  </header>
+    <label class="auth-label" for="email">Email</label>
+    <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" required>
 
-  <main style="max-width: 720px; margin: 32px auto; padding: 0 16px;">
-    <section class="auth-card" aria-labelledby="authTitle">
-      <header class="auth-header" style="text-align:center">
-        <h1 id="authTitle" style="margin:0 0 6px">Sign in</h1>
-        <p class="auth-subtle" style="margin:0">New here? <strong>Create account</strong> below.</p>
-      </header>
+    <label class="auth-label" for="password">Password</label>
+    <div class="password-wrapper">
+      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Your password" required>
+      <button id="toggle" type="button" class="password-toggle" aria-pressed="false" aria-controls="password">Show</button>
+    </div>
 
-      <form id="loginForm" novalidate>
-        <label class="auth-label" for="loginEmail">Email</label>
-        <input id="loginEmail" class="field" type="email" autocomplete="email" placeholder="you@example.com" required />
+    <div class="auth-actions" style="max-width:420px;margin-inline:auto">
+      <button id="btnLogin" class="btn btn-primary" type="button">Sign in</button>
+      <a class="btn btn-secondary" href="/register.html">Create account</a>
+      <a class="btn btn-link" href="/reset.html">Forgot password?</a>
+    </div>
 
-        <label class="auth-label" for="loginPassword">Password</label>
-        <div class="password-wrapper">
-          <input id="loginPassword" class="field" type="password" autocomplete="current-password" placeholder="Your password" required />
-          <button type="button" class="password-toggle" aria-controls="loginPassword" aria-label="Show password">Show</button>
-        </div>
-
-        <div class="auth-actions">
-          <button id="btnLogin" class="btn btn-primary" type="submit">Sign in</button>
-          <a class="btn btn-secondary" href="/register.html">Create account</a>
-          <a class="btn btn-link" href="/reset.html">Forgot password?</a>
-        </div>
-
-        <p class="tiny muted" style="text-align:center; margin-top:12px">
-          By continuing you agree to our <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy</a>.
-        </p>
-      </form>
-    </section>
+    <div id="msg" class="tiny muted" style="text-align:center;margin-top:10px;"></div>
   </main>
 
-  <!-- Minimal JS: toggle visibility + call existing login logic if you have it -->
   <script type="module">
-    // Password show/hide
-    const toggle = document.querySelector('.password-toggle');
-    const pwd = document.getElementById('loginPassword');
-    if (toggle && pwd) {
-      const setLabel = () => toggle.textContent = (pwd.type === 'password') ? 'Show' : 'Hide';
-      setLabel();
-      toggle.addEventListener('click', () => {
-        pwd.type = (pwd.type === 'password') ? 'text' : 'password';
-        setLabel();
-        pwd.focus();
-      });
-    }
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Optional: hook up to your Supabase login if not already elsewhere
-    // import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    // import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    // const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    // document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    //   e.preventDefault();
-    //   const email = document.getElementById('loginEmail').value.trim();
-    //   const password = document.getElementById('loginPassword').value;
-    //   const { error } = await supabase.auth.signInWithPassword({ email, password });
-    //   if (error) { alert(error.message); return; }
-    //   location.replace('/app.html');
-    // });
+    // If already signed in, go straight to dashboard
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) location.replace('/app.html');
+
+    const $ = (id)=>document.getElementById(id);
+    $('toggle').addEventListener('click', ()=>{
+      const f = $('password');
+      const show = f.type === 'password';
+      f.type = show ? 'text' : 'password';
+      $('toggle').textContent = show ? 'Hide' : 'Show';
+      $('toggle').setAttribute('aria-pressed', String(show));
+    });
+
+    $('btnLogin').addEventListener('click', async ()=>{
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      $('msg').textContent = '';
+      try{
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // Success -> to dashboard
+        location.replace('/app.html');
+      }catch(err){
+        $('msg').textContent = err.message || 'Could not sign in.';
+      }
+    });
   </script>
 </body>
 </html>
