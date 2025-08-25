@@ -3,85 +3,75 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Reset Password — MYQER</title>
+  <title>Reset password — MYQER</title>
   <link rel="icon" href="/images/icon-192.png">
-  <link rel="stylesheet" href="/styles/css">
+  <link rel="stylesheet" href="/styles/app.css">
 </head>
 <body class="app-page">
   <main class="auth-card" role="main" aria-labelledby="title">
-    <h1 id="title">Reset password</h1>
+    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
+    <h1 id="title" style="margin:8px 0 14px">Reset password</h1>
 
-    <!-- Request stage -->
-    <div id="stage-request">
+    <!-- Stage 1: request email -->
+    <section id="stage-request">
       <label class="auth-label" for="email">Email</label>
-      <input id="email" class="field" type="email" placeholder="you@example.com" required>
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" />
       <div class="auth-actions">
         <button id="btnSend" class="btn btn-primary">Send reset email</button>
         <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
       </div>
-      <p id="msg1" class="tiny muted"></p>
-    </div>
+      <p id="msg1" class="tiny" style="margin-top:12px;color:#6b7280"></p>
+    </section>
 
-    <!-- New password stage -->
-    <div id="stage-reset" style="display:none">
+    <!-- Stage 2: set new password (opened from email link) -->
+    <section id="stage-reset" style="display:none">
       <label class="auth-label" for="newpass">New password</label>
       <div class="password-wrapper">
-        <input id="newpass" class="field" type="password" placeholder="********" required>
-        <button id="toggle1" type="button" class="password-toggle">Show</button>
+        <input id="newpass" class="field" type="password" autocomplete="new-password" />
+        <button type="button" class="password-toggle">Show</button>
       </div>
 
       <label class="auth-label" for="confpass">Confirm password</label>
       <div class="password-wrapper">
-        <input id="confpass" class="field" type="password" placeholder="********" required>
-        <button id="toggle2" type="button" class="password-toggle">Show</button>
+        <input id="confpass" class="field" type="password" autocomplete="new-password" />
+        <button type="button" class="password-toggle">Show</button>
       </div>
 
       <div class="auth-actions">
         <button id="btnUpdate" class="btn btn-primary">Update password</button>
         <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
       </div>
-      <p id="msg2" class="tiny muted"></p>
-    </div>
+      <p id="msg2" class="tiny" style="margin-top:12px;color:#6b7280"></p>
+    </section>
   </main>
 
- <script type="module">
-  import { supabase, wirePasswordToggles } from '/scripts/auth.js';
+  <script type="module">
+    import { supabase, wirePasswordToggles } from '/scripts/auth.js';
+    wirePasswordToggles();
 
-  wirePasswordToggles();
+    const $ = (id)=>document.getElementById(id);
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const isRecovery = hash.get('type') === 'recovery';
 
-  const $ = (id) => document.getElementById(id);
+    $('stage-request').style.display = isRecovery ? 'none' : '';
+    $('stage-reset').style.display   = isRecovery ? '' : 'none';
 
-  const stageRequest = $('stage-request');
-  const stageReset   = $('stage-reset');
-  const msg1 = $('msg1');
-  const msg2 = $('msg2');
-
-  const hash = new URLSearchParams(location.hash.slice(1));
-  const isRecovery = hash.get('type') === 'recovery';
-
-  // Show correct stage based on recovery link
-  stageRequest.style.display = isRecovery ? 'none' : '';
-  stageReset.style.display   = isRecovery ? '' : 'none';
-
-  $('btnSend')?.addEventListener('click', async () => {
-    msg1.textContent = '';
-    const email = $('email').value.trim();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://myqer.com/reset.html'
+    $('btnSend')?.addEventListener('click', async () => {
+      $('msg1').textContent = '';
+      const { error } = await supabase.auth.resetPasswordForEmail($('email').value.trim(), {
+        redirectTo: 'https://myqer.com/reset.html'
+      });
+      $('msg1').textContent = error ? error.message : '✅ Check your inbox for a reset link.';
     });
-    msg1.textContent = error ? error.message : '✅ Check your inbox for a reset link.';
-  });
 
-  $('btnUpdate')?.addEventListener('click', async () => {
-    msg2.textContent = '';
-    const a = $('newpass').value;
-    const b = $('confpass').value;
-    if (a !== b) { msg2.textContent = 'Passwords do not match.'; return; }
-
-    const { error } = await supabase.auth.updateUser({ password: a });
-    if (error) msg2.textContent = error.message;
-    else location.replace('/app.html'); // ← auto-enter dashboard
-  });
-</script>
+    $('btnUpdate')?.addEventListener('click', async () => {
+      $('msg2').textContent = '';
+      const a = $('newpass').value, b = $('confpass').value;
+      if (a !== b) { $('msg2').textContent = 'Passwords do not match.'; return; }
+      const { error } = await supabase.auth.updateUser({ password: a });
+      if (error) $('msg2').textContent = error.message;
+      else location.replace('/app.html');
+    });
+  </script>
 </body>
 </html>
