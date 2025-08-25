@@ -1,157 +1,102 @@
+-- MYQER Schema with updated_at fix
 
--- MYQER schema.sql
--- Supabase Postgres schema, RLS policies, and helper triggers
--- Run with: supabase db reset --local OR psql via the SQL editor
-
-create extension if not exists "pgcrypto";
-create extension if not exists "uuid-ossp";
-
--- ENUMS
-do $$ begin
-  if not exists (select 1 from pg_type where typname = 'plan_tier') then
-    create type plan_tier as enum ('ESSENTIAL','PLUS');
-  end if;
-end $$;
-
--- USERS / PROFILES
+-- Profiles (1:1 with auth.users)
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   date_of_birth date,
   country text,
-  locale text not null default 'en',
+  locale text default 'en',
   time_zone text,
-  plan plan_tier not null default 'ESSENTIAL',
-  updated_at timestamptz not null default now()
+  plan_tier text default 'ESSENTIAL',
+  updated_at timestamptz default now()
 );
 
--- HEALTH PROFILE
+-- Health profiles
 create table if not exists public.health_profiles (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   allergies text,
   conditions text,
   meds text,
   blood_type text,
-  organ_donor boolean default false,
-  life_support_pref text,           -- allow | limited | do_not
-  resuscitation text,               -- allow | do_not | unknown
+  organ_donor bool,
+  life_support_pref text,
+  resuscitation text,
   care_notes text,
-  show_allergies boolean default true,
-  show_conditions boolean default true,
-  show_meds boolean default true,
-  show_ice boolean default true,
-  show_blood boolean default true,
-  show_prefs boolean default true,
-  show_notes boolean default false,
-  updated_at timestamptz not null default now()
+  show_allergies bool default true,
+  show_conditions bool default true,
+  show_meds bool default true,
+  show_ice bool default true,
+  show_blood bool default true,
+  show_prefs bool default true,
+  show_notes bool default false,
+  updated_at timestamptz default now()
 );
 
--- ICE CONTACTS
+-- ICE contacts
 create table if not exists public.ice_contacts (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  name text not null,
+  user_id uuid references public.profiles(id) on delete cascade,
+  name text,
   relation text,
   phone text,
   alt_phone text,
   notes text,
-  is_primary boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  is_primary bool default true,
+  unique(user_id, is_primary) where is_primary = true
 );
-create unique index if not exists uniq_primary_ice_per_user on public.ice_contacts(user_id) where is_primary = true;
 
--- QR CODES
+-- QR codes
 create table if not exists public.qr_codes (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   short_code text unique not null,
-  active boolean not null default true,
+  active bool default true,
   last_regenerated_at timestamptz,
-  scan_ttl_seconds int not null default 300
+  scan_ttl_seconds int default 300
 );
-create index if not exists idx_qr_short on public.qr_codes(short_code);
 
--- TTS ASSETS
+-- TTS assets
 create table if not exists public.tts_assets (
   user_id uuid primary key references public.profiles(id) on delete cascade,
-  lang text not null default 'en',
-  status text not null default 'pending', -- pending | ready | error
-  asset_path text,                        -- storage path voices/{user}/{lang}.mp3
+  lang text,
+  status text,
+  asset_path text,
   last_build_at timestamptz,
   error text
 );
 
--- ACCESS LOGS (service role insert only)
+-- Access logs
 create table if not exists public.access_logs (
   id bigserial primary key,
   user_id uuid,
-  kind text not null,            -- responder | dispatch | qr_regen | tts_build
+  kind text,
   context jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz default now()
 );
 
--- MYQER+ ORGS
+-- Orgs
 create table if not exists public.orgs (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  name text,
   country text,
-  created_by uuid references public.profiles(id) on delete set null,
-  created_at timestamptz not null default now()
+  created_by uuid references public.profiles(id),
+  created_at timestamptz default now()
 );
 
 create table if not exists public.org_members (
   org_id uuid references public.orgs(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete cascade,
-  role text not null, -- admin | clinician
+  role text check (role in ('admin','clinician')),
   primary key (org_id, user_id)
 );
 
 create table if not exists public.org_patients (
   org_id uuid references public.orgs(id) on delete cascade,
   patient_id uuid references public.profiles(id) on delete cascade,
-  consent boolean not null default false,
-  granted_at timestamptz,
+  consent bool default false,
+  granted_at timestamptz default now(),
   primary key (org_id, patient_id)
 );
-
--- TRIGGERS
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end $$;
-
-drop trigger if exists trg_profiles_updated on public.profiles;
-create trigger trg_profiles_updated before update on public.profiles
-for each row execute procedure public.set_updated_at();
-
-drop trigger if exists trg_health_updated on public.health_profiles;
-create trigger trg_health_updated before update on public.health_profiles
-for each row execute procedure public.set_updated_at();
-
-drop trigger if exists trg_ice_updated on public.ice_contacts;
-create trigger trg_ice_updated before update on public.ice_contacts
-for each row execute procedure public.set_updated_at();
-
--- BOOTSTRAP NEW USER
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles(id, full_name, locale) values (new.id, coalesce(new.raw_user_meta_data->>'full_name',''), coalesce(new.raw_user_meta_data->>'locale','en'))
-  on conflict (id) do nothing;
-
-  insert into public.health_profiles(user_id) values (new.id)
-  on conflict (user_id) do nothing;
-
-  insert into public.qr_codes(user_id, short_code) values (new.id, substr(encode(digest(gen_random_uuid()::text, 'sha256'),'base64'),1,8))
-  on conflict (user_id) do nothing;
-
-  return new;
-end $$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
 -- RLS
 alter table public.profiles enable row level security;
@@ -164,55 +109,51 @@ alter table public.orgs enable row level security;
 alter table public.org_members enable row level security;
 alter table public.org_patients enable row level security;
 
--- Profiles: owner only
-drop policy if exists "profiles_owner_rw" on public.profiles;
-create policy "profiles_owner_rw" on public.profiles
-  for all using (id = auth.uid()) with check (id = auth.uid());
+-- Profiles: each user can manage only their own
+drop policy if exists "profiles_self" on public.profiles;
+create policy "profiles_self" on public.profiles
+  for all using (id = auth.uid());
 
--- Health: owner only
-drop policy if exists "health_owner_rw" on public.health_profiles;
-create policy "health_owner_rw" on public.health_profiles
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- Health profiles: only owner
+drop policy if exists "health_self" on public.health_profiles;
+create policy "health_self" on public.health_profiles
+  for all using (user_id = auth.uid());
 
--- ICE: owner only
-drop policy if exists "ice_owner_rw" on public.ice_contacts;
-create policy "ice_owner_rw" on public.ice_contacts
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- ICE contacts
+drop policy if exists "ice_self" on public.ice_contacts;
+create policy "ice_self" on public.ice_contacts
+  for all using (user_id = auth.uid());
 
--- QR: owner read/write (functions will use service key for admin ops as needed)
-drop policy if exists "qr_owner_rw" on public.qr_codes;
-create policy "qr_owner_rw" on public.qr_codes
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- QR codes
+drop policy if exists "qr_self" on public.qr_codes;
+create policy "qr_self" on public.qr_codes
+  for all using (user_id = auth.uid());
 
--- TTS: owner rw
-drop policy if exists "tts_owner_rw" on public.tts_assets;
-create policy "tts_owner_rw" on public.tts_assets
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- TTS assets
+drop policy if exists "tts_self" on public.tts_assets;
+create policy "tts_self" on public.tts_assets
+  for all using (user_id = auth.uid());
 
--- access_logs: no direct access; only service role inserts
-drop policy if exists "access_logs_none" on public.access_logs;
-create policy "access_logs_none" on public.access_logs for select to authenticated using (false);
-create policy "access_logs_insert_service" on public.access_logs for insert to service_role with check (true);
+-- Access logs (only service role can insert)
+drop policy if exists "access_logs_insert" on public.access_logs;
+create policy "access_logs_insert" on public.access_logs
+  for insert to service_role using (true);
 
--- ORGS
-drop policy if exists "orgs_member_read" on public.orgs;
-create policy "orgs_member_read" on public.orgs
-  for select using (exists(select 1 from public.org_members m where m.org_id = id and m.user_id = auth.uid()));
-
-drop policy if exists "orgs_admin_write" on public.orgs;
-create policy "orgs_admin_write" on public.orgs
-  for all using (exists(select 1 from public.org_members m where m.org_id = id and m.user_id = auth.uid() and m.role='admin'))
-  with check (exists(select 1 from public.org_members m where m.org_id = id and m.user_id = auth.uid() and m.role='admin'));
+-- Orgs & members
+drop policy if exists "orgs_self" on public.orgs;
+create policy "orgs_self" on public.orgs
+  for all using (created_by = auth.uid());
 
 drop policy if exists "org_members_self" on public.org_members;
 create policy "org_members_self" on public.org_members
-  for all using (user_id = auth.uid() or exists(select 1 from public.org_members m where m.org_id = org_id and m.user_id = auth.uid() and m.role='admin'))
-  with check (user_id = auth.uid() or exists(select 1 from public.org_members m where m.org_id = org_id and m.user_id = auth.uid() and m.role='admin'));
+  for all using (user_id = auth.uid());
 
 drop policy if exists "org_patients_access" on public.org_patients;
 create policy "org_patients_access" on public.org_patients
-  for select using (exists(select 1 from public.org_members m where m.org_id = org_id and m.user_id = auth.uid()))
-  ;
+  for select using (
+    exists(select 1 from public.org_members m where m.org_id = org_id and m.user_id = auth.uid())
+  );
 
 -- Indexes
-create index if not exists idx_profiles_updated_at on public.profiles(updated_at desc);
+create index if not exists idx_profiles_updated_at
+on public.profiles(updated_at desc);
