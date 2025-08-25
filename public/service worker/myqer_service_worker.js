@@ -1,3 +1,6 @@
+// myqer_service_worker.js
+const CACHE_VERSION = 'v9'; // ← bump this number
+const CACHE_NAME = `myqer-cache-${CACHE_VERSION}`;
 const VERSION='v1';
 const APP_SHELL=['/','/app.html','/card.html','/reset.html','/scripts/config.js','/scripts/auth.js','/scripts/app.js','/scripts/backend_hooks.js','/myqer_manifest.json','/assets/icon-192.png','/assets/icon-512.png','/locales/en/site.json'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open('myqer-'+VERSION).then(c=>c.addAll(APP_SHELL)));self.skipWaiting();});
