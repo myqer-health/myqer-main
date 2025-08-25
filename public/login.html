@@ -1,4 +1,73 @@
-<!doctype html>
+<!doctype html><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sign in — MYQER</title>
+  <link rel="icon" href="/images/icon-192.png">
+  <link rel="stylesheet" href="/styles/app.css">
+</head>
+<body class="app-page">
+  <main class="auth-card" role="main" aria-labelledby="title">
+    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
+    <h1 id="title" style="margin:8px 0 14px">Sign in</h1>
+
+    <form id="loginForm" novalidate>
+      <label class="auth-label" for="email">Email</label>
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" required />
+
+      <label class="auth-label" for="password">Password</label>
+      <div class="password-wrapper">
+        <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Your password" required />
+        <button type="button" class="password-toggle">Show</button>
+      </div>
+
+      <div class="auth-actions">
+        <button class="btn btn-primary" type="submit">Sign in</button>
+        <a class="btn btn-secondary" href="/register.html">Create account</a>
+        <a class="btn btn-link" href="/reset.html">Forgot password?</a>
+      </div>
+
+      <p id="authError" class="tiny" style="color:#b42318;margin-top:10px"></p>
+    </form>
+  </main>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // session short-circuit
+    const params = new URLSearchParams(location.search);
+    const redirectTo = params.get('redirect') || '/app.html';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) location.replace(redirectTo);
+
+    // toggle password
+    const toggleBtns = document.querySelectorAll('.password-toggle');
+    toggleBtns.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = btn.previousElementSibling;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+      });
+    });
+
+    // login
+    const form = document.getElementById('loginForm');
+    const err  = document.getElementById('authError');
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      err.textContent = '';
+      const email = document.getElementById('email').value.trim();
+      const pass  = document.getElementById('password').value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) { err.textContent = error.message; return; }
+      location.replace(redirectTo);
+    });
+  </script>
+</body>
+</html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
