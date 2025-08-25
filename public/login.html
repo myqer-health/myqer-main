@@ -2,115 +2,178 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sign in — MYQER</title>
-  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
-  <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+
+  <!-- Icons / PWA -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
+  <link rel="apple-touch-icon" href="/images/icon-192.png" />
+  <link rel="manifest" href="/myqer_manifest.json" />
+  <meta name="theme-color" content="#c62828" />
+
+  <!-- Main site styles -->
   <link rel="stylesheet" href="/styles/app.css" />
+
+  <!-- Scoped polish just for auth page -->
   <style>
-    :root { --brand:#c62828; --glass:rgba(255,255,255,.55); --stroke:rgba(0,0,0,.08); --blur:22px; }
-    body{margin:0;background:linear-gradient(135deg,#f7f8fb,#e9eef6);font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
-    .wrap{min-height:100dvh;display:grid;place-items:center;padding:24px}
-    .card{width:min(520px,92vw);background:var(--glass);backdrop-filter:blur(var(--blur));
-      border:1px solid var(--stroke);border-radius:18px;box-shadow:0 10px 24px rgba(0,0,0,.08);padding:24px}
-    h1{margin:0 0 .5rem;font-size:28px;letter-spacing:-.02em}
-    .sub{margin:0 0 16px;color:#555}
-    label{display:block;margin:.6rem 0 .35rem;font-weight:600}
-    input{width:100%;padding:.8rem 1rem;border-radius:12px;border:1px solid var(--stroke);
-      background:#fff}
-    .row{display:flex;gap:10px;align-items:center}
-    .btn{border:1px solid var(--stroke);background:#fff;border-radius:999px;padding:.7rem 1.1rem;cursor:pointer}
-    .btn-primary{background:var(--brand);border-color:var(--brand);color:#fff}
-    .btn-ghost{background:#fff}
-    .note{margin-top:10px;color:#666;font-size:.9rem}
-    .alert{border-radius:12px;padding:.7rem 1rem;margin:0 0 12px}
-    .alert.error{background:#fff3f3;border:1px solid #ffd0d0;color:#8b0000}
-    .alert.success{background:#f1fff3;border:1px solid #cfe8d5;color:#0a6b2d}
-    .right{margin-left:auto}
-    .input-wrap{position:relative}
-    .toggle{position:absolute;right:8px;top:8px;height:36px;border-radius:10px;padding:0 10px}
-    .brand{font-weight:800;letter-spacing:.02em}
+    html, body { height: 100%; overflow-x: hidden; background: var(--wash,#f5f7fb); }
+    .auth-wrap {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .auth-card {
+      --blur: 22px;
+      background: rgba(255,255,255,.65);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.08);
+      width: min(92vw, 560px);
+      padding: clamp(20px, 4vw, 36px);
+    }
+    .brand-row {
+      display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;
+    }
+    .brand-row .brand { text-decoration:none; font-weight:800; letter-spacing:.2px; color:#111; }
+    .brand-row .brand .er { color:#c62828; }
+    .auth-title { font-size: clamp(28px, 4.2vw, 36px); line-height:1.1; margin: 6px 0 6px; }
+    .auth-sub   { color:#555; margin:0 0 16px; }
+
+    .field { margin: 12px 0; }
+    .field label { display:block; font-weight:600; font-size:.95rem; margin-bottom:6px; }
+    .input, .btn {
+      width: 100%;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 1rem;
+      border: 1px solid rgba(0,0,0,.12);
+      background: rgba(255,255,255,.9);
+    }
+    .input:focus { outline: none; border-color: #c62828; box-shadow: 0 0 0 3px rgba(198,40,40,.15); }
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute; right: 8px; top: 8px;
+      border:1px solid rgba(0,0,0,.12); background:#fff; border-radius:999px;
+      padding: 7px 12px; font-size:.9rem; cursor:pointer;
+    }
+
+    .btn { cursor:pointer; transition:.15s ease; }
+    .btn.primary {
+      background:#c62828; color:#fff; border-color:#c62828; font-weight:700;
+    }
+    .btn.primary:hover { filter:brightness(.95); }
+    .btn.secondary {
+      background:#fff; color:#111; border-color:rgba(0,0,0,.14);
+    }
+    .btn.linky { background:transparent; border:0; color:#555; text-decoration:underline; padding:10px 0; }
+
+    .btn-lg { padding: 16px 18px; font-size:1.05rem; border-radius:16px; }
+    .stack { display:grid; gap: 10px; margin-top: 14px; }
+
+    .row-between { display:flex; justify-content:space-between; gap: 12px; align-items:center; }
+    .muted { color:#6a6a6a; font-size:.9rem; }
+
+    .alert { margin-top:12px; padding:12px 14px; border-radius:12px; font-weight:600; }
+    .alert.err { background:#fff2f2; border:1px solid #ffbaba; color:#a70000; }
+    .alert.ok  { background:#ecfbf1; border:1px solid #b9efcd; color:#0b6b3a; }
+
+    @media (max-width: 420px) {
+      .row-between { flex-direction: column; align-items: stretch; gap: 8px; }
+    }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <section class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div class="brand">MYQ<span style="color:#c62828">ER</span><sup>™</sup></div>
-        <div class="right"></div>
+  <main class="auth-wrap">
+    <section class="auth-card" role="dialog" aria-labelledby="authTitle">
+      <div class="brand-row">
+        <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><sup>™</sup></a>
       </div>
 
-      <h1>Sign in</h1>
-      <p class="sub">Use your email and password. New here? Click <strong>Create account</strong>.</p>
+      <h1 id="authTitle" class="auth-title">Sign in</h1>
+      <p class="auth-sub">
+        Use your email and password. New here?
+        <strong>Create account</strong> below.
+      </p>
 
-      <div id="msg" class="alert" style="display:none"></div>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" class="input" type="email" placeholder="you@example.com" autocomplete="email" required />
+        </div>
 
-      <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" />
+        <div class="field pw-wrap">
+          <label for="password">Password</label>
+          <input id="password" class="input" type="password" placeholder="Your password" autocomplete="current-password" required />
+          <button class="pw-toggle" type="button" id="togglePw">Show</button>
+        </div>
 
-      <label for="password">Password</label>
-      <div class="input-wrap">
-        <input id="password" type="password" autocomplete="current-password" placeholder="Your password" />
-        <button id="togglePw" class="btn toggle" type="button" aria-label="Show password">Show</button>
-      </div>
+        <!-- Stacked CTAs -->
+        <div class="stack">
+          <button class="btn btn-lg primary" type="submit" id="btnSignin">Sign in</button>
+          <a class="btn btn-lg secondary" href="/register.html">Create account</a>
+          <a class="btn linky" href="/reset.html">Forgot password?</a>
+        </div>
 
-      <div class="row" style="margin-top:14px">
-        <button id="btnSignIn" class="btn btn-primary">Sign in</button>
-        <a class="btn btn-ghost" href="/reset.html">Forgot password?</a>
-        <div class="right"></div>
-        <button id="btnCreate" class="btn">Create account</button>
-      </div>
+        <p class="muted" style="margin-top:14px">
+          By continuing you agree to our
+          <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy</a>.
+        </p>
 
-      <p class="note" style="margin-top:14px">By continuing you agree to our <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy</a>.</p>
+        <div id="msg" class="alert" style="display:none"></div>
+      </form>
     </section>
   </main>
 
+  <!-- Supabase sign-in -->
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const form = document.getElementById('loginForm');
+    const msg  = document.getElementById('msg');
     const email = document.getElementById('email');
-    const password = document.getElementById('password');
-    const msg = document.getElementById('msg');
+    const pw = document.getElementById('password');
 
-    const show = (type, text) => {
-      msg.className = 'alert ' + (type === 'error' ? 'error' : 'success');
+    // Show/Hide password
+    document.getElementById('togglePw')?.addEventListener('click', (e)=>{
+      const t = e.currentTarget;
+      if (pw.type === 'password') { pw.type = 'text'; t.textContent = 'Hide'; }
+      else { pw.type = 'password'; t.textContent = 'Show'; }
+    });
+
+    function showMsg(text, ok=false){
       msg.textContent = text;
+      msg.className = 'alert ' + (ok ? 'ok' : 'err');
       msg.style.display = 'block';
-    };
+    }
 
-    document.getElementById('togglePw').addEventListener('click', () => {
-      const v = password.getAttribute('type') === 'password' ? 'text' : 'password';
-      password.setAttribute('type', v);
-      document.getElementById('togglePw').textContent = v === 'password' ? 'Show' : 'Hide';
-    });
-
-    // If already logged in -> app
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) location.replace('/app.html');
-    });
-
-    document.getElementById('btnSignIn').addEventListener('click', async () => {
+    form?.addEventListener('submit', async (e)=>{
+      e.preventDefault();
       msg.style.display = 'none';
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.value.trim(), password: password.value
+        email: email.value.trim(),
+        password: pw.value
       });
-      if (error) return show('error', error.message);
-      location.replace('/app.html');
-    });
 
-    document.getElementById('btnCreate').addEventListener('click', async () => {
-      msg.style.display = 'none';
-      const e = email.value.trim();
-      const p = password.value;
-      if (!e || !p) return show('error', 'Enter an email and password first, then press Create account.');
-      const { data, error } = await supabase.auth.signUp({
-        email: e, password: p,
-        options: { emailRedirectTo: 'https://myqer.com/app.html' }
-      });
-      if (error) return show('error', error.message);
-      show('success', 'Check your inbox to confirm your email. Open the link on this device.');
+      if (error) {
+        // Friendly messages
+        const map = {
+          'Invalid login credentials': 'Email or password is incorrect.',
+          'Email not confirmed': 'Please confirm your email first (check your inbox).'
+        };
+        showMsg(map[error.message] || error.message);
+        return;
+      }
+
+      // Success
+      showMsg('Welcome back. Redirecting…', true);
+      // Small delay so the user sees success state
+      setTimeout(()=> location.replace('/app.html'), 250);
     });
   </script>
 </body>
