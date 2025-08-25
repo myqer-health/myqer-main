@@ -1,81 +1,49 @@
-// public/scripts/auth.js
-import { supabase, APP_URL, RESET_URL } from './config.js';
+<script type="module">
+// /scripts/auth.js
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
 
-const byId = (id) => document.getElementById(id);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const toast = (msg, ok = true) => {
-  const el = document.querySelector('[data-toast]');
-  if (!el) { alert(msg); return; }
-  el.textContent = msg;
-  el.className = ok ? 'toast ok' : 'toast err';
-  el.style.opacity = 1;
-  setTimeout(() => (el.style.opacity = 0), 4000);
-};
+// --- Small utilities
+const go = (p) => location.replace(p);
+export const q  = (sel, root=document) => root.querySelector(sel);
 
-// -------- Auth actions --------
-export async function loginWithPassword(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  location.href = APP_URL;
+// --- Gate: require a valid session or bounce to login
+export async function requireAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) go('/login.html');
+  return session;
 }
 
-export async function registerWithPassword(email, password, fullName = '') {
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: APP_URL,
-      data: { full_name: fullName }
-    }
-  });
-  if (error) throw error;
-  toast('Check your email to confirm your account', true);
+// --- If already logged in, send to app (use on login/register pages)
+export async function redirectIfAuthed() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) go('/app.html');
 }
 
-export async function loginWithOAuth(provider) {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: APP_URL }
-  });
-  if (error) throw error;
+// --- Sign out everywhere and send to login
+export async function signOutToLogin() {
+  await supabase.auth.signOut();
+  go('/login.html');
 }
 
-export async function requestPasswordReset(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: RESET_URL
-  });
-  if (error) throw error;
-  toast('Password reset email sent', true);
-}
-
-// -------- Wire form handlers (if present on the page) --------
-document.addEventListener('DOMContentLoaded', () => {
-  const loginForm = byId('loginForm');
-  const registerForm = byId('registerForm');
-  const resetForm = byId('resetForm');
-
-  loginForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      await loginWithPassword(loginForm.email.value, loginForm.password.value);
-    } catch (err) { toast(err.message, false); }
-  });
-
-  registerForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      await registerWithPassword(
-        registerForm.email.value,
-        registerForm.password.value,
-        registerForm.full_name?.value || ''
-      );
-    } catch (err) { toast(err.message, false); }
-  });
-
-  resetForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      await requestPasswordReset(resetForm.email.value);
-    } catch (err) { toast(err.message, false); }
-  });
+// --- Hook: keep pages in sync when session changes
+supabase.auth.onAuthStateChange((_event, session) => {
+  // If a page cares about auth, it can listen to this event too.
+  // We don't redirect here automatically to avoid loops.
 });
+
+// --- Password toggle helper (for Show/Hide inside inputs)
+export function wirePasswordToggles() {
+  document.querySelectorAll('.password-wrapper').forEach(w => {
+    const input = q('input', w);
+    const btn   = q('.password-toggle', w);
+    if (!input || !btn) return;
+    btn.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+    });
+  });
+}
+</script>
