@@ -1,6 +1,8 @@
--- MYQER Schema with updated_at fix
+-- =========================
+-- MYQER SCHEMA (consolidated)
+-- =========================
 
--- Profiles (1:1 with auth.users)
+-- PROFILES (1:1 with auth.users)
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
@@ -9,10 +11,13 @@ create table if not exists public.profiles (
   locale text default 'en',
   time_zone text,
   plan_tier text default 'ESSENTIAL',
+  triage_override text,
+  triage_auto text,
   updated_at timestamptz default now()
 );
+alter table public.profiles enable row level security;
 
--- Health profiles
+-- HEALTH PROFILES (owner-scoped)
 create table if not exists public.health_profiles (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   allergies text,
@@ -32,8 +37,9 @@ create table if not exists public.health_profiles (
   show_notes bool default false,
   updated_at timestamptz default now()
 );
+alter table public.health_profiles enable row level security;
 
--- ICE contacts
+-- ICE CONTACTS (owner-scoped)
 create table if not exists public.ice_contacts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete cascade,
@@ -42,11 +48,17 @@ create table if not exists public.ice_contacts (
   phone text,
   alt_phone text,
   notes text,
-  is_primary bool default true,
-  unique(user_id, is_primary) where is_primary = true
+  is_primary bool default true
 );
+alter table public.ice_contacts enable row level security;
 
--- QR codes
+-- one primary ICE per user (partial unique index)
+drop index if exists public.uniq_primary_ice_contact;
+create unique index if not exists uniq_primary_ice_contact
+  on public.ice_contacts(user_id)
+  where (is_primary);
+
+-- QR CODES (owner-scoped)
 create table if not exists public.qr_codes (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   short_code text unique not null,
@@ -54,27 +66,30 @@ create table if not exists public.qr_codes (
   last_regenerated_at timestamptz,
   scan_ttl_seconds int default 300
 );
+alter table public.qr_codes enable row level security;
 
--- TTS assets
+-- TTS ASSETS (owner-scoped)
 create table if not exists public.tts_assets (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   lang text,
-  status text,
+  status text,         -- pending | ready | error
   asset_path text,
   last_build_at timestamptz,
   error text
 );
+alter table public.tts_assets enable row level security;
 
--- Access logs
+-- ACCESS LOGS (service role inserts only)
 create table if not exists public.access_logs (
   id bigserial primary key,
   user_id uuid,
-  kind text,
+  kind text,           -- responder|dispatch|qr_regen|tts_build
   context jsonb,
   created_at timestamptz default now()
 );
+alter table public.access_logs enable row level security;
 
--- Orgs
+-- ORGS (MYQER+)
 create table if not exists public.orgs (
   id uuid primary key default gen_random_uuid(),
   name text,
@@ -82,6 +97,7 @@ create table if not exists public.orgs (
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
 );
+alter table public.orgs enable row level security;
 
 create table if not exists public.org_members (
   org_id uuid references public.orgs(id) on delete cascade,
@@ -89,6 +105,7 @@ create table if not exists public.org_members (
   role text check (role in ('admin','clinician')),
   primary key (org_id, user_id)
 );
+alter table public.org_members enable row level security;
 
 create table if not exists public.org_patients (
   org_id uuid references public.orgs(id) on delete cascade,
@@ -97,63 +114,107 @@ create table if not exists public.org_patients (
   granted_at timestamptz default now(),
   primary key (org_id, patient_id)
 );
-
--- RLS
-alter table public.profiles enable row level security;
-alter table public.health_profiles enable row level security;
-alter table public.ice_contacts enable row level security;
-alter table public.qr_codes enable row level security;
-alter table public.tts_assets enable row level security;
-alter table public.access_logs enable row level security;
-alter table public.orgs enable row level security;
-alter table public.org_members enable row level security;
 alter table public.org_patients enable row level security;
 
--- Profiles: each user can manage only their own
-drop policy if exists "profiles_self" on public.profiles;
-create policy "profiles_self" on public.profiles
-  for all using (id = auth.uid());
+-- ===============
+-- RLS POLICIES
+-- ===============
 
--- Health profiles: only owner
-drop policy if exists "health_self" on public.health_profiles;
-create policy "health_self" on public.health_profiles
-  for all using (user_id = auth.uid());
+-- PROFILES (granular policies)
+drop policy if exists profiles_select on public.profiles;
+drop policy if exists profiles_update on public.profiles;
+drop policy if exists profiles_insert on public.profiles;
+drop policy if exists profiles_delete on public.profiles;
 
--- ICE contacts
-drop policy if exists "ice_self" on public.ice_contacts;
-create policy "ice_self" on public.ice_contacts
-  for all using (user_id = auth.uid());
+create policy profiles_select on public.profiles
+  for select using (id = auth.uid());
+create policy profiles_update on public.profiles
+  for update using (id = auth.uid());
+create policy profiles_insert on public.profiles
+  for insert with check (id = auth.uid());
+create policy profiles_delete on public.profiles
+  for delete using (id = auth.uid());
 
--- QR codes
-drop policy if exists "qr_self" on public.qr_codes;
-create policy "qr_self" on public.qr_codes
-  for all using (user_id = auth.uid());
+-- HEALTH
+drop policy if exists health_select on public.health_profiles;
+drop policy if exists health_update on public.health_profiles;
+drop policy if exists health_insert on public.health_profiles;
+drop policy if exists health_delete on public.health_profiles;
 
--- TTS assets
-drop policy if exists "tts_self" on public.tts_assets;
-create policy "tts_self" on public.tts_assets
-  for all using (user_id = auth.uid());
+create policy health_select on public.health_profiles
+  for select using (user_id = auth.uid());
+create policy health_update on public.health_profiles
+  for update using (user_id = auth.uid());
+create policy health_insert on public.health_profiles
+  for insert with check (user_id = auth.uid());
+create policy health_delete on public.health_profiles
+  for delete using (user_id = auth.uid());
 
--- Access logs (only service role can insert)
-drop policy if exists "access_logs_insert" on public.access_logs;
-create policy "access_logs_insert" on public.access_logs
+-- ICE
+drop policy if exists ice_select on public.ice_contacts;
+drop policy if exists ice_update on public.ice_contacts;
+drop policy if exists ice_insert on public.ice_contacts;
+drop policy if exists ice_delete on public.ice_contacts;
+
+create policy ice_select on public.ice_contacts
+  for select using (user_id = auth.uid());
+create policy ice_update on public.ice_contacts
+  for update using (user_id = auth.uid());
+create policy ice_insert on public.ice_contacts
+  for insert with check (user_id = auth.uid());
+create policy ice_delete on public.ice_contacts
+  for delete using (user_id = auth.uid());
+
+-- QR
+drop policy if exists qr_select on public.qr_codes;
+drop policy if exists qr_update on public.qr_codes;
+drop policy if exists qr_insert on public.qr_codes;
+drop policy if exists qr_delete on public.qr_codes;
+
+create policy qr_select on public.qr_codes
+  for select using (user_id = auth.uid());
+create policy qr_update on public.qr_codes
+  for update using (user_id = auth.uid());
+create policy qr_insert on public.qr_codes
+  for insert with check (user_id = auth.uid());
+create policy qr_delete on public.qr_codes
+  for delete using (user_id = auth.uid());
+
+-- TTS
+drop policy if exists tts_select on public.tts_assets;
+drop policy if exists tts_update on public.tts_assets;
+drop policy if exists tts_insert on public.tts_assets;
+drop policy if exists tts_delete on public.tts_assets;
+
+create policy tts_select on public.tts_assets
+  for select using (user_id = auth.uid());
+create policy tts_update on public.tts_assets
+  for update using (user_id = auth.uid());
+create policy tts_insert on public.tts_assets
+  for insert with check (user_id = auth.uid());
+create policy tts_delete on public.tts_assets
+  for delete using (user_id = auth.uid());
+
+-- ACCESS LOGS (service-role only insert; readable by owner if you want, here: none)
+drop policy if exists access_logs_insert on public.access_logs;
+create policy access_logs_insert on public.access_logs
   for insert to service_role using (true);
 
--- Orgs & members
-drop policy if exists "orgs_self" on public.orgs;
-create policy "orgs_self" on public.orgs
+-- ORGS (basic gating; you can extend later)
+drop policy if exists orgs_self on public.orgs;
+create policy orgs_self on public.orgs
   for all using (created_by = auth.uid());
 
-drop policy if exists "org_members_self" on public.org_members;
-create policy "org_members_self" on public.org_members
+drop policy if exists org_members_self on public.org_members;
+create policy org_members_self on public.org_members
   for all using (user_id = auth.uid());
 
-drop policy if exists "org_patients_access" on public.org_patients;
-create policy "org_patients_access" on public.org_patients
+drop policy if exists org_patients_access on public.org_patients;
+create policy org_patients_access on public.org_patients
   for select using (
     exists(select 1 from public.org_members m where m.org_id = org_id and m.user_id = auth.uid())
   );
 
--- Indexes
+-- Useful index
 create index if not exists idx_profiles_updated_at
-on public.profiles(updated_at desc);
+  on public.profiles(updated_at desc);
