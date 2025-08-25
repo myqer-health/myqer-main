@@ -44,47 +44,44 @@
     </div>
   </main>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ <script type="module">
+  import { supabase, wirePasswordToggles } from '/scripts/auth.js';
 
-    const $ = id => document.getElementById(id);
-    const toggle = (btn, field)=>{
-      btn.addEventListener('click',()=>{
-        field.type = field.type === 'password' ? 'text':'password';
-        btn.textContent = field.type === 'password' ? 'Show':'Hide';
-      });
-    };
+  wirePasswordToggles();
 
-    // Supabase recovery link handling
-    const hash = new URLSearchParams(location.hash.slice(1));
-    if (hash.get('type') === 'recovery') {
-      $('stage-request').style.display = 'none';
-      $('stage-reset').style.display = '';
-    }
+  const $ = (id) => document.getElementById(id);
 
-    toggle($('toggle1'), $('newpass'));
-    toggle($('toggle2'), $('confpass'));
+  const stageRequest = $('stage-request');
+  const stageReset   = $('stage-reset');
+  const msg1 = $('msg1');
+  const msg2 = $('msg2');
 
-    $('btnSend').onclick = async ()=>{
-      $('msg1').textContent = '';
-      const { error } = await supabase.auth.resetPasswordForEmail($('email').value, {
-        redirectTo: 'https://myqer.com/reset.html'
-      });
-      $('msg1').textContent = error ? error.message : '✅ Check your inbox for a reset link.';
-    };
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const isRecovery = hash.get('type') === 'recovery';
 
-    $('btnUpdate').onclick = async ()=>{
-      $('msg2').textContent = '';
-      if ($('newpass').value !== $('confpass').value) {
-        $('msg2').textContent = 'Passwords do not match.';
-        return;
-      }
-      const { error } = await supabase.auth.updateUser({ password: $('newpass').value });
-      if (error) $('msg2').textContent = error.message;
-      else location.replace('/app.html');
-    };
-  </script>
+  // Show correct stage based on recovery link
+  stageRequest.style.display = isRecovery ? 'none' : '';
+  stageReset.style.display   = isRecovery ? '' : 'none';
+
+  $('btnSend')?.addEventListener('click', async () => {
+    msg1.textContent = '';
+    const email = $('email').value.trim();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://myqer.com/reset.html'
+    });
+    msg1.textContent = error ? error.message : '✅ Check your inbox for a reset link.';
+  });
+
+  $('btnUpdate')?.addEventListener('click', async () => {
+    msg2.textContent = '';
+    const a = $('newpass').value;
+    const b = $('confpass').value;
+    if (a !== b) { msg2.textContent = 'Passwords do not match.'; return; }
+
+    const { error } = await supabase.auth.updateUser({ password: a });
+    if (error) msg2.textContent = error.message;
+    else location.replace('/app.html'); // ← auto-enter dashboard
+  });
+</script>
 </body>
 </html>
