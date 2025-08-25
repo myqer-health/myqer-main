@@ -3,64 +3,55 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Account — MYQER</title>
+  <title>Create account — MYQER</title>
   <link rel="icon" href="/images/icon-192.png">
-  <link rel="stylesheet" href="/styles/css">
+  <link rel="stylesheet" href="/styles/app.css">
 </head>
 <body class="app-page">
   <main class="auth-card" role="main" aria-labelledby="title">
-    <h1 id="title">Create account</h1>
+    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
+    <h1 id="title" style="margin:8px 0 14px">Create account</h1>
+    <p class="auth-subtle" style="margin-top:-6px">Already have one? <a href="/login.html">Sign in</a>.</p>
 
     <label class="auth-label" for="email">Email</label>
-    <input id="email" class="field" type="email" placeholder="you@example.com" required>
+    <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" />
 
     <label class="auth-label" for="password">Password</label>
     <div class="password-wrapper">
-      <input id="password" class="field" type="password" placeholder="********" required>
-      <button id="toggle" type="button" class="password-toggle">Show</button>
+      <input id="password" class="field" type="password" autocomplete="new-password" placeholder="Choose a password" />
+      <button type="button" class="password-toggle">Show</button>
     </div>
 
     <div class="auth-actions">
       <button id="btnSignup" class="btn btn-primary">Create account</button>
       <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
     </div>
-    <p id="msg" class="tiny muted"></p>
+
+    <p id="msg" class="tiny" style="color:#0f5132;background:#d1e7dd;border:1px solid #badbcc;border-radius:8px;padding:8px;display:none;margin-top:12px"></p>
   </main>
 
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    import { supabase, redirectIfAuthed, wirePasswordToggles } from '/scripts/auth.js';
+    await redirectIfAuthed();
+    wirePasswordToggles();
 
-    const $ = id => document.getElementById(id);
+    const $ = (id)=>document.getElementById(id);
+    const msg = $('msg');
 
-    $('toggle').onclick = ()=>{
-      $('password').type = $('password').type === 'password' ? 'text':'password';
-      $('toggle').textContent = $('password').type === 'password' ? 'Show':'Hide';
-    };
-
-    $('btnSignup').onclick = async ()=>{
-      $('msg').textContent = '';
-      const email = $('email').value, password = $('password').value;
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) $('msg').textContent = error.message;
-      else $('msg').textContent = '✅ Check your inbox to confirm your account.';
-    };
-    <script type="module">
-  import { supabase, redirectIfAuthed, wirePasswordToggles } from '/scripts/auth.js';
-
-  await redirectIfAuthed();
-  wirePasswordToggles();
-
-  const $ = (id) => document.getElementById(id);
-  $('btnSignup')?.addEventListener('click', async () => {
-    $('msg').textContent = '';
-    const email = $('email').value.trim();
-    const pass  = $('password').value;
-    const { error } = await supabase.auth.signUp({ email, password: pass });
-    $('msg').textContent = error ? error.message : '✅ Check your email to confirm your account.';
-  });
-</script>
+    $('btnSignup').addEventListener('click', async () => {
+      msg.style.display = 'none'; msg.textContent = '';
+      const { error } = await supabase.auth.signUp({
+        email: $('email').value.trim(),
+        password: $('password').value
+      });
+      if (error) {
+        msg.style.display='block'; msg.style.background='#fde2e1'; msg.style.borderColor='#f5b5b2'; msg.style.color='#7a271a';
+        msg.textContent = error.message;
+      } else {
+        msg.style.display='block'; msg.style.background='#d1e7dd'; msg.style.borderColor='#badbcc'; msg.style.color='#0f5132';
+        msg.textContent = '✅ Check your email to confirm your account.';
+      }
+    });
   </script>
 </body>
 </html>
