@@ -1,13 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-   <meta charset="utf-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MYQER</title>
-  <link rel="stylesheet" href="/styles/app.css" />
   <title>MYQER — Emergency Card</title>
-  <link rel="manifest" href="/myqer_manifest.json">
-  <meta name="theme-color" content="#c62828">
+
+  <!-- PWA -->
+  <link rel="manifest" href="/myqer_manifest.json" />
+  <meta name="theme-color" content="#c62828" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
+  <link rel="apple-touch-icon" href="/images/icon-192.png" />
+
+  <!-- ✅ real stylesheet -->
+  <link rel="stylesheet" href="/styles/css" />
+
   <style>
     :root { --red:#c62828; --glass:rgba(255,255,255,.25); --stroke:rgba(255,255,255,.35); --blur:22px;}
     body{margin:0;padding:20px;font:18px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#f8f9fb,#e7edf6)}
@@ -53,8 +61,8 @@
   </main>
 
   <script type="module">
-   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './scripts/config.js';
+    // ✅ Use your configured client from config.js
+    import { supabase } from '/scripts/config.js';
 
     const LANGS = [['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['ro','Română'],['ar','العربية'],['hi','हिन्दी'],['zh','中文']];
     const langSel = document.getElementById('lang');
@@ -63,8 +71,8 @@
     langSel.addEventListener('change', ()=> localStorage.setItem('myqer_lang', langSel.value));
 
     const params = new URLSearchParams(location.search);
-    const uid = params.get('uid'); // legacy
-    const code = params.get('code'); // new public endpoint
+    const uid = params.get('uid');   // legacy path
+    const code = params.get('code'); // new public function path
 
     const els = {
       triage: document.getElementById('triage'),
@@ -87,8 +95,11 @@
       const p = json.profile || {};
       const s = json.sections || {};
       const labels = json.labels || {};
-      els.triage.className = 'triage green';
-      els.triage.textContent = (labels['Triage'] || 'Triage') + ': ' + (p.triage || '').toUpperCase();
+
+      const tri = (p.triage || 'green').toLowerCase();
+      els.triage.className = 'triage ' + tri;
+      els.triage.textContent = ((labels['Triage'] || 'Triage') + ': ' + tri.toUpperCase());
+
       els.name.textContent = p.full_name || '—';
       els.dob.textContent = p.dob || '—';
       els.blood.textContent = (s.blood?.value) || '—';
@@ -99,18 +110,32 @@
       els.allergies.textContent = (s.allergies?.items || []).join(', ') || '—';
       els.conditions.textContent = (s.conditions?.items || []).join(', ') || '—';
       els.medications.textContent = (s.meds?.items || []).join(', ') || '—';
-      els.contacts.innerHTML = s.ice?.contacts?.length ? s.ice.contacts.map(x => `<p><strong>${x.name}</strong> — ${x.relation || ''} • ${x.phone || ''}</p>`).join('') : '<p>—</p>';
+
+      els.contacts.innerHTML = s.ice?.contacts?.length
+        ? s.ice.contacts.map(x => `<p><strong>${x.name}</strong> — ${x.relation || ''} • ${x.phone || ''}</p>`).join('')
+        : '<p>—</p>';
+
       if (json.voice?.url) {
-        const audio = document.getElementById('voice') || document.createElement('audio');
-        audio.id = 'voice'; audio.controls = true; audio.src = json.voice.url;
-        document.body.appendChild(audio);
+        let audio = document.getElementById('voice');
+        if (!audio) {
+          audio = document.createElement('audio');
+          audio.id = 'voice';
+          audio.controls = true;
+          document.body.appendChild(audio);
+        }
+        audio.src = json.voice.url;
       }
     }
 
     function renderFromUid(data) { // legacy RPC path
-      const p = data.profile, h = data.health, c = data.contacts || [];
-      els.triage.className = 'triage ' + (p.triage || 'green');
-      els.triage.textContent = (p.triage || 'green').toUpperCase();
+      const p = data.profile || {};
+      const h = data.health || {};
+      const c = data.contacts || [];
+
+      const tri = (p.triage || 'green').toLowerCase();
+      els.triage.className = 'triage ' + tri;
+      els.triage.textContent = tri.toUpperCase();
+
       els.name.textContent = p.full_name || '—';
       els.dob.textContent = p.dob || '—';
       els.blood.textContent = p.blood_type || '—';
@@ -121,14 +146,18 @@
       els.allergies.textContent = (h.allergies || []).join(', ') || '—';
       els.conditions.textContent = (h.conditions || []).join(', ') || '—';
       els.medications.textContent = (h.medications || []).join(', ') || '—';
-      els.contacts.innerHTML = c.length ? c.map(x => `<p><strong>${x.name}</strong> — ${x.relationship || ''} • ${x.phone || ''}</p>`).join('') : '<p>—</p>';
+
+      els.contacts.innerHTML = c.length
+        ? c.map(x => `<p><strong>${x.name}</strong> — ${x.relationship || ''} • ${x.phone || ''}</p>`).join('')
+        : '<p>—</p>';
     }
 
     async function fetchCard() {
       try {
         if (code) {
           const lang = (localStorage.getItem('myqer_lang') || 'en').slice(0,2);
-          const res = await fetch(`${supabase.supabaseUrl}/functions/v1/myqer-card-public?code=${encodeURIComponent(code)}&lang=${lang}`);
+          const url = `${supabase.supabaseUrl}/functions/v1/myqer-card-public?code=${encodeURIComponent(code)}&lang=${lang}`;
+          const res = await fetch(url);
           const json = await res.json();
           if (!res.ok) throw new Error(json.error || 'Failed');
           localStorage.setItem('myqer_public_'+code, JSON.stringify(json));
@@ -144,8 +173,13 @@
           renderFromUid(data);
         }
       } catch (e) {
-        const cached = code ? localStorage.getItem('myqer_public_'+code) : localStorage.getItem('myqer_card_'+uid);
-        if (cached) { els.offline.hidden = false; (code ? renderFromPublic : renderFromUid)(JSON.parse(cached)); }
+        const cached = code
+          ? localStorage.getItem('myqer_public_'+code)
+          : localStorage.getItem('myqer_card_'+uid);
+        if (cached) {
+          els.offline.hidden = false;
+          (code ? renderFromPublic : renderFromUid)(JSON.parse(cached));
+        }
       }
     }
 
@@ -153,7 +187,14 @@
       const key = code ? 'myqer_public_'+code : 'myqer_card_'+uid;
       const data = localStorage.getItem(key); if (!data) return;
       const json = JSON.parse(data);
-      const p = json.profile || {}; const s = json.sections || {}; const h = { allergies: s.allergies?.items||[], conditions: s.conditions?.items||[], meds: s.meds?.items||[] };
+      const p = json.profile || {};
+      const s = json.sections || {};
+      const h = {
+        allergies: s.allergies?.items || [],
+        conditions: s.conditions?.items || [],
+        meds: s.meds?.items || []
+      };
+
       const text = [
         `Emergency card for ${p.full_name || 'unknown'}.`,
         (s.blood?.value ? `Blood type ${s.blood.value}.` : ''),
@@ -161,14 +202,18 @@
         h.conditions.length ? `Conditions: ${h.conditions.slice(0,3).join(', ')}.` : '',
         h.meds.length ? `Medications: ${h.meds.slice(0,3).join(', ')}.` : ''
       ].filter(Boolean).join(' ');
+
       const u = new SpeechSynthesisUtterance(text);
       const lang = (localStorage.getItem('myqer_lang') || 'en');
-      u.lang = lang === 'zh' ? 'zh-CN' : (lang === 'ar' ? 'ar-SA' : (lang === 'hi' ? 'hi-IN' : lang+'-'+lang.toUpperCase()));
+      u.lang = lang === 'zh' ? 'zh-CN' : (lang === 'ar' ? 'ar-SA' : (lang === 'hi' ? 'hi-IN' : `${lang}-${lang.toUpperCase()}`));
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     }
+
     document.getElementById('speak').addEventListener('click', speakSummary);
 
     fetchCard();
+
+    // PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/myqer_service_worker.js');
     }
