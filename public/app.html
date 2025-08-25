@@ -243,5 +243,32 @@
       location.replace('/login.html');
     });
   </script>
+  <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // 1) Hard gate before rendering anything sensitive
+  const { data: { session } } = await supabase.auth.getSession();
+  const returnTo = encodeURIComponent('/app.html');
+  if (!session) {
+    location.replace(`/login.html?redirect=${returnTo}`);
+  }
+
+  // 2) If the user logs out in another tab, kick them back to login
+  supabase.auth.onAuthStateChange((_event, sess) => {
+    if (!sess) location.replace(`/login.html?redirect=${returnTo}`);
+  });
+
+  // 3) Optional: wire the “Logout” button if present
+  const logoutBtn = document.getElementById('logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.replace(`/login.html?redirect=${returnTo}`);
+    });
+  }
+</script>
 </body>
 </html>
