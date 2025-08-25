@@ -5,43 +5,49 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sign in — MYQER</title>
   <link rel="icon" href="/images/icon-192.png">
-  <link rel="stylesheet" href="/styles/css">
+  <link rel="stylesheet" href="/styles/app.css">
 </head>
 <body class="app-page">
   <main class="auth-card" role="main" aria-labelledby="title">
-    <h1 id="title">Sign in</h1>
+    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
+    <h1 id="title" style="margin:8px 0 14px">Sign in</h1>
 
     <label class="auth-label" for="email">Email</label>
-    <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" required>
+    <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" />
 
     <label class="auth-label" for="password">Password</label>
     <div class="password-wrapper">
-      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Your password" required>
-      <button id="toggle" type="button" class="password-toggle" aria-pressed="false" aria-controls="password">Show</button>
+      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Your password" />
+      <button type="button" class="password-toggle">Show</button>
     </div>
 
-    <div class="auth-actions" style="max-width:420px;margin-inline:auto">
-      <button id="btnLogin" class="btn btn-primary" type="button">Sign in</button>
+    <div class="auth-actions">
+      <button id="btnSignIn" class="btn btn-primary">Sign in</button>
       <a class="btn btn-secondary" href="/register.html">Create account</a>
       <a class="btn btn-link" href="/reset.html">Forgot password?</a>
     </div>
 
-    <div id="msg" class="tiny muted" style="text-align:center;margin-top:10px;"></div>
+    <p id="msg" class="tiny" style="color:#b42318;margin-top:10px"></p>
   </main>
 
   <script type="module">
-  import { requireAuth, signOutToLogin, supabase, q } from '/scripts/auth.js';
+    import { supabase, redirectIfAuthed, wirePasswordToggles } from '/scripts/auth.js';
+    await redirectIfAuthed();
+    wirePasswordToggles();
 
-  // Gate the page
-  const session = await requireAuth();
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const msg = document.getElementById('msg');
 
-  // Wire Logout (top-right)
-  const btn = document.getElementById('logout');
-  if (btn) btn.addEventListener('click', signOutToLogin);
-
-  // (Optional) use the authed user id/email anywhere you need:
-  const user = session.user;
-  // e.g., q('#full_name').value = user.user_metadata?.full_name || '';
-</script>
+    document.getElementById('btnSignIn').addEventListener('click', async () => {
+      msg.textContent = '';
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.value.trim(),
+        password: password.value
+      });
+      if (error) msg.textContent = error.message;
+      else location.replace('/app.html');
+    });
+  </script>
 </body>
 </html>
