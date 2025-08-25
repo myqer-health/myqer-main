@@ -14,17 +14,15 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
   <link rel="apple-touch-icon" href="/images/icon-192.png" />
 
-  <!-- ✅ real stylesheet (matches public/styles/css) -->
-  <link rel="stylesheet" href="/styles/css" />
+  <!-- 🧩 main stylesheet -->
+  <link rel="stylesheet" href="/styles/app.css" />
 
-  <!-- Optional: if you want to keep a visible supabase URL for debugging, you can keep this; not required -->
+  <!-- (optional debug) -->
   <meta name="supabase-url" content="https://tgddpmxpbgrzrbzpomou.supabase.co" />
 
-  <!-- Small page-local tweaks (glass layout already themed by /styles/css) -->
+  <!-- Page-local tweaks -->
   <style>
-    :root {
-      --red:#c62828; --blur:22px; --glass:rgba(255,255,255,.22); --stroke:rgba(255,255,255,.35);
-    }
+    :root { --red:#c62828; --blur:22px; --glass:rgba(255,255,255,.22); --stroke:rgba(255,255,255,.35); }
     body{margin:0;background:linear-gradient(135deg,#f7f7f9,#e6ecf5);}
     header{position:sticky;top:0;backdrop-filter:blur(var(--blur));background:rgba(255,255,255,.45);
       padding:10px 16px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center;justify-content:space-between}
@@ -52,7 +50,7 @@
   <header>
     <strong>MYQER</strong>
     <div style="display:flex;gap:8px;align-items:center">
-      <label data-i18n="labels.language" for="langSel" style="margin:0;opacity:.7"></label>
+      <label for="langSel" data-i18n="labels.language" style="margin:0;opacity:.7">Language</label>
       <select id="langSel" data-lang-picker class="pill" aria-label="Language"></select>
       <button id="logout" class="pill" data-i18n="actions.logout">Logout</button>
     </div>
@@ -147,10 +145,31 @@
   <script type="module" src="/scripts/app.js"></script>
   <script type="module" src="/scripts/backend_hooks.js"></script>
 
-  <!-- PWA -->
+  <!-- PWA registration -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/myqer_service_worker.js');
+    }
+  </script>
+
+  <!-- Auth: protect page + logout -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // protect: redirect if not signed in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) location.replace('/login.html');
+
+    // logout
+    const btn = document.getElementById('logout');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        location.replace('/login.html');
+      });
     }
   </script>
 </body>
