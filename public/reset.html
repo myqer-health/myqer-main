@@ -1,82 +1,126 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Reset Password — MYQER</title>
-  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
-  <link rel="stylesheet" href="/styles/app.css" />
-  <style>
-    body{margin:0;background:linear-gradient(135deg,#f6f8fb,#ffffff)}
-    .wrap{min-height:100vh;display:grid;place-items:center;padding:20px}
-    .card{width:min(640px,94vw);background:#fff;border:1px solid #eceff3;border-radius:18px;
-          box-shadow:0 12px 36px rgba(17,18,20,.08); padding:26px}
-    h1{margin:0 0 8px}
-    .muted{color:#6b6f76;margin:0 0 16px}
-    .row{display:grid;gap:12px;margin:14px 0}
-    input{height:48px;border:1px solid #dde3ea;border-radius:12px;padding:12px 14px;font-size:16px;width:100%}
-    .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{height:44px;padding:0 18px;border-radius:999px;border:1px solid #e2e6ec;background:#fff;cursor:pointer}
-    .btn-primary{background:#c62828;color:#fff;border-color:#c62828}
-    .alert{display:none;margin-top:12px;padding:12px 14px;border-radius:10px;font-weight:600}
-    .ok{background:#e9f8ee;color:#126b2f;border:1px solid #bfe8cd}
-    .err{background:#fdecea;color:#9a1b1b;border:1px solid #f5c6c6}
-  </style>
+  <link rel="canonical" href="https://myqer.com/reset.html">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="styles/app.css">
+  <link rel="stylesheet" href="styles/site.css">
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Reset your password</h1>
-      <p class="muted">Enter a new password for your MYQER account.</p>
 
-      <div class="row">
-        <label>New password</label>
-        <input id="pw1" type="password" autocomplete="new-password" placeholder="••••••••" />
-      </div>
-      <div class="row">
-        <label>Confirm password</label>
-        <input id="pw2" type="password" autocomplete="new-password" placeholder="••••••••" />
-      </div>
+<header class="site-header" role="banner">
+  <div class="container bar">
+    <a class="brand" href="/" aria-label="MYQER Home">
+      <span>MYQ</span><span class="er">ER</span><sup>™</sup>
+    </a>
+  </div>
+</header>
 
-      <div class="actions">
-        <button id="submit" class="btn btn-primary">Update password</button>
-        <a class="btn" href="/login.html">Back to sign in</a>
-      </div>
+<section class="wide">
+  <div class="container" style="max-width:560px">
+    <div class="card" style="padding:24px">
+      <h1 style="margin:0 0 12px">Reset your password</h1>
+      <p id="desc" class="note" style="margin:0 0 16px">Enter your email to receive a reset link.</p>
 
-      <div id="ok" class="alert ok">✅ Password updated. Redirecting to app…</div>
-      <div id="err" class="alert err">⚠️ Could not update password. Please try again.</div>
+      <div id="msg" class="alert" style="display:none"></div>
+
+      <!-- Step A: Ask for email (request link) -->
+      <form id="requestForm" class="section" style="gap:.8rem">
+        <label>Email
+          <input id="reqEmail" type="email" autocomplete="email" required>
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-primary">Send reset email</button>
+          <a href="login.html" class="btn btn-ghost">Back to sign in</a>
+        </div>
+      </form>
+
+      <!-- Step B: Set new password (after clicking email link) -->
+      <form id="resetForm" class="section" style="gap:.8rem;display:none">
+        <label>New password
+          <input id="newPwd" type="password" autocomplete="new-password" required>
+        </label>
+        <label>Confirm password
+          <input id="newPwd2" type="password" autocomplete="new-password" required>
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="submit" class="btn btn-primary">Update password</button>
+          <a href="login.html" class="btn btn-ghost">Back to sign in</a>
+        </div>
+      </form>
     </div>
   </div>
+</section>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    const supabase = createClient('https://YOUR-PROJECT-REF.supabase.co','YOUR-ANON-KEY');
+<footer class="footer">
+  <div class="container"><div class="foot-row">
+    <div>© 2025 MYQER — Emergency Response QR</div>
+  </div></div>
+</footer>
 
-    const ok = document.getElementById('ok');
-    const err = document.getElementById('err');
-    const btn = document.getElementById('submit');
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './scripts/config.js';
 
-    function show(el){ el.style.display='block'; }
-    function hide(el){ el.style.display='none'; }
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // When the page opens from the email link, Supabase delivers a session in the URL.
-    // No extra work needed; we just call updateUser() while that session is active.
-    btn.addEventListener('click', async () => {
-      hide(ok); hide(err);
-      const p1 = document.getElementById('pw1').value.trim();
-      const p2 = document.getElementById('pw2').value.trim();
-      if (!p1 || p1 !== p2 || p1.length < 6) {
-        err.textContent = '⚠️ Passwords must match and be at least 6 characters.'; show(err); return;
-      }
-      try {
-        const { error } = await supabase.auth.updateUser({ password: p1 });
-        if (error) throw error;
-        show(ok);
-        setTimeout(()=>location.href='/app.html', 1200);
-      } catch(e){
-        err.textContent = '⚠️ '+(e.message || 'Could not update password.'); show(err);
-      }
+  const requestForm = document.getElementById('requestForm');
+  const resetForm   = document.getElementById('resetForm');
+  const desc        = document.getElementById('desc');
+  const msg         = document.getElementById('msg');
+
+  function flash(text, type='info') {
+    msg.textContent = text;
+    msg.className = 'alert ' + (type === 'error' ? 'error' : (type === 'success' ? 'success' : ''));
+    msg.style.display = 'block';
+  }
+  function clearFlash(){ msg.style.display='none'; }
+
+  // If user arrived via the email link (type=recovery in URL), show the new-password form
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const isRecovery = hash.get('type') === 'recovery' || new URLSearchParams(location.search).get('type') === 'recovery';
+
+  if (isRecovery) {
+    // When the recovery link is used, Supabase creates a session already.
+    requestForm.style.display = 'none';
+    resetForm.style.display   = 'grid';
+    desc.textContent = 'Enter a new password for your MYQER account.';
+  }
+
+  // Step A: send reset email
+  requestForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFlash();
+    const email = (document.getElementById('reqEmail').value || '').trim();
+    if (!email) { flash('Enter your email.', 'error'); return; }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://myqer.com/reset.html'
     });
-  </script>
+    if (error) { flash(error.message || 'Could not send reset email. Try again.', 'error'); return; }
+
+    flash('Check your inbox for a reset link. Open it on this device.', 'success');
+  });
+
+  // Step B: update password
+  resetForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFlash();
+    const p1 = document.getElementById('newPwd').value;
+    const p2 = document.getElementById('newPwd2').value;
+    if (!p1 || !p2) { flash('Enter and confirm your new password.', 'error'); return; }
+    if (p1 !== p2) { flash('Passwords do not match.', 'error'); return; }
+
+    const { error } = await supabase.auth.updateUser({ password: p1 });
+    if (error) { flash(error.message || 'Could not update password.', 'error'); return; }
+
+    flash('Password updated. Redirecting to sign in…', 'success');
+    setTimeout(()=> location.href = '/login.html', 1200);
+  });
+</script>
 </body>
 </html>
