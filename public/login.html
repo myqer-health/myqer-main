@@ -31,23 +31,37 @@
   </main>
 
   <script type="module">
-    import { supabase, redirectIfAuthed, wirePasswordToggles } from '/scripts/auth.js';
-    await redirectIfAuthed();
-    wirePasswordToggles();
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
 
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
-    const msg = document.getElementById('msg');
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const params = new URLSearchParams(location.search);
+  const redirectTo = params.get('redirect') || '/app.html';
 
-    document.getElementById('btnSignIn').addEventListener('click', async () => {
-      msg.textContent = '';
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.value.trim(),
-        password: password.value
-      });
-      if (error) msg.textContent = error.message;
-      else location.replace('/app.html');
+  // If already logged in, skip the form
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) location.replace(redirectTo);
+
+  // Sign in
+  const form = document.querySelector('form#loginForm');
+  const emailEl = document.getElementById('email');
+  const passEl  = document.getElementById('password');
+  const errEl   = document.getElementById('authError');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl?.classList.add('visually-hidden');
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailEl.value.trim(),
+      password: passEl.value
     });
-  </script>
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.classList.remove('visually-hidden');
+      return;
+    }
+    location.replace(redirectTo);
+  });
+</script>
 </body>
 </html>
