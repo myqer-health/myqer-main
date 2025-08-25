@@ -1,23 +1,135 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Sign in — MYQER</title>
-<link rel="stylesheet" href="styles/site.css"/>
-</head><body>
-<main class="center-wrap"><section class="glass" role="dialog" aria-labelledby="signinTitle">
-  <h1 id="signinTitle">Sign in</h1>
-  <form id="login-form" class="f" autocomplete="on">
-    <input id="loginEmail" type="email" placeholder="Email" required inputmode="email"/>
-    <div class="row">
-      <input id="loginPassword" type="password" placeholder="Password" required/>
-      <button type="button" class="btn btn-ghost" id="togglePw">Show</button>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sign in — MYQER</title>
+  <link rel="canonical" href="https://myqer.com/login.html">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="styles/app.css">
+  <link rel="stylesheet" href="styles/site.css">
+</head>
+<body>
+
+<header class="site-header" role="banner">
+  <div class="container bar">
+    <a class="brand" href="/" aria-label="MYQER Home">
+      <span>MYQ</span><span class="er">ER</span><sup>™</sup>
+    </a>
+  </div>
+</header>
+
+<section class="wide">
+  <div class="container" style="max-width:560px">
+    <div class="card" style="padding:24px">
+      <h1 style="margin:0 0 12px">Sign in</h1>
+
+      <div id="msg" class="alert" style="display:none"></div>
+
+      <form id="loginForm" class="section" style="gap:.8rem">
+        <label>Email
+          <input id="email" type="email" autocomplete="email" required>
+        </label>
+
+        <label style="display:block">Password</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="password" type="password" autocomplete="current-password" required style="flex:1">
+          <button type="button" id="togglePassword" class="btn btn-ghost" style="white-space:nowrap">Show</button>
+        </div>
+
+        <button id="btnSignIn" type="submit" class="btn btn-primary" style="margin-top:8px">Sign in</button>
+
+        <p style="margin:8px 0 0">
+          <a href="reset.html">Forgot password?</a>
+          <span> • </span>
+          <a href="#" id="linkCreate">Create one</a>
+        </p>
+      </form>
     </div>
-    <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
-  </form>
-  <div id="login-err" class="alert err">⚠️ Incorrect email or password.</div>
-  <div id="login-ok" class="alert ok">Signed in — redirecting…</div>
-  <p class="muted">Don’t have an account? <a href="register.html">Create one</a> • <a href="reset.html">Forgot password?</a></p>
-</section></main>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="styles/scripts/config.js"></script>
-<script src="styles/scripts/auth.js"></script>
-</body></html>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container"><div class="foot-row">
+    <div>© 2025 MYQER — Emergency Response QR</div>
+  </div></div>
+</footer>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './scripts/config.js';
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const emailEl = document.getElementById('email');
+  const pwdEl   = document.getElementById('password');
+  const form    = document.getElementById('loginForm');
+  const msg     = document.getElementById('msg');
+  const toggle  = document.getElementById('togglePassword');
+  const linkCreate = document.getElementById('linkCreate');
+
+  // Show/Hide password
+  toggle.addEventListener('click', () => {
+    const isPwd = pwdEl.type === 'password';
+    pwdEl.type = isPwd ? 'text' : 'password';
+    toggle.textContent = isPwd ? 'Hide' : 'Show';
+  });
+
+  // Helpers
+  function flash(text, type='info') {
+    msg.textContent = text;
+    msg.className = 'alert ' + (type === 'error' ? 'error' : (type === 'success' ? 'success' : ''));
+    msg.style.display = 'block';
+  }
+  function clearFlash(){ msg.style.display='none'; }
+
+  // Sign in with email/password
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFlash();
+
+    const email = emailEl.value.trim();
+    const password = pwdEl.value;
+
+    if (!email || !password) { flash('Please enter your email and password.', 'error'); return; }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      // Most common: Email not confirmed yet
+      if (error.message?.toLowerCase().includes('email not confirmed')) {
+        flash('Please confirm your email first (check your inbox), then sign in.', 'error');
+      } else {
+        flash(error.message || 'Could not sign in. Try again.', 'error');
+      }
+      return;
+    }
+
+    // Sign-in OK -> go to dashboard
+    location.href = '/app.html';
+  });
+
+  // Create account (email confirmation required)
+  linkCreate.addEventListener('click', async (e) => {
+    e.preventDefault();
+    clearFlash();
+
+    const email = emailEl.value.trim();
+    const password = pwdEl.value;
+    if (!email || !password) { flash('Enter email and a password, then click “Create one”.', 'error'); return; }
+
+    // redirectTo MUST be whitelisted in Supabase Redirect URLs
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: 'https://myqer.com/login.html' }
+    });
+
+    if (error) { flash(error.message || 'Could not create account.', 'error'); return; }
+
+    flash('Check your inbox to confirm your email. Then return here to sign in.', 'success');
+  });
+</script>
+</body>
+</html>
