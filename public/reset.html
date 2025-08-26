@@ -1,88 +1,51 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Reset password — MYQER</title>
-  <link rel="icon" href="/images/icon-192.png">
-  <link rel="stylesheet" href="/styles/app.css">
+  <link rel="stylesheet" href="/styles/site.css"/>
 </head>
 <body class="app-page">
-  <main class="auth-card" role="main" aria-labelledby="title">
-    <div class="brand" style="font-weight:800;margin-bottom:8px">MYQ<span class="er">ER</span><sup>™</sup></div>
-    <h1 id="title" style="margin:8px 0 14px">Reset password</h1>
-
-    <!-- Stage 1: request -->
-    <section id="stage-request">
-      <label class="auth-label" for="email">Email</label>
-      <input id="email" class="field" type="email" autocomplete="email" placeholder="you@example.com" />
-      <div class="auth-actions">
-        <button id="btnSend" class="btn btn-primary" type="button">Send reset email</button>
-        <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
+  <header class="app-header container">
+    <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><sup>™</sup></a>
+    <nav class="header-actions">
+      <a class="pill ghost" href="/signin.html">Sign in</a>
+      <a class="pill pill--brand" href="/register.html">Create account</a>
+      <button class="hamburger" aria-controls="menu" aria-expanded="false" id="menuBtn">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="menu" id="menu" hidden>
+        <a href="/signin.html" class="menu-item">Open App</a>
+        <a href="/register.html" class="menu-item">Create account</a>
+        <a href="/about.html" class="menu-item">Learn more</a>
+        <a href="/contact.html" class="menu-item">Contact</a>
+        <button class="menu-close" id="menuClose">Close</button>
       </div>
-      <p id="msg1" class="tiny" style="margin-top:12px;color:#6b7280"></p>
-    </section>
+    </nav>
+  </header>
 
-    <!-- Stage 2: new password -->
-    <section id="stage-reset" style="display:none">
-      <label class="auth-label" for="newpass">New password</label>
-      <div class="password-wrapper">
-        <input id="newpass" class="field" type="password" autocomplete="new-password" />
-        <button type="button" class="password-toggle">Show</button>
-      </div>
-
-      <label class="auth-label" for="confpass">Confirm password</label>
-      <div class="password-wrapper">
-        <input id="confpass" class="field" type="password" autocomplete="new-password" />
-        <button type="button" class="password-toggle">Show</button>
+  <main class="section container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="brand tiny"><span>MYQ</span><span class="er">ER</span><sup>™</sup></div>
+        <h1>Reset password</h1>
+        <p class="auth-subtle">Enter your email and we’ll send a reset link.</p>
       </div>
 
-      <div class="auth-actions">
-        <button id="btnUpdate" class="btn btn-primary" type="button">Update password</button>
-        <a class="btn btn-secondary" href="/login.html">Back to sign in</a>
-      </div>
-      <p id="msg2" class="tiny" style="margin-top:12px;color:#6b7280"></p>
-    </section>
+      <form id="reset-form" class="auth-form" autocomplete="on">
+        <label class="auth-label" for="email">Email</label>
+        <input class="field" id="email" name="email" type="email" inputmode="email" placeholder="you@example.com" required/>
+
+        <div class="auth-actions">
+          <button type="submit" class="btn btn-primary" id="reset-btn">Send reset link</button>
+          <a class="btn btn-link" href="/signin.html">Back to sign in</a>
+        </div>
+      </form>
+    </div>
   </main>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // toggle buttons
-    document.querySelectorAll('.password-toggle').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const input = btn.previousElementSibling;
-        input.type = input.type === 'password' ? 'text' : 'password';
-        btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
-      });
-    });
-
-    // stage switch
-    const hash = new URLSearchParams(location.hash.slice(1));
-    const isRecovery = hash.get('type') === 'recovery';
-    document.getElementById('stage-request').style.display = isRecovery ? 'none' : '';
-    document.getElementById('stage-reset').style.display   = isRecovery ? '' : 'none';
-
-    // send email
-    document.getElementById('btnSend')?.addEventListener('click', async ()=>{
-      const email = document.getElementById('email').value.trim();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://myqer.com/reset.html'
-      });
-      document.getElementById('msg1').textContent = error ? error.message : '✅ Check your inbox for a reset link.';
-    });
-
-    // update pass
-    document.getElementById('btnUpdate')?.addEventListener('click', async ()=>{
-      const a = document.getElementById('newpass').value;
-      const b = document.getElementById('confpass').value;
-      if (a !== b) { document.getElementById('msg2').textContent = 'Passwords do not match.'; return; }
-      const { error } = await supabase.auth.updateUser({ password: a });
-      if (error) document.getElementById('msg2').textContent = error.message;
-      else location.replace('/app.html');
-    });
-  </script>
+  <script src="/scripts/menu.js"></script>
+  <script src="/scripts/auth.js"></script>
 </body>
 </html>
