@@ -5,87 +5,136 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Triage Aid</title>
 
+  <!-- PWA & icons (unchanged) -->
   <link rel="manifest" href="/myqer_manifest.json" />
   <meta name="theme-color" content="#c62828" />
-  <link rel="icon" href="/images/icon-192.png" sizes="192x192" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
   <link rel="apple-touch-icon" href="/images/icon-192.png" />
 
+  <!-- Site CSS -->
   <link rel="stylesheet" href="/styles/site.css" />
+  <style>
+    /* PAGE-SPECIFIC: hero-only landing */
+    .hero-shell{
+      max-width: 1200px; margin: 18px auto; padding: 0 16px;
+    }
+    .hero-card{
+      position: relative;
+      border-radius: 22px;
+      background: rgba(255,255,255,.66);
+      border: 1px solid rgba(13,18,22,.08);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 28px 60px rgba(0,0,0,.10);
+      overflow: hidden;
+    }
+    .hero-img{
+      display:block; width:100%; height:auto;
+      user-select:none; -webkit-user-drag:none;
+    }
+    /* CTA overlay */
+    .cta-wrap{
+      position: absolute; left: 28px; bottom: 26px;
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+    .cta{height:48px; padding:0 18px; border-radius:14px;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:16px; letter-spacing:.1px;
+      border:1px solid rgba(0,0,0,.10); text-decoration:none;
+      box-shadow: 0 12px 28px rgba(0,0,0,.12);
+    }
+    .cta.primary{background:#c62828; color:#fff; border-color:#c62828;}
+    .cta.secondary{background:#fff; color:#111827;}
+
+    /* Top bar */
+    .bar{display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding:10px 16px; border-bottom:1px solid rgba(13,18,22,.08);
+      background: rgba(255,255,255,.72); backdrop-filter: blur(16px);
+    }
+    .brand{font-weight:900; letter-spacing:.2px; color:#111;}
+    .brand .er{color:#c62828}
+    .bar-right{display:flex; gap:10px; align-items:center}
+    .chip{padding:.45rem .9rem; border-radius:999px; border:1px solid rgba(13,18,22,.12);
+      background:#fff; text-decoration:none; font-weight:700; color:#111; }
+    .chip.red{background:#c62828; color:#fff; border-color:#c62828;}
+
+    /* Burger */
+    .burger{width:42px; height:36px; border-radius:10px; border:1px solid rgba(13,18,22,.12);
+      background:#fff; display:grid; place-items:center; cursor:pointer;}
+    .burger span{width:18px; height:2px; background:#111; position:relative; display:block;}
+    .burger span::before,.burger span::after{content:""; position:absolute; left:0; width:18px; height:2px; background:#111}
+    .burger span::before{top:-6px} .burger span::after{top:6px}
+
+    .drawer{position:absolute; z-index:5; top:64px; left:16px; right:16px;
+      display:none; flex-direction:column; gap:10px;
+      background:rgba(255,255,255,.86); border:1px solid rgba(13,18,22,.1);
+      border-radius:16px; padding:12px; backdrop-filter: blur(14px);
+      box-shadow:0 16px 40px rgba(0,0,0,.12);
+    }
+    .drawer a{display:block; padding:14px 16px; border-radius:12px; background:#fff;
+      border:1px solid rgba(13,18,22,.08); text-decoration:none; color:#111; font-weight:700;}
+    .drawer.show{display:flex}
+
+    /* Footer badges row */
+    .foot{max-width:1100px; margin:16px auto 26px; padding:0 16px; text-align:center}
+    .pills{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+    .pill{border:1px solid rgba(13,18,22,.12); background:#fff; border-radius:999px;
+      padding:.45rem .8rem; color:#111; font-weight:600}
+    .pill.ghost{background:rgba(255,255,255,.6)}
+
+    /* Mobile: center CTAs, keep them on image */
+    @media (max-width: 680px){
+      .cta-wrap{left:50%; bottom:18px; transform:translateX(-50%);}
+    }
+  </style>
 </head>
-<body>
+<body class="app-page">
 
-  <!-- Top bar -->
-  <header class="topbar">
-    <div class="topbar-inner container">
-      <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><span>™</span></a>
-
-      <nav class="nav-actions">
-        <a class="btn ghost" href="/login.html">Sign in</a>
-        <a class="btn primary" href="/register.html">Create account</a>
-        <button id="burger" class="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="mobileMenu">☰</button>
-      </nav>
-    </div>
-
-    <!-- Burger dropdown -->
-    <div id="mobileMenu" class="mobile-menu container" hidden>
-      <a class="menu-link" href="/login.html">Open App</a>
-      <a class="menu-link" href="/register.html">Create account</a>
-      <a class="menu-link" href="/about.html">Learn more</a>
-      <a class="menu-link" href="/contact.html">Contact</a>
+  <header class="bar">
+    <div class="brand">MYQ<span class="er">ER</span>™</div>
+    <div class="bar-right">
+      <a class="chip" href="/login.html">Sign in</a>
+      <a class="chip red" href="/register.html">Create account</a>
+      <button id="burger" class="burger" aria-label="Menu"><span></span></button>
     </div>
   </header>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="container hero-inner">
-      <div class="hero-media">
-        <!-- Try your “7730” image first; if it fails, swap to the other one automatically -->
-        <img id="heroImg"
-             src="/assets/hero/DC08631C-C29A-45B2-B537-845032577730.png"
-             alt="MYQER emergency triage card on phone" />
+  <div class="hero-shell">
+    <!-- Burger drawer -->
+    <nav id="drawer" class="drawer" aria-label="Quick links">
+      <a href="/app.html">Open App</a>
+      <a href="/register.html">Create account</a>
+      <a href="/about.html">Learn more</a>
+      <a href="/contact.html">Contact</a>
+    </nav>
 
-        <!-- Overlaid CTAs -->
-        <div class="hero-cta">
-          <a class="btn primary" href="/login.html">Open App</a>
-          <a class="btn ghost" href="/register.html">Create account</a>
-        </div>
+    <!-- HERO CARD (image only, no duplicate text) -->
+    <section class="hero-card" aria-label="Hero">
+      <img class="hero-img" alt="MYQER emergency triage card on phone"
+           src="/assets/hero/DC08631C-C29A-45B2-B537-845032577730.png" />
+
+      <div class="cta-wrap">
+        <a class="cta primary" href="/app.html">Open App</a>
+        <a class="cta secondary" href="/register.html">Create account</a>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
-  <footer class="site-footer">
-    <ul class="badges">
-      <li>GDPR friendly</li><li>HIPAA awareness</li><li>Zero tracking</li><li>On-device privacy</li>
-    </ul>
-    © 2025 MYQER — My QR for Emergency Response
+  <footer class="foot">
+    <div class="pills">
+      <span class="pill">GDPR friendly</span>
+      <span class="pill">HIPAA awareness</span>
+      <span class="pill">Zero tracking</span>
+      <span class="pill ghost">On-device privacy</span>
+      <span class="pill ghost">Free to use</span>
+    </div>
+    <p style="opacity:.7;margin-top:10px">© 2025 MYQER — My QR for Emergency Response</p>
   </footer>
 
   <script>
-    // Ensure burger starts hidden and toggles reliably
-    document.addEventListener('DOMContentLoaded', () => {
-      const burger = document.getElementById('burger');
-      const menu   = document.getElementById('mobileMenu');
-      if (burger && menu) {
-        menu.setAttribute('hidden','');
-        burger.setAttribute('aria-expanded','false');
-        burger.addEventListener('click', () => {
-          const open = !menu.hasAttribute('hidden');
-          if (open) { menu.setAttribute('hidden',''); burger.setAttribute('aria-expanded','false'); }
-          else      { menu.removeAttribute('hidden'); burger.setAttribute('aria-expanded','true'); }
-        });
-      }
-
-      // Image fallback: if the first hero fails, try the second uploaded file automatically
-      const img = document.getElementById('heroImg');
-      if (img) {
-        img.addEventListener('error', () => {
-          if (!img.dataset.fallbackTried) {
-            img.dataset.fallbackTried = '1';
-            img.src = '/assets/hero/662E5C35-92BE-469E-8823-923232DD2000.png';
-          }
-        }, { once: true });
-      }
-    });
+    // Burger toggle
+    const burger = document.getElementById('burger');
+    const drawer = document.getElementById('drawer');
+    burger?.addEventListener('click', () => drawer.classList.toggle('show'));
   </script>
 </body>
 </html>
