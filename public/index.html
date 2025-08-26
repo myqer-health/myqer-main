@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MYQER — Emergency Triage Aid</title>
 
-  <!-- Styles -->
   <link rel="stylesheet" href="/styles/site.css" />
 
-  <!-- Preload both hero images so the swap is instant -->
+  <!-- Preload hero images -->
   <link rel="preload" as="image" href="/assets/hero/myqer-hero.png">
   <link rel="preload" as="image" href="/assets/hero/myqer-hero-portrait.png">
 </head>
@@ -28,22 +27,22 @@
       <button class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
         <span></span><span></span><span></span>
       </button>
-      <div id="menu" class="menu-pop" hidden>
-        <a href="/app.html">Open App</a>
-        <a href="/register.html">Create account</a>
-        <a href="/about.html">Learn more</a>
-        <a href="/contact.html">Contact</a>
-        <button class="close">Close</button>
-      </div>
     </nav>
+
+    <!-- Backdrop + Pop menu -->
+    <div id="menu-backdrop" class="menu-backdrop" hidden></div>
+    <div id="menu" class="menu-pop" hidden>
+      <a href="/app.html">Open App</a>
+      <a href="/register.html">Create account</a>
+      <a href="/about.html">Learn more</a>
+      <a href="/contact.html">Contact</a>
+      <button class="close" type="button">Close</button>
+    </div>
   </header>
 
-  <!-- Hero (image only; no extra text) -->
-  <main class="hero">
-    <!-- No overlay — image shows crisp -->
+  <!-- Hero (image only; buttons over it) -->
+  <main class="hero" role="main">
     <div class="hero-img" role="img" aria-label="MYQER emergency triage card on phone with QR and status rows"></div>
-
-    <!-- Call-to-action buttons sitting on top of the image -->
     <div class="cta-wrap">
       <a class="cta primary" href="/app.html">Open App</a>
       <a class="cta ghost" href="/register.html">Create account</a>
@@ -51,19 +50,38 @@
   </main>
 
   <script>
-    // simple burger
-    const burger = document.querySelector('.burger');
-    const menu   = document.getElementById('menu');
-    const close  = menu?.querySelector('.close');
+    // ===== Robust burger menu =====
+    const burger   = document.querySelector('.burger');
+    const menu     = document.getElementById('menu');
+    const backdrop = document.getElementById('menu-backdrop');
 
-    function toggleMenu(show) {
-      const open = show ?? menu.hasAttribute('hidden');
-      if (open) { menu.removeAttribute('hidden'); burger.setAttribute('aria-expanded','true'); }
-      else { menu.setAttribute('hidden',''); burger.setAttribute('aria-expanded','false'); }
+    function openMenu() {
+      menu.removeAttribute('hidden');
+      backdrop.removeAttribute('hidden');
+      burger.setAttribute('aria-expanded', 'true');
+      // focus the first link for accessibility
+      const first = menu.querySelector('a,button');
+      first && first.focus({preventScroll:true});
     }
-    burger?.addEventListener('click', () => toggleMenu());
-    close?.addEventListener('click', () => toggleMenu(false));
-    menu?.addEventListener('click', (e) => { if (e.target === menu) toggleMenu(false); });
+    function closeMenu() {
+      menu.setAttribute('hidden','');
+      backdrop.setAttribute('hidden','');
+      burger.setAttribute('aria-expanded', 'false');
+      burger.focus({preventScroll:true});
+    }
+    function toggleMenu() {
+      const open = menu.hasAttribute('hidden');
+      open ? openMenu() : closeMenu();
+    }
+
+    burger.addEventListener('click', toggleMenu);
+    backdrop.addEventListener('click', closeMenu);
+    menu.addEventListener('click', (e) => {
+      if (e.target.matches('.close') || e.target.tagName === 'A') closeMenu();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && burger.getAttribute('aria-expanded') === 'true') closeMenu();
+    });
   </script>
 </body>
 </html>
