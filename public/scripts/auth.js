@@ -1,37 +1,32 @@
-<script type="module">
-// /scripts/auth.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// /public/scripts/auth.js
+import { supabase, APP_URL } from '/scripts/config.js';
 
 // --- Small utilities
-const go = (p) => location.replace(p);
-export const q  = (sel, root=document) => root.querySelector(sel);
+const go = (p) => window.location.replace(p);
+export const q = (sel, root = document) => root.querySelector(sel);
 
-// --- Gate: require a valid session or bounce to login
+// --- Gate: require a valid session or bounce to landing modal sign-in
 export async function requireAuth() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) go('/login.html');
+  if (!session) go('/?auth=signin');
   return session;
 }
 
-// --- If already logged in, send to app (use on login/register pages)
+// --- If already logged in, send to the dashboard (use on landing-only pages if needed)
 export async function redirectIfAuthed() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) go('/app.html');
+  if (session) go(APP_URL); // APP_URL is /dashboard.html in config.js
 }
 
-// --- Sign out everywhere and send to login
+// --- Sign out and send to landing with sign-in modal
 export async function signOutToLogin() {
   await supabase.auth.signOut();
-  go('/login.html');
+  go('/?auth=signin');
 }
 
-// --- Hook: keep pages in sync when session changes
-supabase.auth.onAuthStateChange((_event, session) => {
-  // If a page cares about auth, it can listen to this event too.
-  // We don't redirect here automatically to avoid loops.
+// --- Hook: pages can listen too if needed (no auto-redirects here to avoid loops)
+supabase.auth.onAuthStateChange((_event, _session) => {
+  // Intentionally empty
 });
 
 // --- Password toggle helper (for Show/Hide inside inputs)
@@ -40,10 +35,11 @@ export function wirePasswordToggles() {
     const input = q('input', w);
     const btn   = q('.password-toggle', w);
     if (!input || !btn) return;
-    btn.addEventListener('click', () => {
-      input.type = input.type === 'password' ? 'text' : 'password';
-      btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const toPwd = input.type !== 'password';
+      input.type = toPwd ? 'password' : 'text';
+      btn.textContent = toPwd ? 'Show' : 'Hide';
     });
   });
 }
-</script>
