@@ -1,9 +1,7 @@
 // /public/scripts/auth.js
 import { supabase, APP_URL } from '/scripts/config.js';
 
-// Small utilities
-const go = (p) => window.location.replace(p);
-export const q = (sel, root=document) => root.querySelector(sel);
+// Small utilities…
 
 // Require a valid session (used by protected pages like dashboard.html)
 export async function requireAuth() {
