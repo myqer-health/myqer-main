@@ -47,10 +47,10 @@ if (langSel) {
 {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    // Send to your pretty index with sign-in modal open
-    window.location.replace('/?auth=signin');
-    throw new Error('Not authenticated');
-  }
+  // Redirect back to homepage and auto-open login modal
+  window.location.replace('/?modal=login');
+  throw new Error('Not authenticated');
+}
 }
 const { data: { session } } = await supabase.auth.getSession();
 const userId = session.user.id;
