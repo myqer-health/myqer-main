@@ -1,41 +1,39 @@
 // /public/scripts/auth.js
 import { supabase, APP_URL } from '/scripts/config.js';
 
-// --- Small utilities
+// Small utilities
 const go = (p) => window.location.replace(p);
-export const q = (sel, root = document) => root.querySelector(sel);
+export const q = (sel, root=document) => root.querySelector(sel);
 
-// --- Gate: require a valid session or bounce to landing modal sign-in
+// Require a valid session (used by protected pages like dashboard.html)
 export async function requireAuth() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) go('/?auth=signin');
+  if (!session) go('/?auth=signin'); // open pretty modal on landing
   return session;
 }
 
-// --- If already logged in, send to the dashboard (use on landing-only pages if needed)
+// If already logged in, send to dashboard (use on landing-only pages if you want)
 export async function redirectIfAuthed() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) go(APP_URL); // APP_URL is /dashboard.html in config.js
+  if (session) go(APP_URL); // /dashboard.html
 }
 
-// --- Sign out and send to landing with sign-in modal
+// Sign out then return to landing with sign-in modal open
 export async function signOutToLogin() {
   await supabase.auth.signOut();
   go('/?auth=signin');
 }
 
-// --- Hook: pages can listen too if needed (no auto-redirects here to avoid loops)
-supabase.auth.onAuthStateChange((_event, _session) => {
-  // Intentionally empty
-});
+// Pages can listen too if they need; no auto-redirects here
+supabase.auth.onAuthStateChange((_event, _session) => {});
 
-// --- Password toggle helper (for Show/Hide inside inputs)
+// Password toggle helper
 export function wirePasswordToggles() {
-  document.querySelectorAll('.password-wrapper').forEach(w => {
-    const input = q('input', w);
-    const btn   = q('.password-toggle', w);
+  document.querySelectorAll('.password-wrapper').forEach(wrap => {
+    const input = q('input', wrap);
+    const btn   = q('.password-toggle', wrap);
     if (!input || !btn) return;
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', (e)=>{
       e.preventDefault();
       const toPwd = input.type !== 'password';
       input.type = toPwd ? 'password' : 'text';
