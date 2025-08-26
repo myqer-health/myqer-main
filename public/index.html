@@ -4,87 +4,88 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Triage Aid</title>
-  <link rel="icon" href="/images/icon-192.png">
-  <link rel="apple-touch-icon" href="/images/icon-192.png">
-  <!-- Site styles -->
-  <link rel="stylesheet" href="/styles/site.css">
-  <meta name="description" content="MYQER is an emergency triage aid. Your health essentials, voiced anywhere. Free to use." />
-</head>
-<body class="home">
-  <header class="site-header">
-    <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><span class="tm">™</span></a>
 
-    <nav class="primary-cta">
-      <a class="btn ghost" href="/login.html">Sign in</a>
-      <a class="btn primary" href="/register.html">Create account</a>
-      <button id="burger" class="burger" aria-expanded="false" aria-controls="sheet" aria-label="Menu">
+  <!-- PWA bits (safe to keep) -->
+  <link rel="manifest" href="/myqer_manifest.json" />
+  <meta name="theme-color" content="#c62828" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
+  <link rel="apple-touch-icon" href="/images/icon-192.png" />
+
+  <!-- Preload hero images -->
+  <link rel="preload" as="image" href="/assets/hero/myqer-hero.png" imagesrcset="/assets/hero/myqer-hero.png 1x" />
+  <link rel="preload" as="image" href="/assets/hero/myqer-hero-portrait.png" />
+
+  <!-- Site styles -->
+  <link rel="stylesheet" href="/styles/site.css" />
+</head>
+<body class="lp">
+
+  <!-- Header -->
+  <header class="lp-head">
+    <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><span class="tm">™</span></a>
+    <nav class="head-actions">
+      <a class="pill ghost" href="/login.html">Sign in</a>
+      <a class="pill primary" href="/register.html">Create account</a>
+
+      <!-- Burger -->
+      <button class="burger" id="menuBtn" aria-label="Open menu" aria-haspopup="true" aria-controls="menuSheet">
         <span></span><span></span><span></span>
       </button>
     </nav>
   </header>
 
   <!-- Burger sheet -->
-  <aside id="sheet" class="sheet" hidden>
-    <div class="sheet-inner">
-      <a class="sheet-link" href="/app.html">Open App</a>
-      <a class="sheet-link" href="/register.html">Create account</a>
-      <a class="sheet-link" href="/about.html">Learn more</a>
-      <a class="sheet-link" href="/contact.html">Contact</a>
-      <button class="sheet-close" id="sheetClose" aria-label="Close">Close</button>
+  <aside id="menuSheet" class="sheet" aria-hidden="true">
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+      <div class="sheet-head">
+        <strong id="menuTitle">Menu</strong>
+        <button id="menuClose" class="icon-btn" aria-label="Close menu">✕</button>
+      </div>
+      <div class="sheet-list">
+        <a href="/app.html" class="sheet-link">Open App</a>
+        <a href="/register.html" class="sheet-link">Create account</a>
+        <a href="/about.html" class="sheet-link">Learn more</a>
+        <a href="/contact.html" class="sheet-link">Contact</a>
+      </div>
     </div>
   </aside>
 
-  <main class="hero-wrap" role="main">
-    <figure class="hero-card">
-      <!-- One image, two sources: portrait for phones, landscape for bigger screens -->
-      <picture>
-        <source srcset="/assets/hero/myqer-hero-portrait.png" media="(max-width: 640px)">
-        <img src="/assets/hero/myqer-hero.png" alt="MYQER emergency triage card on phone with QR and status rows" loading="eager" />
-      </picture>
+  <!-- Hero: full-bleed image, CTAs only -->
+  <main class="hero" role="main" aria-label="MYQER emergency triage aid">
+    <div class="hero-overlay"></div>
 
-      <figcaption class="sr-only">Your emergency triage aid. Free to use. Works offline. Multi-language text & voice.</figcaption>
-    </figure>
-
-    <div class="cta-row">
-      <a class="btn jumbo primary" href="/app.html">Open App</a>
-      <a class="btn jumbo ghost" href="/register.html">Create account</a>
+    <!-- CTA cluster -->
+    <div class="cta-wrap">
+      <a class="btn primary" href="/app.html">Open App</a>
+      <a class="btn ghost" href="/register.html">Create account</a>
     </div>
+
+    <!-- optional tiny badges (kept minimal & subtle) -->
+    <ul class="badges">
+      <li>GDPR friendly</li>
+      <li>HIPAA awareness</li>
+      <li>Zero tracking</li>
+      <li>On-device privacy</li>
+    </ul>
   </main>
 
-  <footer class="site-footer">
-    <ul class="pill-row">
-      <li class="pill">GDPR friendly</li>
-      <li class="pill">HIPAA awareness</li>
-      <li class="pill">Zero tracking</li>
-      <li class="pill">On-device privacy</li>
-      <li class="pill pill-red">Free to use</li>
-    </ul>
-    <p>© 2025 MYQER — My QR for Emergency Response</p>
-  </footer>
-
   <script>
-    // Burger open/close
-    const burger = document.getElementById('burger');
-    const sheet  = document.getElementById('sheet');
-    const close  = document.getElementById('sheetClose');
+    // Burger sheet logic (no frameworks)
+    const btn = document.getElementById('menuBtn');
+    const sheet = document.getElementById('menuSheet');
+    const closeBtn = document.getElementById('menuClose');
 
-    function openSheet() {
-      sheet.hidden = false;
-      requestAnimationFrame(() => sheet.classList.add('open'));
-      burger.setAttribute('aria-expanded', 'true');
-      document.body.classList.add('no-scroll');
-    }
-    function closeSheet() {
-      sheet.classList.remove('open');
-      burger.setAttribute('aria-expanded', 'false');
-      document.body.classList.remove('no-scroll');
-      setTimeout(() => { sheet.hidden = true; }, 180);
-    }
-    burger.addEventListener('click', () => {
-      (sheet.hidden || !sheet.classList.contains('open')) ? openSheet() : closeSheet();
-    });
-    close.addEventListener('click', closeSheet);
+    const openSheet = () => { sheet.classList.add('open'); sheet.setAttribute('aria-hidden','false'); };
+    const closeSheet = () => { sheet.classList.remove('open'); sheet.setAttribute('aria-hidden','true'); };
+
+    btn.addEventListener('click', openSheet);
+    closeBtn.addEventListener('click', closeSheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+    // ESC to close
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
   </script>
 </body>
 </html>
