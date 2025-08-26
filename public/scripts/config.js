@@ -11,8 +11,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // App URLs (used by auth flows)
-export const APP_URL = `${location.origin}/app.html`;
-export const RESET_URL = `${location.origin}/reset.html`;
+export const APP_URL   = `${location.origin}/dashboard.html`; // was /app.html
+export const RESET_URL = `${location.origin}/?type=recovery`;  // was /reset.html
 
 // Keep latest access token handy for hooks
 supabase.auth.onAuthStateChange(async (event, session) => {
