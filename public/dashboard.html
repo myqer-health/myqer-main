@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - MYQER</title>
+    
+    <!-- Meta tags for branding -->
+    <link rel="icon" type="image/png" href="/assets/myqer-logo.png">
+    <meta name="theme-color" content="#c62828">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <link rel="stylesheet" href="styles/app.css">
+</head>
+<body class="font-sans bg-gradient-to-br from-slate-50 to-slate-200 min-h-screen">
+    <!-- Offline Banner -->
+    <div id="offlineBanner" class="offline-banner hidden">
+        <div class="flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            <span data-i18n="offline.message">You're offline - edits will sync when connection returns</span>
+        </div>
+    </div>
+
+    <!-- Top Navigation -->
+    <nav class="glass-nav sticky top-0 z-50 p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-6">
+                <a href="index.html" class="text-2xl font-bold text-[#c62828]">MYQER</a>
+                <span class="text-gray-600" data-i18n="nav.dashboard">Dashboard</span>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <!-- Language Selector -->
+                <select data-lang-picker class="input-field text-sm">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="de">Deutsch</option>
+                    <option value="it">Italiano</option>
+                    <option value="ro">Română</option>
+                    <option value="hu">Magyar</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="zh">中文</option>
+                    <option value="ar">العربية</option>
+                    <option value="fr">Français</option>
+                </select>
+                
+                <a href="index.html" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium" data-i18n="nav.back_home">
+                    Back to Home
+                </a>
+                
+                <button id="logout" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium" data-i18n="nav.logout">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Toast/Alert Component -->
+    <div id="toast" class="toast-container">
+        <div class="toast-content">
+            <div class="flex items-center gap-2">
+                <svg id="toastIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span id="toastMessage">Changes saved</span>
+                <span id="toastTime" class="text-sm opacity-75"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Critical & Medical Info -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- 🚨 CRITICAL - Emergency Priority Section -->
+                <section class="glass-card p-6 rounded-2xl border-l-4 border-red-500">
+                    <div class="flex items-center gap-2 mb-6">
+                        <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        <h2 class="text-xl font-bold text-red-600" data-i18n="critical.title">🚨 CRITICAL - Emergency Priority</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="blood_type" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.blood_type">Blood Type *</label>
+                            <select id="blood_type" class="input-field w-full border-red-200 focus:border-red-500">
+                                <option value="" data-i18n="health.select_blood_type">Select blood type</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="allergies" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.allergies">Critical Allergies *</label>
+                            <textarea id="allergies" rows="2" class="input-field w-full border-red-200 focus:border-red-500" data-i18n-placeholder="health.allergies_placeholder" placeholder="List life-threatening allergies (medications, foods, etc.)"></textarea>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="life_support_preference" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.life_support">Life Support & DNR Preferences *</label>
+                            <textarea id="life_support_preference" rows="3" class="input-field w-full border-red-200 focus:border-red-500" data-i18n-placeholder="health.life_support_placeholder" placeholder="Do Not Resuscitate orders, life support wishes, etc."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label for="burial_preference" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.burial_preference">Burial Preference</label>
+                            <select id="burial_preference" class="input-field w-full">
+                                <option value="" data-i18n="health.select_burial">Select preference</option>
+                                <option value="burial" data-i18n="health.burial">Burial</option>
+                                <option value="cremation" data-i18n="health.cremation">Cremation</option>
+                                <option value="other" data-i18n="health.other_burial">Other/Custom</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="religious_preference" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.religious_preference">Religious/Cultural Preference</label>
+                            <select id="religious_preference" class="input-field w-full">
+                                <option value="" data-i18n="health.select_religion">Select if applicable</option>
+                                <option value="christian" data-i18n="health.christian">Christian</option>
+                                <option value="muslim" data-i18n="health.muslim">Muslim</option>
+                                <option value="jewish" data-i18n="health.jewish">Jewish</option>
+                                <option value="hindu" data-i18n="health.hindu">Hindu</option>
+                                <option value="buddhist" data-i18n="health.buddhist">Buddhist</option>
+                                <option value="sikh" data-i18n="health.sikh">Sikh</option>
+                                <option value="orthodox" data-i18n="health.orthodox">Orthodox</option>
+                                <option value="other" data-i18n="health.other_religion">Other</option>
+                                <option value="none" data-i18n="health.no_religion">No religious preference</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ICE Contacts - High Priority -->
+                <section class="glass-card p-6 rounded-2xl border-l-4 border-orange-500">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            <h2 class="text-xl font-bold text-orange-600" data-i18n="ice.title">Emergency Contacts (ICE)</h2>
+                        </div>
+                        <button id="addIce" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium" data-i18n="ice.add_contact">
+                            Add Contact
+                        </button>
+                    </div>
+                    
+                    <div id="iceList">
+                        <!-- ICE contacts will be populated here -->
+                    </div>
+                    
+                    <div id="emptyIce" class="text-center py-8 text-gray-500 hidden">
+                        <svg class="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        <p data-i18n="ice.empty_title">No emergency contacts added yet</p>
+                        <p class="text-sm" data-i18n="ice.empty_subtitle">Add your first contact to get started</p>
+                    </div>
+                </section>
+
+                <!-- 📋 MEDICAL - Detailed Health Information -->
+                <section class="glass-card p-6 rounded-2xl border-l-4 border-blue-500">
+                    <div class="flex items-center gap-2 mb-6">
+                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <h2 class="text-xl font-bold text-blue-600" data-i18n="medical.title">📋 MEDICAL - Health Details</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <div class="flex items-center gap-4 mb-4">
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="organ_donor" class="w-4 h-4 text-[#c62828] rounded focus:ring-[#c62828]">
+                                    <span class="text-sm font-medium text-gray-700" data-i18n="health.organ_donor">Organ Donor</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="conditions" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.conditions">Medical Conditions</label>
+                            <textarea id="conditions" rows="3" class="input-field w-full" data-i18n-placeholder="health.conditions_placeholder" placeholder="Diabetes, heart conditions, mental health, etc."></textarea>
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label for="medications" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.medications">Current Medications</label>
+                            <textarea id="medications" rows="3" class="input-field w-full" data-i18n-placeholder="health.medications_placeholder" placeholder="List all current medications and dosages"></textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Document Vault - Legacy & Critical Papers -->
+                <section class="glass-card p-6 rounded-2xl border-l-4 border-purple-500">
+                    <div class="flex items-center gap-2 mb-6">
+                        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        <h2 class="text-xl font-bold text-purple-600" data-i18n="documents.title">🗂️ DOCUMENT VAULT - Legacy & Critical Papers</h2>
+                    </div>
+                    
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <h3 class="font-medium text-purple-800" data-i18n="documents.coming_soon">Coming Soon</h3>
+                        </div>
+                        <p class="text-sm text-purple-700" data-i18n="documents.description">
+                            Securely store critical documents like DNR orders, living wills, medical power of attorney, insurance papers, and emergency instructions.
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center opacity-50">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-500" data-i18n="documents.dnr">DNR Orders</p>
+                        </div>
+                        
+                        <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center opacity-50">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-500" data-i18n="documents.living_will">Living Will</p>
+                        </div>
+                        
+                        <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center opacity-50">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-500" data-i18n="documents.power_attorney">Medical Power of Attorney</p>
+                        </div>
+                        
+                        <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center opacity-50">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <p class="text-sm text-gray-500" data-i18n="documents.insurance">Insurance Documents</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 👤 IDENTITY - Personal Information -->
+                <section class="glass-card p-6 rounded-2xl border-l-4 border-green-500">
+                    <div class="flex items-center gap-2 mb-6">
+                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <h2 class="text-xl font-bold text-green-600" data-i18n="identity.title">👤 IDENTITY - Personal Information</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="full_name" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="profile.full_name">Full Name</label>
+                            <input type="text" id="full_name" class="input-field w-full" data-i18n-placeholder="profile.full_name_placeholder">
+                        </div>
+                        
+                        <div>
+                            <label for="dob" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="profile.dob">Date of Birth</label>
+                            <input type="date" id="dob" class="input-field w-full">
+                        </div>
+                        
+                        <div>
+                            <label for="country" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="profile.country">Country</label>
+                            <select id="country" class="input-field w-full">
+                                <option value="" data-i18n="profile.select_country">Select your country</option>
+                                <option value="US">United States</option>
+                                <option value="ES">Spain</option>
+                                <option value="DE">Germany</option>
+                                <option value="IT">Italy</option>
+                                <option value="RO">Romania</option>
+                                <option value="HU">Hungary</option>
+                                <option value="IN">India</option>
+                                <option value="CN">China</option>
+                                <option value="SA">Saudi Arabia</option>
+                                <option value="FR">France</option>
+                                <option value="GB">United Kingdom</option>
+                                <option value="CA">Canada</option>
+                                <option value="AU">Australia</option>
+                                <option value="MX">Mexico</option>
+                                <option value="AR">Argentina</option>
+                                <option value="EG">Egypt</option>
+                                <option value="AE">UAE</option>
+                                <option value="BR">Brazil</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="national_id" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health.national_id">National ID <span class="text-gray-500 text-xs">(Optional)</span></label>
+                            <input type="text" id="national_id" class="input-field w-full" data-i18n-placeholder="health.national_id_placeholder">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Triage & QR (Sticky) -->
+            <div class="space-y-8">
+                <!-- Triage Badge Component (Sticky) -->
+                <div class="glass-card p-6 rounded-2xl sticky top-24 z-40">
+                    <h2 class="text-xl font-bold mb-4" data-i18n="triage.title">Emergency Triage Status</h2>
+                    
+                    <div class="flex items-center gap-4 mb-4">
+                        <div id="triageBadge" class="triage-badge triage-green px-4 py-2 rounded-full font-bold text-lg">
+                            <span data-i18n="triage.green">GREEN - Standard</span>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            <div id="triageSource" data-i18n="triage.auto_computed">Auto-computed from health profile</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <label for="triage_override" class="text-sm font-medium text-gray-700" data-i18n="triage.override">Override:</label>
+                        <select id="triage_override" class="input-field text-sm">
+                            <option value="" data-i18n="triage.use_auto">Use auto-computed</option>
+                            <option value="red" data-i18n="triage.red">RED - Immediate</option>
+                            <option value="amber" data-i18n="triage.amber">AMBER - Urgent</option>
+                            <option value="green" data-i18n="triage.green">GREEN - Standard</option>
+                            <option value="blue" data-i18n="triage.blue">BLUE - Non-urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- QR Panel Component -->
+                <section class="glass-card p-6 rounded-2xl">
+                    <h2 class="text-xl font-bold mb-6" data-i18n="qr.title">Emergency Card & QR</h2>
+                    
+                    <div class="qr-preview mb-6">
+                        <div id="qr" class="mx-auto mb-4"></div>
+                        <p class="text-sm text-gray-600 mb-4" data-i18n="qr.scan_info">Scan to view emergency information</p>
+                        
+                        <div class="space-y-3">
+                            <button id="downloadQR" class="btn-primary w-full px-4 py-2 rounded-lg text-sm font-medium" data-i18n="qr.download">
+                                Download QR Code
+                            </button>
+                            <button id="printCard" class="btn-secondary w-full px-4 py-2 rounded-lg text-sm font-medium" data-i18n="qr.print">
+                                Print Emergency Card
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600 mb-2" data-i18n="qr.shareable_link">Shareable Link:</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="cardLink" class="input-field flex-1 text-sm" readonly>
+                            <button id="copyLink" class="btn-secondary px-3 py-2 rounded-lg text-sm" data-i18n="qr.copy">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Help & Safety Notes -->
+                <section class="glass-card p-6 rounded-2xl">
+                    <h2 class="text-xl font-bold mb-6" data-i18n="help.triage_colors">Triage Colors</h2>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="triage-red w-4 h-4 rounded-full"></div>
+                            <div>
+                                <div class="font-medium" data-i18n="help.red_title">RED - Immediate</div>
+                                <div class="text-sm text-gray-600" data-i18n="help.red_desc">Life-threatening conditions</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <div class="triage-amber w-4 h-4 rounded-full"></div>
+                            <div>
+                                <div class="font-medium" data-i18n="help.amber_title">AMBER - Urgent</div>
+                                <div class="text-sm text-gray-600" data-i18n="help.amber_desc">Serious but stable</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <div class="triage-green w-4 h-4 rounded-full"></div>
+                            <div>
+                                <div class="font-medium" data-i18n="help.green_title">GREEN - Standard</div>
+                                <div class="text-sm text-gray-600" data-i18n="help.green_desc">Non-urgent care needed</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <div class="triage-blue w-4 h-4 rounded-full"></div>
+                            <div>
+                                <div class="font-medium" data-i18n="help.blue_title">BLUE - Non-urgent</div>
+                                <div class="text-sm text-gray-600" data-i18n="help.blue_desc">Minor conditions</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-medium text-blue-900 mb-2" data-i18n="help.privacy_title">User-Controlled Priority</h3>
+                        <p class="text-sm text-blue-800" data-i18n="help.privacy_desc">
+                            You control what's most important for emergency responders to see first. Your data works offline and stays private.
+                        </p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+  <script type="module" src="/scripts/app.js"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97561127d63dd05c',t:'MTc1NjI0MDAxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
