@@ -54,5 +54,50 @@
   <script src="/scripts/password-toggle.js"></script>
   <!-- Your existing Supabase handler should already listen to #signin-form -->
   <script src="/scripts/auth.js"></script>
+  <script type="module">
+  import { supabase } from '/scripts/config.js';
+
+  // ===== Password show/hide toggle =====
+  const toggle = document.querySelector('.password-toggle');
+  const passInput = document.getElementById('password');
+  if (toggle && passInput) {
+    toggle.addEventListener('click', () => {
+      const isHidden = passInput.type === 'password';
+      passInput.type = isHidden ? 'text' : 'password';
+      toggle.textContent = isHidden ? 'Hide' : 'Show';
+    });
+  }
+
+  // ===== Hamburger menu =====
+  const navToggle = document.getElementById('navToggle');
+  const siteMenu = document.getElementById('siteMenu');
+  if (navToggle && siteMenu) {
+    navToggle.addEventListener('click', () => {
+      const isOpen = siteMenu.classList.toggle('open');
+      navToggle.setAttribute('aria-expanded', isOpen);
+    });
+  }
+
+  // ===== Supabase login =====
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      const ok = document.querySelector('.alert.ok');
+      const err = document.querySelector('.alert.err');
+      if (error) {
+        if (err) { err.style.display = 'block'; err.textContent = error.message; }
+      } else {
+        if (ok) { ok.style.display = 'block'; ok.textContent = '✅ Signed in! Redirecting…'; }
+        setTimeout(() => location.href = '/app.html', 800);
+      }
+    });
+  }
+</script>
 </body>
 </html>
