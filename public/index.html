@@ -5,31 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MYQER — Emergency Triage Aid</title>
 
-  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="preload" as="image" href="/assets/hero/myqer-hero.png" imagesrcset="/assets/hero/myqer-hero.png 1x, /assets/hero/myqer-hero.png 2x">
+  <link rel="preload" as="image" href="/assets/hero/myqer-hero-portrait.png" imagesrcset="/assets/hero/myqer-hero-portrait.png 1x, /assets/hero/myqer-hero-portrait.png 2x">
 
-  <!-- Preload hero images -->
-  <link rel="preload" as="image" href="/assets/hero/myqer-hero.png">
-  <link rel="preload" as="image" href="/assets/hero/myqer-hero-portrait.png">
+  <link rel="stylesheet" href="/styles/site.css" />
 </head>
 <body class="lp">
 
   <!-- Header -->
   <header class="lp-header">
-    <a class="brand" href="/">
-      <span>MYQ</span><span class="er">ER</span><span class="tm">™</span>
-    </a>
-
+    <a class="brand" href="/"><span>MYQ</span><span class="er">ER</span><span class="tm">™</span></a>
     <nav class="header-actions">
       <a class="mini-btn ghost" href="/login.html">Sign in</a>
       <a class="mini-btn primary" href="/register.html">Create account</a>
-
-      <!-- Burger -->
       <button class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
         <span></span><span></span><span></span>
       </button>
     </nav>
 
-    <!-- Backdrop + Pop menu -->
     <div id="menu-backdrop" class="menu-backdrop" hidden></div>
     <div id="menu" class="menu-pop" hidden>
       <a href="/app.html">Open App</a>
@@ -40,9 +33,9 @@
     </div>
   </header>
 
-  <!-- Hero (image only; buttons over it) -->
-  <main class="hero" role="main">
-    <div class="hero-img" role="img" aria-label="MYQER emergency triage card on phone with QR and status rows"></div>
+  <!-- Full-bleed hero with buttons on top -->
+  <main class="hero" role="main" aria-label="MYQER emergency triage card and status rows">
+    <div class="hero-img" aria-hidden="true"></div>
     <div class="cta-wrap">
       <a class="cta primary" href="/app.html">Open App</a>
       <a class="cta ghost" href="/register.html">Create account</a>
@@ -50,37 +43,34 @@
   </main>
 
   <script>
-    // ===== Robust burger menu =====
+    // ===== Burger menu (same robust behavior) =====
     const burger   = document.querySelector('.burger');
     const menu     = document.getElementById('menu');
     const backdrop = document.getElementById('menu-backdrop');
-
-    function openMenu() {
-      menu.removeAttribute('hidden');
-      backdrop.removeAttribute('hidden');
-      burger.setAttribute('aria-expanded', 'true');
-      // focus the first link for accessibility
-      const first = menu.querySelector('a,button');
-      first && first.focus({preventScroll:true});
-    }
-    function closeMenu() {
-      menu.setAttribute('hidden','');
-      backdrop.setAttribute('hidden','');
-      burger.setAttribute('aria-expanded', 'false');
-      burger.focus({preventScroll:true});
-    }
-    function toggleMenu() {
-      const open = menu.hasAttribute('hidden');
-      open ? openMenu() : closeMenu();
-    }
-
-    burger.addEventListener('click', toggleMenu);
+    function openMenu(){ menu.hidden=false; backdrop.hidden=false; burger.setAttribute('aria-expanded','true'); }
+    function closeMenu(){ menu.hidden=true; backdrop.hidden=true; burger.setAttribute('aria-expanded','false'); }
+    burger.addEventListener('click', ()=> menu.hidden ? openMenu() : closeMenu());
     backdrop.addEventListener('click', closeMenu);
-    menu.addEventListener('click', (e) => {
-      if (e.target.matches('.close') || e.target.tagName === 'A') closeMenu();
-    });
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && burger.getAttribute('aria-expanded') === 'true') closeMenu();
+    menu.addEventListener('click', e=>{ if(e.target.matches('a,.close')) closeMenu(); });
+    addEventListener('keydown', e=>{ if(e.key==='Escape' && burger.getAttribute('aria-expanded')==='true') closeMenu(); });
+
+    // ===== Instant hero swap on rotate (iOS Safari friendly) =====
+    const mq = matchMedia('(orientation: portrait)');
+    function setOrientationClass(){
+      document.body.classList.toggle('portrait', mq.matches);
+      // nudge repaint on Safari to re-evaluate background sizing immediately
+      const img = document.querySelector('.hero-img');
+      img.style.willChange = 'transform';
+      requestAnimationFrame(()=>{ img.style.willChange=''; });
+    }
+    mq.addEventListener ? mq.addEventListener('change', setOrientationClass)
+                        : mq.addListener(setOrientationClass);
+    // also run on load & on hard resize
+    addEventListener('load', setOrientationClass, {once:true});
+    addEventListener('resize', ()=> {
+      // throttle a bit for iPad UI chrome animation
+      clearTimeout(window.__rsz);
+      window.__rsz = setTimeout(setOrientationClass, 120);
     });
   </script>
 </body>
