@@ -1,503 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MYQER Dashboard</title>
-  <meta name="theme-color" content="#c62828">
-  <link rel="icon" href="/assets/logo-myqer.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
-    :root{
-      --brand:#c62828;
+    :root {
+      --brand: #c62828;
+      --radius: 18px;
+      --shadow: 0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
     }
-    .btn-red{background:var(--brand); color:#fff}
-    .btn-red:hover{filter:brightness(1.02)}
-    .glass-card{background:#fff; border:1px solid rgba(2,8,23,.08); border-radius:14px; box-shadow:0 10px 30px rgba(2,8,23,.08)}
+    body {
+      background: linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%);
+    }
+    .glass-card {
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
   </style>
 </head>
-<body class="bg-gray-50">
+<body class="min-h-screen text-gray-900">
 
   <!-- NAV -->
-  <nav class="bg-white shadow-sm sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="h-16 flex justify-between items-center">
-        <a href="/" class="flex items-center gap-2">
-          <img src="/assets/logo.svg" alt="MYQER" class="h-6" onerror="this.style.display='none'">
-          <span class="text-2xl font-bold text-gray-900">MYQ<span class="text-[var(--brand)]">ER</span><sup class="text-[10px] ml-0.5">™</sup></span>
-        </a>
-        <div class="flex items-center gap-2">
-          <button id="logout" class="px-4 py-2 rounded-lg btn-red">Logout</button>
-        </div>
+  <nav class="bg-white/80 backdrop-blur-md shadow sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex justify-between items-center h-16 px-4">
+      <h1 class="text-xl font-bold">MYQ<span class="text-red-600">ER</span> Dashboard</h1>
+      <div class="flex gap-3">
+        <button id="logout" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Logout</button>
+        <button id="deleteAccount" class="px-4 py-2 rounded-lg border border-red-600 text-red-600 hover:bg-red-50">Delete</button>
       </div>
     </div>
   </nav>
 
   <!-- LOADING -->
-  <div id="loadingState" class="flex items-center justify-center min-h-[50vh]">
+  <div id="loadingState" class="flex items-center justify-center min-h-[60vh]">
     <div class="text-center">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--brand)] mx-auto mb-4"></div>
-      <p class="text-gray-600">Loading dashboard…</p>
+      <div class="animate-spin h-12 w-12 border-b-2 border-red-600 mx-auto mb-4 rounded-full"></div>
+      <p>Loading your dashboard…</p>
     </div>
   </div>
 
-  <!-- ERROR -->
-  <div id="errorState" class="hidden max-w-3xl mx-auto mt-14 px-4">
-    <div class="glass-card p-8 text-center">
-      <div class="text-[var(--brand)] text-6xl mb-2">⚠️</div>
-      <h2 class="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
-      <p id="errorMessage" class="text-gray-600 mb-5">Failed to load dashboard</p>
-      <button onclick="location.reload()" class="px-4 py-2 rounded-lg btn-red">Try again</button>
-    </div>
-  </div>
+  <!-- DASHBOARD -->
+  <main id="dashboardContent" class="hidden max-w-5xl mx-auto p-6 space-y-8">
 
-  <!-- CONTENT -->
-  <main id="dashboardContent" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Welcome -->
-    <div class="bg-gradient-to-r from-[var(--brand)] to-red-800 text-white rounded-xl p-6 mb-8 shadow">
-      <h2 class="text-2xl font-bold mb-1">Welcome to your Emergency Dashboard</h2>
-      <p class="opacity-90">Manage your profile, health information, and emergency contacts.</p>
+    <!-- WELCOME -->
+    <div class="glass-card p-6">
+      <h2 class="text-2xl font-bold">Welcome to your Emergency Dashboard</h2>
+      <p class="text-gray-600">Manage your profile, medical info, and ICE contacts.</p>
     </div>
 
-    <!-- GRID -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- PROFILE -->
+    <section class="glass-card p-6">
+      <h3 class="text-xl font-semibold mb-4">👤 Profile</h3>
+      <form id="profileForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input name="full_name" placeholder="Full Name" class="border p-2 rounded"/>
+        <input name="country" placeholder="Country" class="border p-2 rounded"/>
+        <input name="date_of_birth" type="date" class="border p-2 rounded"/>
+        <input name="national_id" placeholder="National ID" class="border p-2 rounded"/>
+        <button class="col-span-2 bg-red-600 text-white px-4 py-2 rounded">💾 Save Profile</button>
+      </form>
+    </section>
 
-      <!-- LEFT COLUMN -->
-      <div class="space-y-8">
-        <!-- Profile -->
-        <section class="glass-card p-6">
-          <h3 class="text-xl font-semibold mb-4 flex items-center"><span class="mr-2">👤</span>Profile Information</h3>
-          <form id="profileForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input name="full_name" type="text" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
-              <input name="country" type="text" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-              <input name="date_of_birth" type="date" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">National ID</label>
-              <input name="national_id" type="text" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-            </div>
-            <div class="md:col-span-2">
-              <button type="submit" class="px-4 py-2 rounded-lg btn-red">Save Profile</button>
-            </div>
-          </form>
-        </section>
+    <!-- HEALTH -->
+    <section class="glass-card p-6">
+      <h3 class="text-xl font-semibold mb-4">🏥 Health Information</h3>
+      <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <select name="blood_type" class="border p-2 rounded">
+          <option value="">Blood Type</option><option>A+</option><option>A-</option>
+          <option>B+</option><option>B-</option><option>O+</option><option>O-</option>
+          <option>AB+</option><option>AB-</option>
+        </select>
+        <select name="life_support_pref" class="border p-2 rounded">
+          <option value="">Life Support Pref</option>
+          <option>Full support</option><option>Limited support</option>
+          <option>Comfort only</option><option>No preference</option>
+        </select>
+        <label class="col-span-2 flex gap-2"><input type="checkbox" name="organ_donor"/> Organ Donor</label>
+        <textarea name="allergies" placeholder="Allergies" class="col-span-2 border p-2 rounded"></textarea>
+        <textarea name="conditions" placeholder="Conditions" class="col-span-2 border p-2 rounded"></textarea>
+        <textarea name="meds" placeholder="Medications" class="col-span-2 border p-2 rounded"></textarea>
+        <button class="col-span-2 bg-red-600 text-white px-4 py-2 rounded">💾 Save Health</button>
+      </form>
+    </section>
 
-        <!-- Health -->
-        <section class="glass-card p-6">
-          <h3 class="text-xl font-semibold mb-4 flex items-center"><span class="mr-2">🏥</span>Health Information</h3>
-          <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
-              <select name="blood_type" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-                <option value="">Select Blood Type</option>
-                <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Life Support Preference</label>
-              <select name="life_support_pref" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]">
-                <option value="">Select Preference</option>
-                <option>Full support</option><option>Limited support</option>
-                <option>Comfort care only</option><option>No preference</option>
-              </select>
-            </div>
-            <div class="md:col-span-2">
-              <label class="flex items-center">
-                <input type="checkbox" name="organ_donor" class="mr-2">
-                <span class="text-sm font-medium text-gray-700">I am an organ donor</span>
-              </label>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
-              <textarea name="allergies" rows="3" placeholder="Comma separated" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Medical Conditions</label>
-              <textarea name="conditions" rows="3" placeholder="Comma separated" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Current Medications</label>
-              <textarea name="meds" rows="3" placeholder="Comma separated" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <button type="submit" class="px-4 py-2 rounded-lg btn-red">Save Health Information</button>
-            </div>
-          </form>
-        </section>
+    <!-- ICE -->
+    <section class="glass-card p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">📞 Emergency Contacts (ICE)</h3>
+        <button id="addIce" class="bg-red-600 text-white px-3 py-1 rounded">➕ Add</button>
       </div>
+      <div id="iceContactsList" class="space-y-3"></div>
+    </section>
 
-      <!-- RIGHT COLUMN -->
-      <div class="space-y-8">
-        <!-- ICE Contacts -->
-        <section class="glass-card p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-semibold flex items-center"><span class="mr-2">📞</span>Emergency Contacts (ICE)</h3>
-            <button id="addIce" class="px-4 py-2 rounded-lg btn-red">Add Contact</button>
-          </div>
-          <div id="iceContactsList" class="space-y-4">
-            <div class="text-center py-8 text-gray-500">
-              <p>No emergency contacts yet.</p>
-              <p class="text-sm">Click “Add Contact” to get started.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- QR -->
-        <section class="glass-card p-6">
-          <h3 class="text-xl font-semibold mb-4 flex items-center"><span class="mr-2">📱</span>Emergency QR Code</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div id="qrCode" class="text-center">
-              <div class="bg-gray-100 rounded-lg p-8">
-                <div class="text-4xl mb-4">📱</div>
-                <p class="text-gray-600">QR Code will appear here</p>
-              </div>
-            </div>
-            <div>
-              <h4 class="font-semibold mb-2">Share your emergency card</h4>
-              <p class="text-gray-600 mb-4">Responders can scan this code to access your medical info.</p>
-              <a id="cardLink" href="#" target="_blank" class="text-[var(--brand)] hover:underline break-all"></a>
-              <p class="text-xs text-gray-500 mt-3">Tip: Print and keep it in your wallet or on a tag.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Danger Zone -->
-        <section class="glass-card p-6 border border-red-200">
-          <h3 class="text-xl font-semibold text-red-700 mb-2">Danger Zone</h3>
-          <p class="text-sm text-gray-600 mb-4">
-            Permanently delete your account and all associated data. This action cannot be undone.
-          </p>
-          <div class="space-y-3">
-            <input id="confirmDeleteText" type="text" placeholder="Type DELETE to confirm"
-                   class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
-            <button id="deleteAccountBtn" class="w-full px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-              Delete Account
-            </button>
-            <p id="deleteMsg" class="text-sm"></p>
-          </div>
-        </section>
+    <!-- QR -->
+    <section class="glass-card p-6">
+      <h3 class="text-xl font-semibold mb-4">📱 Your Emergency QR</h3>
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div id="qrCode" class="text-center"></div>
+        <div>
+          <p class="mb-2 text-sm text-gray-600">Scan or share this link:</p>
+          <a id="cardLink" href="#" target="_blank" class="text-red-600 break-all"></a>
+        </div>
       </div>
-    </div>
+    </section>
   </main>
 
-  <!-- SCRIPTS -->
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+<script type="module">
+  const SUPABASE_URL = "https://tgddpmxpbgrzrbzpomou.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM";
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ====== CONFIG — REPLACE with your project values ======
-    const SUPABASE_URL = 'https://your-project.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key-here';
-    // =======================================================
+  let currentUser, profile, health, contacts=[];
 
-    // Build functions endpoint automatically from project URL
-    const FUNCTIONS_BASE = SUPABASE_URL.replace('.supabase.co', '.functions.supabase.co');
+  const els = {
+    loading: document.getElementById("loadingState"),
+    dash: document.getElementById("dashboardContent"),
+    qr: document.getElementById("qrCode"),
+    link: document.getElementById("cardLink"),
+    profileForm: document.getElementById("profileForm"),
+    healthForm: document.getElementById("healthForm"),
+    iceList: document.getElementById("iceContactsList")
+  };
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  document.addEventListener("DOMContentLoaded", init);
 
-    // DOM refs
-    const els = {
-      loading: document.getElementById('loadingState'),
-      errorWrap: document.getElementById('errorState'),
-      errorMsg: document.getElementById('errorMessage'),
-      content: document.getElementById('dashboardContent'),
-      profileForm: document.getElementById('profileForm'),
-      healthForm: document.getElementById('healthForm'),
-      iceList: document.getElementById('iceContactsList'),
-      qrCode: document.getElementById('qrCode'),
-      cardLink: document.getElementById('cardLink'),
-      addIce: document.getElementById('addIce'),
-      logout: document.getElementById('logout'),
-      deleteBtn: document.getElementById('deleteAccountBtn'),
-      deleteInput: document.getElementById('confirmDeleteText'),
-      deleteMsg: document.getElementById('deleteMsg')
-    };
+  async function init(){
+    const { data:{ session } } = await client.auth.getSession();
+    if(!session) return location.replace("/");
+    currentUser = session.user;
+    await loadData();
+    render();
+    els.loading.classList.add("hidden");
+    els.dash.classList.remove("hidden");
+  }
 
-    let currentUser = null;
-    let userProfile = {};
-    let healthProfile = {};
-    let iceContacts = [];
+  async function loadData(){
+    const { data:p } = await client.from("profiles").select("*").eq("id",currentUser.id).single();
+    profile = p || {};
+    const { data:h } = await client.from("health_profiles").select("*").eq("user_id",currentUser.id).single();
+    health = h || {};
+    const { data:c } = await client.from("ice_contacts").select("*").eq("user_id",currentUser.id);
+    contacts = c || [];
+  }
 
-    // Init
-    (async function init(){
-      try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) { window.location.href = '/?auth=signin'; return; }
-        currentUser = session.user;
-        await loadAll();
-        wireEvents();
-        showContent();
-      } catch (e) {
-        fail('Failed to load dashboard: ' + (e.message || e));
-      }
-    })();
-
-    async function loadAll(){
-      // Profile
-      let { data: profile, error: pErr } = await supabaseClient
-        .from('profiles').select('*').eq('id', currentUser.id).single();
-
-      if (pErr && pErr.code === 'PGRST116') {
-        // create bare profile
-        const code = generateCode();
-        const { data: created, error: cErr } = await supabaseClient
-          .from('profiles')
-          .insert({ id: currentUser.id, email: currentUser.email, code })
-          .select().single();
-        if (cErr) throw cErr;
-        profile = created;
-      } else if (pErr) throw pErr;
-
-      userProfile = profile || {};
-
-      // Health
-      let { data: health, error: hErr } = await supabaseClient
-        .from('health_profiles').select('*').eq('user_id', currentUser.id).single();
-      if (hErr && hErr.code !== 'PGRST116') throw hErr;
-      healthProfile = health || {};
-
-      // ICE
-      const { data: contacts, error: iErr } = await supabaseClient
-        .from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at');
-      if (iErr) throw iErr;
-      iceContacts = contacts || [];
-
-      renderProfile();
-      renderHealth();
-      renderIce();
-      renderQr();
+  function render(){
+    // QR
+    if(profile.code){
+      const url = `${location.origin}/card.html?code=${profile.code}`;
+      els.link.textContent = url;
+      els.link.href = url;
+      els.qr.innerHTML="";
+      QRCode.toCanvas(url,{width:200},(err,canvas)=>{ if(!err) els.qr.appendChild(canvas); });
     }
+    // ICE
+    els.iceList.innerHTML = contacts.map(x=>`
+      <div class="p-3 border rounded flex justify-between">
+        <div><b>${x.name||"—"}</b><br/><span class="text-sm">${x.phone||""}</span></div>
+        <button onclick="deleteContact(${x.id})" class="text-red-600">🗑</button>
+      </div>`).join("");
+  }
 
-    function wireEvents(){
-      // Logout
-      els.logout?.addEventListener('click', async (e)=>{
-        e.preventDefault();
-        try { await supabaseClient.auth.signOut(); } catch {}
-        window.location.href = '/?auth=signin';
-      });
+  // Save handlers
+  els.profileForm.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    const data=Object.fromEntries(fd.entries());
+    data.id=currentUser.id;
+    data.code=profile.code||crypto.randomUUID();
+    await client.from("profiles").upsert(data);
+    profile=data; render();
+  });
+  els.healthForm.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const fd=new FormData(e.target);
+    const data=Object.fromEntries(fd.entries());
+    data.user_id=currentUser.id;
+    data.organ_donor=fd.has("organ_donor");
+    await client.from("health_profiles").upsert(data);
+    health=data;
+  });
 
-      // Profile save
-      els.profileForm?.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const fd = new FormData(els.profileForm);
-        const data = {
-          id: currentUser.id,
-          email: currentUser.email,
-          full_name: fd.get('full_name') || null,
-          country: fd.get('country') || null,
-          date_of_birth: fd.get('date_of_birth') || null,
-          national_id: fd.get('national_id') || null,
-          code: userProfile.code || generateCode()
-        };
-        const { error } = await supabaseClient.from('profiles').upsert(data);
-        if (error) return toast('Failed to save profile: ' + error.message, false);
-        userProfile = { ...userProfile, ...data };
-        toast('Profile saved ✅', true);
-        renderQr();
-      });
+  document.getElementById("addIce").onclick=async()=>{
+    const { data } = await client.from("ice_contacts").insert({user_id:currentUser.id,name:"",phone:""}).select().single();
+    contacts.push(data); render();
+  };
 
-      // Health save
-      els.healthForm?.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const fd = new FormData(els.healthForm);
-        const data = {
-          user_id: currentUser.id,
-          blood_type: fd.get('blood_type') || null,
-          organ_donor: !!fd.get('organ_donor'),
-          life_support_pref: fd.get('life_support_pref') || null,
-          allergies: fd.get('allergies') || null,
-          conditions: fd.get('conditions') || null,
-          meds: fd.get('meds') || null,
-        };
-        const { error } = await supabaseClient.from('health_profiles').upsert(data);
-        if (error) return toast('Failed to save health info: ' + error.message, false);
-        healthProfile = { ...healthProfile, ...data };
-        toast('Health information saved ✅', true);
-      });
+  window.deleteContact=async id=>{
+    await client.from("ice_contacts").delete().eq("id",id);
+    contacts=contacts.filter(x=>x.id!==id); render();
+  };
 
-      // Add ICE
-      els.addIce?.addEventListener('click', async ()=>{
-        const { data, error } = await supabaseClient
-          .from('ice_contacts')
-          .insert({ user_id: currentUser.id, name:'', relation:'', phone:'' })
-          .select().single();
-        if (error) return toast('Failed to add contact: ' + error.message, false);
-        iceContacts.push(data);
-        renderIce();
-        toast('Contact added — fill the fields ✍️', true);
-      });
-
-      // Delete Account
-      els.deleteInput?.addEventListener('input', ()=>{
-        els.deleteBtn.disabled = els.deleteInput.value.trim() !== 'DELETE';
-      });
-      els.deleteBtn.disabled = true;
-      els.deleteBtn?.addEventListener('click', doDeleteAccount);
+  document.getElementById("logout").onclick=async()=>{
+    await client.auth.signOut(); location.replace("/");
+  };
+  document.getElementById("deleteAccount").onclick=async()=>{
+    if(confirm("Delete account permanently?")){
+      await client.from("profiles").delete().eq("id",currentUser.id);
+      await client.from("health_profiles").delete().eq("user_id",currentUser.id);
+      await client.from("ice_contacts").delete().eq("user_id",currentUser.id);
+      await client.auth.signOut();
+      location.replace("/");
     }
-
-    // Renders
-    function renderProfile(){
-      const f = els.profileForm;
-      if (!f) return;
-      f.full_name.value = userProfile.full_name || '';
-      f.country.value = userProfile.country || '';
-      f.date_of_birth.value = userProfile.date_of_birth || '';
-      f.national_id.value = userProfile.national_id || '';
-    }
-
-    function renderHealth(){
-      const f = els.healthForm;
-      if (!f) return;
-      f.blood_type.value = healthProfile.blood_type || '';
-      f.life_support_pref.value = healthProfile.life_support_pref || '';
-      f.organ_donor.checked = !!healthProfile.organ_donor;
-      f.allergies.value = healthProfile.allergies || '';
-      f.conditions.value = healthProfile.conditions || '';
-      f.meds.value = healthProfile.meds || '';
-    }
-
-    function renderIce(){
-      const c = els.iceList;
-      if (!c) return;
-      if (!iceContacts.length){
-        c.innerHTML = `
-          <div class="text-center py-8 text-gray-500">
-            <div class="text-4xl mb-2">📞</div>
-            <p>No emergency contacts yet.</p>
-            <p class="text-sm">Click “Add Contact” to get started.</p>
-          </div>`;
-        return;
-      }
-      c.innerHTML = iceContacts.map(contact => `
-        <div class="bg-gray-50 p-4 rounded-lg border" data-id="${contact.id}">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input class="w-full px-3 py-2 border rounded-md"
-                     value="${escapeHtml(contact.name||'')}"
-                     onblur="window._upd('${contact.id}','name',this.value)">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
-              <input class="w-full px-3 py-2 border rounded-md"
-                     value="${escapeHtml(contact.relation||'')}"
-                     onblur="window._upd('${contact.id}','relation',this.value)">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <div class="flex gap-2">
-                <input class="flex-1 px-3 py-2 border rounded-md"
-                       value="${escapeHtml(contact.phone||'')}"
-                       onblur="window._upd('${contact.id}','phone',this.value)">
-                <button class="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                        onclick="window._del('${contact.id}')">🗑️</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function renderQr(){
-      if (!userProfile.code) return;
-      const url = `${location.origin}/card.html?code=${userProfile.code}`;
-      els.cardLink.textContent = url;
-      els.cardLink.href = url;
-      const img = new Image();
-      img.className = "mx-auto mb-2 rounded-md border shadow";
-      img.alt = "Emergency QR";
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
-      els.qrCode.innerHTML = '';
-      els.qrCode.appendChild(img);
-      const codeP = document.createElement('p');
-      codeP.className = "text-xs text-gray-500";
-      codeP.textContent = `Code: ${userProfile.code}`;
-      els.qrCode.appendChild(codeP);
-    }
-
-    // Helpers
-    function showContent(){
-      els.loading.classList.add('hidden');
-      els.errorWrap.classList.add('hidden');
-      els.content.classList.remove('hidden');
-    }
-    function fail(msg){
-      els.loading.classList.add('hidden');
-      els.content.classList.add('hidden');
-      els.errorWrap.classList.remove('hidden');
-      els.errorMsg.textContent = msg;
-    }
-    function toast(msg, ok){
-      const n = document.createElement('div');
-      n.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white ${ok?'bg-emerald-600':'bg-red-600'}`;
-      n.textContent = msg;
-      document.body.appendChild(n);
-      setTimeout(()=>n.remove(), 3000);
-    }
-    function generateCode(){
-      return 'MYQER-' + Math.random().toString(36).slice(2, 9).toUpperCase();
-    }
-    function escapeHtml(s){
-      return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-    }
-
-    // Exposed funcs for inline handlers
-    window._upd = async (id, field, value)=>{
-      const { error } = await supabaseClient.from('ice_contacts').update({ [field]: value }).eq('id', id);
-      if (error) toast('Update failed: ' + error.message, false);
-      else {
-        const c = iceContacts.find(x=>x.id===id);
-        if (c) c[field] = value;
-      }
-    };
-    window._del = async (id)=>{
-      if (!confirm('Delete this contact?')) return;
-      const { error } = await supabaseClient.from('ice_contacts').delete().eq('id', id);
-      if (error) return toast('Delete failed: ' + error.message, false);
-      iceContacts = iceContacts.filter(x=>x.id!==id);
-      renderIce();
-      toast('Contact deleted 🗑️', true);
-    };
-
-    // Danger Zone: Delete account
-    async function doDeleteAccount(){
-      try{
-        els.deleteMsg.textContent = '';
-        const { data:{ session } } = await supabaseClient.auth.getSession();
-        if (!session) { els.deleteMsg.textContent = 'You are not logged in.'; els.deleteMsg.className='text-sm text-red-700'; return; }
-        els.deleteBtn.disabled = true;
-
-        const res = await fetch(`${FUNCTIONS_BASE}/delete-user`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-
-        if (!res.ok){
-          const body = await res.json().catch(()=> ({}));
-          throw new Error(body?.errors ? body.errors.join(', ') : `HTTP ${res.status}`);
-        }
-
-        els.deleteMsg.textContent = 'Account deleted. Signing out…';
-        els.deleteMsg.className = 'text-sm text-green-700';
-        await supabaseClient.auth.signOut();
-        window.location.href = '/';
-      }catch(err){
-        els.deleteBtn.disabled = false;
-        els.deleteMsg.textContent = 'Delete failed: ' + (err.message||err);
-        els.deleteMsg.className = 'text-sm text-red-700';
-      }
-    }
-  </script>
-
-  <!-- Optional Cloudflare anti-bot kept at end (non-blocking) -->
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={};";var a2=b.createElement('script');a2.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';b.head.appendChild(a2);}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);}})();</script>
+  };
+</script>
 </body>
 </html>
