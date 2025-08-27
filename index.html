@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYQER - Emergency Medical Information</title>
+    
+    <!-- Favicon (browser tab icon) -->
+    <link rel="icon" type="image/png" href="/assets/logo-myqer.png">
+    <link rel="shortcut icon" href="/assets/logo-myqer.png">
+    
+    <!-- Apple Touch Icon (iOS home screen) -->
+    <link rel="apple-touch-icon" href="/assets/logo-myqer.png">
+    
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#c62828">
+    
+    <!-- Social Media (Open Graph for Facebook, LinkedIn, etc.) -->
+    <meta property="og:title" content="MYQER - Emergency Medical Information">
+    <meta property="og:description" content="Your emergency triage, voiced for you. Scan a MYQER tag to show allergies, conditions, medications, ICE – on any phone, in any language, even with no signal.">
+    <meta property="og:image" content="https://www.myqer.com/assets/logo-myqer.png">
+<meta name="twitter:image" content="https://www.myqer.com/assets/logo-myqer.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MYQER">
+    
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="MYQER - Emergency Medical Information">
+    <meta name="twitter:description" content="Your emergency triage, voiced for you. Scan a MYQER tag to show allergies, conditions, medications, ICE – on any phone, in any language, even with no signal.">
+    <meta name="twitter:image" content="https://www.myqer.com/assets/myqer-logo.png">
+    
+    <!-- PWA settings -->
+    <meta name="application-name" content="MYQER">
+    <meta name="apple-mobile-web-app-title" content="MYQER">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9755b7b0a6bf77a1',t:'MTc1NjIzNjM1Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase (ESM) and your config -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
+    window._supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+
+  <style>
+    /* ====== Glass + polish tokens ====== */
+    :root{
+      --brand:#c62828;
+      --ink:#111318;
+      --muted:#667085;
+      --glass:rgba(255,255,255,.16);
+      --glass-2:rgba(255,255,255,.24);
+      --glass-strong:rgba(255,255,255,.75);
+      --stroke:rgba(17,24,39,.10);
+      --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
+      --radius:18px;
+    }
+    html,body{height:100%; overflow-x:hidden;}
+    body{
+      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      color:var(--ink);
+      background:linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%);
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+    }
+    .glass{background:var(--glass); backdrop-filter:blur(16px); border:1px solid var(--stroke)}
+    .glass-card{background:var(--glass-2); backdrop-filter:blur(18px); border:1px solid var(--stroke); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .btn-red{background:var(--brand); color:#fff}
+    .btn-red:hover{filter:brightness(1.02)}
+    .pill{border-radius:999px; padding:.5rem .9rem; border:1px solid var(--stroke); background:rgba(255,255,255,.7)}
+    .pill-red{background:var(--brand); color:#fff; border-color:var(--brand)}
+
+    /* ====== RED DROPDOWN ====== */
+    .dropdown{ position:relative; }
+    .dropdown-menu{
+      display:none;
+      position:absolute;
+      top:100%;
+      left:0;
+      margin-top:8px;
+      min-width:200px;
+      z-index:1000;
+      background:#dc2626;                       /* solid red */
+      border:1px solid rgba(220,38,38,.35);
+      border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+      padding:6px;
+    }
+    .dropdown:hover .dropdown-menu{ display:block; }
+    .dropdown-menu a{
+      display:block;
+      padding:12px 16px;
+      margin:4px;
+      border-radius:8px;
+      color:#fff;                                /* white text */
+      text-decoration:none;
+      transition:background .2s ease;
+      font-size:0.925rem;
+    }
+    .dropdown-menu a:hover{
+      background:rgba(255,255,255,.2);           /* subtle white veil */
+      color:#fff;
+    }
+
+    /* Modal backdrop fix for mobile scrolling */
+    .modal-open{overflow:hidden}
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAV ===== -->
+  <header class="glass fixed inset-x-0 top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="h-16 flex items-center justify-between">
+
+        <!-- Brand (logo + fallback text) -->
+        <a href="/" class="flex items-center gap-2 font-extrabold tracking-tight text-xl select-none" aria-label="MYQER Home">
+          <img src="/assets/logo.svg" alt="MYQER" class="h-6 w-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">
+          <span style="display:none">MYQ<span class="text-[#c62828]">ER</span><sup class="ml-0.5 text-[10px] align-super">™</sup></span>
+        </a>
+
+        <!-- Right cluster -->
+        <nav class="hidden md:flex items-center gap-2">
+          <div class="dropdown">
+            <button class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600 transition flex items-center">
+              Pages
+              <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            <!-- NOTE: removed 'glass' so red shows -->
+            <div class="dropdown-menu shadow-xl">
+              <a href="/privacy.html">Privacy</a>
+              <a href="/terms.html">Terms</a>
+              <a href="/clinician.html">Clinician</a>
+              <a href="/how.html">How it works</a>
+            </div>
+          </div>
+          <a class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600" href="/about.html">About</a>
+          <a class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600" href="/contact.html">Contact</a>
+
+          <button id="btnOpenApp" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-500 text-red-600 hover:bg-red-50">
+            Open App
+          </button>
+          <button id="btnLogin" class="px-4 py-2 rounded-lg text-sm font-semibold btn-red shadow">
+            Login
+          </button>
+          <button id="btnRegister" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600 hover:bg-red-50">
+            Register
+          </button>
+        </nav>
+
+        <!-- Mobile burger -->
+        <button id="burger" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/50" aria-label="Menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile sheet -->
+    <div id="mobileMenu" class="hidden md:hidden border-t border-white/30">
+      <div class="px-4 py-3 space-y-1">
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/about.html">About</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/contact.html">Contact</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/privacy.html">Privacy</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/terms.html">Terms</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/clinician.html">Clinician</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white/60 text-sm" href="/how.html">How it works</a>
+        <div class="pt-2 flex gap-2">
+          <button id="mOpenApp" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border border-red-500 text-red-600">Open App</button>
+          <button id="mLogin" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold btn-red">Login</button>
+          <button id="mRegister" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600">Register</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  
+  <!-- ===== MAIN (Hero + Plans) ===== -->
+  <main class="pt-24">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 items-stretch min-h-[70vh]">
+
+        <!-- Left: Hero copy + CTAs -->
+        <section class="flex items-center mb-10 lg:mb-0">
+          <div class="space-y-6">
+            <div class="inline-flex items-center gap-2">
+              <span class="pill pill-red text-sm font-semibold">Free to use</span>
+              <span class="pill text-sm">Works offline</span>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">
+              Your <span class="text-[#c62828]">emergency triage</span>, voiced for you.
+            </h1>
+            <p class="text-lg text-gray-600 max-w-xl">
+              Scan a MYQER tag to show <strong>allergies, conditions, medications, ICE</strong> – on any phone, in any language, even with no signal.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <button id="ctaGetStarted" class="px-5 py-3 rounded-lg text-base font-semibold btn-red shadow">
+                Create free account
+              </button>
+              <button id="ctaSignIn" class="px-5 py-3 rounded-lg text-base font-semibold border border-red-600 text-red-600 hover:bg-red-50">
+                Sign in
+              </button>
+              <button id="ctaOpenApp" class="px-5 py-3 rounded-lg text-base font-semibold border border-slate-300 hover:bg-white">
+                Open App
+              </button>
+            </div>
+            <p class="text-xs text-gray-500">No ads. No trackers. Your data stays on your device unless you choose to share it.</p>
+          </div>
+        </section>
+
+        <!-- Right: Plans (cards) -->
+        <section class="space-y-6">
+          <!-- Essential -->
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold">People — Essential Access</h3>
+              <span class="pill pill-red font-semibold">Free to use</span>
+            </header>
+            <p class="text-gray-600 mb-4">No cost · No trial · No ads</p>
+            <ul class="space-y-2 text-gray-700">
+              <li>• Emergency card (allergies, meds, ICE)</li>
+              <li>• Works offline (no signal needed)</li>
+              <li>• DIY printable QR tags & stickers</li>
+              <li>• Multi-language text & voice*</li>
+              <li>• Zero tracking & on-device privacy</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold btn-red" id="planCreate">
+              Create free account
+            </button>
+            <p class="text-xs text-gray-500 mt-2">* Voice & translations roll out progressively by language.</p>
+          </article>
+
+          <!-- MYQER+ -->
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold">MYQER+ — Professional</h3>
+              <span class="pill text-gray-700">Coming soon</span>
+            </header>
+            <p class="text-gray-600 mb-4">Pro tools for clinicians & institutions</p>
+            <ul class="space-y-2 text-gray-700">
+              <li>• Clinician dashboard & dispatch integration</li>
+              <li>• Hospital & EMS API support</li>
+              <li>• Premium tags & wearables (NFC, metal bands)</li>
+              <li>• Secure cloud backup & recovery</li>
+              <li>• Priority clinical support</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold border border-slate-300 text-slate-500" disabled>
+              Not yet available
+            </button>
+          </article>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-gray-500">
+      © 2025 MYQER — My QR for Emergency Response
+    </div>
+  </footer>
+
+  <!-- ===== AUTH MODAL ===== -->
+  <div id="authModal"
+       class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+       style="align-items:center; justify-content:center;">
+    <div class="glass-card rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto"
+         style="position:relative; margin:auto;">
+
+      <button id="authClose" class="absolute top-3 right-3 w-9 h-9 rounded-lg hover:bg-white/60 flex items-center justify-center" aria-label="Close">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div id="authAlerts" class="mb-3"></div>
+
+      <!-- LOGIN -->
+      <div id="view-login" class="space-y-4">
+        <h2 class="text-xl font-bold">Sign in to MYQER</h2>
+        <label class="block text-sm font-medium">Email</label>
+        <input id="loginEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="you@example.com" />
+        <label class="block text-sm font-medium">Password</label>
+        <div class="relative">
+          <input id="loginPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" placeholder="••••••••" />
+          <button id="toggleLoginPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
+        </div>
+        <div class="grid gap-2 mt-2">
+          <button id="doLogin" class="btn-red py-2.5 rounded-lg font-semibold">Sign in</button>
+          <button id="goRegister" class="py-2.5 rounded-lg font-semibold border border-red-600 text-red-600 hover:bg-red-50">Create account</button>
+          <button id="goReset" class="text-sm text-red-600 hover:underline">Forgot password?</button>
+        </div>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="view-register" class="space-y-4 hidden">
+        <h2 class="text-xl font-bold">Create your MYQER account</h2>
+        <label class="block text-sm font-medium">Full name</label>
+        <input id="regName" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="Your name" />
+        <label class="block text-sm font-medium">Email</label>
+        <input id="regEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="you@example.com" />
+        <label class="block text-sm font-medium">Password</label>
+        <div class="relative">
+          <input id="regPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" placeholder="At least 6 characters" />
+          <button id="toggleRegPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
+        </div>
+        <div class="grid gap-2 mt-2">
+          <button id="doRegister" class="btn-red py-2.5 rounded-lg font-semibold">Create account</button>
+          <button id="backLogin1" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white">Back to sign in</button>
+        </div>
+      </div>
+
+      <!-- RESET -->
+      <div id="view-reset" class="space-y-4 hidden">
+        <h2 class="text-xl font-bold">Reset your password</h2>
+        <label class="block text-sm font-medium">Email</label>
+        <input id="resetEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="you@example.com" />
+        <div class="grid gap-2 mt-2">
+          <button id="doReset" class="btn-red py-2.5 rounded-lg font-semibold">Send reset link</button>
+          <button id="backLogin2" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white">Back to sign in</button>
+        </div>
+      </div>
+
+      <!-- UPDATE -->
+      <div id="view-update" class="space-y-4 hidden">
+        <h2 class="text-xl font-bold">Set a new password</h2>
+        <label class="block text-sm font-medium">New password</label>
+        <div class="relative">
+          <input id="newPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" placeholder="New password" />
+          <button id="toggleNewPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
+        </div>
+        <label class="block text-sm font-medium">Confirm password</label>
+        <input id="newPass2" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="Repeat new password" />
+        <div class="grid gap-2 mt-2">
+          <button id="doUpdate" class="btn-red py-2.5 rounded-lg font-semibold">Update password</button>
+          <button id="backLogin3" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white">Back to sign in</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Scripts (UI + Auth) ===== -->
+  <script type="module">
+    const supabase = window._supabase;
+
+    // Elements
+    const authModal = document.getElementById('authModal');
+    const views = {
+      login:   document.getElementById('view-login'),
+      register:document.getElementById('view-register'),
+      reset:   document.getElementById('view-reset'),
+      update:  document.getElementById('view-update')
+    };
+    const alerts = document.getElementById('authAlerts');
+
+    // Nav buttons
+    const btnOpenApp = document.getElementById('btnOpenApp');
+    const btnLogin   = document.getElementById('btnLogin');
+    const btnRegister= document.getElementById('btnRegister');
+
+    // Mobile menu
+    const burger = document.getElementById('burger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mOpenApp = document.getElementById('mOpenApp');
+    const mLogin   = document.getElementById('mLogin');
+    const mRegister= document.getElementById('mRegister');
+
+    // Hero buttons
+    const ctaOpenApp = document.getElementById('ctaOpenApp');
+    const ctaGetStarted = document.getElementById('ctaGetStarted');
+    const ctaSignIn = document.getElementById('ctaSignIn');
+    const planCreate = document.getElementById('planCreate');
+
+    // Password toggles
+    const toggleLoginPass = document.getElementById('toggleLoginPass');
+    const toggleRegPass   = document.getElementById('toggleRegPass');
+    const toggleNewPass   = document.getElementById('toggleNewPass');
+
+    // View switchers
+    const goRegister = document.getElementById('goRegister');
+    const goReset    = document.getElementById('goReset');
+    const backLogin1 = document.getElementById('backLogin1');
+    const backLogin2 = document.getElementById('backLogin2');
+    const backLogin3 = document.getElementById('backLogin3');
+    const authClose  = document.getElementById('authClose');
+
+    // Actions
+    const doLogin    = document.getElementById('doLogin');
+    const doRegister = document.getElementById('doRegister');
+    const doReset    = document.getElementById('doReset');
+    const doUpdate   = document.getElementById('doUpdate');
+
+    // Fields
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPass  = document.getElementById('loginPass');
+    const regName    = document.getElementById('regName');
+    const regEmail   = document.getElementById('regEmail');
+    const regPass    = document.getElementById('regPass');
+    const resetEmail = document.getElementById('resetEmail');
+    const newPass    = document.getElementById('newPass');
+    const newPass2   = document.getElementById('newPass2');
+
+    // Mobile menu toggle
+    burger?.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+    });
+
+    // Helpers
+    function showAlert(msg, type='error'){
+      alerts.innerHTML = `<div class="rounded-lg border px-3 py-2 text-sm ${type==='success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}">${msg}</div>`;
+    }
+    function clearAlert(){ alerts.innerHTML=''; }
+
+    function openModal(which='login'){
+      document.body.classList.add('modal-open');
+      authModal.classList.remove('hidden');
+      Object.values(views).forEach(v=>v.classList.add('hidden'));
+      views[which]?.classList.remove('hidden');
+      clearAlert();
+    }
+    function closeModal(){
+      document.body.classList.remove('modal-open');
+      authModal.classList.add('hidden');
+      clearAlert();
+    }
+
+    // Password toggles
+    const toggle = (input, btn)=>{
+      if(!input||!btn) return;
+      btn.addEventListener('click',(e)=>{
+        e.preventDefault();
+        const isPwd = input.type === 'password';
+        input.type = isPwd ? 'text' : 'password';
+        btn.textContent = isPwd ? 'Hide' : 'Show';
+      });
+    };
+    toggle(loginPass, toggleLoginPass);
+    toggle(regPass, toggleRegPass);
+    toggle(newPass, toggleNewPass);
+
+    // Open modal from nav/hero/mobile
+    document.getElementById('btnLogin')?.addEventListener('click', ()=>openModal('login'));
+    document.getElementById('btnRegister')?.addEventListener('click', ()=>openModal('register'));
+    mLogin?.addEventListener('click', ()=>{ mobileMenu.classList.add('hidden'); openModal('login'); });
+    mRegister?.addEventListener('click', ()=>{ mobileMenu.classList.add('hidden'); openModal('register'); });
+    ctaGetStarted?.addEventListener('click', ()=>openModal('register'));
+    ctaSignIn?.addEventListener('click', ()=>openModal('login'));
+    planCreate?.addEventListener('click', ()=>openModal('register'));
+
+    // Open App: if logged in → /app.html, else sign-in modal
+    async function openAppSmart(){
+      const { data:{ session } } = await supabase.auth.getSession();
+      if(session) { window.location.href = '/dashboard.html'; }
+      else { openModal('login'); }
+    }
+    document.getElementById('btnOpenApp')?.addEventListener('click', openAppSmart);
+    mOpenApp?.addEventListener('click', ()=>{ mobileMenu.classList.add('hidden'); openAppSmart(); });
+    ctaOpenApp?.addEventListener('click', openAppSmart);
+
+    // View switchers inside modal
+    document.getElementById('goRegister')?.addEventListener('click', ()=>openModal('register'));
+    document.getElementById('goReset')?.addEventListener('click', ()=>openModal('reset'));
+    document.getElementById('backLogin1')?.addEventListener('click', ()=>openModal('login'));
+    document.getElementById('backLogin2')?.addEventListener('click', ()=>openModal('login'));
+    document.getElementById('backLogin3')?.addEventListener('click', ()=>openModal('login'));
+    document.getElementById('authClose')?.addEventListener('click', closeModal);
+    authModal?.addEventListener('click', (e)=>{ if(e.target===authModal) closeModal(); });
+
+    // Handle “recovery” link from email → show update view
+    const params = new URLSearchParams(location.search);
+    if(params.get('type')==='recovery'){ openModal('update'); }
+
+    // Auth actions
+    document.getElementById('doLogin')?.addEventListener('click', async ()=>{
+      clearAlert();
+      const email = loginEmail.value.trim();
+      const password = loginPass.value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if(error) return showAlert(error.message);
+      window.location.replace('/app.html');
+    });
+
+    document.getElementById('doRegister')?.addEventListener('click', async ()=>{
+      clearAlert();
+      const email = regEmail.value.trim();
+      const password = regPass.value;
+      const full_name = regName.value.trim();
+      if(password.length < 6) return showAlert('Password must be at least 6 characters.');
+      const { error } = await supabase.auth.signUp({
+        email, password,
+        options:{ data:{ full_name } }
+      });
+      if(error) return showAlert(error.message);
+      showAlert('Registration successful — check your email to confirm your account.', 'success');
+      setTimeout(()=>openModal('login'), 2500);
+    });
+
+    document.getElementById('doReset')?.addEventListener('click', async ()=>{
+      clearAlert();
+      const email = resetEmail.value.trim();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${location.origin}/?type=recovery`
+      });
+      if(error) return showAlert(error.message);
+      showAlert('Password reset email sent — check your inbox.', 'success');
+    });
+    document.getElementById('doUpdate')?.addEventListener('click', async ()=>{
+      clearAlert();
+      const p1 = newPass.value, p2 = newPass2.value;
+      if(!p1 || p1.length<6) return showAlert('New password must be at least 6 characters.');
+      if(p1 !== p2) return showAlert('Passwords do not match.');
+      const { error } = await supabase.auth.updateUser({ password:p1 });
+      if(error) return showAlert(error.message);
+      showAlert('Password updated. Redirecting…', 'success');
+      setTimeout(()=>window.location.replace('/app.html'), 1200);
+    });
+    // Keep session awareness for the “Open App” quick click
+    supabase.auth.onAuthStateChange((_event, session)=>{
+      window.__session = session;
+    });
+// Handle URL params to open the right modal view
+const params = new URLSearchParams(location.search);
+const type  = params.get('type');       // e.g. recovery from email link
+const modal = params.get('modal');      // e.g. ?modal=login
+const auth  = params.get('auth');       // e.g. ?auth=signin
+
+if (type === 'recovery') {
+  openModal('update');
+} else if (modal === 'login' || auth === 'signin' || modal === 'signin') {
+  openModal('login');
+} else if (modal === 'register' || auth === 'register') {
+  openModal('register');
+}
+}
+    // Service worker
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>
