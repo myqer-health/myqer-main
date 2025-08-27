@@ -1,50 +1,88 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- ===== META ===== -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MYQER - Emergency Medical Information</title>
-  <link rel="icon" href="/assets/logo-myqer.png">
-  <meta name="theme-color" content="#c62828">
+
+  <link rel="icon" type="image/png" href="/assets/logo-myqer.png" />
+  <link rel="apple-touch-icon" href="/assets/logo-myqer.png" />
+  <meta name="theme-color" content="#c62828" />
+  <meta property="og:title" content="MYQER - Emergency Medical Information" />
+  <meta property="og:description" content="Your emergency triage, voiced for you. Scan a MYQER tag to show allergies, conditions, medications, ICE — on any phone, in any language, even with no signal." />
+  <meta property="og:image" content="https://www.myqer.com/assets/logo-myqer.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Supabase (keep secrets in /scripts/config.js) -->
+  <!-- Supabase init (from your config.js) -->
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window._supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 
   <style>
-    :root{--brand:#c62828;--ink:#111318;--muted:#667085;--stroke:rgba(17,24,39,.10)}
-    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#e6ecf5 100%);color:var(--ink)}
-    .glass     {background:rgba(255,255,255,.16);backdrop-filter:blur(16px);border:1px solid var(--stroke)}
-    .glasscard {background:rgba(255,255,255,.24);backdrop-filter:blur(18px);border:1px solid var(--stroke);border-radius:18px;box-shadow:0 18px 42px rgba(2,8,23,.12),0 2px 6px rgba(2,8,23,.06)}
-    .btn-red{background:var(--brand);color:#fff} .btn-red:hover{filter:brightness(1.03)}
-    .pill{border-radius:999px;padding:.45rem .75rem;border:1px solid var(--stroke);background:rgba(255,255,255,.7)}
-    .pill-red{background:var(--brand);color:#fff;border-color:var(--brand)}
-    /* phone */
-    .phone-shadow{box-shadow:0 25px 50px -12px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.05)}
-    .dropdown{position:relative} .dropdown-menu{display:none;position:absolute;top:100%;left:0;margin-top:8px;min-width:200px;background:#dc2626;border:1px solid rgba(220,38,38,.35);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:6px;z-index:50}
+    :root{
+      --brand:#c62828; --ink:#111318; --muted:#667085;
+      --stroke:rgba(17,24,39,.10); --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
+      --green:#E9F7EF; --green-text:#0F5132; --green-border:#CBE7D9;
+      --radius:18px;
+    }
+    html,body{height:100%; overflow-x:hidden;}
+    body{
+      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      color:var(--ink);
+      background:linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%);
+      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    }
+    .glass-card{background:rgba(255,255,255,.68); backdrop-filter:blur(16px); border:1px solid var(--stroke); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .btn-red{background:var(--brand); color:#fff} .btn-red:hover{filter:brightness(1.02)}
+    .pill{border-radius:999px; padding:.45rem .8rem; border:1px solid var(--stroke); background:rgba(255,255,255,.75); font-weight:600}
+    .pill-red{background:var(--brand); color:#fff; border-color:var(--brand)}
+
+    .dropdown{position:relative}
+    .dropdown-menu{display:none; position:absolute; top:100%; left:0; margin-top:8px; min-width:220px; z-index:50;
+      background:#dc2626; border:1px solid rgba(220,38,38,.35); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:6px;}
     .dropdown:hover .dropdown-menu{display:block}
-    .dropdown-menu a{display:block;color:#fff;padding:10px 12px;margin:4px;border-radius:8px}
-    .dropdown-menu a:hover{background:rgba(255,255,255,.18)}
+    .dropdown-menu a{display:block; padding:12px 14px; margin:4px; border-radius:10px; color:#fff; text-decoration:none; font-size:.95rem}
+    .dropdown-menu a:hover{background:rgba(255,255,255,.2)}
+
     .modal-open{overflow:hidden}
+    .phone-shadow{box-shadow:0 25px 50px -12px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.05)}
   </style>
 </head>
 <body>
-  <!-- NAV -->
-  <header class="glass fixed inset-x-0 top-0 z-50">
+
+  <!-- ===== NAV ===== -->
+  <header class="fixed inset-x-0 top-0 z-50 bg-white/70 backdrop-blur border-b border-white/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="h-16 flex items-center justify-between">
-        <a href="/" class="flex items-center gap-2 font-extrabold text-lg">
-          <img src="/assets/logo.svg" class="h-6 w-auto" alt="MYQER" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-          <span style="display:none">MYQ<span class="text-[#c62828]">ER</span></span>
+        <!-- Brand -->
+        <a href="/" class="flex items-center gap-2 font-extrabold tracking-tight text-xl" aria-label="MYQER">
+          <img src="/assets/logo.svg" alt="MYQER" class="h-6 w-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">
+          <span style="display:none">MYQ<span class="text-[#c62828]">ER</span><sup class="ml-0.5 text-[10px] align-super">™</sup></span>
         </a>
 
-        <nav class="hidden md:flex items-center gap-3">
-          <!-- language -->
-          <select id="lang" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
+        <!-- Right -->
+        <nav class="hidden md:flex items-center gap-2">
+          <div class="dropdown">
+            <button id="navPagesBtn" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600 flex items-center">
+              Pages
+              <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div class="dropdown-menu">
+              <a href="/privacy.html" data-i18n="navPrivacy">Privacy</a>
+              <a href="/terms.html" data-i18n="navTerms">Terms</a>
+              <a href="/clinician.html" data-i18n="navClinician">Clinician</a>
+              <a href="/how.html" data-i18n="navHow">How it works</a>
+            </div>
+          </div>
+          <a href="/about.html" id="navAbout" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600">About</a>
+
+          <select id="langSelect" class="px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white">
             <option value="en">🇺🇸 EN</option><option value="es">🇪🇸 ES</option>
             <option value="fr">🇫🇷 FR</option><option value="de">🇩🇪 DE</option>
             <option value="it">🇮🇹 IT</option><option value="hi">🇮🇳 HI</option>
@@ -52,145 +90,145 @@
             <option value="hu">🇭🇺 HU</option><option value="ro">🇷🇴 RO</option>
           </select>
 
-          <div class="dropdown">
-            <button class="px-3 py-2 rounded-lg text-sm font-medium hover:text-red-600">
-              <span data-i18n="pages">Pages</span> ▾
-            </button>
-            <div class="dropdown-menu">
-              <a href="/privacy.html">Privacy</a>
-              <a href="/terms.html">Terms</a>
-              <a href="/clinician.html">Clinician</a>
-              <a href="/how.html">How it works</a>
-            </div>
-          </div>
-
-          <button id="openApp"  class="px-3 py-2 rounded-lg text-sm font-semibold border border-red-500 text-red-600 hover:bg-red-50" data-i18n="openApp">Open App</button>
-          <button id="navLogin" class="px-3 py-2 rounded-lg text-sm font-semibold btn-red" data-i18n="signIn">Sign In</button>
-          <button id="navReg"   class="px-3 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600 hover:bg-red-50" data-i18n="signUp">Sign Up</button>
+          <button id="btnOpenApp" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600 hover:bg-red-50">
+            Open App
+          </button>
         </nav>
 
-        <button id="burger" class="md:hidden w-10 h-10 rounded-lg hover:bg-white/50" aria-label="Menu">
+        <!-- Mobile burger -->
+        <button id="burger" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/60" aria-label="Menu">
           <svg class="w-6 h-6" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
       </div>
     </div>
-    <!-- mobile -->
-    <div id="mNav" class="hidden md:hidden border-t border-white/30">
-      <div class="px-4 py-3 space-y-2">
-        <div class="flex gap-2">
-          <button id="mOpen" class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold border border-red-500 text-red-600">Open App</button>
-          <button id="mLogin" class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold btn-red">Sign In</button>
-          <button id="mReg"   class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600">Sign Up</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2 text-sm">
-          <a class="px-3 py-2 rounded-lg hover:bg-white/60" href="/privacy.html">Privacy</a>
-          <a class="px-3 py-2 rounded-lg hover:bg-white/60" href="/terms.html">Terms</a>
-          <a class="px-3 py-2 rounded-lg hover:bg-white/60" href="/clinician.html">Clinician</a>
-          <a class="px-3 py-2 rounded-lg hover:bg-white/60" href="/how.html">How it works</a>
+
+    <!-- Mobile sheet -->
+    <div id="mobileMenu" class="hidden md:hidden border-t border-white/40 bg-white/70 backdrop-blur">
+      <div class="px-4 py-3 space-y-1">
+        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/about.html" data-i18n="navAbout">About</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/privacy.html" data-i18n="navPrivacy">Privacy</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/terms.html" data-i18n="navTerms">Terms</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/clinician.html" data-i18n="navClinician">Clinician</a>
+        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/how.html" data-i18n="navHow">How it works</a>
+        <div class="pt-2 flex gap-2">
+          <button id="mOpenApp" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600">Open App</button>
+          <select id="mLangSelect" class="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white">
+            <option value="en">EN</option><option value="es">ES</option><option value="fr">FR</option><option value="de">DE</option>
+            <option value="it">IT</option><option value="hi">HI</option><option value="ar">AR</option><option value="zh">ZH</option>
+            <option value="hu">HU</option><option value="ro">RO</option>
+          </select>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- MAIN -->
+  <!-- ===== MAIN ===== -->
   <main class="pt-24">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex flex-col lg:grid lg:grid-cols-2 lg:gap-10 items-stretch min-h-[70vh]">
+      <div class="flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 items-stretch min-h-[70vh]">
 
-        <!-- LEFT: copy + CTAs -->
-        <section class="flex items-center mb-10 lg:mb-0">
-          <div class="space-y-6 max-w-xl">
-            <div class="inline-flex items-center gap-2">
-              <span class="pill pill-red text-sm font-semibold" data-i18n="badgeFree">Free to use</span>
-              <span class="pill text-sm" data-i18n="badgeOffline">Works offline</span>
-            </div>
-
-            <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">
-              <span data-i18n="heroLine1">Your</span> <span class="text-[#c62828]" data-i18n="heroLine2">emergency triage</span>, <span data-i18n="heroLine3">voiced for you.</span>
-              <span class="block text-[12px] text-slate-500/80 italic mt-1">(pronounced “My Care”)</span>
-            </h1>
-
-            <p class="text-lg text-gray-600" data-i18n="subcopy">
-              Scan a MYQER tag to show <strong>allergies, conditions, medications, ICE</strong> — on any phone, in any language, even with no signal.
-            </p>
-
-            <div class="flex flex-wrap gap-3">
-              <button id="ctaStart" class="px-5 py-3 rounded-lg text-base font-semibold btn-red shadow" data-i18n="createFree">Create free account</button>
-              <button id="ctaSign"  class="px-5 py-3 rounded-lg text-base font-semibold border border-red-600 text-red-600 hover:bg-white" data-i18n="signIn">Sign in</button>
-              <button id="ctaOpen"  class="px-5 py-3 rounded-lg text-base font-semibold border border-slate-300 hover:bg-white" data-i18n="openApp">Open App</button>
-            </div>
-
-            <p class="text-xs text-gray-500" data-i18n="privacyLine">
-              No ads. No trackers. Your data stays on your device unless you choose to share it.
-            </p>
-          </div>
-        </section>
-
-        <!-- RIGHT: Phone (NO QR block) -->
-        <section class="flex items-center justify-center">
+        <!-- LEFT: Phone -->
+        <section class="flex items-center justify-center lg:justify-start mb-10 lg:mb-0">
           <div class="w-80 h-[640px] bg-black rounded-[3rem] p-2 phone-shadow">
             <div class="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
-              <!-- status -->
-              <div class="flex justify-between items-center px-6 py-3 text-sm opacity-80">
+              <!-- Status -->
+              <div class="flex justify-between items-center px-6 py-3 text-sm">
                 <div class="text-gray-900 font-medium text-xs">MYQER</div>
                 <div class="text-gray-900 font-medium">09:41</div>
               </div>
-              <!-- screen -->
-              <div class="px-6 pb-24 h-full flex flex-col">
-                <!-- triage pill -->
-                <div class="mb-5">
-                  <div class="inline-flex items-center px-3 py-1.5 rounded-full bg-green-100 border border-green-200">
-                    <span class="text-green-800 font-bold text-xs">GREEN — Standard</span>
-                  </div>
-                </div>
-                <!-- headline -->
+              <!-- Screen -->
+              <div class="px-6 pb-20 h-full flex flex-col">
+                <!-- Triage -->
                 <div class="mb-4">
-                  <h2 class="text-xl font-semibold text-gray-900 leading-tight mb-2">
-                    <span data-i18n="phoneTitle1">Your</span> <span class="text-[#c62828]" data-i18n="phoneTitle2">emergency</span> <span data-i18n="phoneTitle3">card.</span><br>
-                    <span data-i18n="phoneTitle4">One scan, instant</span> <span class="text-[#c62828]" data-i18n="phoneTitle5">triage</span>.
+                  <div class="inline-flex items-center px-2 py-1 rounded-full" style="background:var(--green); border:1px solid var(--green-border);">
+                    <span class="font-semibold text-xs" style="color:var(--green-text)" id="pTriage">GREEN — Standard</span>
+                  </div>
+                </div>
+                <!-- Headline -->
+                <div class="mb-4">
+                  <h2 class="text-xl font-semibold text-gray-900 leading-tight mb-2" id="pTitle">
+                    Your <span class="text-[var(--brand)]">emergency</span> card.<br/>One scan, instant <span class="text-[var(--brand)]">triage</span>.
                   </h2>
-                  <p class="text-sm text-gray-600 opacity-80" data-i18n="phoneSub">
-                    A triage code to guide responders — anywhere, anytime.
-                  </p>
+                  <p class="text-sm text-gray-600 opacity-80" id="pCopy">A QR triage code to guide responders — anywhere, anytime.</p>
                 </div>
-                <!-- vitals -->
-                <div class="glasscard rounded-2xl p-4 mb-4">
-                  <div class="grid grid-cols-2 gap-y-3 gap-x-4">
-                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1">Blood</div><div class="font-bold text-gray-900">O+</div></div>
-                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1">ICE</div><div class="font-bold text-gray-900">+44 7700…</div></div>
-                    <div class="col-span-2"><div class="h-px bg-[#c62828] opacity-30 mb-2"></div></div>
-                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1">Allergies</div><div class="font-bold text-gray-900 text-sm">Penicillin, Nuts</div></div>
-                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1">Meds</div><div class="font-bold text-gray-900 text-sm">Metformin</div></div>
+                <!-- Vitals -->
+                <div class="bg-white/95 rounded-xl p-3 mb-3 shadow border border-gray-200">
+                  <div class="grid grid-cols-2 gap-y-2 gap-x-3">
+                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1" data-i18n="blood">BLOOD</div><div class="font-bold text-red-600 text-sm">O+</div></div>
+                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1">ICE</div><div class="font-bold text-gray-900 text-sm">+44 7700…</div></div>
+                    <div class="col-span-2"><div class="h-px bg-red-600/30 my-2"></div></div>
+                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1" data-i18n="allergies">ALLERGIES</div><div class="font-bold text-gray-900 text-xs">Penicillin, <span class="text-red-600">Nuts</span></div></div>
+                    <div><div class="text-xs uppercase tracking-wide text-gray-600 mb-1" data-i18n="meds">MEDS</div><div class="font-bold text-gray-900 text-xs">Metformin</div></div>
                   </div>
                 </div>
-                <!-- message -->
-                <div class="glasscard rounded-2xl p-3 mb-4 text-center">
-                  <div class="text-xs text-gray-800 font-medium"><span data-i18n="simplePeople">Simple for people.</span> <span class="text-[#c62828] font-semibold" data-i18n="preciseResponders">Precise</span> <span data-i18n="forResponders">for responders.</span></div>
+                <!-- Tagline -->
+                <div class="bg-white/95 rounded-xl p-3 mb-4 shadow border border-gray-200 text-center">
+                  <div class="text-xs text-gray-800 font-medium" id="pTagline">Simple for people. <span class="text-red-600 font-semibold">Precise</span> for responders.</div>
                 </div>
-                <!-- bottom buttons -->
-                <div class="absolute bottom-6 left-6 right-6">
-                  <div class="flex gap-3">
-                    <button id="phSignIn" class="flex-1 bg-green-500 text-white py-3 rounded-full font-semibold text-sm shadow-lg hover:bg-green-600">Sign In</button>
-                    <button id="phSignUp" class="flex-1 bg-[#c62828] text-white py-3 rounded-full font-semibold text-sm shadow-lg hover:bg-red-700">Sign Up</button>
-                  </div>
+                <!-- (We keep a decorative QR SVG but real scanning happens from public card page) -->
+                <div class="flex-1"></div>
+              </div>
+              <!-- Fixed phone CTAs -->
+              <div class="absolute bottom-6 left-6 right-6">
+                <div class="flex gap-3">
+                  <button id="phoneSignIn" class="flex-1 bg-green-500 text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-green-600" data-i18n="signIn">Sign In</button>
+                  <button id="phoneSignUp" class="flex-1 bg-red-600 text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-red-700" data-i18n="signUp">Sign Up</button>
                 </div>
               </div>
             </div>
           </div>
+        </section>
+
+        <!-- RIGHT: Two cards -->
+        <section class="space-y-6">
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold" id="card1Title">People — Essential Access</h3>
+              <span class="pill pill-red" id="freeBadge">Free to use</span>
+            </header>
+            <p class="text-gray-600 mb-4" id="card1Sub">No cost · No trial · No ads</p>
+            <ul class="space-y-2 text-gray-700" id="card1List">
+              <li>• Emergency card (allergies, meds, ICE)</li>
+              <li>• Works offline (no signal needed)</li>
+              <li>• DIY printable QR tags & stickers</li>
+              <li>• Multi-language text & voice*</li>
+              <li>• Zero tracking & on-device privacy</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold btn-red" id="planCreate" data-i18n="createFree">Create free account</button>
+            <p class="text-xs text-gray-500 mt-2" id="rolloutNote">* Voice & translations roll out progressively by language.</p>
+          </article>
+
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold" id="card2Title">MYQER+ — Professional</h3>
+              <span class="pill" id="comingSoon">Coming soon</span>
+            </header>
+            <p class="text-gray-600 mb-4" id="card2Sub">Pro tools for clinicians & institutions</p>
+            <ul class="space-y-2 text-gray-700" id="card2List">
+              <li>• Clinician dashboard & dispatch integration</li>
+              <li>• Hospital & EMS API support</li>
+              <li>• Premium tags & wearables (NFC, metal bands)</li>
+              <li>• Secure cloud backup & recovery</li>
+              <li>• Priority clinical support</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold border border-slate-300 text-slate-500" id="notAvailable" disabled>Not yet available</button>
+          </article>
         </section>
 
       </div>
     </div>
   </main>
 
-  <!-- FOOTER -->
+  <!-- ===== FOOTER ===== -->
   <footer class="py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-gray-500">© 2025 MYQER — My QR for Emergency Response</div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-gray-500">
+      © <span id="year"></span> MYQER — My QR for Emergency Response
+    </div>
   </footer>
 
-  <!-- AUTH MODAL -->
+  <!-- ===== AUTH MODAL ===== -->
   <div id="authModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="glasscard rounded-2xl p-8 max-w-md w-full relative">
+    <div class="glass-card rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto relative">
       <button id="authClose" class="absolute top-3 right-3 w-9 h-9 rounded-lg hover:bg-white/60 flex items-center justify-center" aria-label="Close">
         <svg class="w-5 h-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
@@ -198,7 +236,7 @@
 
       <!-- LOGIN -->
       <div id="view-login" class="space-y-4">
-        <h2 class="text-xl font-bold" data-i18n="signIn">Sign in</h2>
+        <h2 class="text-xl font-bold" data-i18n="signinTitle">Sign in to MYQER</h2>
         <label class="block text-sm font-medium" data-i18n="email">Email</label>
         <input id="loginEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="you@example.com" />
         <label class="block text-sm font-medium" data-i18n="password">Password</label>
@@ -207,44 +245,44 @@
           <button id="toggleLoginPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
         </div>
         <div class="grid gap-2 mt-2">
-          <button id="doLogin" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="signIn">Sign in</button>
-          <button id="goRegister" class="py-2.5 rounded-lg font-semibold border border-red-600 text-red-600 hover:bg-red-50" data-i18n="signUp">Create account</button>
-          <button id="goReset" class="text-sm text-red-600 hover:underline" data-i18n="forgot">Forgot password?</button>
+          <button id="doLogin" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="signIn">Sign In</button>
+          <button id="goRegister" class="py-2.5 rounded-lg font-semibold border border-red-600 text-red-600 hover:bg-red-50" data-i18n="createAccount">Create account</button>
+          <button id="goReset" class="text-sm text-red-600 hover:underline" data-i18n="forgotPassword">Forgot password?</button>
         </div>
       </div>
 
       <!-- REGISTER -->
       <div id="view-register" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="createFree">Create your account</h2>
+        <h2 class="text-xl font-bold" data-i18n="signupTitle">Create your MYQER account</h2>
         <label class="block text-sm font-medium" data-i18n="fullName">Full name</label>
         <input id="regName" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
         <label class="block text-sm font-medium" data-i18n="email">Email</label>
         <input id="regEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
         <label class="block text-sm font-medium" data-i18n="password">Password</label>
         <div class="relative">
-          <input id="regPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" placeholder="At least 6 characters" />
+          <input id="regPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" />
           <button id="toggleRegPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
         </div>
         <div class="grid gap-2 mt-2">
-          <button id="doRegister" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="signUp">Create account</button>
-          <button id="backLogin1" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backSignin">Back to sign in</button>
+          <button id="doRegister" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="createAccount">Create account</button>
+          <button id="backLogin1" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
         </div>
       </div>
 
       <!-- RESET -->
       <div id="view-reset" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="resetHeader">Reset your password</h2>
+        <h2 class="text-xl font-bold" data-i18n="resetTitle">Reset your password</h2>
         <label class="block text-sm font-medium" data-i18n="email">Email</label>
         <input id="resetEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
         <div class="grid gap-2 mt-2">
           <button id="doReset" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="sendReset">Send reset link</button>
-          <button id="backLogin2" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backSignin">Back to sign in</button>
+          <button id="backLogin2" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
         </div>
       </div>
 
-      <!-- UPDATE (from recovery link) -->
+      <!-- UPDATE -->
       <div id="view-update" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="updateHeader">Set a new password</h2>
+        <h2 class="text-xl font-bold" data-i18n="updateTitle">Set a new password</h2>
         <label class="block text-sm font-medium" data-i18n="newPassword">New password</label>
         <div class="relative">
           <input id="newPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" />
@@ -253,115 +291,72 @@
         <label class="block text-sm font-medium" data-i18n="confirmPassword">Confirm password</label>
         <input id="newPass2" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
         <div class="grid gap-2 mt-2">
-          <button id="doUpdate" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="updateBtn">Update password</button>
-          <button id="backLogin3" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backSignin">Back to sign in</button>
+          <button id="doUpdate" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="updatePassword">Update password</button>
+          <button id="backLogin3" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SCRIPTS: UI + i18n + Auth -->
-  <script>
-    // ----- i18n (10 languages) -----
-    const T = {
-      en:{pages:"Pages",openApp:"Open App",signIn:"Sign In",signUp:"Sign Up",badgeFree:"Free to use",badgeOffline:"Works offline",
-          heroLine1:"Your",heroLine2:"emergency triage",heroLine3:"voiced for you.",subcopy:"Scan a MYQER tag to show allergies, conditions, medications, ICE — on any phone, in any language, even with no signal.",
-          createFree:"Create free account",privacyLine:"No ads. No trackers. Your data stays on your device unless you choose to share it.",
-          phoneTitle1:"Your",phoneTitle2:"emergency",phoneTitle3:"card.",phoneTitle4:"One scan, instant",phoneTitle5:"triage",
-          simplePeople:"Simple for people.",preciseResponders:"Precise",forResponders:"for responders.",
-          email:"Email",password:"Password",forgot:"Forgot password?",fullName:"Full name",backSignin:"Back to sign in",
-          resetHeader:"Reset your password",sendReset:"Send reset link",updateHeader:"Set a new password",newPassword:"New password",confirmPassword:"Confirm password",updateBtn:"Update password"},
-      es:{pages:"Páginas",openApp:"Abrir App",signIn:"Iniciar sesión",signUp:"Registrarse",badgeFree:"Gratis",badgeOffline:"Funciona sin conexión",
-          heroLine1:"Tu",heroLine2:"triaje de emergencia",heroLine3:"con voz.",subcopy:"Escanea una etiqueta MYQER para mostrar alergias, condiciones, medicamentos e ICE — en cualquier teléfono, en cualquier idioma, incluso sin señal.",
-          createFree:"Crear cuenta gratis",privacyLine:"Sin anuncios. Sin rastreadores. Tus datos permanecen en tu dispositivo salvo que decidas compartirlos.",
-          phoneTitle1:"Tu",phoneTitle2:"emergencia",phoneTitle3:"tarjeta.",phoneTitle4:"Un escaneo, triaje",phoneTitle5:"instantáneo",
-          simplePeople:"Simple para personas.",preciseResponders:"Preciso",forResponders:"para los socorristas.",
-          email:"Correo",password:"Contraseña",forgot:"¿Olvidaste la contraseña?",fullName:"Nombre completo",backSignin:"Volver a iniciar sesión",
-          resetHeader:"Restablecer tu contraseña",sendReset:"Enviar enlace de restablecimiento",updateHeader:"Establecer nueva contraseña",newPassword:"Nueva contraseña",confirmPassword:"Confirmar contraseña",updateBtn:"Actualizar contraseña"},
-      fr:{pages:"Pages",openApp:"Ouvrir l'app",signIn:"Se connecter",signUp:"S'inscrire",badgeFree:"Gratuit",badgeOffline:"Fonctionne hors-ligne",
-          heroLine1:"Votre",heroLine2:"triage d'urgence",heroLine3:"avec synthèse vocale.",subcopy:"Scannez un tag MYQER pour afficher allergies, pathologies, médicaments, ICE — sur tout téléphone, dans toute langue, même sans réseau.",
-          createFree:"Créer un compte gratuit",privacyLine:"Pas de pubs. Pas de pisteurs. Vos données restent sur votre appareil sauf si vous choisissez de les partager.",
-          phoneTitle1:"Votre",phoneTitle2:"urgence",phoneTitle3:"carte.",phoneTitle4:"Un scan, triage",phoneTitle5:"instantané",
-          simplePeople:"Simple pour tous.",preciseResponders:"Précis",forResponders:"pour les secours.",
-          email:"E-mail",password:"Mot de passe",forgot:"Mot de passe oublié ?",fullName:"Nom complet",backSignin:"Retour à la connexion",
-          resetHeader:"Réinitialiser votre mot de passe",sendReset:"Envoyer le lien",updateHeader:"Définir un nouveau mot de passe",newPassword:"Nouveau mot de passe",confirmPassword:"Confirmer le mot de passe",updateBtn:"Mettre à jour"},
-      de:{pages:"Seiten",openApp:"App öffnen",signIn:"Anmelden",signUp:"Registrieren",badgeFree:"Kostenlos",badgeOffline:"Offline nutzbar",
-          heroLine1:"Deine",heroLine2:"Notfalltriage",heroLine3:"mit Sprache.",subcopy:"Scanne ein MYQER-Tag für Allergien, Erkrankungen, Medikamente, ICE – auf jedem Handy, in jeder Sprache, auch ohne Netz.",
-          createFree:"Kostenloses Konto erstellen",privacyLine:"Keine Werbung. Kein Tracking. Deine Daten bleiben auf deinem Gerät, außer du teilst sie.",
-          phoneTitle1:"Deine",phoneTitle2:"Notfall",phoneTitle3:"karte.",phoneTitle4:"Ein Scan, sofortige",phoneTitle5:"Triage",
-          simplePeople:"Einfach für Menschen.",preciseResponders:"Präzise",forResponders:"für Einsatzkräfte.",
-          email:"E-Mail",password:"Passwort",forgot:"Passwort vergessen?",fullName:"Vollständiger Name",backSignin:"Zur Anmeldung",
-          resetHeader:"Passwort zurücksetzen",sendReset:"Link senden",updateHeader:"Neues Passwort setzen",newPassword:"Neues Passwort",confirmPassword:"Passwort bestätigen",updateBtn:"Passwort aktualisieren"},
-      it:{pages:"Pagine",openApp:"Apri App",signIn:"Accedi",signUp:"Registrati",badgeFree:"Gratuito",badgeOffline:"Funziona offline",
-          heroLine1:"Il tuo",heroLine2:"triage di emergenza",heroLine3:"con voce.",subcopy:"Scansiona un tag MYQER per mostrare allergie, condizioni, farmaci, ICE — su qualsiasi telefono, in qualsiasi lingua, anche senza segnale.",
-          createFree:"Crea account gratuito",privacyLine:"Niente annunci. Niente tracker. I tuoi dati restano sul dispositivo salvo tua scelta.",
-          phoneTitle1:"La tua",phoneTitle2:"emergenza",phoneTitle3:"card.",phoneTitle4:"Una scansione, triage",phoneTitle5:"istantaneo",
-          simplePeople:"Semplice per le persone.",preciseResponders:"Preciso",forResponders:"per i soccorritori.",
-          email:"Email",password:"Password",forgot:"Password dimenticata?",fullName:"Nome completo",backSignin:"Torna al login",
-          resetHeader:"Reimposta la password",sendReset:"Invia link",updateHeader:"Imposta nuova password",newPassword:"Nuova password",confirmPassword:"Conferma password",updateBtn:"Aggiorna password"},
-      hi:{pages:"पेज",openApp:"ऐप खोलें",signIn:"साइन इन",signUp:"साइन अप",badgeFree:"मुफ़्त",badgeOffline:"ऑफ़लाइन भी",
-          heroLine1:"आपका",heroLine2:"आपातकालीन ट्रायेज",heroLine3:"आवाज़ के साथ।",subcopy:"MYQER टैग स्कैन करें— एलर्जी, रोग, दवाएँ, ICE — किसी भी फ़ोन पर, किसी भी भाषा में, बिना नेटवर्क के भी।",
-          createFree:"मुफ़्त खाता बनाएँ",privacyLine:"कोई विज्ञापन नहीं। कोई ट्रैकिंग नहीं। डेटा आपके डिवाइस पर रहता है।",
-          phoneTitle1:"आपका",phoneTitle2:"आपातकाल",phoneTitle3:"कार्ड.",phoneTitle4:"एक स्कैन, तुरंत",phoneTitle5:"ट्रायेज",
-          simplePeople:"लोगों के लिए सरल।",preciseResponders:"सटीक",forResponders:"रिस्पॉन्डर्स के लिए।",
-          email:"ईमेल",password:"पासवर्ड",forgot:"पासवर्ड भूल गए?",fullName:"पूरा नाम",backSignin:"साइन इन पर वापस",
-          resetHeader:"पासवर्ड रीसेट करें",sendReset:"लिंक भेजें",updateHeader:"नया पासवर्ड सेट करें",newPassword:"नया पासवर्ड",confirmPassword:"पासवर्ड पुष्टि",updateBtn:"अपडेट करें"},
-      ar:{pages:"الصفحات",openApp:"افتح التطبيق",signIn:"تسجيل الدخول",signUp:"إنشاء حساب",badgeFree:"مجانًا",badgeOffline:"يعمل دون إنترنت",
-          heroLine1:"رعايتك",heroLine2:"فرز طارئ",heroLine3:"بالصوت.",subcopy:"امسح وسم MYQER لعرض الحساسية والحالات والأدوية وجهات ICE — على أي هاتف وبأي لغة وبدون شبكة.",
-          createFree:"أنشئ حسابًا مجانيًا",privacyLine:"بدون إعلانات أو تتبع. تبقى بياناتك على جهازك إلا إذا شاركتها.",
-          phoneTitle1:"بطاقتك",phoneTitle2:"الطارئة",phoneTitle3:".",phoneTitle4:"مسح واحد، فرز",phoneTitle5:"فوري",
-          simplePeople:"بسيط للناس.",preciseResponders:"دقيق",forResponders:"للمسعفين.",
-          email:"البريد الإلكتروني",password:"كلمة المرور",forgot:"نسيت كلمة المرور؟",fullName:"الاسم الكامل",backSignin:"العودة لتسجيل الدخول",
-          resetHeader:"إعادة تعيين كلمة المرور",sendReset:"إرسال الرابط",updateHeader:"تعيين كلمة مرور جديدة",newPassword:"كلمة مرور جديدة",confirmPassword:"تأكيد كلمة المرور",updateBtn:"تحديث"},
-      zh:{pages:"页面",openApp:"打开应用",signIn:"登录",signUp:"注册",badgeFree:"免费",badgeOffline:"离线可用",
-          heroLine1:"你的",heroLine2:"紧急分诊",heroLine3:"语音辅助。",subcopy:"扫描 MYQER 标签即可显示过敏、病症、用药与 ICE 联系人——任何手机、任何语言、无网络也可用。",
-          createFree:"创建免费账号",privacyLine:"无广告，无跟踪。数据保留在你的设备上，除非你选择共享。",
-          phoneTitle1:"你的",phoneTitle2:"紧急",phoneTitle3:"卡。",phoneTitle4:"一扫即得，即时",phoneTitle5:"分诊",
-          simplePeople:"对人简单。",preciseResponders:"对急救",forResponders:"更精准。",
-          email:"邮箱",password:"密码",forgot:"忘记密码？",fullName:"姓名",backSignin:"返回登录",
-          resetHeader:"重置密码",sendReset:"发送重置链接",updateHeader:"设置新密码",newPassword:"新密码",confirmPassword:"确认密码",updateBtn:"更新密码"},
-      hu:{pages:"Oldalak",openApp:"App megnyitása",signIn:"Bejelentkezés",signUp:"Regisztráció",badgeFree:"Ingyenes",badgeOffline:"Offline is működik",
-          heroLine1:"A te",heroLine2:"sürgősségi triázsod",heroLine3:"hanggal.",subcopy:"Olvasd be a MYQER címkét – allergiák, állapotok, gyógyszerek, ICE – bármely telefonon, bármely nyelven, net nélkül is.",
-          createFree:"Ingyenes fiók létrehozása",privacyLine:"Nincs reklám. Nincs követés. Az adataid a készüléken maradnak.",
-          phoneTitle1:"A te",phoneTitle2:"sürgősségi",phoneTitle3:"kártyád.",phoneTitle4:"Egy beolvasás, azonnali",phoneTitle5:"triázs",
-          simplePeople:"Egyszerű az embereknek.",preciseResponders:"Precíz",forResponders:"a segítőknek.",
-          email:"Email",password:"Jelszó",forgot:"Elfelejtett jelszó?",fullName:"Teljes név",backSignin:"Vissza a bejelentkezéshez",
-          resetHeader:"Jelszó visszaállítása",sendReset:"Visszaállító link küldése",updateHeader:"Új jelszó beállítása",newPassword:"Új jelszó",confirmPassword:"Jelszó megerősítése",updateBtn:"Frissítés"},
-      ro:{pages:"Pagini",openApp:"Deschide aplicația",signIn:"Autentificare",signUp:"Înregistrare",badgeFree:"Gratuit",badgeOffline:"Merge offline",
-          heroLine1:"Triage-ul tău",heroLine2:"de urgență",heroLine3:"cu voce.",subcopy:"Scanează eticheta MYQER pentru alergii, afecțiuni, medicații, ICE — pe orice telefon, în orice limbă, chiar și fără semnal.",
-          createFree:"Creează cont gratuit",privacyLine:"Fără reclame. Fără tracking. Datele rămân pe dispozitivul tău.",
-          phoneTitle1:"Cardul tău",phoneTitle2:"de urgență",phoneTitle3:".",phoneTitle4:"O scanare, triere",phoneTitle5:"instant",
-          simplePeople:"Simplu pentru oameni.",preciseResponders:"Precis",forResponders:"pentru salvatori.",
-          email:"Email",password:"Parolă",forgot:"Ai uitat parola?",fullName:"Nume complet",backSignin:"Înapoi la autentificare",
-          resetHeader:"Resetează parola",sendReset:"Trimite linkul",updateHeader:"Setează parolă nouă",newPassword:"Parolă nouă",confirmPassword:"Confirmă parola",updateBtn:"Actualizează"}
-    };
+  <!-- ===== Scripts ===== -->
+  <script type="module">
+    const supabase = window._supabase;
 
-    function applyI18n(lang){
-      const t = T[lang] || T.en;
-      document.querySelectorAll('[data-i18n]').forEach(el=>{
-        const key = el.getAttribute('data-i18n');
-        if(t[key]) el.textContent = t[key];
-      });
-    }
+    // Elements
+    const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
+    const burger = document.getElementById('burger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const btnOpenApp = document.getElementById('btnOpenApp');
+    const mOpenApp = document.getElementById('mOpenApp');
+    const phoneSignIn = document.getElementById('phoneSignIn');
+    const phoneSignUp = document.getElementById('phoneSignUp');
+    const planCreate = document.getElementById('planCreate');
 
-    // ----- UI wiring -----
-    const langSel = document.getElementById('lang');
-    const burger  = document.getElementById('burger');
-    const mNav    = document.getElementById('mNav');
-
+    // Modal bits
     const authModal = document.getElementById('authModal');
-    const views = {
-      login:   document.getElementById('view-login'),
-      register:document.getElementById('view-register'),
-      reset:   document.getElementById('view-reset'),
-      update:  document.getElementById('view-update')
-    };
     const alerts = document.getElementById('authAlerts');
-    const showAlert = (msg,type='error')=>{
-      alerts.innerHTML = `<div class="rounded-lg border px-3 py-2 text-sm ${type==='success'?'bg-green-50 border-green-200 text-green-700':'bg-red-50 border-red-200 text-red-700'}">${msg}</div>`;
+    const views = {
+      login: document.getElementById('view-login'),
+      register: document.getElementById('view-register'),
+      reset: document.getElementById('view-reset'),
+      update: document.getElementById('view-update')
     };
-    const clearAlert=()=>alerts.innerHTML='';
+    const authClose = document.getElementById('authClose');
 
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPass  = document.getElementById('loginPass');
+    const regName    = document.getElementById('regName');
+    const regEmail   = document.getElementById('regEmail');
+    const regPass    = document.getElementById('regPass');
+    const resetEmail = document.getElementById('resetEmail');
+    const newPass    = document.getElementById('newPass');
+    const newPass2   = document.getElementById('newPass2');
+
+    const doLogin    = document.getElementById('doLogin');
+    const doRegister = document.getElementById('doRegister');
+    const doReset    = document.getElementById('doReset');
+    const doUpdate   = document.getElementById('doUpdate');
+
+    const toggleLoginPass = document.getElementById('toggleLoginPass');
+    const toggleRegPass   = document.getElementById('toggleRegPass');
+    const toggleNewPass   = document.getElementById('toggleNewPass');
+
+    const goRegister = document.getElementById('goRegister');
+    const goReset    = document.getElementById('goReset');
+    const backLogin1 = document.getElementById('backLogin1');
+    const backLogin2 = document.getElementById('backLogin2');
+    const backLogin3 = document.getElementById('backLogin3');
+
+    // Mobile menu
+    burger?.addEventListener('click', ()=> mobileMenu.classList.toggle('hidden'));
+
+    // Helper alerts
+    function showAlert(msg, type='error'){
+      alerts.innerHTML = `<div class="rounded-lg border px-3 py-2 text-sm ${type==='success'?'bg-green-50 border-green-200 text-green-700':'bg-red-50 border-red-200 text-red-700'}">${msg}</div>`;
+    }
+    function clearAlert(){ alerts.innerHTML=''; }
+
+    // Modal open/close
     function openModal(which='login'){
       document.body.classList.add('modal-open');
       authModal.classList.remove('hidden');
@@ -374,91 +369,276 @@
       authModal.classList.add('hidden');
       clearAlert();
     }
+    authClose?.addEventListener('click', closeModal);
+    authModal?.addEventListener('click', (e)=>{ if(e.target===authModal) closeModal(); });
 
-    // language init
-    const savedLang = localStorage.getItem('myqer_lang') || 'en';
-    langSel.value = savedLang; applyI18n(savedLang);
-    langSel.addEventListener('change', e=>{
-      const L = e.target.value; localStorage.setItem('myqer_lang', L); applyI18n(L);
-    });
+    // Password toggle
+    const togg = (input, btn)=> btn?.addEventListener('click', (e)=>{ e.preventDefault(); input.type = input.type==='password'?'text':'password'; btn.textContent = input.type==='password'?'Show':'Hide';});
+    togg(loginPass, toggleLoginPass); togg(regPass, toggleRegPass); togg(newPass, toggleNewPass);
 
-    // mobile menu
-    burger?.addEventListener('click', ()=> mNav.classList.toggle('hidden'));
+    // CTA openings
+    phoneSignIn?.addEventListener('click', ()=>openModal('login'));
+    phoneSignUp?.addEventListener('click', ()=>openModal('register'));
+    planCreate?.addEventListener('click', ()=>openModal('register'));
 
-    // open app smart
     async function openAppSmart(){
-      const { data:{ session } } = await window.supabase.auth.getSession();
-      if(session) window.location.href = '/dashboard.html';
-      else openModal('login');
+      const { data:{ session } } = await supabase.auth.getSession();
+      if(session) window.location.href='/dashboard.html'; else openModal('login');
     }
+    btnOpenApp?.addEventListener('click', openAppSmart);
+    mOpenApp?.addEventListener('click', ()=>{ mobileMenu.classList.add('hidden'); openAppSmart(); });
 
-    // nav/hero/phone buttons
-    document.getElementById('openApp')?.addEventListener('click', openAppSmart);
-    document.getElementById('navLogin')?.addEventListener('click', ()=>openModal('login'));
-    document.getElementById('navReg')  ?.addEventListener('click', ()=>openModal('register'));
-    document.getElementById('mOpen')   ?.addEventListener('click', ()=>{ mNav.classList.add('hidden'); openAppSmart(); });
-    document.getElementById('mLogin')  ?.addEventListener('click', ()=>{ mNav.classList.add('hidden'); openModal('login'); });
-    document.getElementById('mReg')    ?.addEventListener('click', ()=>{ mNav.classList.add('hidden'); openModal('register'); });
-    document.getElementById('ctaStart')?.addEventListener('click', ()=>openModal('register'));
-    document.getElementById('ctaSign') ?.addEventListener('click', ()=>openModal('login'));
-    document.getElementById('ctaOpen') ?.addEventListener('click', openAppSmart);
-    document.getElementById('phSignIn')?.addEventListener('click', ()=>openModal('login'));
-    document.getElementById('phSignUp')?.addEventListener('click', ()=>openModal('register'));
-    document.getElementById('authClose')?.addEventListener('click', closeModal);
-    authModal?.addEventListener('click', e=>{ if(e.target===authModal) closeModal(); });
-
-    // show/hide password helpers
-    function attachToggle(inputId, btnId){
-      const input=document.getElementById(inputId), btn=document.getElementById(btnId);
-      btn?.addEventListener('click', (e)=>{ e.preventDefault(); const isPwd=input.type==='password'; input.type=isPwd?'text':'password'; btn.textContent=isPwd?'Hide':'Show'; });
-    }
-    attachToggle('loginPass','toggleLoginPass'); attachToggle('regPass','toggleRegPass'); attachToggle('newPass','toggleNewPass');
-
-    // handle URL params (recovery / pre-open)
-    const p = new URLSearchParams(location.search);
-    if(p.get('type')==='recovery') openModal('update');
-    if(p.get('auth')==='signin' || p.get('modal')==='login') openModal('login');
-    if(p.get('auth')==='register' || p.get('modal')==='register') openModal('register');
-
-    // ----- Auth actions -----
-    const loginEmail=document.getElementById('loginEmail'), loginPass=document.getElementById('loginPass');
-    const regName=document.getElementById('regName'), regEmail=document.getElementById('regEmail'), regPass=document.getElementById('regPass');
-    const resetEmail=document.getElementById('resetEmail'); const newPass=document.getElementById('newPass'), newPass2=document.getElementById('newPass2');
-
-    document.getElementById('doLogin')?.addEventListener('click', async ()=>{
+    // Auth actions
+    doLogin?.addEventListener('click', async ()=>{
       clearAlert();
-      const { error } = await window.supabase.auth.signInWithPassword({ email:loginEmail.value.trim(), password:loginPass.value });
+      const email = loginEmail.value.trim(), password = loginPass.value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if(error) return showAlert(error.message);
       window.location.replace('/dashboard.html');
     });
 
-    document.getElementById('doRegister')?.addEventListener('click', async ()=>{
+    doRegister?.addEventListener('click', async ()=>{
       clearAlert();
-      if(regPass.value.length<6) return showAlert('Password must be at least 6 characters.');
-      const { error } = await window.supabase.auth.signUp({ email:regEmail.value.trim(), password:regPass.value, options:{ data:{ full_name: regName.value.trim() } } });
+      const email = regEmail.value.trim(), password = regPass.value, full_name = regName.value.trim();
+      if(password.length<6) return showAlert('Password must be at least 6 characters.');
+      const { error } = await supabase.auth.signUp({ email, password, options:{ data:{ full_name } } });
       if(error) return showAlert(error.message);
       showAlert('Registration successful — check your email to confirm.', 'success');
-      setTimeout(()=>openModal('login'), 1600);
+      setTimeout(()=>openModal('login'), 2000);
     });
 
-    document.getElementById('doReset')?.addEventListener('click', async ()=>{
+    doReset?.addEventListener('click', async ()=>{
       clearAlert();
-      const { error } = await window.supabase.auth.resetPasswordForEmail(resetEmail.value.trim(), { redirectTo:`${location.origin}/?type=recovery` });
+      const email = resetEmail.value.trim();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/?type=recovery` });
       if(error) return showAlert(error.message);
-      showAlert('Password reset email sent.', 'success');
+      showAlert('Password reset email sent — check your inbox.', 'success');
     });
 
-    document.getElementById('doUpdate')?.addEventListener('click', async ()=>{
+    doUpdate?.addEventListener('click', async ()=>{
       clearAlert();
-      if(!newPass.value || newPass.value.length<6) return showAlert('New password must be at least 6 characters.');
-      if(newPass.value!==newPass2.value) return showAlert('Passwords do not match.');
-      const { error } = await window.supabase.auth.updateUser({ password:newPass.value });
+      const p1=newPass.value, p2=newPass2.value;
+      if(!p1||p1.length<6) return showAlert('New password must be at least 6 characters.');
+      if(p1!==p2) return showAlert('Passwords do not match.');
+      const { error } = await supabase.auth.updateUser({ password:p1 });
       if(error) return showAlert(error.message);
-      showAlert('Password updated. Redirecting…', 'success'); setTimeout(()=>window.location.replace('/dashboard.html'), 1200);
+      showAlert('Password updated. Redirecting…','success');
+      setTimeout(()=>window.location.replace('/dashboard.html'), 1200);
     });
+
+    // Handle deep links
+    const qs = new URLSearchParams(location.search);
+    if(qs.get('type')==='recovery') openModal('update');
+
+    // ===== i18n (10 languages) =====
+    const T = {
+      en:{navAbout:'About',navPrivacy:'Privacy',navTerms:'Terms',navClinician:'Clinician',navHow:'How it works',
+          signIn:'Sign In',signUp:'Sign Up',signinTitle:'Sign in to MYQER',signupTitle:'Create your MYQER account',
+          email:'Email',password:'Password',fullName:'Full name',createAccount:'Create account',forgotPassword:'Forgot password?',backToSignIn:'Back to sign in',
+          resetTitle:'Reset your password',sendReset:'Send reset link',updateTitle:'Set a new password',newPassword:'New password',confirmPassword:'Confirm password',updatePassword:'Update password',
+          card1Title:'People — Essential Access',freeBadge:'Free to use',card1Sub:'No cost · No trial · No ads',
+          card1List:['• Emergency card (allergies, meds, ICE)','• Works offline (no signal needed)','• DIY printable QR tags & stickers','• Multi-language text & voice*','• Zero tracking & on-device privacy'],
+          createFree:'Create free account',rollout:'* Voice & translations roll out progressively by language.',
+          card2Title:'MYQER+ — Professional',comingSoon:'Coming soon',card2Sub:'Pro tools for clinicians & institutions',
+          card2List:['• Clinician dashboard & dispatch integration','• Hospital & EMS API support','• Premium tags & wearables (NFC, metal bands)','• Secure cloud backup & recovery','• Priority clinical support'],
+          notAvailable:'Not yet available',
+          phoneTitle:'Your emergency card. One scan, instant triage.',phoneCopy:'A QR triage code to guide responders — anywhere, anytime.',
+          tagline:'Simple for people. <span class="text-red-600 font-semibold">Precise</span> for responders.',
+          blood:'BLOOD',allergies:'ALLERGIES',meds:'MEDS'
+      },
+      es:{navAbout:'Acerca de',navPrivacy:'Privacidad',navTerms:'Términos',navClinician:'Clínico',navHow:'Cómo funciona',
+          signIn:'Iniciar sesión',signUp:'Registrarse',signinTitle:'Inicia sesión en MYQER',signupTitle:'Crea tu cuenta MYQER',
+          email:'Correo electrónico',password:'Contraseña',fullName:'Nombre completo',createAccount:'Crear cuenta',forgotPassword:'¿Olvidaste la contraseña?',backToSignIn:'Volver a iniciar sesión',
+          resetTitle:'Restablecer tu contraseña',sendReset:'Enviar enlace de restablecimiento',updateTitle:'Establecer nueva contraseña',newPassword:'Nueva contraseña',confirmPassword:'Confirmar contraseña',updatePassword:'Actualizar contraseña',
+          card1Title:'Personas — Acceso Esencial',freeBadge:'Gratis',card1Sub:'Sin costo · Sin prueba · Sin anuncios',
+          card1List:['• Tarjeta de emergencia (alergias, meds, ICE)','• Funciona sin internet','• Etiquetas QR imprimibles','• Texto y voz multilingüe*','• Sin rastreo y privacidad en el dispositivo'],
+          createFree:'Crear cuenta gratis',rollout:'* Voz y traducciones se publican progresivamente.',
+          card2Title:'MYQER+ — Profesional',comingSoon:'Próximamente',card2Sub:'Herramientas para clínicas e instituciones',
+          card2List:['• Panel clínico e integración de despacho','• Soporte API para hospitales y EMS','• Etiquetas y wearables premium (NFC, metal)','• Copia de seguridad segura en la nube','• Soporte clínico prioritario'],
+          notAvailable:'Aún no disponible',
+          phoneTitle:'Tu tarjeta de emergencia. Un escaneo, triaje instantáneo.',phoneCopy:'Un código QR de triaje para guiar a los respondedores — en cualquier lugar.',
+          tagline:'Simple para personas. <span class="text-red-600 font-semibold">Preciso</span> para respondedores.',
+          blood:'SANGRE',allergies:'ALERGIAS',meds:'MEDS'
+      },
+      fr:{navAbout:'À propos',navPrivacy:'Confidentialité',navTerms:'Conditions',navClinician:'Clinicien',navHow:'Comment ça marche',
+          signIn:'Se connecter',signUp:"S'inscrire",signinTitle:'Connectez-vous à MYQER',signupTitle:'Créez votre compte MYQER',
+          email:'Email',password:'Mot de passe',fullName:'Nom complet',createAccount:'Créer un compte',forgotPassword:'Mot de passe oublié ?',backToSignIn:'Retour à la connexion',
+          resetTitle:'Réinitialiser le mot de passe',sendReset:'Envoyer le lien',updateTitle:'Définir un nouveau mot de passe',newPassword:'Nouveau mot de passe',confirmPassword:'Confirmer le mot de passe',updatePassword:'Mettre à jour',
+          card1Title:'Personnes — Accès Essentiel',freeBadge:'Gratuit',card1Sub:'Sans coût · Sans essai · Sans pubs',
+          card1List:["• Carte d'urgence (allergies, méds, ICE)","• Fonctionne hors ligne","• Étiquettes QR à imprimer","• Texte & voix multilingues*","• Aucune traque, confidentialité locale"],
+          createFree:'Créer un compte gratuit',rollout:'* Voix & traductions déployées progressivement.',
+          card2Title:'MYQER+ — Professionnel',comingSoon:'Bientôt',card2Sub:'Outils pour cliniciens & institutions',
+          card2List:['• Tableau de bord & intégration dispatch','• API hôpital & EMS','• Étiquettes & wearables premium (NFC, métal)','• Sauvegarde cloud sécurisée','• Support clinique prioritaire'],
+          notAvailable:'Pas encore disponible',
+          phoneTitle:"Votre carte d'urgence. Un scan, triage instantané.",phoneCopy:'Un code QR de triage pour guider les secours — partout.',
+          tagline:'Simple pour tous. <span class="text-red-600 font-semibold">Précis</span> pour les secours.',
+          blood:'SANG',allergies:'ALLERGIES',meds:'MÉDS'
+      },
+      de:{navAbout:'Über uns',navPrivacy:'Datenschutz',navTerms:'Bedingungen',navClinician:'Klinik',navHow:'So funktioniert es',
+          signIn:'Anmelden',signUp:'Registrieren',signinTitle:'Bei MYQER anmelden',signupTitle:'MYQER-Konto erstellen',
+          email:'E-Mail',password:'Passwort',fullName:'Vollständiger Name',createAccount:'Konto erstellen',forgotPassword:'Passwort vergessen?',backToSignIn:'Zur Anmeldung',
+          resetTitle:'Passwort zurücksetzen',sendReset:'Link senden',updateTitle:'Neues Passwort festlegen',newPassword:'Neues Passwort',confirmPassword:'Passwort bestätigen',updatePassword:'Passwort aktualisieren',
+          card1Title:'Menschen — Wesentlicher Zugang',freeBadge:'Kostenlos',card1Sub:'Keine Kosten · Keine Tests · Keine Werbung',
+          card1List:['• Notfallkarte (Allergien, Meds, ICE)','• Offline nutzbar','• QR-Tags zum Ausdrucken','• Mehrsprachiger Text & Stimme*','• Kein Tracking, Datenschutz am Gerät'],
+          createFree:'Kostenloses Konto erstellen',rollout:'* Stimme & Übersetzungen schrittweise.',
+          card2Title:'MYQER+ — Professionell',comingSoon:'Demnächst',card2Sub:'Tools für Kliniken & Institutionen',
+          card2List:['• Klinik-Dashboard & Dispatch-Integration','• Krankenhaus- & Rettungsdienst-API','• Premium-Tags & Wearables (NFC, Metall)','• Sichere Cloud-Backups','• Priorisierter klinischer Support'],
+          notAvailable:'Noch nicht verfügbar',
+          phoneTitle:'Ihre Notfallkarte. Ein Scan, sofortiges Triage.',phoneCopy:'Ein QR-Triagecode für Einsatzkräfte — überall.',
+          tagline:'Einfach für Menschen. <span class="text-red-600 font-semibold">Präzise</span> für Einsatzkräfte.',
+          blood:'BLUT',allergies:'ALLERGIEN',meds:'MEDS'
+      },
+      it:{navAbout:'Informazioni',navPrivacy:'Privacy',navTerms:'Termini',navClinician:'Clinico',navHow:'Come funziona',
+          signIn:'Accedi',signUp:'Registrati',signinTitle:'Accedi a MYQER',signupTitle:'Crea il tuo account MYQER',
+          email:'Email',password:'Password',fullName:'Nome completo',createAccount:'Crea account',forgotPassword:'Password dimenticata?',backToSignIn:'Torna al login',
+          resetTitle:'Reimposta password',sendReset:'Invia link',updateTitle:'Imposta nuova password',newPassword:'Nuova password',confirmPassword:'Conferma password',updatePassword:'Aggiorna password',
+          card1Title:'Persone — Accesso Essenziale',freeBadge:'Gratuito',card1Sub:'Nessun costo · Nessuna prova · Niente annunci',
+          card1List:['• Carta d’emergenza (allergie, farmaci, ICE)','• Funziona offline','• Etichette QR stampabili','• Testo e voce multilingue*','• Nessun tracciamento, privacy sul dispositivo'],
+          createFree:'Crea account gratuito',rollout:'* Voce e traduzioni in rollout progressivo.',
+          card2Title:'MYQER+ — Professionale',comingSoon:'Prossimamente',card2Sub:'Strumenti per cliniche e istituzioni',
+          card2List:['• Dashboard clinico & integrazione dispatch','• API ospedali & EMS','• Tag e wearable premium (NFC, metallo)','• Backup cloud sicuro','• Supporto clinico prioritario'],
+          notAvailable:'Non ancora disponibile',
+          phoneTitle:'La tua carta di emergenza. Una scansione, triage istantaneo.',phoneCopy:'Un QR di triage per guidare i soccorritori — ovunque.',
+          tagline:'Semplice per le persone. <span class="text-red-600 font-semibold">Preciso</span> per i soccorritori.',
+          blood:'SANGUE',allergies:'ALLERGIE',meds:'FARMACI'
+      },
+      hi:{navAbout:'हमारे बारे में',navPrivacy:'गोपनीयता',navTerms:'नियम',navClinician:'क्लिनिशियन',navHow:'कैसे काम करता है',
+          signIn:'साइन इन',signUp:'साइन अप',signinTitle:'MYQER में साइन इन करें',signupTitle:'अपना MYQER खाता बनाएँ',
+          email:'ईमेल',password:'पासवर्ड',fullName:'पूरा नाम',createAccount:'खाता बनाएँ',forgotPassword:'पासवर्ड भूल गए?',backToSignIn:'साइन इन पर वापस',
+          resetTitle:'पासवर्ड रीसेट करें',sendReset:'रीसेट लिंक भेजें',updateTitle:'नया पासवर्ड सेट करें',newPassword:'नया पासवर्ड',confirmPassword:'पासवर्ड की पुष्टि',updatePassword:'पासवर्ड अपडेट करें',
+          card1Title:'लोग — आवश्यक पहुँच',freeBadge:'नि:शुल्क',card1Sub:'कोई शुल्क नहीं · कोई ट्रायल नहीं · कोई विज्ञापन नहीं',
+          card1List:['• इमरजेंसी कार्ड (एलर्जी, दवाएँ, ICE)','• ऑफ़लाइन काम करता है','• प्रिंटेबल QR टैग','• बहुभाषी टेक्स्ट व आवाज*','• कोई ट्रैकिंग नहीं, डिवाइस पर गोपनीयता'],
+          createFree:'मुफ़्त खाता बनाएँ',rollout:'* आवाज़ और अनुवाद क्रमिक रूप से उपलब्ध होंगे।',
+          card2Title:'MYQER+ — प्रोफेशनल',comingSoon:'जल्द आ रहा है',card2Sub:'क्लिनिक व संस्थानों के लिए उपकरण',
+          card2List:['• क्लिनिशियन डैशबोर्ड व डिस्पैच','• अस्पताल व EMS API','• प्रीमियम टैग/वेयरेबल','• सुरक्षित क्लाउड बैकअप','• प्राथमिकता समर्थन'],
+          notAvailable:'अभी उपलब्ध नहीं',
+          phoneTitle:'आपका आपातकालीन कार्ड। एक स्कैन, तुरंत ट्रायेज।',phoneCopy:'रेस्पॉन्डर्स के लिए QR ट्रायेज कोड — कहीं भी।',
+          tagline:'लोगों के लिए सरल। रेस्पॉन्डर्स के लिए <span class="text-red-600 font-semibold">सटीक</span>।',
+          blood:'रक्त',allergies:'एलर्जी',meds:'दवाएँ'
+      },
+      ar:{navAbout:'حول',navPrivacy:'الخصوصية',navTerms:'الشروط',navClinician:'العيادة',navHow:'كيف يعمل',
+          signIn:'تسجيل الدخول',signUp:'إنشاء حساب',signinTitle:'سجّل الدخول إلى MYQER',signupTitle:'أنشئ حساب MYQER',
+          email:'البريد الإلكتروني',password:'كلمة المرور',fullName:'الاسم الكامل',createAccount:'إنشاء حساب',forgotPassword:'هل نسيت كلمة المرور؟',backToSignIn:'العودة لتسجيل الدخول',
+          resetTitle:'إعادة تعيين كلمة المرور',sendReset:'إرسال الرابط',updateTitle:'تعيين كلمة مرور جديدة',newPassword:'كلمة المرور الجديدة',confirmPassword:'تأكيد كلمة المرور',updatePassword:'تحديث كلمة المرور',
+          card1Title:'الأشخاص — الوصول الأساسي',freeBadge:'مجاني',card1Sub:'بدون تكلفة · بدون تجربة · بدون إعلانات',
+          card1List:['• بطاقة الطوارئ (حساسيات، أدوية، ICE)','• يعمل دون إنترنت','• ملصقات QR قابلة للطباعة','• نص وصوت بعدة لغات*','• بدون تتبع وخصوصية على الجهاز'],
+          createFree:'أنشئ حساباً مجاناً',rollout:'* سيتم طرح الصوت والترجمة تدريجياً.',
+          card2Title:'MYQER+ — احترافي',comingSoon:'قريباً',card2Sub:'أدوات للمؤسسات الطبية',
+          card2List:['• لوحة تحكم سريرية وتكامل الإرسال','• دعم واجهات برمجة للمستشفيات و EMS','• علامات وأساور مميزة (NFC، معدن)','• نسخ احتياطي آمن سحابي','• دعم سريري أولوية'],
+          notAvailable:'غير متاح بعد',
+          phoneTitle:'بطاقة الطوارئ الخاصة بك. مسح واحد، فرز فوري.',phoneCopy:'رمز QR للفرز الإكلينيكي — في أي مكان.',
+          tagline:'بسيط للناس. <span class="text-red-600 font-semibold">دقيق</span> للمستجيبين.',
+          blood:'الدم',allergies:'الحساسيات',meds:'الأدوية'
+      },
+      zh:{navAbout:'关于',navPrivacy:'隐私',navTerms:'条款',navClinician:'临床',navHow:'工作原理',
+          signIn:'登录',signUp:'注册',signinTitle:'登录 MYQER',signupTitle:'创建 MYQER 账户',
+          email:'邮箱',password:'密码',fullName:'全名',createAccount:'创建账户',forgotPassword:'忘记密码？',backToSignIn:'返回登录',
+          resetTitle:'重置密码',sendReset:'发送重置链接',updateTitle:'设置新密码',newPassword:'新密码',confirmPassword:'确认密码',updatePassword:'更新密码',
+          card1Title:'人群 — 基本访问',freeBadge:'免费使用',card1Sub:'无费用 · 无试用 · 无广告',
+          card1List:['• 紧急卡（过敏、用药、ICE）','• 离线可用','• 可打印 QR 标签','• 多语言文本与语音*','• 零跟踪，本机隐私'],
+          createFree:'免费创建账户',rollout:'* 语音和翻译将逐步推出。',
+          card2Title:'MYQER+ — 专业版',comingSoon:'即将推出',card2Sub:'面向机构的专业工具',
+          card2List:['• 临床看板与调度集成','• 医院与急救 API','• 高级标签与可穿戴','• 安全云备份','• 优先临床支持'],
+          notAvailable:'暂不可用',
+          phoneTitle:'你的紧急卡。一次扫描，即刻分诊。',phoneCopy:'用于引导急救人员的 QR 分诊码 — 随时随地。',
+          tagline:'对人们简单。对急救人员 <span class="text-red-600 font-semibold">精准</span>。',
+          blood:'血型',allergies:'过敏',meds:'用药'
+      },
+      hu:{navAbout:'Rólunk',navPrivacy:'Adatvédelem',navTerms:'Feltételek',navClinician:'Klinikai',navHow:'Működés',
+          signIn:'Bejelentkezés',signUp:'Regisztráció',signinTitle:'Jelentkezz be a MYQER-be',signupTitle:'Hozz létre MYQER fiókot',
+          email:'Email',password:'Jelszó',fullName:'Teljes név',createAccount:'Fiók létrehozása',forgotPassword:'Elfelejtett jelszó?',backToSignIn:'Vissza a bejelentkezéshez',
+          resetTitle:'Jelszó visszaállítása',sendReset:'Visszaállító link küldése',updateTitle:'Új jelszó beállítása',newPassword:'Új jelszó',confirmPassword:'Jelszó megerősítése',updatePassword:'Jelszó frissítése',
+          card1Title:'Emberek — Alapvető hozzáférés',freeBadge:'Ingyenes',card1Sub:'Nincs díj · Nincs próba · Nincs reklám',
+          card1List:['• Vészhelyzeti kártya (allergiák, gyógyszerek, ICE)','• Offline működés','• Nyomtatható QR címkék','• Többnyelvű szöveg és hang*','• Nincs követés, eszközön tárolt adatok'],
+          createFree:'Ingyenes fiók létrehozása',rollout:'* A hang és fordítás fokozatosan érhető el.',
+          card2Title:'MYQER+ — Professzionális',comingSoon:'Hamarosan',card2Sub:'Eszközök intézményeknek',
+          card2List:['• Klinikai vezérlőpult és dispatch','• Kórház & EMS API','• Prémium tagek, viselhető eszközök','• Biztonságos felhőmentés','• Elsőbbségi klinikai támogatás'],
+          notAvailable:'Még nem elérhető',
+          phoneTitle:'Vészhelyzeti kártyád. Egy szken, azonnali triázs.',phoneCopy:'QR triázskód a beavatkozóknak — bárhol.',
+          tagline:'Egyszerű az embereknek. <span class="text-red-600 font-semibold">Pontos</span> a beavatkozóknak.',
+          blood:'VÉR',allergies:'ALLERGIA',meds:'GYÓGYSZER'
+      },
+      ro:{navAbout:'Despre',navPrivacy:'Confidențialitate',navTerms:'Termeni',navClinician:'Clinic',navHow:'Cum funcționează',
+          signIn:'Conectare',signUp:'Înregistrare',signinTitle:'Conectează-te la MYQER',signupTitle:'Creează cont MYQER',
+          email:'Email',password:'Parolă',fullName:'Nume complet',createAccount:'Creează cont',forgotPassword:'Ai uitat parola?',backToSignIn:'Înapoi la conectare',
+          resetTitle:'Resetează parola',sendReset:'Trimite linkul',updateTitle:'Setează parolă nouă',newPassword:'Parolă nouă',confirmPassword:'Confirmă parola',updatePassword:'Actualizează parola',
+          card1Title:'Oameni — Acces Esențial',freeBadge:'Gratuit',card1Sub:'Fără cost · Fără trial · Fără reclame',
+          card1List:['• Card de urgență (alergii, medicație, ICE)','• Funcționează offline','• Etichete QR imprimabile','• Text și voce multilingvă*','• Fără tracking, confidențialitate locală'],
+          createFree:'Creează cont gratuit',rollout:'* Vocea și traducerile se lansează gradual.',
+          card2Title:'MYQER+ — Profesional',comingSoon:'În curând',card2Sub:'Instrumente pentru instituții medicale',
+          card2List:['• Dashboard clinic & integrare dispatch','• API spital & EMS','• Etichete & wearables premium','• Backup securizat în cloud','• Suport clinic prioritar'],
+          notAvailable:'Încă indisponibil',
+          phoneTitle:'Cardul tău de urgență. O scanare, triaj instant.',phoneCopy:'Cod QR de triaj pentru intervenție — oriunde.',
+          tagline:'Simplu pentru oameni. <span class="text-red-600 font-semibold">Precis</span> pentru intervenție.',
+          blood:'SÂNGE',allergies:'ALERGII',meds:'MEDICAȚIE'
+      }
+    };
+
+    const langSelect = document.getElementById('langSelect');
+    const mLangSelect = document.getElementById('mLangSelect');
+    const LS_KEY = 'myqer_lang';
+    function setLang(l){ localStorage.setItem(LS_KEY,l); applyLang(l); (langSelect.value=l); (mLangSelect.value=l); }
+    function applyLang(l){
+      const t = T[l]||T.en;
+      // nav & dropdown
+      document.querySelectorAll('[data-i18n="navAbout"]').forEach(n=>n.textContent=t.navAbout);
+      document.querySelectorAll('[data-i18n="navPrivacy"]').forEach(n=>n.textContent=t.navPrivacy);
+      document.querySelectorAll('[data-i18n="navTerms"]').forEach(n=>n.textContent=t.navTerms);
+      document.querySelectorAll('[data-i18n="navClinician"]').forEach(n=>n.textContent=t.navClinician);
+      document.querySelectorAll('[data-i18n="navHow"]').forEach(n=>n.textContent=t.navHow);
+      // phone
+      document.getElementById('pTitle').innerHTML = t.phoneTitle.replace('triage','<span class="text-[var(--brand)]">triage</span>').replace('emergency','<span class="text-[var(--brand)]">emergency</span>');
+      document.getElementById('pCopy').textContent = t.phoneCopy;
+      document.getElementById('pTagline').innerHTML = t.tagline;
+      document.querySelector('[data-i18n="blood"]').textContent = t.blood;
+      document.querySelector('[data-i18n="allergies"]').textContent = t.allergies;
+      document.querySelector('[data-i18n="meds"]').textContent = t.meds;
+      document.querySelectorAll('[data-i18n="signIn"]').forEach(n=>n.textContent=t.signIn);
+      document.querySelectorAll('[data-i18n="signUp"]').forEach(n=>n.textContent=t.signUp);
+      // cards
+      document.getElementById('card1Title').textContent=t.card1Title;
+      document.getElementById('freeBadge').textContent=t.freeBadge;
+      document.getElementById('card1Sub').textContent=t.card1Sub;
+      const l1 = document.getElementById('card1List'); l1.innerHTML = t.card1List.map(li=>`<li>${li}</li>`).join('');
+      document.getElementById('planCreate').textContent=t.createFree;
+      document.getElementById('rolloutNote').textContent=t.rollout;
+
+      document.getElementById('card2Title').textContent=t.card2Title;
+      document.getElementById('comingSoon').textContent=t.comingSoon;
+      document.getElementById('card2Sub').textContent=t.card2Sub;
+      const l2 = document.getElementById('card2List'); l2.innerHTML = t.card2List.map(li=>`<li>${li}</li>`).join('');
+      document.getElementById('notAvailable').textContent=t.notAvailable;
+
+      // modal labels/buttons
+      document.querySelectorAll('[data-i18n="signinTitle"]').forEach(n=>n.textContent=t.signinTitle);
+      document.querySelectorAll('[data-i18n="signupTitle"]').forEach(n=>n.textContent=t.signupTitle);
+      document.querySelectorAll('[data-i18n="email"]').forEach(n=>n.textContent=t.email);
+      document.querySelectorAll('[data-i18n="password"]').forEach(n=>n.textContent=t.password);
+      document.querySelectorAll('[data-i18n="fullName"]').forEach(n=>n.textContent=t.fullName);
+      document.querySelectorAll('[data-i18n="createAccount"]').forEach(n=>n.textContent=t.createAccount);
+      document.querySelectorAll('[data-i18n="forgotPassword"]').forEach(n=>n.textContent=t.forgotPassword);
+      document.querySelectorAll('[data-i18n="backToSignIn"]').forEach(n=>n.textContent=t.backToSignIn);
+      document.querySelectorAll('[data-i18n="resetTitle"]').forEach(n=>n.textContent=t.resetTitle);
+      document.querySelectorAll('[data-i18n="sendReset"]').forEach(n=>n.textContent=t.sendReset);
+      document.querySelectorAll('[data-i18n="updateTitle"]').forEach(n=>n.textContent=t.updateTitle);
+      document.querySelectorAll('[data-i18n="newPassword"]').forEach(n=>n.textContent=t.newPassword);
+      document.querySelectorAll('[data-i18n="confirmPassword"]').forEach(n=>n.textContent=t.confirmPassword);
+      document.querySelectorAll('[data-i18n="updatePassword"]').forEach(n=>n.textContent=t.updatePassword);
+    }
+    langSelect.addEventListener('change', e=>setLang(e.target.value));
+    mLangSelect.addEventListener('change', e=>setLang(e.target.value));
+    applyLang(localStorage.getItem(LS_KEY)||'en');
+
   </script>
 
-  <!-- Optional: service worker -->
-  <script> if('serviceWorker' in navigator){ navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{}); } </script>
+  <!-- Cloudflare anti-bot kept, at end -->
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'x',t:'x'};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+
+  <!-- Service worker -->
+  <script>
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
+    }
+  </script>
 </body>
 </html>
