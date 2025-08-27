@@ -5,48 +5,55 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Card</title>
 
-  <!-- PWA -->
-  <link rel="manifest" href="/myqer_manifest.json" />
+  <!-- Meta / PWA -->
   <meta name="theme-color" content="#c62828" />
+  <link rel="manifest" href="/myqer_manifest.json" />
 
-  <!-- Icons -->
+  <!-- Icons (match your repo paths) -->
   <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
   <link rel="apple-touch-icon" href="/images/icon-192.png" />
 
-  <!-- ✅ real stylesheet -->
-  <link rel="stylesheet" href="/styles/css" />
+  <!-- Your main stylesheet -->
+  <link rel="stylesheet" href="/styles/site.css" />
 
+  <!-- Minimal page-local styles -->
   <style>
-    :root { --red:#c62828; --glass:rgba(255,255,255,.25); --stroke:rgba(255,255,255,.35); --blur:22px;}
-    body{margin:0;padding:20px;font:18px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#f8f9fb,#e7edf6)}
-    .wrap{max-width:740px;margin:0 auto;display:grid;gap:16px}
-    .card{background:rgba(255,255,255,.5);backdrop-filter:blur(var(--blur));border:1px solid var(--stroke);border-radius:18px;padding:16px}
-    .triage{font-weight:700;font-size:1.2rem;padding:.4rem .8rem;border-radius:999px;display:inline-block}
-    .triage.red{background:#ffe6e6;color:#a20000;border:1px solid #ffb3b3}
-    .triage.amber{background:#fff6e0;color:#a76a00;border:1px solid #ffd38a}
-    .triage.green{background:#e8ffe8;color:#0b7a0b;border:1px solid #b7f0b7}
-    .triage.blue{background:#e6f0ff;color:#0a4bb3;border:1px solid #b3d0ff}
-    .big{font-size:1.3rem}
-    .btn{border:1px solid var(--stroke);border-radius:999px;padding:.6rem 1rem;background:var(--glass)}
-    .btn.red{background:#c62828;color:#fff;border-color:#c62828}
+    :root { --red:#c62828; --glass:rgba(255,255,255,.25); --stroke:rgba(2,23,23,.12); --blur:22px;}
+    body{margin:0;padding:20px;font:18px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#f8f9fb,#e7edf6)}
+    .wrap{max-width:760px;margin:0 auto;display:grid;gap:16px}
+    .card{background:rgba(255,255,255,.55);backdrop-filter:blur(var(--blur));border:1px solid var(--stroke);border-radius:18px;padding:16px}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .offline{color:#a76a00;font-weight:600}
+    .btn{border:1px solid var(--stroke);border-radius:999px;padding:.55rem 1rem;background:var(--glass);cursor:pointer}
+    .btn.red{background:#c62828;color:#fff;border-color:#c62828}
+    .big{font-size:1.3rem;margin:.25rem 0}
+    .offline{color:#8a6200;font-weight:600}
+    .triage{font-weight:800;font-size:1rem;padding:.35rem .8rem;border-radius:999px;display:inline-block;border:1px solid transparent}
+    .triage.red{background:#ffe6e6;color:#a20000;border-color:#ffb3b3}
+    .triage.amber{background:#fff6e0;color:#a76a00;border-color:#ffd38a}
+    .triage.green{background:#e8ffe8;color:#0b7a0b;border-color:#b7f0b7}
+    .triage.blue{background:#e6f0ff;color:#0a4bb3;border-color:#b3d0ff}
+    h2{margin:.25rem 0 0.5rem}
+    p{margin:.3rem 0}
+    #contacts p{margin:.2rem 0}
+    .muted{opacity:.65}
   </style>
 </head>
 <body>
   <main class="wrap">
+    <!-- Header / Controls -->
     <section class="card">
       <div class="row">
         <span id="triage" class="triage green">GREEN</span>
-        <button id="speak" class="btn red">► Play voice summary</button>
+        <button id="speak" class="btn red" aria-label="Play voice summary">► Play voice summary</button>
         <select id="lang" class="btn" aria-label="Language"></select>
         <span id="offline" class="offline" hidden>Offline • showing saved data</span>
       </div>
       <h1 id="name" class="big">—</h1>
-      <p><strong>DOB:</strong> <span id="dob">—</span> • <strong>Blood:</strong> <span id="blood">—</span> • <strong>Country:</strong> <span id="country">—</span></p>
-      <p><strong>ID:</strong> <span id="nid">—</span> • <strong>Organ donor:</strong> <span id="donor">—</span> • <strong>Life support:</strong> <span id="life">—</span></p>
+      <p class="muted" id="metaLine">DOB <span id="dob">—</span> • Blood <span id="blood">—</span> • Country <span id="country">—</span></p>
+      <p class="muted">ID <span id="nid">—</span> • Organ donor <span id="donor">—</span> • Life support <span id="life">—</span></p>
     </section>
 
+    <!-- Health -->
     <section class="card">
       <h2>Health</h2>
       <p><strong>Allergies:</strong> <span id="allergies">—</span></p>
@@ -54,26 +61,30 @@
       <p><strong>Medications:</strong> <span id="medications">—</span></p>
     </section>
 
+    <!-- ICE -->
     <section class="card">
       <h2>ICE contacts</h2>
-      <div id="contacts"></div>
+      <div id="contacts">—</div>
     </section>
   </main>
 
   <script type="module">
-    // ✅ Use your configured client from config.js
+    // Use your configured Supabase client
     import { supabase } from '/scripts/config.js';
 
+    // Language picker (kept simple; card is data-only)
     const LANGS = [['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['ro','Română'],['ar','العربية'],['hi','हिन्दी'],['zh','中文']];
     const langSel = document.getElementById('lang');
-    LANGS.forEach(([v,l]) => { const o=document.createElement('option');o.value=v;o.textContent=l;langSel.appendChild(o); });
-    langSel.value = localStorage.getItem('myqer_lang') || 'en';
+    LANGS.forEach(([v,l]) => { const o=document.createElement('option'); o.value=v; o.textContent=l; langSel.appendChild(o); });
+    langSel.value = (localStorage.getItem('myqer_lang') || 'en').slice(0,2);
     langSel.addEventListener('change', ()=> localStorage.setItem('myqer_lang', langSel.value));
 
+    // URL params
     const params = new URLSearchParams(location.search);
-    const uid = params.get('uid');   // legacy path
-    const code = params.get('code'); // new public function path
+    const code = params.get('code'); // preferred
+    const uid  = params.get('uid');  // legacy
 
+    // Element refs
     const els = {
       triage: document.getElementById('triage'),
       name: document.getElementById('name'),
@@ -91,6 +102,8 @@
       speak: document.getElementById('speak')
     };
 
+    /* ---------- Render helpers ---------- */
+
     function renderFromPublic(json) {
       const p = json.profile || {};
       const s = json.sections || {};
@@ -98,23 +111,26 @@
 
       const tri = (p.triage || 'green').toLowerCase();
       els.triage.className = 'triage ' + tri;
-      els.triage.textContent = ((labels['Triage'] || 'Triage') + ': ' + tri.toUpperCase());
+      els.triage.textContent = (labels['Triage'] || 'Triage') + ': ' + tri.toUpperCase();
 
       els.name.textContent = p.full_name || '—';
       els.dob.textContent = p.dob || '—';
       els.blood.textContent = (s.blood?.value) || '—';
       els.country.textContent = p.country || '—';
       els.nid.textContent = p.national_id || '—';
-      els.donor.textContent = (s.blood?.donor ? 'Yes' : 'No');
-      els.life.textContent = s.prefs ? (s.prefs.life_support_pref || '—') : '—';
+      els.donor.textContent = s.blood?.donor ? 'Yes' : 'No';
+      els.life.textContent = s.prefs?.life_support_pref || '—';
+
       els.allergies.textContent = (s.allergies?.items || []).join(', ') || '—';
       els.conditions.textContent = (s.conditions?.items || []).join(', ') || '—';
       els.medications.textContent = (s.meds?.items || []).join(', ') || '—';
 
-      els.contacts.innerHTML = s.ice?.contacts?.length
-        ? s.ice.contacts.map(x => `<p><strong>${x.name}</strong> — ${x.relation || ''} • ${x.phone || ''}</p>`).join('')
-        : '<p>—</p>';
+      const list = s.ice?.contacts || [];
+      els.contacts.innerHTML = list.length
+        ? list.map(x => `<p><strong>${x.name || '-'}</strong> — ${x.relation || ''} • ${x.phone || ''}</p>`).join('')
+        : '—';
 
+      // Optional voice file from function (if you add it)
       if (json.voice?.url) {
         let audio = document.getElementById('voice');
         if (!audio) {
@@ -127,7 +143,7 @@
       }
     }
 
-    function renderFromUid(data) { // legacy RPC path
+    function renderFromUid(data) { // legacy RPC output
       const p = data.profile || {};
       const h = data.health || {};
       const c = data.contacts || [];
@@ -143,23 +159,26 @@
       els.nid.textContent = p.national_id || '—';
       els.donor.textContent = p.organ_donor ? 'Yes' : 'No';
       els.life.textContent = p.life_support_preference || '—';
+
       els.allergies.textContent = (h.allergies || []).join(', ') || '—';
       els.conditions.textContent = (h.conditions || []).join(', ') || '—';
       els.medications.textContent = (h.medications || []).join(', ') || '—';
 
       els.contacts.innerHTML = c.length
         ? c.map(x => `<p><strong>${x.name}</strong> — ${x.relationship || ''} • ${x.phone || ''}</p>`).join('')
-        : '<p>—</p>';
+        : '—';
     }
 
+    /* ---------- Fetch & cache ---------- */
+
     async function fetchCard() {
+      const lang = langSel.value || 'en';
       try {
         if (code) {
-          const lang = (localStorage.getItem('myqer_lang') || 'en').slice(0,2);
           const url = `${supabase.supabaseUrl}/functions/v1/myqer-card-public?code=${encodeURIComponent(code)}&lang=${lang}`;
-          const res = await fetch(url);
+          const res = await fetch(url, { headers: { 'x-myqer-client': 'web-card' }});
           const json = await res.json();
-          if (!res.ok) throw new Error(json.error || 'Failed');
+          if (!res.ok) throw new Error(json.error || 'Failed to load card');
           localStorage.setItem('myqer_public_'+code, JSON.stringify(json));
           els.offline.hidden = true;
           renderFromPublic(json);
@@ -171,51 +190,59 @@
           localStorage.setItem('myqer_card_'+uid, JSON.stringify(data));
           els.offline.hidden = true;
           renderFromUid(data);
+          return;
         }
+        // No param provided
+        throw new Error('Missing code or uid');
       } catch (e) {
+        // Try cache
         const cached = code
           ? localStorage.getItem('myqer_public_'+code)
           : localStorage.getItem('myqer_card_'+uid);
         if (cached) {
           els.offline.hidden = false;
           (code ? renderFromPublic : renderFromUid)(JSON.parse(cached));
+        } else {
+          els.name.textContent = 'Card unavailable';
         }
       }
     }
 
+    /* ---------- Voice synthesis ---------- */
     function speakSummary() {
       const key = code ? 'myqer_public_'+code : 'myqer_card_'+uid;
-      const data = localStorage.getItem(key); if (!data) return;
-      const json = JSON.parse(data);
-      const p = json.profile || {};
-      const s = json.sections || {};
+      const cached = localStorage.getItem(key); if (!cached) return;
+      const json = JSON.parse(cached);
+      const p = (json.profile || json.profile) || {};
+      const sections = json.sections || {};
       const h = {
-        allergies: s.allergies?.items || [],
-        conditions: s.conditions?.items || [],
-        meds: s.meds?.items || []
+        allergies: sections.allergies?.items || json.health?.allergies || [],
+        conditions: sections.conditions?.items || json.health?.conditions || [],
+        meds: sections.meds?.items || json.health?.medications || []
       };
 
       const text = [
         `Emergency card for ${p.full_name || 'unknown'}.`,
-        (s.blood?.value ? `Blood type ${s.blood.value}.` : ''),
-        h.allergies.length ? `Allergies: ${h.allergies.slice(0,3).join(', ')}.` : 'No known severe allergies.',
+        sections.blood?.value ? `Blood type ${sections.blood.value}.` : '',
+        h.allergies.length ? `Allergies: ${h.allergies.slice(0,3).join(', ')}.` : '',
         h.conditions.length ? `Conditions: ${h.conditions.slice(0,3).join(', ')}.` : '',
         h.meds.length ? `Medications: ${h.meds.slice(0,3).join(', ')}.` : ''
       ].filter(Boolean).join(' ');
 
       const u = new SpeechSynthesisUtterance(text);
-      const lang = (localStorage.getItem('myqer_lang') || 'en');
-      u.lang = lang === 'zh' ? 'zh-CN' : (lang === 'ar' ? 'ar-SA' : (lang === 'hi' ? 'hi-IN' : `${lang}-${lang.toUpperCase()}`));
+      const lg = (localStorage.getItem('myqer_lang') || 'en');
+      u.lang = lg === 'zh' ? 'zh-CN' : (lg === 'ar' ? 'ar-SA' : (lg === 'hi' ? 'hi-IN' : `${lg}-${lg.toUpperCase()}`));
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     }
 
-    document.getElementById('speak').addEventListener('click', speakSummary);
+    els.speak.addEventListener('click', speakSummary);
 
+    /* ---------- Boot ---------- */
     fetchCard();
 
-    // PWA
+    // PWA (optional; uses your existing file)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/myqer_service_worker.js');
+      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
     }
   </script>
 </body>
