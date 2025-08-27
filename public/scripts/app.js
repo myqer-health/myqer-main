@@ -6,22 +6,20 @@ import 'https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.j
 
 /* ========== i18n boot ========== */
 const LANGS = ['en','es','fr','de','it','pt','ro','ar','hi','zh'];
-const userLangGuess = (localStorage.getItem('myqer_lang') || (navigator.language || 'en').slice(0,2));
-const currentLang = LANGS.includes(userLangGuess) ? userLangGuess : 'en';
+const guess = localStorage.getItem('myqer_lang') || (navigator.language || 'en').slice(0,2);
+const currentLang = LANGS.includes(guess) ? guess : 'en';
 
 await i18next.use(i18nextHttpBackend).init({
   lng: currentLang,
   fallbackLng: 'en',
   backend: { loadPath: '/locales/{{lng}}/site.json' }
 });
-
 const t = (k) => i18next.t(k);
 
 function applyTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    if (!key) return;
-    el.textContent = t(key);
+    if (key) el.textContent = t(key);
   });
 }
 
@@ -30,8 +28,7 @@ const langSel = document.querySelector('[data-lang-picker]');
 if (langSel) {
   LANGS.forEach(l => {
     const o = document.createElement('option');
-    o.value = l;
-    o.textContent = l.toUpperCase();
+    o.value = l; o.textContent = l.toUpperCase();
     if (l === currentLang) o.selected = true;
     langSel.appendChild(o);
   });
@@ -42,11 +39,11 @@ if (langSel) {
   });
 }
 
-/* ========== Auth guard (redirect to landing modal) ========== */
+/* ========== Auth guard (go back to landing with modal open) ========== */
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
-  // Back to homepage and auto-open login modal (landing reads ?auth=signin)
-  window.location.replace(`/?${AUTH_QUERY}`);
+  const q = (typeof AUTH_QUERY === 'string' && AUTH_QUERY) ? AUTH_QUERY : 'auth=signin';
+  window.location.replace(`/?${q}`);
   throw new Error('Not authenticated');
 }
 const userId = session.user.id;
@@ -54,11 +51,9 @@ const userId = session.user.id;
 /* ========== Helpers ========== */
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
-const debounce = (fn, ms=400) => {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-};
+const debounce = (fn, ms=400) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
+const toList   = (txt) => (txt || '').split(',').map(s=>s.trim()).filter(Boolean);
+const fromList = (arr) => (arr || []).join(', ');
 
 const setBadge = (color) => {
   const b = $('#triageBadge');
@@ -66,10 +61,6 @@ const setBadge = (color) => {
   b.dataset.color = color;
   b.textContent = t(`triage.${color}`) || color.toUpperCase();
 };
-
-// Convert between UI (comma list) and DB (text)
-const toList   = (txt) => (txt || '').split(',').map(s=>s.trim()).filter(Boolean);
-const fromList = (arr) => (arr || []).join(', ');
 
 /* ========== Load all profile data ========== */
 async function loadAll() {
@@ -84,38 +75,35 @@ async function loadAll() {
     const health   = hRes.data || {};
     const contacts = cRes.data || [];
 
-    // Ensure the profile has a unique code for QR and future integrations
-    if (!profile.code) {
-      const newCode = (crypto?.randomUUID?.() || `${userId}-${Date.now()}`);
-      await supabase.from('profiles').update({ code: newCode }).eq('id', userId);
-      profile.code = newCode;
+    // Guarantee a persistent code for QR / future integrations
+    let code = profile.public_code || profile.code || profile.qr_code;
+    if (!code) {
+      code = (crypto?.randomUUID?.() || `${userId}-${Date.now()}`);
+      try { await supabase.from('profiles').update({ public_code: code }).eq('id', userId); }
+      catch (e) { console.warn('Could not persist new public_code:', e); }
     }
 
     // profiles
-    if ($('#full_name'))           $('#full_name').value = profile.full_name || '';
-    if ($('#dob'))                 $('#dob').value = profile.date_of_birth || '';
-    if ($('#country'))             $('#country').value = profile.country || '';
-    if ($('#triage_override'))     $('#triage_override').value = profile.triage_override || '';
+    $('#full_name')           && ($('#full_name').value           = profile.full_name || '');
+    $('#dob')                 && ($('#dob').value                 = profile.date_of_birth || '');
+    $('#country')             && ($('#country').value             = profile.country || '');
+    $('#triage_override')     && ($('#triage_override').value     = profile.triage_override || '');
     setBadge(profile.triage_override || profile.triage_auto || 'green');
 
-    // health_profiles fields
-    if ($('#blood_type'))               $('#blood_type').value = health.blood_type || '';
-    if ($('#national_id'))              $('#national_id').value = health.national_id || '';
-    if ($('#organ_donor'))              $('#organ_donor').checked = !!health.organ_donor;
-    if ($('#life_support_preference'))  $('#life_support_preference').value = health.life_support_pref || '';
+    // health_profiles
+    $('#blood_type')              && ($('#blood_type').value              = health.blood_type || '');
+    $('#national_id')             && ($('#national_id').value             = health.national_id || '');
+    $('#organ_donor')             && ($('#organ_donor').checked           = !!health.organ_donor);
+    $('#life_support_preference') && ($('#life_support_preference').value = health.life_support_pref || '');
+    $('#allergies')               && ($('#allergies').value               = fromList(toList(health.allergies)));
+    $('#conditions')              && ($('#conditions').value              = fromList(toList(health.conditions)));
+    $('#medications')             && ($('#medications').value             = fromList(toList(health.meds)));
 
-    if ($('#allergies'))   $('#allergies').value   = fromList(toList(health.allergies));
-    if ($('#conditions'))  $('#conditions').value  = fromList(toList(health.conditions));
-    if ($('#medications')) $('#medications').value = fromList(toList(health.meds));
-
-    // ICE
     renderContacts(contacts);
-
-    // QR
-    ensureQrFromCode(profile.code);
-
+    ensureQrFromCode(code);
   } catch (e) {
     console.error('loadAll error:', e);
+    alert('Could not load your profile. Please refresh.');
   }
 }
 
@@ -125,7 +113,7 @@ const saveProfile = debounce(async () => {
     const update = {
       full_name:       $('#full_name')?.value.trim() || null,
       date_of_birth:   $('#dob')?.value || null,
-      country:         $('#country')?.value.trim() || null,
+      country:         $('#country')?.value?.trim() || null,
       triage_override: $('#triage_override')?.value || null,
     };
     await supabase.from('profiles').update(update).eq('id', userId);
@@ -139,13 +127,13 @@ const saveProfile = debounce(async () => {
 const saveHealth = debounce(async () => {
   try {
     const update = {
-      blood_type:         $('#blood_type')?.value || null,
-      national_id:        $('#national_id')?.value?.trim() || null,
-      organ_donor:        !!$('#organ_donor')?.checked,
-      life_support_pref:  $('#life_support_preference')?.value || null,
-      allergies:          $('#allergies')?.value,
-      conditions:         $('#conditions')?.value,
-      meds:               $('#medications')?.value,
+      blood_type:        $('#blood_type')?.value || null,
+      national_id:       $('#national_id')?.value?.trim() || null,
+      organ_donor:       !!$('#organ_donor')?.checked,
+      life_support_pref: $('#life_support_preference')?.value || null,
+      allergies:         $('#allergies')?.value,
+      conditions:        $('#conditions')?.value,
+      meds:              $('#medications')?.value,
     };
     await supabase.from('health_profiles')
       .upsert({ user_id: userId, ...update }, { onConflict: 'user_id' });
@@ -156,7 +144,7 @@ const saveHealth = debounce(async () => {
   }
 });
 
-/* Wire inputs (only if present on the page) */
+/* Wire inputs only if present */
 ['#full_name','#dob','#country','#triage_override']
   .forEach(sel => $(sel)?.addEventListener('input', saveProfile));
 ['#blood_type','#national_id','#organ_donor','#life_support_preference','#allergies','#conditions','#medications']
@@ -165,7 +153,6 @@ const saveHealth = debounce(async () => {
 /* ========== Triage logic ========== */
 function computeTriageColor(health, lifeSupport, override) {
   if (override) return override;
-
   const lower = (txt) => toList(txt).map(s => s.toLowerCase());
   const allergies  = lower(health?.allergies);
   const conditions = lower(health?.conditions);
@@ -199,20 +186,19 @@ async function computeAndSaveTriage() {
   }
 }
 
-/* ========== ICE contacts UI ========== */
+/* ========== ICE contacts UI + add/remove ========== */
 function renderContacts(list) {
   const wrap = $('#iceList');
   if (!wrap) return;
 
-  // If list empty, show "empty" block if you have one
-  if (list.length === 0) {
+  if (!list || list.length === 0) {
     wrap.innerHTML = '';
     $('#emptyIce')?.classList.remove('hidden');
     return;
   }
   $('#emptyIce')?.classList.add('hidden');
 
-  // Append (don't blow away existing edits)
+  // Build rows
   list.forEach((c) => {
     const row = document.createElement('div');
     row.className = 'ice-row glass';
@@ -234,7 +220,6 @@ function renderContacts(list) {
     }));
     row.querySelector('.remove')?.addEventListener('click', async ()=>{
       await supabase.from('ice_contacts').delete().eq('id', c.id);
-      // Re-fetch and re-render after delete
       const { data } = await supabase.from('ice_contacts').select('*').eq('user_id', userId).order('id', { ascending: true });
       wrap.innerHTML = '';
       renderContacts(data || []);
@@ -244,8 +229,9 @@ function renderContacts(list) {
   });
 }
 
-// Insert a brand-new contact row
-document.getElementById('addIce')?.addEventListener('click', async () => {
+// Add brand new empty contact
+document.getElementById('addIce')?.addEventListener('click', async (e) => {
+  e?.preventDefault?.();
   try {
     const { data, error } = await supabase
       .from('ice_contacts')
@@ -253,27 +239,27 @@ document.getElementById('addIce')?.addEventListener('click', async () => {
       .select()
       .single();
     if (error) throw error;
-
-    // Add to the list immediately
     renderContacts([data]);
-  } catch (e) {
-    console.error('Add contact failed:', e);
+    $('#emptyIce')?.classList.add('hidden');
+  } catch (err) {
+    console.error('Add contact failed:', err);
+    alert('Could not add contact (check permissions/policies).');
   }
 });
 
-/* ========== QR preview (placeholder) ========== */
+/* ========== QR preview + actions ========== */
 let qr;
 function ensureQrFromCode(code) {
   if (!code) return;
-  const url  = `${location.origin}/card.html?code=${code}`;
+  const url  = `${location.origin}/card.html?code=${encodeURIComponent(code)}`;
   const link = document.getElementById('cardLink');
-  if (link) { link.href = url; link.value = url; link.textContent = url; }
+  if (link) { link.href = url; (link.value!==undefined ? link.value=url : null); link.textContent = url; }
 
   const box = document.getElementById('qr');
   if (!box) return;
 
-  // QRCodeStyling is exposed globally by the CDN build
   if (!qr) {
+    // global from CDN build
     qr = new QRCodeStyling({
       width: 240, height: 240, data: url,
       dotsOptions: { type: 'rounded' },
@@ -285,15 +271,38 @@ function ensureQrFromCode(code) {
   }
 }
 
+// Copy/share & download/print helpers (bind if buttons exist)
+document.getElementById('copyLink')?.addEventListener('click', async () => {
+  const el = document.getElementById('cardLink');
+  const link = el?.value || el?.textContent || el?.href;
+  if (!link) return;
+  try { await navigator.clipboard.writeText(link); alert('Link copied'); }
+  catch { alert('Copy failed'); }
+});
+document.getElementById('downloadQR')?.addEventListener('click', async () => {
+  if (!qr) return;
+  try {
+    const blob = await qr.getImage();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'myqer-qr.png';
+    a.click();
+  } catch (e) { console.error('QR download failed:', e); }
+});
+document.getElementById('printCard')?.addEventListener('click', () => {
+  const el = document.getElementById('cardLink');
+  const link = el?.href || el?.value || el?.textContent;
+  if (link) window.open(link, '_blank');
+});
+
 /* ========== Init ========== */
 applyTranslations();
 loadAll();
 
-/// ==== Logout (force-redirect to pretty modal on landing) ====
+/* ========== Logout (force redirect to landing modal) ========== */
 document.getElementById('logout')?.addEventListener('click', async (e) => {
   try { e?.preventDefault?.(); } catch {}
   try { await supabase.auth.signOut(); } catch (err) { console.error('Logout error:', err); }
-  // Fall back to literal query in case AUTH_QUERY is undefined
   const q = (typeof AUTH_QUERY === 'string' && AUTH_QUERY) ? AUTH_QUERY : 'auth=signin';
   window.location.href = `/?${q}`;
 });
