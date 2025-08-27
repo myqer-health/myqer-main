@@ -1,249 +1,146 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MYQER — Emergency Card</title>
-
-  <!-- Meta / PWA -->
-  <meta name="theme-color" content="#c62828" />
-  <link rel="manifest" href="/myqer_manifest.json" />
-
-  <!-- Icons (match your repo paths) -->
-  <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
-  <link rel="apple-touch-icon" href="/images/icon-192.png" />
-
-  <!-- Your main stylesheet -->
-  <link rel="stylesheet" href="/styles/site.css" />
-
-  <!-- Minimal page-local styles -->
-  <style>
-    :root { --red:#c62828; --glass:rgba(255,255,255,.25); --stroke:rgba(2,23,23,.12); --blur:22px;}
-    body{margin:0;padding:20px;font:18px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(135deg,#f8f9fb,#e7edf6)}
-    .wrap{max-width:760px;margin:0 auto;display:grid;gap:16px}
-    .card{background:rgba(255,255,255,.55);backdrop-filter:blur(var(--blur));border:1px solid var(--stroke);border-radius:18px;padding:16px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .btn{border:1px solid var(--stroke);border-radius:999px;padding:.55rem 1rem;background:var(--glass);cursor:pointer}
-    .btn.red{background:#c62828;color:#fff;border-color:#c62828}
-    .big{font-size:1.3rem;margin:.25rem 0}
-    .offline{color:#8a6200;font-weight:600}
-    .triage{font-weight:800;font-size:1rem;padding:.35rem .8rem;border-radius:999px;display:inline-block;border:1px solid transparent}
-    .triage.red{background:#ffe6e6;color:#a20000;border-color:#ffb3b3}
-    .triage.amber{background:#fff6e0;color:#a76a00;border-color:#ffd38a}
-    .triage.green{background:#e8ffe8;color:#0b7a0b;border-color:#b7f0b7}
-    .triage.blue{background:#e6f0ff;color:#0a4bb3;border-color:#b3d0ff}
-    h2{margin:.25rem 0 0.5rem}
-    p{margin:.3rem 0}
-    #contacts p{margin:.2rem 0}
-    .muted{opacity:.65}
-  </style>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>MYQER Emergency Card</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <main class="wrap">
-    <!-- Header / Controls -->
-    <section class="card">
-      <div class="row">
-        <span id="triage" class="triage green">GREEN</span>
-        <button id="speak" class="btn red" aria-label="Play voice summary">► Play voice summary</button>
-        <select id="lang" class="btn" aria-label="Language"></select>
-        <span id="offline" class="offline" hidden>Offline • showing saved data</span>
+<body class="bg-red-50 min-h-screen">
+  <div class="bg-red-600 text-white p-4">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center">
+        <div class="text-2xl mr-3">🚨</div>
+        <div>
+          <h1 class="text-xl font-bold">EMERGENCY MEDICAL CARD</h1>
+          <p class="text-red-100 text-sm">MYQER - Medical Information System</p>
+        </div>
       </div>
-      <h1 id="name" class="big">—</h1>
-      <p class="muted" id="metaLine">DOB <span id="dob">—</span> • Blood <span id="blood">—</span> • Country <span id="country">—</span></p>
-      <p class="muted">ID <span id="nid">—</span> • Organ donor <span id="donor">—</span> • Life support <span id="life">—</span></p>
-    </section>
+      <div class="text-right">
+        <select id="languageSelect" class="bg-red-700 text-white border border-red-500 rounded px-2 py-1 text-sm">
+          <option value="en">🇺🇸 EN</option><option value="es">🇪🇸 ES</option><option value="fr">🇫🇷 FR</option><option value="de">🇩🇪 DE</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
-    <!-- Health -->
-    <section class="card">
-      <h2>Health</h2>
-      <p><strong>Allergies:</strong> <span id="allergies">—</span></p>
-      <p><strong>Conditions:</strong> <span id="conditions">—</span></p>
-      <p><strong>Medications:</strong> <span id="medications">—</span></p>
-    </section>
+  <div id="loading" class="flex items-center justify-center min-h-96">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+      <p class="text-gray-600">Loading emergency information...</p>
+    </div>
+  </div>
 
-    <!-- ICE -->
-    <section class="card">
-      <h2>ICE contacts</h2>
-      <div id="contacts">—</div>
-    </section>
-  </main>
+  <div id="error" class="hidden max-w-4xl mx-auto p-6">
+    <div class="bg-white rounded-lg shadow-lg p-8 text-center">
+      <div class="text-red-600 text-6xl mb-4">⚠️</div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Card Not Found</h2>
+      <p class="text-gray-600 mb-6">This emergency card could not be found or may have been deactivated.</p>
+      <p class="text-sm text-gray-500">If this is an emergency, please contact local emergency services immediately.</p>
+    </div>
+  </div>
+
+  <div id="content" class="hidden max-w-4xl mx-auto p-6">
+    <div class="bg-white rounded-lg shadow-lg mb-6 overflow-hidden">
+      <div class="bg-red-600 text-white p-4"><h2 class="text-xl font-bold"><span class="mr-2">👤</span> <span id="personalInfoTitle">PERSONAL INFORMATION</span></h2></div>
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div><label class="block text-sm font-medium text-gray-500 mb-1" id="nameLabel">Full Name</label><p id="fullName" class="text-lg font-semibold text-gray-900">-</p></div>
+        <div><label class="block text-sm font-medium text-gray-500 mb-1" id="dobLabel">Date of Birth</label><p id="dob" class="text-lg text-gray-900">-</p></div>
+        <div><label class="block text-sm font-medium text-gray-500 mb-1" id="countryLabel">Country</label><p id="country" class="text-lg text-gray-900">-</p></div>
+        <div><label class="block text-sm font-medium text-gray-500 mb-1" id="idLabel">National ID</label><p id="nid" class="text-lg text-gray-900">-</p></div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-lg mb-6 overflow-hidden">
+      <div class="bg-red-600 text-white p-4"><h2 class="text-xl font-bold"><span class="mr-2">🏥</span> <span id="medicalInfoTitle">MEDICAL INFORMATION</span></h2></div>
+      <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div><label class="block text-sm font-medium text-gray-500 mb-1" id="bloodTypeLabel">Blood Type</label><p id="blood" class="text-2xl font-bold text-red-600">-</p></div>
+          <div><label class="block text-sm font-medium text-gray-500 mb-1" id="organDonorLabel">Organ Donor</label><p id="donor" class="text-lg text-gray-900">-</p></div>
+        </div>
+        <div class="mb-6"><label class="block text-sm font-medium text-gray-500 mb-1" id="lifeSupportLabel">Life Support Preference</label><p id="life" class="text-lg text-gray-900">-</p></div>
+        <div class="grid grid-cols-1 gap-6">
+          <div class="bg-red-50 p-4 rounded-lg"><label class="block text-sm font-medium text-red-700 mb-2" id="allergiesLabel">🚫 ALLERGIES</label><p id="allergies" class="text-gray-900">-</p></div>
+          <div class="bg-blue-50 p-4 rounded-lg"><label class="block text-sm font-medium text-blue-700 mb-2" id="conditionsLabel">🩺 MEDICAL CONDITIONS</label><p id="conditions" class="text-gray-900">-</p></div>
+          <div class="bg-green-50 p-4 rounded-lg"><label class="block text-sm font-medium text-green-700 mb-2" id="medicationsLabel">💊 CURRENT MEDICATIONS</label><p id="meds" class="text-gray-900">-</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-lg mb-6 overflow-hidden">
+      <div class="bg-red-600 text-white p-4"><h2 class="text-xl font-bold"><span class="mr-2">📞</span> <span id="emergencyContactsTitle">EMERGENCY CONTACTS (ICE)</span></h2></div>
+      <div id="contacts" class="p-6"><p class="text-gray-500 text-center py-8">No emergency contacts available</p></div>
+    </div>
+
+    <div class="bg-gray-100 rounded-lg p-4 text-center">
+      <p class="text-sm text-gray-600 mb-2"><span id="generatedByLabel">Generated by</span> <b>MYQER</b> — <span id="emergencySystemLabel">Emergency Medical Information System</span></p>
+      <p class="text-xs text-gray-500" id="emergencyInstructionLabel">In case of emergency, contact local emergency services immediately</p>
+    </div>
+  </div>
 
   <script type="module">
-    // Use your configured Supabase client
-    import { supabase } from '/scripts/config.js';
+    // 🔧 Set your Supabase URL to call the edge function
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
 
-    // Language picker (kept simple; card is data-only)
-    const LANGS = [['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['ro','Română'],['ar','العربية'],['hi','हिन्दी'],['zh','中文']];
-    const langSel = document.getElementById('lang');
-    LANGS.forEach(([v,l]) => { const o=document.createElement('option'); o.value=v; o.textContent=l; langSel.appendChild(o); });
-    langSel.value = (localStorage.getItem('myqer_lang') || 'en').slice(0,2);
-    langSel.addEventListener('change', ()=> localStorage.setItem('myqer_lang', langSel.value));
-
-    // URL params
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code'); // preferred
-    const uid  = params.get('uid');  // legacy
-
-    // Element refs
-    const els = {
-      triage: document.getElementById('triage'),
-      name: document.getElementById('name'),
-      dob: document.getElementById('dob'),
-      blood: document.getElementById('blood'),
-      country: document.getElementById('country'),
-      nid: document.getElementById('nid'),
-      donor: document.getElementById('donor'),
-      life: document.getElementById('life'),
-      allergies: document.getElementById('allergies'),
-      conditions: document.getElementById('conditions'),
-      medications: document.getElementById('medications'),
-      contacts: document.getElementById('contacts'),
-      offline: document.getElementById('offline'),
-      speak: document.getElementById('speak')
+    const translations = {
+      en:{personalInfoTitle:"PERSONAL INFORMATION",medicalInfoTitle:"MEDICAL INFORMATION",emergencyContactsTitle:"EMERGENCY CONTACTS (ICE)",nameLabel:"Full Name",dobLabel:"Date of Birth",countryLabel:"Country",idLabel:"National ID",bloodTypeLabel:"Blood Type",organDonorLabel:"Organ Donor",lifeSupportLabel:"Life Support Preference",allergiesLabel:"🚫 ALLERGIES",conditionsLabel:"🩺 MEDICAL CONDITIONS",medicationsLabel:"💊 CURRENT MEDICATIONS",generatedByLabel:"Generated by",emergencySystemLabel:"Emergency Medical Information System",emergencyInstructionLabel:"In case of emergency, contact local emergency services immediately",yes:"Yes",no:"No",none:"None reported",noContacts:"No emergency contacts available"},
+      es:{personalInfoTitle:"INFORMACIÓN PERSONAL",medicalInfoTitle:"INFORMACIÓN MÉDICA",emergencyContactsTitle:"CONTACTOS DE EMERGENCIA (ICE)",nameLabel:"Nombre Completo",dobLabel:"Fecha de Nacimiento",countryLabel:"País",idLabel:"ID Nacional",bloodTypeLabel:"Tipo de Sangre",organDonorLabel:"Donante de Órganos",lifeSupportLabel:"Preferencia de Soporte Vital",allergiesLabel:"🚫 ALERGIAS",conditionsLabel:"🩺 CONDICIONES MÉDICAS",medicationsLabel:"💊 MEDICAMENTOS ACTUALES",generatedByLabel:"Generado por",emergencySystemLabel:"Sistema de Información Médica de Emergencia",emergencyInstructionLabel:"En caso de emergencia, contacte a los servicios locales",yes:"Sí",no:"No",none:"Ninguno reportado",noContacts:"No hay contactos de emergencia disponibles"},
+      fr:{personalInfoTitle:"INFORMATIONS PERSONNELLES",medicalInfoTitle:"INFORMATIONS MÉDICALES",emergencyContactsTitle:"CONTACTS D'URGENCE (ICE)",nameLabel:"Nom Complet",dobLabel:"Date de Naissance",countryLabel:"Pays",idLabel:"ID National",bloodTypeLabel:"Groupe Sanguin",organDonorLabel:"Donneur d'Organes",lifeSupportLabel:"Préférence de Soins Intensifs",allergiesLabel:"🚫 ALLERGIES",conditionsLabel:"🩺 CONDITIONS MÉDICALES",medicationsLabel:"💊 MÉDICAMENTS ACTUELS",generatedByLabel:"Généré par",emergencySystemLabel:"Système d'Information Médicale d'Urgence",emergencyInstructionLabel:"En cas d'urgence, contactez les services d'urgence",yes:"Oui",no:"Non",none:"Aucun signalé",noContacts:"Aucun contact d'urgence disponible"},
+      de:{personalInfoTitle:"PERSÖNLICHE INFORMATIONEN",medicalInfoTitle:"MEDIZINISCHE INFORMATIONEN",emergencyContactsTitle:"NOTFALLKONTAKTE (ICE)",nameLabel:"Vollständiger Name",dobLabel:"Geburtsdatum",countryLabel:"Land",idLabel:"Nationale ID",bloodTypeLabel:"Blutgruppe",organDonorLabel:"Organspender",lifeSupportLabel:"Lebenserhaltungs-Präferenz",allergiesLabel:"🚫 ALLERGIEN",conditionsLabel:"🩺 MEDIZINISCHE BEDINGUNGEN",medicationsLabel:"💊 AKTUELLE MEDIKAMENTE",generatedByLabel:"Erstellt von",emergencySystemLabel:"Notfall-Medizinisches Informationssystem",emergencyInstructionLabel:"Im Notfall lokalen Rettungsdienst anrufen",yes:"Ja",no:"Nein",none:"Keine gemeldet",noContacts:"Keine Notfallkontakte verfügbar"}
     };
 
-    /* ---------- Render helpers ---------- */
+    const el = id=>document.getElementById(id);
+    const L = ()=>translations[el('languageSelect').value]||translations.en;
+    const code = new URLSearchParams(location.search).get('code');
 
-    function renderFromPublic(json) {
-      const p = json.profile || {};
-      const s = json.sections || {};
-      const labels = json.labels || {};
-
-      const tri = (p.triage || 'green').toLowerCase();
-      els.triage.className = 'triage ' + tri;
-      els.triage.textContent = (labels['Triage'] || 'Triage') + ': ' + tri.toUpperCase();
-
-      els.name.textContent = p.full_name || '—';
-      els.dob.textContent = p.dob || '—';
-      els.blood.textContent = (s.blood?.value) || '—';
-      els.country.textContent = p.country || '—';
-      els.nid.textContent = p.national_id || '—';
-      els.donor.textContent = s.blood?.donor ? 'Yes' : 'No';
-      els.life.textContent = s.prefs?.life_support_pref || '—';
-
-      els.allergies.textContent = (s.allergies?.items || []).join(', ') || '—';
-      els.conditions.textContent = (s.conditions?.items || []).join(', ') || '—';
-      els.medications.textContent = (s.meds?.items || []).join(', ') || '—';
-
-      const list = s.ice?.contacts || [];
-      els.contacts.innerHTML = list.length
-        ? list.map(x => `<p><strong>${x.name || '-'}</strong> — ${x.relation || ''} • ${x.phone || ''}</p>`).join('')
-        : '—';
-
-      // Optional voice file from function (if you add it)
-      if (json.voice?.url) {
-        let audio = document.getElementById('voice');
-        if (!audio) {
-          audio = document.createElement('audio');
-          audio.id = 'voice';
-          audio.controls = true;
-          document.body.appendChild(audio);
-        }
-        audio.src = json.voice.url;
-      }
+    function setText(){
+      const t=L();
+      el('personalInfoTitle').textContent=t.personalInfoTitle; el('medicalInfoTitle').textContent=t.medicalInfoTitle; el('emergencyContactsTitle').textContent=t.emergencyContactsTitle;
+      el('nameLabel').textContent=t.nameLabel; el('dobLabel').textContent=t.dobLabel; el('countryLabel').textContent=t.countryLabel; el('idLabel').textContent=t.idLabel;
+      el('bloodTypeLabel').textContent=t.bloodTypeLabel; el('organDonorLabel').textContent=t.organDonorLabel; el('lifeSupportLabel').textContent=t.lifeSupportLabel;
+      el('allergiesLabel').textContent=t.allergiesLabel; el('conditionsLabel').textContent=t.conditionsLabel; el('medicationsLabel').textContent=t.medicationsLabel;
+      el('generatedByLabel').textContent=t.generatedByLabel; el('emergencySystemLabel').textContent=t.emergencySystemLabel; el('emergencyInstructionLabel').textContent=t.emergencyInstructionLabel;
     }
 
-    function renderFromUid(data) { // legacy RPC output
-      const p = data.profile || {};
-      const h = data.health || {};
-      const c = data.contacts || [];
-
-      const tri = (p.triage || 'green').toLowerCase();
-      els.triage.className = 'triage ' + tri;
-      els.triage.textContent = tri.toUpperCase();
-
-      els.name.textContent = p.full_name || '—';
-      els.dob.textContent = p.dob || '—';
-      els.blood.textContent = p.blood_type || '—';
-      els.country.textContent = p.country || '—';
-      els.nid.textContent = p.national_id || '—';
-      els.donor.textContent = p.organ_donor ? 'Yes' : 'No';
-      els.life.textContent = p.life_support_preference || '—';
-
-      els.allergies.textContent = (h.allergies || []).join(', ') || '—';
-      els.conditions.textContent = (h.conditions || []).join(', ') || '—';
-      els.medications.textContent = (h.medications || []).join(', ') || '—';
-
-      els.contacts.innerHTML = c.length
-        ? c.map(x => `<p><strong>${x.name}</strong> — ${x.relationship || ''} • ${x.phone || ''}</p>`).join('')
-        : '—';
+    async function load(){
+      if(!code) return showError();
+      try{
+        const lang = el('languageSelect').value;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/myqer-card-public?code=${encodeURIComponent(code)}&lang=${lang}`);
+        if(!res.ok) throw new Error('Not found');
+        const json = await res.json();
+        setFrom(json);
+        showContent();
+      }catch(e){ showError(); }
     }
 
-    /* ---------- Fetch & cache ---------- */
-
-    async function fetchCard() {
-      const lang = langSel.value || 'en';
-      try {
-        if (code) {
-          const url = `${supabase.supabaseUrl}/functions/v1/myqer-card-public?code=${encodeURIComponent(code)}&lang=${lang}`;
-          const res = await fetch(url, { headers: { 'x-myqer-client': 'web-card' }});
-          const json = await res.json();
-          if (!res.ok) throw new Error(json.error || 'Failed to load card');
-          localStorage.setItem('myqer_public_'+code, JSON.stringify(json));
-          els.offline.hidden = true;
-          renderFromPublic(json);
-          return;
-        }
-        if (uid) {
-          const { data, error } = await supabase.rpc('get_emergency_card', { p_card_uid: uid });
-          if (error) throw error;
-          localStorage.setItem('myqer_card_'+uid, JSON.stringify(data));
-          els.offline.hidden = true;
-          renderFromUid(data);
-          return;
-        }
-        // No param provided
-        throw new Error('Missing code or uid');
-      } catch (e) {
-        // Try cache
-        const cached = code
-          ? localStorage.getItem('myqer_public_'+code)
-          : localStorage.getItem('myqer_card_'+uid);
-        if (cached) {
-          els.offline.hidden = false;
-          (code ? renderFromPublic : renderFromUid)(JSON.parse(cached));
-        } else {
-          els.name.textContent = 'Card unavailable';
-        }
-      }
+    function setFrom(json){
+      const p=json.profile||{}, s=json.sections||{}, tt=L();
+      el('fullName').textContent = p.full_name||'-';
+      el('dob').textContent = p.dob||'-';
+      el('country').textContent = p.country||'-';
+      el('nid').textContent = p.national_id||'-';
+      el('blood').textContent = (s.blood?.value)||'-';
+      el('donor').textContent = (s.blood?.donor?tt.yes:tt.no);
+      el('life').textContent = s.prefs?.life_support_pref||'-';
+      el('allergies').textContent = (s.allergies?.items||[]).join(', ') || tt.none;
+      el('conditions').textContent = (s.conditions?.items||[]).join(', ') || tt.none;
+      el('meds').textContent = (s.meds?.items||[]).join(', ') || tt.none;
+      const c = s.ice?.contacts||[];
+      el('contacts').innerHTML = c.length? c.map(x=>`
+        <div class="border-b border-gray-200 pb-4 mb-4 last:border-b-0 last:mb-0">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div><label class="block text-sm font-medium text-gray-500 mb-1">Name</label><p class="text-lg font-semibold text-gray-900">${x.name||'-'}</p></div>
+            <div><label class="block text-sm font-medium text-gray-500 mb-1">Relationship</label><p class="text-lg text-gray-900">${x.relation||'-'}</p></div>
+            <div><label class="block text-sm font-medium text-gray-500 mb-1">Phone</label><p class="text-lg font-mono text-gray-900"><a class="text-red-600 hover:text-red-700" href="tel:${x.phone||''}">${x.phone||'-'}</a></p></div>
+          </div>
+        </div>`).join('') : `<p class="text-gray-500 text-center py-8">${tt.noContacts}</p>`;
     }
 
-    /* ---------- Voice synthesis ---------- */
-    function speakSummary() {
-      const key = code ? 'myqer_public_'+code : 'myqer_card_'+uid;
-      const cached = localStorage.getItem(key); if (!cached) return;
-      const json = JSON.parse(cached);
-      const p = (json.profile || json.profile) || {};
-      const sections = json.sections || {};
-      const h = {
-        allergies: sections.allergies?.items || json.health?.allergies || [],
-        conditions: sections.conditions?.items || json.health?.conditions || [],
-        meds: sections.meds?.items || json.health?.medications || []
-      };
+    function showContent(){ el('loading').classList.add('hidden'); el('error').classList.add('hidden'); el('content').classList.remove('hidden'); }
+    function showError(){ el('loading').classList.add('hidden'); el('content').classList.add('hidden'); el('error').classList.remove('hidden'); }
 
-      const text = [
-        `Emergency card for ${p.full_name || 'unknown'}.`,
-        sections.blood?.value ? `Blood type ${sections.blood.value}.` : '',
-        h.allergies.length ? `Allergies: ${h.allergies.slice(0,3).join(', ')}.` : '',
-        h.conditions.length ? `Conditions: ${h.conditions.slice(0,3).join(', ')}.` : '',
-        h.meds.length ? `Medications: ${h.meds.slice(0,3).join(', ')}.` : ''
-      ].filter(Boolean).join(' ');
-
-      const u = new SpeechSynthesisUtterance(text);
-      const lg = (localStorage.getItem('myqer_lang') || 'en');
-      u.lang = lg === 'zh' ? 'zh-CN' : (lg === 'ar' ? 'ar-SA' : (lg === 'hi' ? 'hi-IN' : `${lg}-${lg.toUpperCase()}`));
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }
-
-    els.speak.addEventListener('click', speakSummary);
-
-    /* ---------- Boot ---------- */
-    fetchCard();
-
-    // PWA (optional; uses your existing file)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
-    }
+    el('languageSelect').addEventListener('change',()=>{ setText(); load(); });
+    setText(); load();
   </script>
 </body>
 </html>
