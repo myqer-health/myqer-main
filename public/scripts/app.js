@@ -1,6 +1,5 @@
-// public/scripts/app.js
-
-import { supabase } from './config.js';
+// /public/scripts/app.js
+import { supabase, AUTH_QUERY } from './config.js';
 import 'https://cdn.jsdelivr.net/npm/i18next@23.7.11/dist/esm/i18next.js';
 import 'https://cdn.jsdelivr.net/npm/i18next-http-backend@2.5.1/esm/index.js';
 import 'https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js';
@@ -44,15 +43,12 @@ if (langSel) {
 }
 
 /* ========== Auth guard (redirect to landing modal) ========== */
-{
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-  // Redirect back to homepage and auto-open login modal
-  window.location.replace('/?modal=login');
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) {
+  // Redirect back to homepage and auto-open login modal (landing reads ?auth=signin)
+  window.location.replace(`/?${AUTH_QUERY}`);
   throw new Error('Not authenticated');
 }
-}
-const { data: { session } } = await supabase.auth.getSession();
 const userId = session.user.id;
 
 /* ========== Helpers ========== */
@@ -106,8 +102,6 @@ async function loadAll() {
     if ($('#medications')) $('#medications').value = fromList(toList(health.meds));
 
     renderContacts(contacts);
-
-    // If your page shows a QR preview, it will be wired when you call ensureQrFromCode() with a real code.
   } catch (e) {
     console.error('loadAll error:', e);
   }
@@ -260,6 +254,6 @@ document.getElementById('logout')?.addEventListener('click', async ()=>{
   try {
     await supabase.auth.signOut();
   } finally {
-    window.location.replace('/?auth=signin');
+    window.location.replace(`/?${AUTH_QUERY}`);
   }
 });
