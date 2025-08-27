@@ -43,10 +43,12 @@ if (langSel) {
 }
 
 /* ========== Auth guard (redirect to landing modal) ========== */
+const AUTH_Q = (typeof AUTH_QUERY === 'string' && AUTH_QUERY) ? AUTH_QUERY : 'modal=login';
+
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
-  // Redirect back to homepage and auto-open login modal (landing reads ?auth=signin)
-  window.location.replace(`/?${AUTH_QUERY}`);
+  // Redirect back to homepage and auto-open login modal (landing reads ?modal=login)
+  window.location.replace(`/?${AUTH_Q}`);
   throw new Error('Not authenticated');
 }
 const userId = session.user.id;
@@ -250,10 +252,22 @@ applyTranslations();
 loadAll();
 
 /* ========== Logout (return to pretty modal) ========== */
+// 1) direct binding (works when #logout exists now)
 document.getElementById('logout')?.addEventListener('click', async ()=>{
   try {
     await supabase.auth.signOut();
   } finally {
-    window.location.replace(`/?${AUTH_QUERY}`);
+    window.location.replace(`/?${AUTH_Q}`);
+  }
+});
+
+// 2) delegated binding (works if the button is re-rendered later)
+document.addEventListener('click', async (e) => {
+  const btn = e.target?.closest?.('#logout');
+  if (!btn) return;
+  try {
+    await supabase.auth.signOut();
+  } finally {
+    window.location.replace(`/?${AUTH_Q}`);
   }
 });
