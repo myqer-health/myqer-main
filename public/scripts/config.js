@@ -14,6 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // App URLs (used by auth flows)
 export const APP_URL   = `${location.origin}/dashboard.html`; // dashboard is the home after sign-in
 export const RESET_URL = `${location.origin}/?type=recovery`;  // opens the reset view in the landing modal
+export const AUTH_QUERY = 'auth=signin';                       // landing should open login modal when present
 
 // Keep a handy copy of the token for any hooks
 supabase.auth.onAuthStateChange(async (event, session) => {
