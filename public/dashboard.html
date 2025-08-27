@@ -2,53 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MYQER — Dashboard</title>
-  <meta name="theme-color" content="#c62828"/>
-  <link rel="icon" type="image/png" href="/assets/logo-myqer.png"/>
+  <meta name="theme-color" content="#c62828" />
+  <link rel="icon" type="image/png" href="/assets/logo-myqer.png" />
+  <link rel="apple-touch-icon" href="/assets/logo-myqer.png" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- QR code lib -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#c62828',
+            ink: '#111318',
+            muted: '#667085',
+            'glass-stroke': 'rgba(17,24,39,.10)'
+          },
+          boxShadow: {
+            soft: '0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06)'
+          },
+          borderRadius: { card: '18px' }
+        }
+      }
+    }
+  </script>
 
   <style>
-    :root {
-      --brand:#c62828;
-      --ink:#111318;
-      --muted:#667085;
-      --glass:rgba(255,255,255,.16);
-      --glass-2:rgba(255,255,255,.24);
-      --stroke:rgba(17,24,39,.10);
-      --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
-      --radius:18px;
-    }
-    html,body{height:100%;overflow-x:hidden;background:linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%)}
-    body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Inter,Roboto,Arial,sans-serif;color:var(--ink)}
-    .glass-card{background:var(--glass-2);backdrop-filter:blur(18px);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow)}
-    .btn-red{background:var(--brand);color:#fff}
+    .glass-card{background:rgba(255,255,255,.8); backdrop-filter:blur(14px); border:1px solid rgba(17,24,39,.08); border-radius:18px; box-shadow:0 18px 42px rgba(2,8,23,.12),0 2px 6px rgba(2,8,23,.06)}
+    .pill{border-radius:999px; padding:.35rem .7rem; border:1px solid rgba(17,24,39,.08); background:rgba(255,255,255,.75)}
+    .btn-red{background:#c62828;color:#fff}
     .btn-red:hover{filter:brightness(1.02)}
-    .pill{border-radius:999px; padding:.35rem .75rem; border:1px solid var(--stroke); background:rgba(255,255,255,.7)}
-    .phone-shadow{ box-shadow:0 25px 50px -12px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.05)}
-    .qr-ring{ box-shadow:0 0 0 2px var(--brand), 0 4px 12px rgba(0,0,0,.1)}
-    .rtl *{direction:rtl}
+    .grid-bg{background-image:linear-gradient(rgba(198, 40, 40, 0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(198, 40, 40, 0.03) 1px, transparent 1px);background-size:20px 20px;}
+    .phone-shadow{box-shadow:0 25px 50px -12px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.05);}
   </style>
-</head>
-<body>
 
+  <!-- Supabase (ESM) -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    // ***** PROJECT CREDENTIALS (from you) *****
+    const SUPABASE_URL  = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+    window._supabase = supabase;
+
+    // Redirect if not logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // bounce to homepage with login modal
+      window.location.replace('/?auth=signin');
+    } else {
+      window.__user = session.user;
+    }
+  </script>
+</head>
+
+<body class="bg-slate-50 min-h-screen grid-bg">
   <!-- NAV -->
-  <header class="glass-card rounded-none sticky top-0 z-50">
+  <header class="bg-white/70 backdrop-blur-md border-b border-white/40 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="h-16 flex items-center justify-between">
-        <a href="/" class="flex items-center gap-2 font-extrabold tracking-tight text-xl select-none">
+        <a href="/" class="flex items-center gap-2 font-extrabold tracking-tight text-xl" aria-label="MYQER Home">
           <img src="/assets/logo.svg" alt="MYQER" class="h-6 w-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">
-          <span style="display:none">MYQ<span class="text-[#c62828]">ER</span><sup class="ml-0.5 text-[10px] align-super">™</sup></span>
+          <span style="display:none">MYQ<span class="text-brand">ER</span><sup class="ml-0.5 text-[10px] align-super">™</sup></span>
         </a>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <!-- Language -->
-          <select id="langSelect" class="px-3 py-2 rounded-lg border border-slate-300 bg-white/80 text-sm">
+          <select id="lang" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-sm">
             <option value="en">🇺🇸 EN</option><option value="es">🇪🇸 ES</option>
             <option value="fr">🇫🇷 FR</option><option value="de">🇩🇪 DE</option>
             <option value="it">🇮🇹 IT</option><option value="hi">🇮🇳 HI</option>
@@ -56,283 +79,596 @@
             <option value="hu">🇭🇺 HU</option><option value="ro">🇷🇴 RO</option>
           </select>
 
-          <!-- Logout -->
-          <button id="btnLogout" class="px-4 py-2 rounded-lg text-sm font-semibold btn-red">Logout</button>
+          <!-- Logout (safe) -->
+          <button id="logout" class="px-3 py-2 rounded-lg text-sm font-semibold border border-slate-300 hover:bg-white">Logout</button>
         </div>
       </div>
     </div>
   </header>
 
   <!-- MAIN -->
-  <main class="py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-      <!-- LEFT: Phone preview -->
-      <aside class="lg:col-span-1 flex justify-center lg:justify-start">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- Welcome + QR -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <!-- Phone (left) -->
+      <div class="lg:col-span-1 flex justify-center">
         <div class="relative">
-          <!-- Phone frame -->
           <div class="w-80 h-[640px] bg-black rounded-[3rem] p-2 phone-shadow">
-            <!-- Screen -->
             <div class="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
-              <!-- Status bar -->
-              <div class="flex justify-between items-center px-6 py-3 text-sm opacity-80">
+              <!-- Status -->
+              <div class="flex justify-between items-center px-6 py-3 text-sm">
                 <div class="text-gray-900 font-medium text-xs">MYQER</div>
                 <div class="text-gray-900 font-medium">09:41</div>
               </div>
 
-              <!-- Screen content -->
+              <!-- Content -->
               <div class="px-6 pb-24 h-full flex flex-col">
-                <!-- Triage pill -->
+                <!-- Triage pill (auto) -->
                 <div class="mb-4">
-                  <div class="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-100/70 border border-emerald-200">
-                    <span class="text-emerald-800 font-bold text-xs" id="phTriage">GREEN — Standard</span>
+                  <div id="triagePill" class="inline-flex items-center px-2 py-1 rounded-full bg-green-100 border border-green-300">
+                    <span id="triageText" class="text-green-800 font-medium text-xs">GREEN — Standard</span>
                   </div>
                 </div>
 
                 <!-- Headline -->
                 <div class="mb-4">
-                  <h2 class="text-xl font-semibold text-gray-900 leading-tight mb-2" id="phHeadline">
-                    Your <span class="text-[#c62828]">emergency</span> card.<br>One scan, instant <span class="text-[#c62828]">triage</span>.
+                  <h2 class="text-xl font-semibold text-gray-900 leading-tight mb-2" id="phoneHeadline">
+                    Your <span class="text-brand">emergency</span> card.<br/>One scan, instant <span class="text-brand">triage</span>.
                   </h2>
-                  <p class="text-xs text-gray-500 opacity-70">(pronounced “My Care”)</p>
+                  <p class="text-xs text-gray-600 opacity-80" id="phoneSub">
+                    A QR triage code to guide <span class="text-brand font-medium">responders</span> — anywhere, anytime.
+                  </p>
                 </div>
 
-                <!-- Vitals -->
-                <div class="bg-white/90 rounded-xl p-3 mb-3 shadow border border-gray-200">
+                <!-- Vitals card -->
+                <div class="bg-white/95 rounded-xl p-3 mb-3 shadow border border-slate-200">
                   <div class="grid grid-cols-2 gap-y-2 gap-x-3">
                     <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="bloodTypeLabel">Blood</div>
-                      <div class="font-bold text-[#c62828] text-sm" id="phBlood">—</div>
+                      <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1" data-i18n="blood">Blood</div>
+                      <div id="demoBlood" class="font-bold text-brand text-sm">O+</div>
                     </div>
                     <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1">ICE</div>
-                      <div class="font-bold text-gray-900 text-sm" id="phICE">—</div>
+                      <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">ICE</div>
+                      <div id="demoIce" class="font-bold text-gray-900 text-sm">+44 7700...</div>
                     </div>
-                    <div class="col-span-2"><div class="h-px bg-[#c62828] opacity-30 my-2"></div></div>
+                    <div class="col-span-2"><div class="h-px bg-brand/30 my-2"></div></div>
                     <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="allergiesLabel">Allergies</div>
-                      <div class="font-bold text-gray-900 text-xs" id="phAllergies">—</div>
+                      <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1" data-i18n="allergies">Allergies</div>
+                      <div id="demoAllergies" class="font-bold text-gray-900 text-xs">Penicillin, <span class="text-brand">Nuts</span></div>
                     </div>
                     <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="medsLabel">Meds</div>
-                      <div class="font-bold text-gray-900 text-xs" id="phMeds">—</div>
+                      <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1" data-i18n="meds">Meds</div>
+                      <div id="demoMeds" class="font-bold text-gray-900 text-xs">Metformin</div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Message -->
-                <div class="bg-white/90 rounded-xl p-3 mb-4 shadow border border-gray-200">
-                  <div class="text-center text-xs text-gray-800 font-medium" id="phTagline">
-                    Simple for people. <span class="text-[#c62828] font-semibold">Precise</span> for responders.
+                <div class="bg-white/95 rounded-xl p-3 mb-4 shadow border border-slate-200">
+                  <div class="text-center text-xs text-gray-800 font-medium">
+                    <span data-i18n="simplePeople">Simple for people.</span>
+                    <span class="text-brand font-semibold" data-i18n="preciseResponders">Precise</span> for responders.
                   </div>
                 </div>
 
-                <!-- Speaker + QR (preview only) -->
-                <div class="flex items-center justify-center gap-3">
-                  <div class="bg-white rounded-lg p-2 shadow border border-gray-200">
-                    <div id="phQR" class="w-[72px] h-[72px] rounded-md qr-ring bg-white flex items-center justify-center overflow-hidden"></div>
-                  </div>
-                  <button id="btnSpeak" class="inline-flex items-center gap-2 px-3 py-2 rounded-full border text-sm hover:bg-gray-50">
-                    <span>🔊</span><span data-i18n="voicePreview">Preview voice</span>
-                  </button>
-                </div>
+                <!-- CTA buttons -->
+                <div class="mt-auto"></div>
+              </div>
 
-                <!-- Phone CTAs -->
-                <div class="absolute bottom-6 left-6 right-6">
-                  <div class="flex gap-3">
-                    <button id="phSignIn" class="flex-1 bg-emerald-600 text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-emerald-700 transition">
-                      <span data-i18n="signIn">Sign In</span>
-                    </button>
-                    <button id="phSignUp" class="flex-1 bg-[#c62828] text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-red-700 transition">
-                      <span data-i18n="signUp">Sign Up</span>
-                    </button>
-                  </div>
+              <!-- Bottom buttons -->
+              <div class="absolute bottom-6 left-6 right-6">
+                <div class="flex gap-3">
+                  <button id="miniSignIn" class="flex-1 bg-green-500 text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-green-600 transition" data-i18n="signIn">Sign In</button>
+                  <button id="miniSignUp" class="flex-1 bg-brand text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-red-700 transition" data-i18n="signUp">Sign Up</button>
                 </div>
               </div>
             </div>
-          </div><!-- /phone -->
-        </div>
-      </aside>
-
-      <!-- RIGHT: Cards -->
-      <section class="lg:col-span-2 space-y-8">
-
-        <!-- Identity -->
-        <div class="glass-card p-6">
-          <h2 class="text-xl font-bold mb-4 flex items-center gap-2">👤 <span data-i18n="identityTitle">Identity — Personal Information</span></h2>
-          <form id="formProfile" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="fullName">Full Name</label>
-              <input name="full_name" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90" placeholder="Your name"/>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="country">Country</label>
-              <input name="country" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90" placeholder="—"/>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="dob">Date of Birth</label>
-              <input name="date_of_birth" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90"/>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="nationalId">National ID</label>
-              <input name="national_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90" placeholder="—"/>
-            </div>
-            <div class="md:col-span-2 flex gap-2">
-              <button class="px-4 py-2 rounded-lg btn-red font-semibold" id="btnSaveProfile"><span data-i18n="saveProfile">Save Profile</span></button>
-              <button type="button" id="openDeleteModal" class="px-4 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50 font-semibold">
-                <span data-i18n="deleteAccount">Delete account & data</span>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Health -->
-        <div class="glass-card p-6">
-          <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🏥 <span data-i18n="healthTitle">Health Information</span></h2>
-          <form id="formHealth" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="bloodTypeLabel">Blood Type</label>
-              <select name="blood_type" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90">
-                <option value="">—</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="lifeSupport">Life Support Preference</label>
-              <select name="life_support_pref" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90">
-                <option value="">—</option>
-                <option data-i18n="fullSupport" value="Full support">Full support</option>
-                <option data-i18n="limitedSupport" value="Limited support">Limited support</option>
-                <option data-i18n="comfortOnly" value="Comfort care only">Comfort care only</option>
-                <option data-i18n="noPreference" value="No preference">No preference</option>
-              </select>
-            </div>
-            <div class="md:col-span-2">
-              <label class="inline-flex items-center gap-2">
-                <input name="organ_donor" type="checkbox" class="w-4 h-4 text-red-600">
-                <span class="text-sm text-gray-700" data-i18n="organDonor">Organ Donor</span>
-              </label>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="allergiesLabel">Allergies</label>
-              <textarea name="allergies" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90" placeholder="Comma separated"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="conditionsLabel">Medical Conditions</label>
-              <textarea name="conditions" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm text-gray-700 mb-1" data-i18n="medsLabel">Current Medications</label>
-              <textarea name="meds" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white/90"></textarea>
-            </div>
-            <div class="md:col-span-2">
-              <button class="px-4 py-2 rounded-lg btn-red font-semibold" id="btnSaveHealth"><span data-i18n="saveHealth">Save Health Info</span></button>
-            </div>
-          </form>
-        </div>
-
-        <!-- ICE Contacts -->
-        <div class="glass-card p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold flex items-center gap-2">📞 <span data-i18n="contactsTitle">Emergency Contacts (ICE)</span></h2>
-            <button id="btnAddIce" class="px-4 py-2 rounded-lg btn-red font-semibold">
-              <span data-i18n="addContact">Add Contact</span>
-            </button>
-          </div>
-          <div id="iceList" class="space-y-4">
-            <div class="text-center text-gray-500 py-6" id="noContacts"><span data-i18n="noContacts">No emergency contacts yet.</span></div>
           </div>
         </div>
+      </div>
 
-        <!-- QR -->
+      <!-- Right (forms summary + QR + status) -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- Status + Link + QR -->
         <div class="glass-card p-6">
-          <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📱 <span data-i18n="qrTitle">Emergency QR</span></h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div class="text-center">
-              <div id="qrCanvas" class="inline-block bg-white p-3 rounded-xl qr-ring"></div>
-              <p class="text-xs text-gray-500 mt-2" data-i18n="qrTip">Scan to view your public emergency card</p>
-            </div>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <p class="text-sm text-gray-600 mb-2"><span class="font-medium" data-i18n="shareLink">Shareable Link:</span></p>
-              <a id="cardLink" href="#" target="_blank" class="break-all text-[#c62828] hover:underline">—</a>
-              <p class="text-xs text-gray-500 mt-2">Code: <span id="profileCode">—</span></p>
+              <h2 class="text-2xl font-bold mb-1" data-i18n="dashTitle">Your Emergency Profile</h2>
+              <p class="text-sm text-muted" data-i18n="dashSubtitle">Keep this information current. It powers your public emergency card.</p>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="text-sm">
+                <div class="font-semibold" data-i18n="publicLink">Public Card Link</div>
+                <a id="cardLink" class="text-brand hover:underline break-all text-xs" target="_blank">—</a>
+              </div>
+              <div>
+                <img id="qrImg" alt="QR" class="w-28 h-28 rounded-xl border shadow" />
+                <div class="text-[10px] text-center mt-1 text-gray-500">QR</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Voice -->
-        <div class="glass-card p-6">
-          <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🔊 <span data-i18n="voiceTitle">Voice Summary</span></h2>
-          <p class="text-sm text-gray-600 mb-3" data-i18n="voiceHint">Preview the spoken emergency summary in the selected language.</p>
-          <div class="flex gap-2">
-            <button id="btnSpeak2" class="px-4 py-2 rounded-lg border hover:bg-white font-medium">🔊 <span data-i18n="voicePreview">Preview voice</span></button>
-            <button id="btnStopSpeak" class="px-4 py-2 rounded-lg border hover:bg-white font-medium">⏹ <span data-i18n="stopVoice">Stop</span></button>
+        <!-- Forms grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Health (left col) -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Allergies/Conditions/Meds -->
+            <div class="glass-card p-6">
+              <h3 class="text-lg font-semibold mb-4">🏥 <span data-i18n="healthTitle">Health Information</span></h3>
+              <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="bloodType">Blood Type</label>
+                  <select name="blood_type" class="w-full border rounded-lg px-3 py-2">
+                    <option value="">—</option>
+                    <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                    <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="lifeSupport">Life Support Preference</label>
+                  <select name="life_support_pref" class="w-full border rounded-lg px-3 py-2">
+                    <option value="">—</option>
+                    <option data-i18n-opt="fullSupport">Full support</option>
+                    <option data-i18n-opt="limitedSupport">Limited support</option>
+                    <option data-i18n-opt="comfortOnly">Comfort care only</option>
+                    <option data-i18n-opt="noPref">No preference</option>
+                  </select>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="flex items-center gap-2">
+                    <input type="checkbox" name="organ_donor" class="w-4 h-4">
+                    <span class="text-sm font-medium" data-i18n="organDonor">Organ Donor</span>
+                  </label>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium mb-1" data-i18n="allergyList">Allergies</label>
+                  <textarea name="allergies" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Penicillin, Nuts"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium mb-1" data-i18n="conditions">Medical Conditions</label>
+                  <textarea name="conditions" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Asthma, Diabetes"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium mb-1" data-i18n="medications">Current Medications</label>
+                  <textarea name="meds" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Metformin 500mg daily"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                  <button class="btn-red px-4 py-2 rounded-lg font-semibold" id="saveHealth" type="button" data-i18n="save">Save</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Document Vault (coming soon) -->
+            <div class="glass-card p-6">
+              <h3 class="text-lg font-semibold mb-2">📁 <span data-i18n="vaultTitle">DOCUMENT VAULT - Legacy & Critical Papers</span></h3>
+              <div class="rounded-lg border border-purple-200 bg-purple-50 text-purple-800 p-4 mb-4">
+                <strong>🔜</strong> <span data-i18n="vaultSoon">Coming Soon</span> — <span data-i18n="vaultDesc">Securely store critical documents like DNR orders, living wills, medical power of attorney, insurance papers, and emergency instructions.</span>
+              </div>
+              <div class="grid grid-cols-2 gap-4 opacity-60 select-none">
+                <div class="border-2 border-dashed rounded-lg p-6 text-center text-sm">DNR Orders</div>
+                <div class="border-2 border-dashed rounded-lg p-6 text-center text-sm">Living Will</div>
+                <div class="border-2 border-dashed rounded-lg p-6 text-center text-sm">Medical Power of Attorney</div>
+                <div class="border-2 border-dashed rounded-lg p-6 text-center text-sm">Insurance Documents</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile + ICE (right col) -->
+          <div class="space-y-6">
+            <!-- Profile -->
+            <div class="glass-card p-6">
+              <h3 class="text-lg font-semibold mb-4">🪪 <span data-i18n="identityTitle">IDENTITY - Personal Information</span></h3>
+              <form id="profileForm" class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="fullName">Full Name</label>
+                  <input name="full_name" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="dob">Date of Birth</label>
+                  <input type="date" name="date_of_birth" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="country">Country</label>
+                  <input name="country" class="w-full border rounded-lg px-3 py-2" placeholder="United Kingdom" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" data-i18n="nid">National ID (Optional)</label>
+                  <input name="national_id" class="w-full border rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <button class="btn-red px-4 py-2 rounded-lg font-semibold" id="saveProfile" type="button" data-i18n="save">Save</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- ICE Contacts -->
+            <div class="glass-card p-6">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold">📞 <span data-i18n="iceTitle">Emergency Contacts (ICE)</span></h3>
+                <button id="addIce" class="px-3 py-1.5 rounded-lg border text-sm" data-i18n="addContact">Add Contact</button>
+              </div>
+              <div id="iceList" class="space-y-3"></div>
+            </div>
+
+            <!-- Danger zone -->
+            <div class="glass-card p-6 border border-red-200">
+              <h3 class="text-lg font-semibold text-red-700 mb-2" data-i18n="dangerZone">Danger Zone</h3>
+              <p class="text-sm text-red-700 mb-3" data-i18n="deleteWarn">Deleting your account is permanent. This will remove your profile, health info and ICE contacts.</p>
+              <button id="deleteAccount" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700" data-i18n="deleteAccount">Delete Account</button>
+            </div>
           </div>
         </div>
-
-        <!-- Upload (coming soon) -->
-        <div class="glass-card p-6 opacity-80">
-          <h2 class="text-xl font-bold mb-2 flex items-center gap-2">📄 <span data-i18n="uploadTitle">Upload Medical Documents</span> <span class="pill ml-2">Coming soon</span></h2>
-          <p class="text-sm text-gray-600" data-i18n="uploadDesc">You’ll be able to add discharge summaries, allergy tests, and more. End-to-end private.</p>
-          <button class="mt-3 px-4 py-2 rounded-lg border cursor-not-allowed" disabled data-i18n="uploadBtn">Upload (disabled)</button>
-        </div>
-
-      </section>
-    </div>
+      </div>
+    </section>
   </main>
 
-  <!-- FOOTER -->
+  <!-- Confirm Delete Modal -->
+  <div id="confirmModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-soft">
+      <h4 class="text-lg font-semibold mb-2" data-i18n="confirmTitle">Confirm account deletion</h4>
+      <p class="text-sm text-gray-600 mb-4" data-i18n="confirmText">Are you sure you want to delete your account? This cannot be undone.</p>
+      <div class="flex justify-end gap-2">
+        <button id="cancelDel" class="px-4 py-2 rounded-lg border text-sm" data-i18n="cancel">Cancel</button>
+        <button id="confirmDel" class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold" data-i18n="delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
   <footer class="py-10">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-gray-500">
       © 2025 MYQER — My QR for Emergency Response
     </div>
   </footer>
 
-  <!-- DELETE MODAL -->
-  <div id="deleteModal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50"></div>
-    <div class="relative max-w-lg mx-auto mt-24 glass-card p-6">
-      <h3 class="text-xl font-bold text-red-700 mb-2" data-i18n="delTitle">Delete account & data</h3>
-      <p class="text-sm text-slate-700 mb-3" data-i18n="delBody">
-        This will permanently delete your profile, health info, and ICE contacts from MYQER. You’ll be signed out. This cannot be undone.
-      </p>
-      <label class="flex items-start gap-2 mb-3">
-        <input id="chkDeleteAll" type="checkbox" class="mt-1" checked />
-        <span class="text-sm text-slate-700" data-i18n="delAlso">Also delete my health profile and all ICE contacts</span>
-      </label>
-      <div class="mb-4">
-        <label class="block text-sm text-slate-600 mb-1">
-          <span data-i18n="delType">Type</span> <span class="font-mono">DELETE</span> <span data-i18n="delToConfirm">to confirm:</span>
-        </label>
-        <input id="deleteConfirmText" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="DELETE"/>
-      </div>
-      <div id="deleteAlert" class="hidden rounded-lg border bg-red-50 border-red-200 text-red-700 px-3 py-2 text-sm mb-3"></div>
-      <div class="flex justify-end gap-2">
-        <button id="cancelDelete" class="px-3 py-2 rounded-lg border hover:bg-slate-50" data-i18n="cancel">Cancel</button>
-        <button id="confirmDelete" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed" disabled data-i18n="delButton">
-          Permanently delete
-        </button>
-      </div>
-      <p class="text-xs text-slate-500 mt-3" data-i18n="delNote">
-        Note: Removing the authentication user requires a backend function with the service role key. This action deletes your data rows and signs you out.
-      </p>
-    </div>
-  </div>
-
-  <!-- APP SCRIPT -->
+  <!-- App Script -->
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    const supabase = window._supabase;
+    const user = window.__user;
 
-    // ===== Supabase (your project) =====
-    const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+    // Elements
+    const langSel = document.getElementById('lang');
+    const logoutBtn = document.getElementById('logout');
+    const cardLink = document.getElementById('cardLink');
+    const qrImg = document.getElementById('qrImg');
+    const profileForm = document.getElementById('profileForm');
+    const healthForm = document.getElementById('healthForm');
+    const iceList = document.getElementById('iceList');
+    const addIce = document.getElementById('addIce');
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const deleteBtn = document.getElementById('deleteAccount');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmDel = document.getElementById('confirmDel');
+    const cancelDel  = document.getElementById('cancelDel');
 
-    // ===== i18n (10 languages) =====
-    const I18N = {
-      en:{identityTitle:"Identity — Personal Information", healthTitle:"Health Information", contactsTitle:"Emergency Contacts (ICE)", qrTitle:"Emergency QR", voiceTitle:"Voice Summary", voiceHint:"Preview the spoken emergency summary in the selected language.", uploadTitle:"Upload Medical Documents", uploadDesc:"You’ll be able to add discharge summaries, allergy tests, and more. End-to-end private.", uploadBtn:"Upload (disabled)", bloodTypeLabel:"Blood Type", lifeSupport:"Life Support Preference", organDonor:"Organ Donor", allergiesLabel:"Allergies", conditionsLabel:"Medical Conditions", medsLabel:"Current Medications", fullSupport:"Full support", limitedSupport:"Limited support", comfortOnly:"Comfort care only", noPreference:"No preference", fullName:"Full Name", country:"Country", dob:"Date of Birth", nationalId:"National ID", saveProfile:"Save Profile", saveHealth:"Save Health Info", addContact:"Add Contact", noContacts:"No emergency contacts yet.", shareLink:"Shareable Link:", qrTip:"Scan to view your public emergency card", voicePreview:"Preview voice", stopVoice:"Stop", signIn:"Sign In", signUp:"Sign Up", deleteAccount:"Delete account & data", delTitle:"Delete account & data", delBody:"This will permanently delete your profile, health info, and ICE contacts from MYQER. You’ll be signed out. This cannot be undone.", delAlso:"Also delete my health profile and all ICE contacts", delType:"Type", delToConfirm:"to confirm:", delButton:"Permanently delete", delNote:"Note: Removing the authentication user requires a backend function with the service role key. This action deletes your data rows and signs you out.", cancel:"Cancel", toastSaved:"Saved successfully", toastDeleted:"Account data deleted. Signing out…"},
-      es:{identityTitle:"Identidad — Información Personal", healthTitle:"Información Médica", contactsTitle:"Contactos de Emergencia (ICE)", qrTitle:"QR de Emergencia", voiceTitle:"Resumen de Voz", voiceHint:"Previsualiza el resumen hablado en el idioma seleccionado.", uploadTitle:"Subir Documentos Médicos", uploadDesc:"Podrás añadir informes de alta, pruebas de alergia y más. Privado de extremo a extremo.", uploadBtn:"Subir (deshabilitado)", bloodTypeLabel:"Tipo de Sangre", lifeSupport:"Preferencia de Soporte Vital", organDonor:"Donante de Órganos", allergiesLabel:"Alergias", conditionsLabel:"Condiciones Médicas", medsLabel:"Medicamentos Actuales", fullSupport:"Soporte completo", limitedSupport:"Soporte limitado", comfortOnly:"Solo cuidados paliativos", noPreference:"Sin preferencia", fullName:"Nombre Completo", country:"País", dob:"Fecha de Nacimiento", nationalId:"ID Nacional", saveProfile:"Guardar Perfil", saveHealth:"Guardar Información Médica", addContact:"Añadir Contacto", noContacts:"Aún no hay contactos de emergencia.", shareLink:"Enlace para compartir:", qrTip:"Escanea para ver tu tarjeta pública de emergencia", voicePreview:"Previsualizar voz", stopVoice:"Detener", signIn:"Iniciar Sesión", signUp:"Registrarse", deleteAccount:"Eliminar cuenta y datos", delTitle:"Eliminar cuenta y datos", delBody:"Esto eliminará permanentemente tu perfil, información médica y contactos ICE. Cerrarás sesión. No se puede deshacer.", delAlso:"También eliminar mi perfil médico y todos los contactos ICE", delType:"Escribe", delToConfirm:"para confirmar:", delButton:"Eliminar permanentemente", delNote:"Nota: Eliminar el usuario de autenticación requiere una función backend con clave de servicio. Esta acción elimina tus datos y cierra sesión.", cancel:"Cancelar", toastSaved:"Guardado correctamente", toastDeleted:"Datos borrados. Cerrando sesión…"},
-      fr:{identityTitle:"Identité — Informations Personnelles", healthTitle:"Informations Médicales", contactsTitle:"Contacts d’Urgence (ICE)", qrTitle:"QR d’Urgence", voiceTitle:"Résumé Vocal", voiceHint:"Prévisualisez le résumé vocal dans la langue sélectionnée.", uploadTitle:"Téléverser des Documents Médicaux", uploadDesc:"Vous pourrez ajouter comptes rendus, tests d’allergie, etc. Confidentiel de bout en bout.", uploadBtn:"Téléverser (désactivé)", bloodTypeLabel:"Groupe Sanguin", lifeSupport:"Préférence de Soins Intensifs", organDonor:"Donneur d’Organes", allergiesLabel:"Allergies", conditionsLabel:"Affections Médicales", medsLabel:"Médicaments Actuels", fullSupport:"Support complet", limitedSupport:"Support limité", comfortOnly:"Soins de confort uniquement", noPreference:"Pas de préférence", fullName:"Nom complet", country:"Pays", dob:"Date de naissance", nationalId:"ID National", saveProfile:"Enregistrer le Profil", saveHealth:"Enregistrer Infos Médicales", addContact:"Ajouter un Contact", noContacts:"Aucun contact d’urgence.", shareLink:"Lien partageable :", qrTip:"Scannez pour voir votre carte d’urgence publique", voicePreview:"Aperçu vocal", stopVoice:"Arrêter", signIn:"Se connecter", signUp:"S’inscrire", deleteAccount:"Supprimer le compte et les données", delTitle:"Supprimer le compte et les données", delBody:"Cela supprimera définitivement votre profil, infos médicales et contacts ICE. Déconnexion. Action irréversible.", delAlso:"Supprimer aussi mon profil médical et tous les contacts ICE", delType:"Tapez", delToConfirm:"pour confirmer :", delButton:"Supprimer définitivement", delNote:"Supprimer l’utilisateur auth requiert une fonction serveur (clé service). Ceci supprime vos données et vous déconnecte.", cancel:"Annuler", toastSaved:"Enregistré avec succès", toastDeleted:"Données supprimées. Déconnexion…"},
-      de:{identityTitle:"Identität — Persönliche Daten", healthTitle:"Gesundheitsinformationen", contactsTitle:"Notfallkontakte (ICE)", qrTitle:"Notfall-QR", voiceTitle:"Sprachzusammenfassung", voiceHint:"Vorschau der gesprochenen Zusammenfassung in der gewählten Sprache.", uploadTitle:"Medizinische Dokumente hochladen", uploadDesc:"Bald können Sie Entlassungsbriefe, Allergietests u. a. hinzufügen. End-to-end privat.", uploadBtn:"Upload (deaktiviert)", bloodTypeLabel:"Blutgruppe", lifeSupport:"Behandlung im Notfall", organDonor:"Organspender", allergiesLabel:"Allergien", conditionsLabel:"Erkrankungen", medsLabel:"Aktuelle Medikamente", fullSupport:"Volle Maßnahmen", limitedSupport:"Begrenzte Maßnahmen", comfortOnly:"Komfortpflege", noPreference:"Keine Präferenz", fullName:"Vollständiger Name", country:"Land", dob:"Geburtsdatum", nationalId:"Nationale ID", saveProfile:"Profil speichern", saveHealth:"Gesundheitsdaten speichern", addContact:"Kontakt hinzufügen", noContacts:"Noch keine Notfallkontakte.", shareLink:"Teilbarer Link:", qrTip:"Zum Anzeigen deiner öffentlichen Notfallkarte scannen", voicePreview:"Sprachvorschau", stopVoice:"Stopp", signIn:"Anmelden", signUp:"Registrieren", deleteAccount:"Konto & Daten löschen", delTitle:"Konto & Daten löschen", delBody:"Dies löscht dauerhaft Profil, Gesundheitsdaten und ICE-Kontakte. Abmeldung folgt. Nicht rückgängig zu machen.", delAlso:"Auch Gesundheitsprofil und alle ICE-Kontakte löschen", delType:"Gib", delToConfirm:"ein, um zu bestätigen:", delButton:"Dauerhaft löschen", delNote:"Das Löschen des Auth-Users erfordert eine Serverfunktion (Service-Key). Diese Aktion löscht deine Daten und meldet dich ab.", cancel:"Abbrechen", toastSaved:"Erfolgreich gespeichert", toastDeleted:"Daten gelöscht. Abmeldung…"},
-      it:{identityTitle:"Identità — Informazioni Personali", healthTitle:"Informazioni Sanitarie", contactsTitle:"Contatti di Emergenza (ICE)", qrTitle:"QR di Emergenza", voiceTitle:"Sintesi Vocale", voiceHint:"Anteprima della sintesi vocale nella lingua selezionata.", uploadTitle:"Carica Documenti Medici", uploadDesc:"Potrai aggiungere referti, test allergici e altro. Privacy end-to-end.", uploadBtn:"Carica (disabilitato)", bloodTypeLabel:"Gruppo Sanguigno", lifeSupport:"Preferenza di Supporto Vitale", organ
+    const miniSignIn = document.getElementById('miniSignIn');
+    const miniSignUp = document.getElementById('miniSignUp');
+
+    // i18n dictionary (10 languages)
+    const t = {
+      en:{blood:'Blood',allergies:'Allergies',meds:'Meds',simplePeople:'Simple for people.',preciseResponders:'Precise',signIn:'Sign In',signUp:'Sign Up',
+          dashTitle:'Your Emergency Profile',dashSubtitle:'Keep this information current. It powers your public emergency card.',
+          publicLink:'Public Card Link',healthTitle:'Health Information',bloodType:'Blood Type',lifeSupport:'Life Support Preference',
+          organDonor:'Organ Donor',allergyList:'Allergies',conditions:'Medical Conditions',medications:'Current Medications',save:'Save',
+          vaultTitle:'DOCUMENT VAULT - Legacy & Critical Papers',vaultSoon:'Coming Soon',vaultDesc:'Securely store critical documents like DNR orders, living wills, medical power of attorney, insurance papers, and emergency instructions.',
+          identityTitle:'IDENTITY - Personal Information',fullName:'Full Name',dob:'Date of Birth',country:'Country',nid:'National ID (Optional)',
+          iceTitle:'Emergency Contacts (ICE)',addContact:'Add Contact',dangerZone:'Danger Zone',deleteWarn:'Deleting your account is permanent. This will remove your profile, health info and ICE contacts.',
+          deleteAccount:'Delete Account',confirmTitle:'Confirm account deletion',confirmText:'Are you sure you want to delete your account? This cannot be undone.',
+          cancel:'Cancel',delete:'Delete', fullSupport:'Full support', limitedSupport:'Limited support', comfortOnly:'Comfort care only', noPref:'No preference'},
+      es:{blood:'Sangre',allergies:'Alergias',meds:'Medicamentos',simplePeople:'Simple para personas.',preciseResponders:'Preciso',signIn:'Iniciar Sesión',signUp:'Registrarse',
+          dashTitle:'Tu Perfil de Emergencia',dashSubtitle:'Mantén esta información actualizada. Alimenta tu tarjeta pública de emergencia.',
+          publicLink:'Enlace de Tarjeta Pública',healthTitle:'Información de Salud',bloodType:'Tipo de Sangre',lifeSupport:'Preferencia de Soporte Vital',
+          organDonor:'Donante de Órganos',allergyList:'Alergias',conditions:'Condiciones Médicas',medications:'Medicamentos Actuales',save:'Guardar',
+          vaultTitle:'VAULT DE DOCUMENTOS - Legado y Documentos Críticos',vaultSoon:'Próximamente',vaultDesc:'Almacena de forma segura documentos críticos como órdenes DNR, testamentos vitales, poderes médicos, pólizas de seguro e instrucciones de emergencia.',
+          identityTitle:'IDENTIDAD - Información Personal',fullName:'Nombre Completo',dob:'Fecha de Nacimiento',country:'País',nid:'ID Nacional (Opcional)',
+          iceTitle:'Contactos de Emergencia (ICE)',addContact:'Agregar Contacto',dangerZone:'Zona de Peligro',deleteWarn:'Eliminar tu cuenta es permanente. Esto eliminará tu perfil, salud y contactos ICE.',
+          deleteAccount:'Eliminar Cuenta',confirmTitle:'Confirmar eliminación de cuenta',confirmText:'¿Seguro que deseas eliminar tu cuenta? Esto no se puede deshacer.',
+          cancel:'Cancelar',delete:'Eliminar', fullSupport:'Soporte completo', limitedSupport:'Soporte limitado', comfortOnly:'Solo cuidados paliativos', noPref:'Sin preferencia'},
+      fr:{blood:'Sang',allergies:'Allergies',meds:'Médicaments',simplePeople:'Simple pour tous.',preciseResponders:'Précis',signIn:'Se connecter',signUp:"S'inscrire",
+          dashTitle:'Votre Profil d’Urgence',dashSubtitle:'Gardez ces informations à jour. Elles alimentent votre carte publique.',
+          publicLink:'Lien de Carte Publique',healthTitle:'Informations Médicales',bloodType:'Groupe Sanguin',lifeSupport:'Préférence de Soins Intensifs',
+          organDonor:'Donneur d’organes',allergyList:'Allergies',conditions:'Conditions Médicales',medications:'Médicaments Actuels',save:'Enregistrer',
+          vaultTitle:'COFFRE DE DOCUMENTS - Testaments & Documents Critiques',vaultSoon:'Bientôt',vaultDesc:'Stockage sécurisé des documents critiques : directives anticipées, mandats, assurances, consignes.',
+          identityTitle:'IDENTITÉ - Informations Personnelles',fullName:'Nom Complet',dob:'Date de Naissance',country:'Pays',nid:'ID National (Optionnel)',
+          iceTitle:'Contacts d’Urgence (ICE)',addContact:'Ajouter un Contact',dangerZone:'Zone de danger',deleteWarn:'La suppression est définitive. Elle supprime votre profil, santé et ICE.',
+          deleteAccount:'Supprimer le Compte',confirmTitle:'Confirmer la suppression',confirmText:'Supprimer votre compte ? Action irréversible.',
+          cancel:'Annuler',delete:'Supprimer', fullSupport:'Support complet', limitedSupport:'Support limité', comfortOnly:'Soins de confort uniquement', noPref:'Sans préférence'},
+      de:{blood:'Blut',allergies:'Allergien',meds:'Medikamente',simplePeople:'Einfach für Menschen.',preciseResponders:'Präzise',signIn:'Anmelden',signUp:'Registrieren',
+          dashTitle:'Dein Notfallprofil',dashSubtitle:'Halte die Daten aktuell. Sie speisen deine öffentliche Karte.',
+          publicLink:'Öffentlicher Kartenlink',healthTitle:'Gesundheitsinformationen',bloodType:'Blutgruppe',lifeSupport:'Lebenserhaltungs-Präferenz',
+          organDonor:'Organspender',allergyList:'Allergien',conditions:'Krankheiten',medications:'Aktuelle Medikamente',save:'Speichern',
+          vaultTitle:'DOKUMENTEN-TRESOR – Nachlass & Kritische Dokumente',vaultSoon:'Bald verfügbar',vaultDesc:'Sichere Ablage für DNR, Patientenverfügung, Vollmachten, Versicherungen und Anweisungen.',
+          identityTitle:'IDENTITÄT – Persönliche Daten',fullName:'Vollständiger Name',dob:'Geburtsdatum',country:'Land',nid:'Nationale ID (Optional)',
+          iceTitle:'Notfallkontakte (ICE)',addContact:'Kontakt hinzufügen',dangerZone:'Gefahrenzone',deleteWarn:'Das Löschen ist endgültig. Profil, Gesundheit und ICE werden entfernt.',
+          deleteAccount:'Konto löschen',confirmTitle:'Löschen bestätigen',confirmText:'Konto wirklich löschen? Dies kann nicht rückgängig gemacht werden.',
+          cancel:'Abbrechen',delete:'Löschen', fullSupport:'Volle Unterstützung', limitedSupport:'Begrenzte Unterstützung', comfortOnly:'Nur Komfortpflege', noPref:'Keine Präferenz'},
+      it:{blood:'Sangue',allergies:'Allergie',meds:'Farmaci',simplePeople:'Semplice per le persone.',preciseResponders:'Preciso',signIn:'Accedi',signUp:'Registrati',
+          dashTitle:'Il tuo Profilo d’Emergenza',dashSubtitle:'Tieni aggiornate queste informazioni. Alimentano la tua tessera pubblica.',
+          publicLink:'Link Tessera Pubblica',healthTitle:'Informazioni Sanitarie',bloodType:'Gruppo Sanguigno',lifeSupport:'Preferenza di Trattamento',
+          organDonor:'Donatore di organi',allergyList:'Allergie',conditions:'Condizioni Mediche',medications:'Farmaci Correnti',save:'Salva',
+          vaultTitle:'VAULT DOCUMENTI - Lasciti & Documenti Critici',vaultSoon:'In arrivo',vaultDesc:'Conserva in modo sicuro DNR, testamento biologico, deleghe mediche, polizze, istruzioni.',
+          identityTitle:'IDENTITÀ - Dati Personali',fullName:'Nome e Cognome',dob:'Data di Nascita',country:'Paese',nid:'ID Nazionale (Opzionale)',
+          iceTitle:'Contatti di Emergenza (ICE)',addContact:'Aggiungi Contatto',dangerZone:'Zona Pericolo',deleteWarn:'Eliminazione definitiva: rimuove profilo, salute e contatti ICE.',
+          deleteAccount:'Elimina Account',confirmTitle:'Conferma eliminazione',confirmText:'Sei sicuro? Azione irreversibile.',
+          cancel:'Annulla',delete:'Elimina', fullSupport:'Supporto completo', limitedSupport:'Supporto limitato', comfortOnly:'Solo cure di conforto', noPref:'Nessuna preferenza'},
+      hi:{blood:'रक्त',allergies:'एलर्जी',meds:'दवाएँ',simplePeople:'लोगों के लिए सरल।',preciseResponders:'सटीक',signIn:'साइन इन',signUp:'साइन अप',
+          dashTitle:'आपकी आपातकाल प्रोफ़ाइल',dashSubtitle:'इसे अपडेट रखें। यही आपकी सार्वजनिक कार्ड चलाती है।',
+          publicLink:'सार्वजनिक कार्ड लिंक',healthTitle:'स्वास्थ्य जानकारी',bloodType:'रक्त समूह',lifeSupport:'जीवन समर्थन प्राथमिकता',
+          organDonor:'अंग दाता',allergyList:'एलर्जी',conditions:'चिकित्सीय अवस्थाएँ',medications:'वर्तमान दवाएँ',save:'सेव',
+          vaultTitle:'दस्तावेज़ वॉल्ट - विरासत व महत्वपूर्ण कागज़ात',vaultSoon:'जल्द आ रहा है',vaultDesc:'DNR आदेश, जीवित वसीयत, मेडिकल पावर ऑफ अटॉर्नी, बीमा और निर्देश सुरक्षित रखें।',
+          identityTitle:'पहचान - व्यक्तिगत जानकारी',fullName:'पूरा नाम',dob:'जन्मतिथि',country:'देश',nid:'राष्ट्रीय आईडी (वैकल्पिक)',
+          iceTitle:'आपातकालीन संपर्क (ICE)',addContact:'संपर्क जोड़ें',dangerZone:'खतरनाक क्षेत्र',deleteWarn:'खाता हटाना स्थायी है। प्रोफ़ाइल, स्वास्थ्य और ICE हट जाएंगे।',
+          deleteAccount:'खाता हटाएँ',confirmTitle:'खाता हटाने की पुष्टि',confirmText:'क्या आप वाकई हटाना चाहते हैं? यह पूर्ववत नहीं होगा।',
+          cancel:'रद्द करें',delete:'हटाएँ', fullSupport:'पूर्ण समर्थन', limitedSupport:'सीमित समर्थन', comfortOnly:'केवल आराम देखभाल', noPref:'कोई प्राथमिकता नहीं'},
+      ar:{blood:'الدم',allergies:'الحساسيات',meds:'الأدوية',simplePeople:'بسيط للجميع.',preciseResponders:'دقيق',signIn:'تسجيل الدخول',signUp:'إنشاء حساب',
+          dashTitle:'ملفك الطبي للطوارئ',dashSubtitle:'حافظ على تحديثه. يزوّد بطاقتك العامة.',
+          publicLink:'رابط البطاقة العامة',healthTitle:'المعلومات الصحية',bloodType:'فصيلة الدم',lifeSupport:'تفضيل الإنعاش',
+          organDonor:'متبرع بالأعضاء',allergyList:'الحساسيات',conditions:'الحالات الطبية',medications:'الأدوية الحالية',save:'حفظ',
+          vaultTitle:'خزنة المستندات - الوصايا والوثائق الحرجة',vaultSoon:'قريبًا',vaultDesc:'حفظ آمن للأوامر الطبية، الوصايا، التفويضات، التأمين، والتعليمات.',
+          identityTitle:'الهوية - المعلومات الشخصية',fullName:'الاسم الكامل',dob:'تاريخ الميلاد',country:'البلد',nid:'الهوية الوطنية (اختياري)',
+          iceTitle:'جهات الاتصال للطوارئ (ICE)',addContact:'إضافة جهة اتصال',dangerZone:'منطقة الخطر',deleteWarn:'الحذف دائم. سيتم حذف ملفك وصحتك وجهات ICE.',
+          deleteAccount:'حذف الحساب',confirmTitle:'تأكيد حذف الحساب',confirmText:'متأكد من الحذف؟ لا رجعة فيه.',
+          cancel:'إلغاء',delete:'حذف', fullSupport:'دعم كامل', limitedSupport:'دعم محدود', comfortOnly:'رعاية مريحة فقط', noPref:'بدون تفضيل'},
+      zh:{blood:'血型',allergies:'过敏',meds:'用药',simplePeople:'对大众简单。',preciseResponders:'对救援精确',signIn:'登录',signUp:'注册',
+          dashTitle:'你的应急档案',dashSubtitle:'保持最新。这将驱动你的公共应急卡。',
+          publicLink:'公共卡链接',healthTitle:'健康信息',bloodType:'血型',lifeSupport:'生命支持偏好',
+          organDonor:'器官捐献者',allergyList:'过敏',conditions:'疾病',medications:'当前用药',save:'保存',
+          vaultTitle:'文件保险库 - 遗嘱与关键文件',vaultSoon:'即将上线',vaultDesc:'安全存储DNR、预嘱、医疗委托、保险文件和应急说明。',
+          identityTitle:'身份 - 个人信息',fullName:'姓名',dob:'出生日期',country:'国家',nid:'国民ID（可选）',
+          iceTitle:'紧急联系人 (ICE)',addContact:'添加联系人',dangerZone:'危险区域',deleteWarn:'删除账户是永久性的。将移除你的资料、健康信息和联系人。',
+          deleteAccount:'删除账户',confirmTitle:'确认删除',confirmText:'确认删除账户？此操作不可撤销。',
+          cancel:'取消',delete:'删除', fullSupport:'完全支持', limitedSupport:'有限支持', comfortOnly:'仅舒缓治疗', noPref:'无偏好'},
+      hu:{blood:'Vér',allergies:'Allergiák',meds:'Gyógyszerek',simplePeople:'Egyszerű az embereknek.',preciseResponders:'Pontos',signIn:'Bejelentkezés',signUp:'Regisztráció',
+          dashTitle:'Vészhelyzeti profilod',dashSubtitle:'Tartsd naprakészen. Ezt használja a nyilvános kártyád.',
+          publicLink:'Nyilvános kártya link',healthTitle:'Egészségügyi információk',bloodType:'Vércsoport',lifeSupport:'Életjele támogatás preferencia',
+          organDonor:'Szervdonor',allergyList:'Allergiák',conditions:'Betegségek',medications:'Jelenlegi gyógyszerek',save:'Mentés',
+          vaultTitle:'DOKUMENTUMTÁR – Hagyaték és kritikus iratok',vaultSoon:'Hamarosan',vaultDesc:'DNR, élő végrendelet, meghatalmazás, biztosítás és utasítások biztonságban.',
+          identityTitle:'IDENTITÁS – Személyes adatok',fullName:'Teljes név',dob:'Születési idő',country:'Ország',nid:'Szem. azonosító (opcionális)',
+          iceTitle:'Sürgősségi kapcsolatok (ICE)',addContact:'Kapcsolat hozzáadása',dangerZone:'Veszélyzóna',deleteWarn:'A törlés végleges. Profil, egészség és ICE törlődik.',
+          deleteAccount:'Fiók törlése',confirmTitle:'Törlés megerősítése',confirmText:'Biztosan törlöd? Ez nem visszavonható.',
+          cancel:'Mégse',delete:'Törlés', fullSupport:'Teljes támogatás', limitedSupport:'Korlátozott támogatás', comfortOnly:'Csak palliatív', noPref:'Nincs preferencia'},
+      ro:{blood:'Sânge',allergies:'Alergii',meds:'Medicamente',simplePeople:'Simplu pentru oameni.',preciseResponders:'Precis',signIn:'Conectare',signUp:'Înregistrare',
+          dashTitle:'Profilul tău de urgență',dashSubtitle:'Păstrează datele actualizate. Alimentează cardul public.',
+          publicLink:'Link Card Public',healthTitle:'Informații medicale',bloodType:'Grupa sanguină',lifeSupport:'Preferință suport vital',
+          organDonor:'Donator de organe',allergyList:'Alergii',conditions:'Afectiuni',medications:'Medicație curentă',save:'Salvează',
+          vaultTitle:'VAULT DOCUMENTE – Moștenire & Documente critice',vaultSoon:'În curând',vaultDesc:'Păstrează în siguranță DNR, testament, procuri, polițe și instrucțiuni.',
+          identityTitle:'IDENTITATE – Informații personale',fullName:'Nume complet',dob:'Data nașterii',country:'Țara',nid:'ID Național (Opțional)',
+          iceTitle:'Contacte de urgență (ICE)',addContact:'Adaugă contact',dangerZone:'Zonă de risc',deleteWarn:'Ștergerea este permanentă. Se vor elimina profilul, sănătatea și ICE.',
+          deleteAccount:'Șterge contul',confirmTitle:'Confirmă ștergerea',confirmText:'Ești sigur? Acțiune ireversibilă.',
+          cancel:'Anulează',delete:'Șterge', fullSupport:'Suport complet', limitedSupport:'Suport limitat', comfortOnly:'Îngrijire de confort', noPref:'Fără preferință'}
+    };
+
+    function applyI18n(locale){
+      const dict = t[locale] || t.en;
+      document.querySelectorAll('[data-i18n]').forEach(el=>{
+        const k = el.getAttribute('data-i18n');
+        if(dict[k]) el.textContent = dict[k];
+      });
+      document.querySelectorAll('[data-i18n-opt]').forEach(el=>{
+        const k = el.getAttribute('data-i18n-opt');
+        if(dict[k]) el.textContent = dict[k];
+      });
+      // Phone buttons
+      miniSignIn.textContent = dict.signIn;
+      miniSignUp.textContent = dict.signUp;
+      document.getElementById('phoneSub').innerHTML = `${dict.simplePeople} <span class="text-brand font-semibold">${dict.preciseResponders}</span> ${'for responders.'}`;
+    }
+
+    // Language persistence
+    const savedLang = localStorage.getItem('myqer_lang') || 'en';
+    langSel.value = savedLang;
+    applyI18n(savedLang);
+    langSel.addEventListener('change', () => {
+      const val = langSel.value;
+      localStorage.setItem('myqer_lang', val);
+      applyI18n(val);
+      // also update public card link lang param
+      const url = new URL(cardLink.href);
+      url.searchParams.set('lang', val);
+      cardLink.href = url.toString();
+    });
+
+    // Logout (safe)
+    logoutBtn.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      try { await supabase.auth.signOut(); } catch {}
+      window.location.href = '/?auth=signin';
+    });
+
+    // Load data
+    let profile={}, health={}, contacts=[];
+    await loadAll();
+
+    async function loadAll(){
+      const uid = user.id;
+      // profile
+      let { data: prof, error: pErr } = await supabase.from('profiles').select('*').eq('id', uid).single();
+      if (pErr && pErr.code === 'PGRST116') {
+        // create shell
+        const code = 'MYQER-' + Math.random().toString(36).slice(2,8).toUpperCase();
+        const ins = await supabase.from('profiles').insert({ id: uid, email: user.email, code }).select().single();
+        prof = ins.data;
+      }
+      profile = prof || {};
+
+      // health
+      let { data: hp, error: hErr } = await supabase.from('health_profiles').select('*').eq('user_id', uid).single();
+      if (hErr && hErr.code === 'PGRST116') hp = {};
+      health = hp || {};
+
+      // contacts
+      const { data: cs } = await supabase.from('ice_contacts').select('*').eq('user_id', uid).order('created_at');
+      contacts = cs || [];
+
+      renderProfile();
+      renderHealth();
+      renderContacts();
+      renderPublicBits();
+    }
+
+    function renderPublicBits(){
+      if (!profile.code) return;
+      const url = `${location.origin}/card.html?code=${encodeURIComponent(profile.code)}&lang=${langSel.value}`;
+      cardLink.textContent = url;
+      cardLink.href = url;
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+    }
+
+    function setVal(form, name, val){
+      const el = form.querySelector(`[name="${name}"]`);
+      if (!el) return;
+      if (el.type==='checkbox') el.checked = !!val;
+      else el.value = val || '';
+    }
+
+    function getVal(form, name){
+      const el = form.querySelector(`[name="${name}"]`);
+      if (!el) return null;
+      return el.type==='checkbox' ? el.checked : el.value.trim();
+    }
+
+    function renderProfile(){
+      setVal(profileForm, 'full_name', profile.full_name);
+      setVal(profileForm, 'date_of_birth', profile.date_of_birth);
+      setVal(profileForm, 'country', profile.country);
+      setVal(profileForm, 'national_id', profile.national_id);
+    }
+
+    function renderHealth(){
+      setVal(healthForm, 'blood_type', health.blood_type);
+      setVal(healthForm, 'life_support_pref', health.life_support_pref);
+      setVal(healthForm, 'organ_donor', health.organ_donor);
+      setVal(healthForm, 'allergies', health.allergies);
+      setVal(healthForm, 'conditions', health.conditions);
+      setVal(healthForm, 'meds', health.meds);
+    }
+
+    function renderContacts(){
+      if (!iceList) return;
+      if (!contacts.length){
+        iceList.innerHTML = `<div class="text-center text-sm text-gray-500 py-6">No emergency contacts yet.</div>`;
+        return;
+      }
+      iceList.innerHTML = contacts.map(c => `
+        <div class="border rounded-lg p-3 flex flex-col gap-2">
+          <div class="grid grid-cols-1 gap-2">
+            <input class="border rounded-lg px-3 py-2" value="${c.name||''}" placeholder="Name" data-id="${c.id}" data-k="name">
+            <input class="border rounded-lg px-3 py-2" value="${c.relation||''}" placeholder="Relationship" data-id="${c.id}" data-k="relation">
+            <input class="border rounded-lg px-3 py-2" value="${c.phone||''}" placeholder="Phone" data-id="${c.id}" data-k="phone">
+          </div>
+          <div class="flex justify-end">
+            <button class="px-3 py-1.5 rounded-lg border text-sm text-red-600 hover:bg-red-50" data-del="${c.id}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Save handlers
+    document.getElementById('saveProfile').addEventListener('click', async ()=>{
+      const data = {
+        id: user.id,
+        email: user.email,
+        full_name: getVal(profileForm,'full_name'),
+        date_of_birth: getVal(profileForm,'date_of_birth'),
+        country: getVal(profileForm,'country'),
+        national_id: getVal(profileForm,'national_id'),
+        code: profile.code || ('MYQER-' + Math.random().toString(36).slice(2,8).toUpperCase())
+      };
+      const { error } = await supabase.from('profiles').upsert(data);
+      if (!error){ profile = { ...profile, ...data }; renderPublicBits(); toast('Profile saved'); }
+      else toast(error.message, true);
+    });
+
+    document.getElementById('saveHealth').addEventListener('click', async ()=>{
+      const data = {
+        user_id: user.id,
+        blood_type: getVal(healthForm,'blood_type'),
+        organ_donor: getVal(healthForm,'organ_donor'),
+        life_support_pref: getVal(healthForm,'life_support_pref'),
+        allergies: getVal(healthForm,'allergies'),
+        conditions: getVal(healthForm,'conditions'),
+        meds: getVal(healthForm,'meds')
+      };
+      const { error } = await supabase.from('health_profiles').upsert(data);
+      if (!error){ health = { ...health, ...data }; toast('Health info saved'); speakSummary(); }
+      else toast(error.message, true);
+    });
+
+    // ICE add/update/delete
+    addIce.addEventListener('click', async ()=>{
+      const { data, error } = await supabase.from('ice_contacts').insert({ user_id: user.id, name:'', relation:'', phone:'' }).select().single();
+      if (error) return toast(error.message, true);
+      contacts.push(data); renderContacts();
+      toast('Contact added');
+    });
+
+    iceList.addEventListener('change', async (e)=>{
+      const k = e.target.getAttribute('data-k');
+      const id = e.target.getAttribute('data-id');
+      if (!k || !id) return;
+      const { error } = await supabase.from('ice_contacts').update({ [k]: e.target.value }).eq('id', id);
+      if (error) toast(error.message, true);
+    });
+
+    iceList.addEventListener('click', async (e)=>{
+      const delId = e.target.getAttribute('data-del');
+      if (!delId) return;
+      if (!confirm('Delete this contact?')) return;
+      const { error } = await supabase.from('ice_contacts').delete().eq('id', delId);
+      if (error) return toast(error.message, true);
+      contacts = contacts.filter(c=>String(c.id)!==String(delId));
+      renderContacts();
+      toast('Contact deleted');
+    });
+
+    // Mini phone buttons -> open app (already here) or show hint
+    miniSignIn.addEventListener('click', ()=> toast('You are already signed in.'));
+    miniSignUp.addEventListener('click', ()=> toast('Account is already created. Manage below.'));
+
+    // Voice summary (local TTS)
+    function speakSummary(){
+      try{
+        const p = profile||{}; const h = health||{};
+        const text = `${p.full_name||'User'} — ${h.blood_type?('Blood '+h.blood_type+'. '):''}${h.allergies?('Allergies: '+h.allergies+'. '):''}${h.conditions?('Conditions: '+h.conditions+'. '):''}${h.meds?('Medications: '+h.meds+'. '):''}`;
+        const u = new SpeechSynthesisUtterance(text);
+        const lang = localStorage.getItem('myqer_lang') || 'en';
+        u.lang = lang==='zh'?'zh-CN':(lang==='ar'?'ar-SA':(lang==='hi'?'hi-IN':`${lang}-${lang.toUpperCase()}`));
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+      }catch{}
+    }
+
+    // Delete account (separate modal, far from logout)
+    deleteBtn.addEventListener('click', ()=>{
+      confirmModal.classList.remove('hidden');
+      confirmModal.classList.add('flex');
+    });
+    cancelDel.addEventListener('click', ()=>{
+      confirmModal.classList.add('hidden');
+      confirmModal.classList.remove('flex');
+    });
+    confirmDel.addEventListener('click', async ()=>{
+      try{
+        // delete child rows first (if RLS allows)
+        await supabase.from('ice_contacts').delete().eq('user_id', user.id);
+        await supabase.from('health_profiles').delete().eq('user_id', user.id);
+        await supabase.from('profiles').delete().eq('id', user.id);
+      }catch{}
+      try{ await supabase.auth.admin.deleteUser(user.id); }catch{}
+      try{ await supabase.auth.signOut(); }catch{}
+      alert('Account deleted.');
+      window.location.href = '/';
+    });
+
+    // Toast helper
+    function toast(msg, isErr=false){
+      const n = document.createElement('div');
+      n.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-soft text-white z-50';
+      n.style.background = isErr ? '#dc2626' : '#16a34a';
+      n.textContent = msg;
+      document.body.appendChild(n);
+      setTimeout(()=>n.remove(), 3000);
+    }
+  </script>
+</body>
+</html>
