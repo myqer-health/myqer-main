@@ -289,13 +289,11 @@ function ensureQrFromCode(code) {
 applyTranslations();
 loadAll();
 
-/* ========== Logout (return to pretty modal) ========== */
-document.getElementById('logout')?.addEventListener('click', async ()=>{
-  try {
-    await supabase.auth.signOut();
-  } catch (e) {
-    console.error('Logout error:', e);
-  } finally {
-    window.location.replace(`/?${AUTH_QUERY}`);
-  }
+/// ==== Logout (force-redirect to pretty modal on landing) ====
+document.getElementById('logout')?.addEventListener('click', async (e) => {
+  try { e?.preventDefault?.(); } catch {}
+  try { await supabase.auth.signOut(); } catch (err) { console.error('Logout error:', err); }
+  // Fall back to literal query in case AUTH_QUERY is undefined
+  const q = (typeof AUTH_QUERY === 'string' && AUTH_QUERY) ? AUTH_QUERY : 'auth=signin';
+  window.location.href = `/?${q}`;
 });
