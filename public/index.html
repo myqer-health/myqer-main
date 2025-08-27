@@ -1,231 +1,230 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>MYQER – Emergency Medical Information</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MYQER - Emergency Medical Information</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script>
-    tailwind.config = { theme:{ extend:{ colors:{
-      'myqer-red':'#c62828','myqer-green':'#E9F7EF','myqer-green-text':'#0F5132','myqer-green-border':'#CBE7D9'
-    }}}}
-  </script>
+
   <style>
-    .glass-card{background:rgba(255,255,255,.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-    .phone-shadow{box-shadow:0 25px 50px -12px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.05)}
-    .grid-bg{background-image:linear-gradient(rgba(198,40,40,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(198,40,40,.03) 1px,transparent 1px);background-size:20px 20px}
-    .gradient-bg{background:linear-gradient(135deg,rgba(248,250,252,.8) 0%,rgba(241,245,249,.9) 100%)}
-    .qr-ring{box-shadow:0 0 0 2px #c62828,0 4px 12px rgba(0,0,0,.1)}
+    :root {
+      --brand:#c62828;
+      --ink:#111318;
+      --muted:#667085;
+      --glass:rgba(255,255,255,.16);
+      --glass-2:rgba(255,255,255,.24);
+      --glass-strong:rgba(255,255,255,.75);
+      --stroke:rgba(17,24,39,.10);
+      --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
+      --radius:18px;
+    }
+    body {
+      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+      background:linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%);
+      color:var(--ink);
+    }
+    .glass-card {
+      background:var(--glass-2);
+      backdrop-filter:blur(18px);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .pill {
+      border-radius:999px;
+      padding:.5rem .9rem;
+      border:1px solid var(--stroke);
+      background:rgba(255,255,255,.7)
+    }
+    .pill-red { background:var(--brand); color:#fff; border-color:var(--brand) }
+    .btn-red { background:var(--brand); color:#fff }
+    .btn-red:hover { filter:brightness(1.05) }
+    .phone-shadow {
+      box-shadow:0 25px 50px -12px rgba(0,0,0,0.25),0 0 0 1px rgba(255,255,255,0.05);
+    }
   </style>
 </head>
-<body class="bg-gray-50 overflow-x-hidden">
+<body>
+
   <!-- NAV -->
-  <nav class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex items-center">
-          <h1 class="text-2xl font-bold text-gray-900">MYQ<span class="text-myqer-red">ER</span></h1>
-        </div>
-        <div class="flex items-center space-x-4">
-          <select id="languageSelect" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
-            <option value="en">🇺🇸 English</option><option value="es">🇪🇸 Español</option>
-            <option value="fr">🇫🇷 Français</option><option value="de">🇩🇪 Deutsch</option>
-            <option value="it">🇮🇹 Italiano</option><option value="hi">🇮🇳 हिन्दी</option>
-            <option value="ar">🇸🇦 العربية</option><option value="zh">🇨🇳 中文</option>
-            <option value="hu">🇭🇺 Magyar</option><option value="ro">🇷🇴 Română</option>
-          </select>
-        </div>
+  <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="h-16 flex items-center justify-between">
+        <a href="/" class="font-extrabold text-xl">
+          MYQ<span class="text-[#c62828]">ER</span>
+        </a>
+        <nav class="hidden md:flex items-center gap-3">
+          <a href="/about.html" class="text-gray-700 hover:text-red-600">About</a>
+          <a href="/contact.html" class="text-gray-700 hover:text-red-600">Contact</a>
+          <button id="btnLogin" class="px-4 py-2 rounded-lg text-sm font-semibold btn-red">Login</button>
+          <button id="btnRegister" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600 hover:bg-red-50">Register</button>
+        </nav>
       </div>
     </div>
-  </nav>
+  </header>
 
   <!-- HERO -->
-  <div class="min-h-screen gradient-bg grid-bg relative">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-        <!-- Phone mock -->
-        <div class="flex justify-center lg:justify-end">
-          <div class="relative">
-            <div class="w-80 h-[640px] bg-black rounded-[3rem] p-2 phone-shadow">
-              <div class="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
-                <div class="flex justify-between items-center px-6 py-3 text-sm opacity-80">
-                  <div class="text-gray-900 font-medium text-xs">MYQER</div>
-                  <div class="text-gray-900 font-medium">09:41</div>
-                </div>
-                <div class="px-6 pb-6 h-full flex flex-col">
-                  <div class="mb-6">
-                    <div class="inline-flex items-center px-3 py-1.5 rounded-full bg-myqer-green border border-myqer-green-border">
-                      <span class="text-myqer-green-text font-bold text-sm">GREEN — Standard</span>
+  <main class="pt-24">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+
+      <div class="lg:grid lg:grid-cols-2 lg:gap-12 items-start">
+
+        <!-- LEFT TEXT -->
+        <section class="space-y-6">
+          <div>
+            <span class="pill pill-red text-sm font-semibold">Free to use</span>
+            <span class="pill text-sm ml-2">Works offline</span>
+          </div>
+          <h1 class="text-5xl font-extrabold leading-tight">
+            Your <span class="text-[#c62828]">emergency triage</span>, voiced for you.
+          </h1>
+          <p class="text-lg text-gray-600 max-w-xl">
+            Scan a MYQER tag to show <strong>allergies, conditions, medications, ICE</strong> — on any phone, in any language, even with no signal.
+          </p>
+          <div class="flex gap-3 flex-wrap">
+            <button id="ctaGetStartedDesktop" class="px-5 py-3 rounded-lg text-base font-semibold btn-red shadow">Create free account</button>
+            <button id="ctaSignInDesktop" class="px-5 py-3 rounded-lg text-base font-semibold border border-red-600 text-red-600 hover:bg-red-50">Sign in</button>
+          </div>
+          <p class="text-xs text-gray-500">No ads. No trackers. Your data stays on your device unless you choose to share it.</p>
+        </section>
+
+        <!-- RIGHT: PHONE + PLANS -->
+        <section class="space-y-8">
+
+          <!-- Phone preview -->
+          <div class="flex justify-center lg:justify-start">
+            <div class="relative">
+              <div class="w-80 h-[640px] bg-black rounded-[3rem] p-2 phone-shadow">
+                <div class="w-full h-full bg-white rounded-[2.5rem] overflow-hidden flex flex-col px-6 pb-6">
+
+                  <!-- Top bar -->
+                  <div class="flex justify-between items-center py-3 text-sm opacity-80">
+                    <div class="text-gray-900 font-medium text-xs">MYQER</div>
+                    <div class="text-gray-900 font-medium">09:41</div>
+                  </div>
+
+                  <!-- Pill -->
+                  <div class="mb-4">
+                    <div class="inline-flex items-center px-3 py-1.5 rounded-full bg-[#E9F7EF] border border-[#CBE7D9]">
+                      <span class="text-[#0F5132] font-bold text-sm">GREEN — Standard</span>
                     </div>
                   </div>
-                  <div class="mb-8">
-                    <h2 class="text-2xl font-semibold text-gray-900 leading-tight mb-3">
-                      Your emergency card.<br>One scan, instant triage.
-                    </h2>
-                    <p class="text-sm text-gray-600 opacity-70 mb-2">
-                      A QR triage code to guide responders — anywhere, anytime.
-                    </p>
-                    <p class="text-xs text-gray-500 opacity-60">(pronounced "My Care")</p>
-                  </div>
-                  <div class="glass-card rounded-2xl p-4 mb-6 shadow-lg">
-                    <div class="grid grid-cols-2 gap-y-3 gap-x-4">
-                      <div><div class="text-xs uppercase tracking-wide text-gray-600 opacity-70 mb-1">Blood</div><div class="font-bold text-gray-900">O+</div></div>
-                      <div><div class="text-xs uppercase tracking-wide text-gray-600 opacity-70 mb-1">ICE</div><div class="font-bold text-gray-900">+44 7700...</div></div>
-                      <div class="col-span-2"><div class="h-px bg-myqer-red opacity-30 mb-3"></div></div>
-                      <div><div class="text-xs uppercase tracking-wide text-gray-600 opacity-70 mb-1">Allergies</div><div class="font-bold text-gray-900 text-sm">Penicillin, Nuts</div></div>
-                      <div><div class="text-xs uppercase tracking-wide text-gray-600 opacity-70 mb-1">Meds</div><div class="font-bold text-gray-900">Metformin</div></div>
-                    </div>
-                  </div>
-                  <div class="glass-card rounded-2xl p-4 mb-6 shadow-lg">
-                    <div class="flex items-center space-x-4">
-                      <div class="flex-shrink-0">
-                        <div id="phoneQRCode" class="w-24 h-24 bg-white rounded-xl qr-ring flex items-center justify-center"></div>
+
+                  <!-- Headline -->
+                  <h3 class="text-xl font-semibold text-gray-900 mb-2">
+                    Your emergency card.<br>One scan, instant triage.
+                  </h3>
+                  <p class="text-xs text-gray-500 mb-4">(pronounced “My Care”)</p>
+
+                  <!-- Info card -->
+                  <div class="glass-card rounded-2xl p-4 mb-4 shadow-lg">
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">Blood</div>
+                        <div class="font-bold text-gray-900">O+</div>
                       </div>
-                      <div class="flex-1 min-w-0">
-                        <div class="font-bold text-gray-900 text-sm mb-1">Scan to view emergency info</div>
-                        <div class="text-xs text-gray-600 opacity-80">Simple for people. Precise for responders.</div>
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">ICE</div>
+                        <div class="font-bold text-gray-900">+44 7700…</div>
+                      </div>
+                      <div class="col-span-2 border-t border-red-200"></div>
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">Allergies</div>
+                        <div class="font-bold text-gray-900 text-sm">Penicillin, Nuts</div>
+                      </div>
+                      <div>
+                        <div class="text-xs text-gray-600 mb-1">Meds</div>
+                        <div class="font-bold text-gray-900 text-sm">Metformin</div>
                       </div>
                     </div>
                   </div>
-                  <div class="flex flex-wrap gap-2 mt-auto">
-                    <div class="glass-card px-3 py-1.5 rounded-full"><span class="text-xs text-gray-600">Works offline</span></div>
-                    <div class="glass-card px-3 py-1.5 rounded-full"><span class="text-xs text-gray-600">Multi-language</span></div>
-                    <div class="glass-card px-3 py-1.5 rounded-full"><span class="text-xs text-gray-600">Privacy-first</span></div>
+
+                  <!-- Chips -->
+                  <div class="flex gap-2 flex-wrap mb-4">
+                    <span class="glass-card px-3 py-1 rounded-full text-xs text-gray-600">Works offline</span>
+                    <span class="glass-card px-3 py-1 rounded-full text-xs text-gray-600">Multi-language</span>
+                    <span class="glass-card px-3 py-1 rounded-full text-xs text-gray-600">Privacy-first</span>
                   </div>
-                  <div class="absolute bottom-8 left-6 right-6">
-                    <div class="flex space-x-4">
-                      <button id="phoneSignInBtn" class="flex-1 bg-green-500 text-white py-3 rounded-full font-semibold text-sm shadow-lg hover:bg-green-600">Sign In</button>
-                      <button id="phoneSignUpBtn" class="flex-1 bg-myqer-red text-white py-3 rounded-full font-semibold text-sm shadow-lg hover:bg-red-700">Sign Up</button>
-                    </div>
+
+                  <!-- Phone buttons -->
+                  <div class="mt-auto grid grid-cols-2 gap-3">
+                    <button id="phoneSignIn" class="bg-green-500 hover:bg-green-600 text-white py-3 rounded-full font-semibold text-sm shadow">Sign In</button>
+                    <button id="phoneSignUp" class="bg-[#c62828] hover:bg-red-700 text-white py-3 rounded-full font-semibold text-sm shadow">Sign Up</button>
                   </div>
+
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Right content -->
-        <div class="space-y-8">
-          <div>
-            <h1 id="heroTitle" class="text-5xl md:text-6xl font-bold text-gray-900 leading-tight mb-6">People — Essential Access</h1>
-            <p id="heroSubtitle" class="text-xl text-gray-600 mb-8 leading-relaxed">
-              When every second counts, MYQER provides instant access to critical medical information through a simple QR code scan.
-            </p>
-            <button id="getStartedBtn" class="bg-myqer-red text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-red-700 transition-colors shadow-lg">Get Started</button>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-            <div class="glass-card p-6 rounded-2xl shadow-lg"><div class="text-3xl mb-4">🚨</div><h3 id="feature1Title" class="text-lg font-semibold text-gray-900 mb-2">Emergency Access</h3><p id="feature1Desc" class="text-gray-600">QR code provides instant access to medical information</p></div>
-            <div class="glass-card p-6 rounded-2xl shadow-lg"><div class="text-3xl mb-4">🔒</div><h3 id="feature2Title" class="text-lg font-semibold text-gray-900 mb-2">Secure & Private</h3><p id="feature2Desc" class="text-gray-600">Your data is encrypted and only shared when needed</p></div>
-            <div class="glass-card p-6 rounded-2xl shadow-lg"><div class="text-3xl mb-4">🌍</div><h3 id="feature3Title" class="text-lg font-semibold text-gray-900 mb-2">Multilingual</h3><p id="feature3Desc" class="text-gray-600">Available in multiple languages worldwide</p></div>
-            <div class="glass-card p-6 rounded-2xl shadow-lg"><div class="text-3xl mb-4">⚡</div><h3 id="feature4Title" class="text-lg font-semibold text-gray-900 mb-2">Works Offline</h3><p id="feature4Desc" class="text-gray-600">Critical information accessible without internet</p></div>
-          </div>
-        </div>
+          <!-- Plan cards -->
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold">People — Essential Access</h3>
+              <span class="pill pill-red font-semibold">Free to use</span>
+            </header>
+            <p class="text-gray-600 mb-4">No cost · No trial · No ads</p>
+            <ul class="space-y-2 text-gray-700">
+              <li>• Emergency card (allergies, meds, ICE)</li>
+              <li>• Works offline (no signal needed)</li>
+              <li>• DIY printable QR tags & stickers</li>
+              <li>• Multi-language text & voice*</li>
+              <li>• Zero tracking & on-device privacy</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold btn-red" id="planCreate">Create free account</button>
+          </article>
+
+          <article class="glass-card p-6">
+            <header class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-bold">MYQER+ — Professional</h3>
+              <span class="pill text-gray-700">Coming soon</span>
+            </header>
+            <p class="text-gray-600 mb-4">Pro tools for clinicians & institutions</p>
+            <ul class="space-y-2 text-gray-700">
+              <li>• Clinician dashboard & dispatch integration</li>
+              <li>• Hospital & EMS API support</li>
+              <li>• Premium tags & wearables (NFC, metal bands)</li>
+              <li>• Secure cloud backup & recovery</li>
+              <li>• Priority clinical support</li>
+            </ul>
+            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold border border-slate-300 text-slate-500" disabled>Not yet available</button>
+          </article>
+
+        </section>
       </div>
+    </div>
+  </main>
+
+  <!-- AUTH MODAL (simplified placeholder, keep your existing one if already present) -->
+  <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white p-8 rounded-xl w-full max-w-md">
+      <h2 id="modalTitle" class="text-xl font-bold mb-4">Sign In</h2>
+      <form id="authForm" class="space-y-4">
+        <input id="email" type="email" placeholder="Email" class="w-full border px-3 py-2 rounded">
+        <input id="password" type="password" placeholder="Password" class="w-full border px-3 py-2 rounded">
+        <button id="authSubmit" type="submit" class="w-full bg-red-600 text-white py-2 rounded">Sign In</button>
+      </form>
+      <button id="closeModal" class="mt-4 text-gray-500">Close</button>
     </div>
   </div>
 
-  <!-- AUTH MODAL -->
-  <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-    <div class="flex items-center justify-center min-h-screen p-4">
-      <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
-        <div class="flex justify-between items-center mb-6">
-          <h2 id="modalTitle" class="text-2xl font-semibold text-gray-900">Sign In</h2>
-          <button id="closeModal" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-        </div>
-        <form id="authForm" class="space-y-6">
-          <div><label id="emailLabel" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input type="email" id="email" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-myqer-red focus:border-transparent"></div>
-          <div><label id="passwordLabel" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input type="password" id="password" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-myqer-red focus:border-transparent"></div>
-          <button type="submit" id="authSubmit" class="w-full bg-myqer-red text-white py-3 rounded-xl font-semibold hover:bg-red-700">Sign In</button>
-        </form>
-        <div class="mt-6 text-center">
-          <button id="toggleAuth" class="text-myqer-red hover:text-red-700 font-medium">Don't have an account? Sign up</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-    // 🔧 REPLACE THESE
-    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-    const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // i18n (same dictionary as you had)
-    const translations = { /* shortened for brevity in this message — use your full 10-language object here */ };
-    const t = (lang)=>translations[lang]||translations.en;
-
-    let currentLang = 'en';
-    let isSignUp = false;
-
-    const languageSelect = document.getElementById('languageSelect');
-    const authModal = document.getElementById('authModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const authSubmit = document.getElementById('authSubmit');
-    const toggleAuth = document.getElementById('toggleAuth');
-
-    function generatePhoneQRCode() {
-      const qrUrl = `${window.location.origin}/card.html?code=demo123`;
-      QRCode.toCanvas(document.createElement('canvas'), qrUrl, { width:96, height:96, margin:1 }, (err,canvas)=>{
-        if (err) return console.error(err);
-        const box = document.getElementById('phoneQRCode'); box.innerHTML=''; box.appendChild(canvas);
-      });
+  <script>
+    function openModal(mode){
+      document.getElementById('authModal').classList.remove('hidden');
+      document.getElementById('modalTitle').textContent = mode==="register" ? "Sign Up" : "Sign In";
+      document.getElementById('authSubmit').textContent = mode==="register" ? "Sign Up" : "Sign In";
     }
+    function closeModal(){ document.getElementById('authModal').classList.add('hidden'); }
 
-    function applyStrings() {
-      const L = t(currentLang);
-      document.getElementById('heroTitle').textContent = L.heroTitle;
-      document.getElementById('heroSubtitle').textContent = L.heroSubtitle;
-      document.getElementById('getStartedBtn').textContent = L.getStarted;
-      document.getElementById('phoneSignInBtn').textContent = L.signIn;
-      document.getElementById('phoneSignUpBtn').textContent = L.signUp;
-      ['1','2','3','4'].forEach(n=>{
-        document.getElementById(`feature${n}Title`).textContent = L[`feature${n}Title`];
-        document.getElementById(`feature${n}Desc`).textContent = L[`feature${n}Desc`];
-      });
-      document.getElementById('emailLabel').textContent = L.email;
-      document.getElementById('passwordLabel').textContent = L.password;
-      modalTitle.textContent = isSignUp?L.signUp:L.signIn;
-      authSubmit.textContent = isSignUp?L.signUp:L.signIn;
-      toggleAuth.textContent = isSignUp?L.toggleSignIn:L.toggleSignUp;
-    }
-
-    function openModal(signUp=false){ isSignUp = signUp; applyStrings(); authModal.classList.remove('hidden'); }
-    function closeModal(){ authModal.classList.add('hidden'); }
-    async function handleAuth(e){
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      try{
-        if(isSignUp){
-          const { error } = await supabase.auth.signUp({ email, password });
-          if(error) throw error; alert('Check your email for verification link!');
-        }else{
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
-          if(error) throw error; window.location.href = 'dashboard.html';
-        }
-      }catch(err){ alert(err.message); }
-    }
-
-    // Events
-    document.getElementById('phoneSignInBtn').addEventListener('click',()=>openModal(false));
-    document.getElementById('phoneSignUpBtn').addEventListener('click',()=>openModal(true));
-    document.getElementById('getStartedBtn').addEventListener('click',()=>openModal(true));
-    document.getElementById('closeModal').addEventListener('click',closeModal);
-    document.getElementById('toggleAuth').addEventListener('click',()=>openModal(!isSignUp));
-    languageSelect.addEventListener('change',()=>{ currentLang = languageSelect.value; applyStrings(); });
-    document.getElementById('authForm').addEventListener('submit',handleAuth);
-
-    // Session redirect
-    supabase.auth.getSession().then(({data:{session}})=>{ if(session) window.location.href='dashboard.html'; });
-
-    // Init
-    document.addEventListener('DOMContentLoaded',()=>{ generatePhoneQRCode(); applyStrings(); });
+    document.getElementById('btnLogin')?.addEventListener('click',()=>openModal('login'));
+    document.getElementById('btnRegister')?.addEventListener('click',()=>openModal('register'));
+    document.getElementById('ctaSignInDesktop')?.addEventListener('click',()=>openModal('login'));
+    document.getElementById('ctaGetStartedDesktop')?.addEventListener('click',()=>openModal('register'));
+    document.getElementById('planCreate')?.addEventListener('click',()=>openModal('register'));
+    document.getElementById('phoneSignIn')?.addEventListener('click',()=>openModal('login'));
+    document.getElementById('phoneSignUp')?.addEventListener('click',()=>openModal('register'));
+    document.getElementById('closeModal')?.addEventListener('click',closeModal);
   </script>
+
 </body>
 </html>
