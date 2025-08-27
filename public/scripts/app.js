@@ -43,12 +43,10 @@ if (langSel) {
 }
 
 /* ========== Auth guard (redirect to landing modal) ========== */
-const AUTH_Q = (typeof AUTH_QUERY === 'string' && AUTH_QUERY) ? AUTH_QUERY : 'modal=login';
-
 const { data: { session } } = await supabase.auth.getSession();
 if (!session) {
-  // Redirect back to homepage and auto-open login modal (landing reads ?modal=login)
-  window.location.replace(`/?${AUTH_Q}`);
+  // Back to homepage and auto-open login modal (landing reads ?auth=signin)
+  window.location.replace(`/?${AUTH_QUERY}`);
   throw new Error('Not authenticated');
 }
 const userId = session.user.id;
@@ -86,6 +84,13 @@ async function loadAll() {
     const health   = hRes.data || {};
     const contacts = cRes.data || [];
 
+    // Ensure the profile has a unique code for QR and future integrations
+    if (!profile.code) {
+      const newCode = (crypto?.randomUUID?.() || `${userId}-${Date.now()}`);
+      await supabase.from('profiles').update({ code: newCode }).eq('id', userId);
+      profile.code = newCode;
+    }
+
     // profiles
     if ($('#full_name'))           $('#full_name').value = profile.full_name || '';
     if ($('#dob'))                 $('#dob').value = profile.date_of_birth || '';
@@ -103,7 +108,12 @@ async function loadAll() {
     if ($('#conditions'))  $('#conditions').value  = fromList(toList(health.conditions));
     if ($('#medications')) $('#medications').value = fromList(toList(health.meds));
 
+    // ICE
     renderContacts(contacts);
+
+    // QR
+    ensureQrFromCode(profile.code);
+
   } catch (e) {
     console.error('loadAll error:', e);
   }
@@ -194,7 +204,15 @@ function renderContacts(list) {
   const wrap = $('#iceList');
   if (!wrap) return;
 
-  wrap.innerHTML = '';
+  // If list empty, show "empty" block if you have one
+  if (list.length === 0) {
+    wrap.innerHTML = '';
+    $('#emptyIce')?.classList.remove('hidden');
+    return;
+  }
+  $('#emptyIce')?.classList.add('hidden');
+
+  // Append (don't blow away existing edits)
   list.forEach((c) => {
     const row = document.createElement('div');
     row.className = 'ice-row glass';
@@ -216,12 +234,32 @@ function renderContacts(list) {
     }));
     row.querySelector('.remove')?.addEventListener('click', async ()=>{
       await supabase.from('ice_contacts').delete().eq('id', c.id);
-      loadAll();
+      // Re-fetch and re-render after delete
+      const { data } = await supabase.from('ice_contacts').select('*').eq('user_id', userId).order('id', { ascending: true });
+      wrap.innerHTML = '';
+      renderContacts(data || []);
     });
 
     wrap.appendChild(row);
   });
 }
+
+// Insert a brand-new contact row
+document.getElementById('addIce')?.addEventListener('click', async () => {
+  try {
+    const { data, error } = await supabase
+      .from('ice_contacts')
+      .insert({ user_id: userId, name: '', relation: '', phone: '' })
+      .select()
+      .single();
+    if (error) throw error;
+
+    // Add to the list immediately
+    renderContacts([data]);
+  } catch (e) {
+    console.error('Add contact failed:', e);
+  }
+});
 
 /* ========== QR preview (placeholder) ========== */
 let qr;
@@ -229,7 +267,7 @@ function ensureQrFromCode(code) {
   if (!code) return;
   const url  = `${location.origin}/card.html?code=${code}`;
   const link = document.getElementById('cardLink');
-  if (link) { link.href = url; link.textContent = url; }
+  if (link) { link.href = url; link.value = url; link.textContent = url; }
 
   const box = document.getElementById('qr');
   if (!box) return;
@@ -252,22 +290,12 @@ applyTranslations();
 loadAll();
 
 /* ========== Logout (return to pretty modal) ========== */
-// 1) direct binding (works when #logout exists now)
 document.getElementById('logout')?.addEventListener('click', async ()=>{
   try {
     await supabase.auth.signOut();
+  } catch (e) {
+    console.error('Logout error:', e);
   } finally {
-    window.location.replace(`/?${AUTH_Q}`);
-  }
-});
-
-// 2) delegated binding (works if the button is re-rendered later)
-document.addEventListener('click', async (e) => {
-  const btn = e.target?.closest?.('#logout');
-  if (!btn) return;
-  try {
-    await supabase.auth.signOut();
-  } finally {
-    window.location.replace(`/?${AUTH_Q}`);
+    window.location.replace(`/?${AUTH_QUERY}`);
   }
 });
