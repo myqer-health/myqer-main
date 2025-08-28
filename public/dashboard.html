@@ -1445,6 +1445,69 @@
       return !!(userData.profile.fullName && userData.profile.dateOfBirth && userData.profile.country);
     }
 
+    // Generate hybrid QR payload with offline essentials + online link
+    function generateHybridQRPayload() {
+      if (!userData.profile.code) return null;
+      
+      const name = userData.profile.fullName || '';
+      const dob = userData.profile.dateOfBirth || '';
+      const blood = userData.health.bloodType || '';
+      const allergies = userData.health.allergies || '';
+      const conditions = userData.health.conditions || '';
+      const medications = userData.health.medications || '';
+      const organDonor = userData.health.organDonor === 'yes' ? 'Yes' : userData.health.organDonor === 'no' ? 'No' : '';
+      
+      // Get first ICE contact
+      const firstContact = userData.contacts.length > 0 ? 
+        `${userData.contacts[0].name} (${userData.contacts[0].phone})` : '';
+      
+      // Format date nicely
+      let formattedDob = dob;
+      if (dob) {
+        try {
+          const date = new Date(dob);
+          formattedDob = date.toLocaleDateString('en-GB', { 
+            day: 'numeric', 
+            month: 'short', 
+            year: 'numeric' 
+          });
+        } catch (e) {
+          formattedDob = dob;
+        }
+      }
+      
+      // Truncate conditions if too long
+      let shortConditions = conditions;
+      if (conditions && conditions.length > 80) {
+        shortConditions = conditions.substring(0, 77) + '...';
+      }
+      
+      // Limit medications to first 2
+      let shortMeds = medications;
+      if (medications) {
+        const medList = medications.split(',').map(m => m.trim()).filter(m => m);
+        if (medList.length > 2) {
+          shortMeds = medList.slice(0, 2).join(', ') + ' + more';
+        }
+      }
+      
+      // Build compact payload
+      const parts = [];
+      if (name) parts.push(`Name: ${name}`);
+      if (formattedDob) parts.push(`DOB: ${formattedDob}`);
+      if (blood) parts.push(`Blood: ${blood}`);
+      if (allergies) parts.push(`Allergies: ${allergies}`);
+      if (shortConditions) parts.push(`Conditions: ${shortConditions}`);
+      if (shortMeds) parts.push(`Meds: ${shortMeds}`);
+      if (organDonor) parts.push(`Organ Donor: ${organDonor}`);
+      if (firstContact) parts.push(`ICE: ${firstContact}`);
+      
+      const essentials = parts.join(' | ');
+      const link = `https://myqer.com/card.html?code=${userData.profile.code}`;
+      
+      return `${essentials} | Link: ${link}`;
+    }
+
     // Render functions
     function renderProfile() {
       document.getElementById('fullName').value = userData.profile.fullName || '';
@@ -1523,15 +1586,21 @@
       codeDisplay.textContent = userData.profile.code;
       
       try {
-        const cardUrl = `${window.location.origin}/card.html?code=${userData.profile.code}`;
-        dataField.value = cardUrl;
+        // Generate hybrid payload for QR
+        const hybridPayload = generateHybridQRPayload();
+        if (!hybridPayload) {
+          throw new Error('Failed to generate hybrid payload');
+        }
+        
+        // Show hybrid payload in data field
+        dataField.value = hybridPayload;
         
         // Clear canvas first
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, 200, 200);
         
-        // Generate QR code using QRCode.toCanvas
-        QRCode.toCanvas(canvas, cardUrl, { 
+        // Generate QR code with hybrid payload using QRCode.toCanvas
+        QRCode.toCanvas(canvas, hybridPayload, { 
           width: 200, 
           margin: 3,
           errorCorrectionLevel: 'M',
@@ -1617,8 +1686,9 @@
       spinner.classList.remove('hidden');
       
       try {
-        // Generate unique code
-        userData.profile.code = 'MYQER-' + Math.random().toString(36).slice(2, 9).toUpperCase();
+        // Generate unique MYQER-XXXXXXX code (7-8 base36 chars)
+        const randomPart = Math.random().toString(36).substring(2, 9).toUpperCase();
+        userData.profile.code = 'MYQER-' + randomPart;
         
         // Save to database or localStorage
         await saveProfile();
@@ -1655,7 +1725,7 @@
       }
     }
 
-    // Multi-language voice synthesis with gentle female voice - now reads hybrid payload
+    // Multi-language voice synthesis with gentle female voice - reads hybrid payload
     function speakEmergencySummary() {
       if (!('speechSynthesis' in window)) {
         showToast(t('speech_not_supported'), 'warning');
@@ -1787,7 +1857,7 @@
         currentLang = e.target.value;
         localStorage.setItem('myqer_lang', currentLang);
         updateLanguage();
-        renderContacts(); // Re-render contacts with new language
+        renderAll(); // Re-render full dashboard with new language
         showToast(t('language_changed') + ' ' + e.target.selectedOptions[0].text, 'success');
       });
 
@@ -1854,16 +1924,16 @@
 
       // QR actions
       document.getElementById('copyData').addEventListener('click', async function() {
-        const data = document.getElementById('emergencyData').value;
-        if (data) {
+        const hybridPayload = generateHybridQRPayload();
+        if (hybridPayload) {
           try {
-            await navigator.clipboard.writeText(data);
-            showToast('Emergency data copied to clipboard', 'success');
+            await navigator.clipboard.writeText(hybridPayload);
+            showToast('Hybrid emergency data copied to clipboard', 'success');
           } catch (err) {
             showToast('Failed to copy data', 'error');
           }
         } else {
-          showToast('No data to copy', 'warning');
+          showToast('No emergency code generated yet', 'warning');
         }
       });
 
@@ -2111,5 +2181,5 @@
     // Make removeContact globally accessible
     window.removeContact = removeContact;
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'976773c3f6f8cd0e',t:'MTc1NjQyMjMxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97678208c6bc2695',t:'MTc1NjQyMjg5OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
