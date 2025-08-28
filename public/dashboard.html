@@ -11,19 +11,13 @@
   <!-- QR Code -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
-  <!-- Supabase v2: single client, early session guard -->
+  <!-- Supabase v2: single client (NO top-level await; iPad/Safari-safe) -->
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
     const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-
-    // One global name only
+    // One global name only; rest of the page uses window.sb
     window.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // Redirect if not authenticated
-    const { data:{ session } } = await window.sb.auth.getSession();
-    if (!session) window.location.replace('/');
   </script>
 
   <style>
@@ -870,9 +864,11 @@
       deleteBtn.disabled = true;
       deleteNote.textContent = 'Processing…';
       try{
+        const { data:{ session:s } } = await sb.auth.getSession();
+        const token = s?.access_token;
         const resp = await fetch(`${location.origin}/functions/v1/delete-account`, {
           method:'POST',
-          headers:{ Authorization:`Bearer ${session.access_token}` }
+          headers:{ Authorization: token ? `Bearer ${token}` : '' }
         });
         if(!resp.ok) throw new Error('Delete endpoint not available');
         deleteNote.textContent = 'Deleted. Signing out…';
@@ -913,7 +909,7 @@
     triageOverride.addEventListener('change', applyTriage);
   </script>
 
-  <!-- Keep service worker registration (no private API caching) -->
+  <!-- Keep service worker registration (update filename if your repo uses a different SW) -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(()=>{});
