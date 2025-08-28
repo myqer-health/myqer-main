@@ -233,6 +233,11 @@
         0 8px 16px rgba(220, 38, 38, 0.15);
       position: relative;
       z-index: 1;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 1/1;
+      width: 248px;
+      height: 248px;
     }
     
     .offline-badge {
@@ -359,6 +364,23 @@
     
     .hidden { display: none !important; }
     
+    /* RTL support for Arabic */
+    [dir="rtl"] {
+      direction: rtl;
+    }
+    
+    [dir="rtl"] .flex {
+      flex-direction: row-reverse;
+    }
+    
+    [dir="rtl"] .text-left {
+      text-align: right;
+    }
+    
+    [dir="rtl"] .text-right {
+      text-align: left;
+    }
+    
     .qr-placeholder {
       width: 200px;
       height: 200px;
@@ -387,380 +409,426 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Loading screen */
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .loading-content {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .loading-logo {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .loading-spinner-large {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #dc2626;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200">
 
-  <!-- Header -->
-  <header class="glass-card border-b border-slate-200/50 sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center gap-4">
-          <div class="myqer-logo">
-            <span class="myq">MYQ</span><span class="er">ER</span>
+  <!-- Loading Screen -->
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-logo myqer-logo">
+        <span class="myq">MYQ</span><span class="er">ER</span><span class="text-xs align-super text-slate-400">™</span>
+      </div>
+      <div class="loading-spinner-large"></div>
+      <p class="text-slate-600">Loading your emergency dashboard...</p>
+    </div>
+  </div>
+
+  <!-- Main App (hidden initially) -->
+  <div id="mainApp" class="hidden">
+    <!-- Header -->
+    <header class="glass-card border-b border-slate-200/50 sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-4">
+            <div class="myqer-logo">
+              <span class="myq">MYQ</span><span class="er">ER</span><span class="text-xs align-super text-slate-400">™</span>
+            </div>
+            <div>
+              <h1 class="text-xl font-extrabold text-slate-800">🏥 Emergency Dashboard</h1>
+              <p class="myqer-tagline">pronounced "My Care"</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <select id="langSelect" class="input-field text-sm" style="width: auto;">
+              <option value="en">🇺🇸 English</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="it">🇮🇹 Italiano</option>
+              <option value="pt">🇵🇹 Português</option>
+              <option value="ro">🇷🇴 Română</option>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="hi">🇮🇳 हिन्दी</option>
+              <option value="zh">🇨🇳 中文</option>
+            </select>
+            <span id="userEmail" class="text-sm text-slate-600">Loading...</span>
+            <button id="logoutBtn" class="btn-secondary">
+              <span id="logoutSpinner" class="loading-spinner hidden inline-block mr-2"></span>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <main class="pt-8 pb-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          
+          <!-- Main Content: Two-Row Layout -->
+          <div class="lg:col-span-3">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+              
+              <!-- 1. Identity – Personal Information -->
+              <section class="glass-card rounded-xl p-6 ribbon">
+                <span class="accolade accolade--identity">Identity</span>
+                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">👤 Personal Information</h2>
+                  <p class="text-sm text-slate-500 mb-6">These details help responders confirm who you are.</p>
+
+                  <form id="profileForm" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+                        <input id="fullName" name="fullName" class="input-field" placeholder="John Doe">
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                        <input id="dateOfBirth" name="dateOfBirth" type="date" class="input-field">
+                      </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                        <select id="country" name="country" class="input-field">
+                          <option value="">Select country</option>
+                          <option value="United States">🇺🇸 United States</option>
+                          <option value="Canada">🇨🇦 Canada</option>
+                          <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                          <option value="Australia">🇦🇺 Australia</option>
+                          <option value="Germany">🇩🇪 Germany</option>
+                          <option value="France">🇫🇷 France</option>
+                          <option value="Spain">🇪🇸 Spain</option>
+                          <option value="Italy">🇮🇹 Italy</option>
+                          <option value="Netherlands">🇳🇱 Netherlands</option>
+                          <option value="Sweden">🇸🇪 Sweden</option>
+                          <option value="Norway">🇳🇴 Norway</option>
+                          <option value="Denmark">🇩🇰 Denmark</option>
+                          <option value="Switzerland">🇨🇭 Switzerland</option>
+                          <option value="Austria">🇦🇹 Austria</option>
+                          <option value="Belgium">🇧🇪 Belgium</option>
+                          <option value="Japan">🇯🇵 Japan</option>
+                          <option value="South Korea">🇰🇷 South Korea</option>
+                          <option value="Singapore">🇸🇬 Singapore</option>
+                          <option value="New Zealand">🇳🇿 New Zealand</option>
+                          <option value="Ireland">🇮🇪 Ireland</option>
+                          <option value="Finland">🇫🇮 Finland</option>
+                          <option value="Portugal">🇵🇹 Portugal</option>
+                          <option value="Czech Republic">🇨🇿 Czech Republic</option>
+                          <option value="Poland">🇵🇱 Poland</option>
+                          <option value="Other">🌍 Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">National ID (optional)</label>
+                        <input id="nationalId" name="nationalId" class="input-field" placeholder="123-45-6789">
+                      </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t border-slate-200/60">
+                      <button type="submit" class="btn-primary text-sm">
+                        <span id="profileSpinner" class="loading-spinner hidden inline-block mr-2"></span>
+                        Save Profile
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+
+              <!-- 2. Critical – Medical Details -->
+              <section class="glass-card rounded-xl p-6 ribbon">
+                <span class="accolade accolade--critical">Critical</span>
+                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">🩺 Medical Details</h2>
+                  <p class="text-sm text-slate-500 mb-6">Keep this current. It appears on your emergency card.</p>
+
+                  <form id="healthForm" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Blood type</label>
+                        <select id="bloodType" name="bloodType" class="input-field">
+                          <option value="">—</option>
+                          <option>A+</option><option>A-</option>
+                          <option>B+</option><option>B-</option>
+                          <option>AB+</option><option>AB-</option>
+                          <option>O+</option><option>O-</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Organ donor</label>
+                        <select id="organDonor" name="organDonor" class="input-field">
+                          <option value="">—</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Critical allergies</label>
+                      <textarea id="allergies" name="allergies" rows="2" class="input-field" placeholder="Penicillin, Nuts"></textarea>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Conditions</label>
+                      <textarea id="conditions" name="conditions" rows="2" class="input-field" placeholder="Diabetes, Asthma"></textarea>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Current medications</label>
+                      <textarea id="medications" name="medications" rows="2" class="input-field" placeholder="Metformin"></textarea>
+                    </div>
+
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Life support preference</label>
+                      <select id="lifeSupportPref" name="lifeSupportPref" class="input-field">
+                        <option value="">—</option>
+                        <option value="Full support">All resuscitation efforts (Full)</option>
+                        <option value="Comfort only">Comfort-focused care only</option>
+                        <option value="DNR">Do not resuscitate (DNR)</option>
+                      </select>
+                      <p class="text-xs text-slate-400 mt-1">Informational only. Clinicians must verify with official documents.</p>
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t border-slate-200/60">
+                      <button type="submit" class="btn-primary">
+                        <span id="healthSpinner" class="loading-spinner hidden inline-block mr-2"></span>
+                        Save Health
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+
+              <!-- 3. Emergency Contacts (ICE) -->
+              <section class="glass-card rounded-xl p-6 ribbon">
+                <span class="accolade accolade--ice" data-i18n="ice">ICE</span>
+                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                  <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xl font-extrabold text-slate-800">📞 <span data-i18n="emergency_contacts">Emergency Contacts</span></h2>
+                    <button id="addContact" class="btn-outline text-sm" data-i18n="add_contact">Add contact</button>
+                  </div>
+                  <p class="text-sm text-slate-500 mb-6" data-i18n="contacts_desc">Add up to 3 trusted contacts.</p>
+                  <div id="contactsList" class="space-y-4">
+                    <div class="text-slate-400 text-sm italic" data-i18n="no_contacts">No contacts yet.</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 4. Document Vault -->
+              <section class="glass-card rounded-xl p-6 ribbon">
+                <span class="accolade accolade--vault">Vault</span>
+                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">📁 Document Vault</h2>
+                  <p class="text-sm text-slate-500 mb-6">Secure, encrypted storage for critical documents.</p>
+                  <div class="grid grid-cols-1 gap-3">
+                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                      <span class="legend-dot" style="background:#7c3aed"></span>
+                      <div>
+                        <div class="font-semibold text-slate-600 text-sm">DNR Orders</div>
+                        <div class="text-xs text-slate-400">Coming soon</div>
+                      </div>
+                    </div>
+                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                      <span class="legend-dot" style="background:#7c3aed"></span>
+                      <div>
+                        <div class="font-semibold text-slate-600 text-sm">Living Will</div>
+                        <div class="text-xs text-slate-400">Coming soon</div>
+                      </div>
+                    </div>
+                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                      <span class="legend-dot" style="background:#7c3aed"></span>
+                      <div>
+                        <div class="font-semibold text-slate-600 text-sm">Insurance Documents</div>
+                        <div class="text-xs text-slate-400">Coming soon</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- Right Sidebar -->
+          <aside class="lg:col-span-1 space-y-6">
+
+            <!-- Triage Status -->
+            <section class="glass-card rounded-xl p-6">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-extrabold text-slate-800">🚨 <span data-i18n="triage_status">Triage Status</span></h3>
+                <span id="triageStatus" class="status-pill pill-green">GREEN</span>
+              </div>
+              <p class="text-sm text-slate-500 mb-4">Auto-computed from your data. You can override.</p>
+              
+              <select id="triageOverride" class="input-field mb-4">
+                <option value="" data-i18n="auto_recommended">Auto (recommended)</option>
+                <option value="green">GREEN - <span data-i18n="standard">Standard</span></option>
+                <option value="yellow">AMBER - <span data-i18n="urgent">Urgent</span></option>
+                <option value="red">RED - <span data-i18n="critical">Critical</span></option>
+                <option value="black">BLACK - <span data-i18n="comfort_care">Comfort care</span></option>
+              </select>
+              
+              <div class="flex gap-2">
+                <button id="speakBtn" class="btn-secondary flex-1 text-sm">🔊 <span data-i18n="speak">Speak</span></button>
+                <button id="stopSpeakBtn" class="btn-secondary text-sm">⏹ <span data-i18n="stop">Stop</span></button>
+              </div>
+            </section>
+
+            <!-- Emergency Card & QR -->
+            <section class="glass-card rounded-xl p-6 ribbon">
+              <span class="accolade accolade--qr">QR Card</span>
+              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                <h3 class="text-lg font-extrabold mb-3 text-slate-800">📱 Emergency Card</h3>
+                <p class="text-sm text-slate-500 mb-4">Scan for emergency access</p>
+                
+                <div class="text-center mb-6">
+                  <div id="qrContainer" class="qr-container inline-block relative">
+                    <div class="offline-badge">Works offline</div>
+                    <div id="qrPlaceholder" class="qr-placeholder">
+                      <div>
+                        <div class="text-slate-400 mb-2">📋</div>
+                        <div>Complete profile<br>to generate QR</div>
+                      </div>
+                    </div>
+                    <canvas id="qrCanvas" width="200" height="200" class="hidden"></canvas>
+                  </div>
+                  <div class="mt-3">
+                    <span class="text-sm text-slate-500">Code: </span>
+                    <code id="qrCode" class="text-sm font-mono font-bold text-slate-800">—</code>
+                  </div>
+                  <div class="mt-2">
+                    <p class="text-xs text-green-600 font-medium">✓ Readable anywhere, no internet required</p>
+                  </div>
+                </div>
+                
+                <!-- Generate Code Button (appears when profile is complete) -->
+                <div id="generateSection" class="hidden mb-4">
+                  <button id="generateCode" class="btn-primary w-full text-sm">
+                    <span id="generateSpinner" class="loading-spinner hidden inline-block mr-2"></span>
+                    🎯 Generate Emergency Code
+                  </button>
+                </div>
+                
+                <div class="space-y-3">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Emergency data (embedded)</label>
+                    <div class="flex gap-2">
+                      <input id="emergencyData" class="input-field flex-1 text-xs" readonly placeholder="Generate code to see data">
+                      <button id="copyData" class="btn-secondary text-sm">Copy</button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 mt-4">
+                  <button id="downloadPNG" class="btn-outline text-xs">PNG</button>
+                  <button id="downloadSVG" class="btn-outline text-xs">SVG</button>
+                  <button id="printCard" class="btn-outline text-xs">Print</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Triage Legend -->
+            <section class="glass-card rounded-xl p-6">
+              <h3 class="text-lg font-extrabold mb-4 text-slate-800">🎯 Triage Colors</h3>
+              <div class="space-y-3">
+                <div class="flex items-center">
+                  <span class="legend-dot" style="background:#16a34a"></span>
+                  <div>
+                    <div class="font-semibold text-slate-700 text-sm">GREEN</div>
+                    <div class="text-xs text-slate-400">Standard care</div>
+                  </div>
+                </div>
+                <div class="flex items-center">
+                  <span class="legend-dot" style="background:#f59e0b"></span>
+                  <div>
+                    <div class="font-semibold text-slate-700 text-sm">AMBER</div>
+                    <div class="text-xs text-slate-400">Urgent attention</div>
+                  </div>
+                </div>
+                <div class="flex items-center">
+                  <span class="legend-dot" style="background:#ef4444"></span>
+                  <div>
+                    <div class="font-semibold text-slate-700 text-sm">RED</div>
+                    <div class="text-xs text-slate-400">Critical/immediate</div>
+                  </div>
+                </div>
+                <div class="flex items-center">
+                  <span class="legend-dot" style="background:#111827"></span>
+                  <div>
+                    <div class="font-semibold text-slate-700 text-sm">BLACK</div>
+                    <div class="text-xs text-slate-400">Comfort care</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Delete Account -->
+            <section class="glass-card rounded-xl p-6 border-red-200">
+              <h3 class="text-lg font-extrabold mb-3 text-red-600">⚠️ Danger Zone</h3>
+              <p class="text-sm text-slate-500 mb-4">Permanently delete your account and all data.</p>
+              <button id="deleteAccountBtn" class="btn-danger w-full text-sm">Delete Account</button>
+            </section>
+
+          </aside>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-card border-t border-slate-200/50 mt-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h4 class="font-bold text-slate-800 mb-3">Privacy & Security</h4>
+            <p class="text-sm text-slate-600">Your medical data is encrypted and stored securely. Only you control access.</p>
           </div>
           <div>
-            <h1 class="text-xl font-extrabold text-slate-800">🏥 Emergency Dashboard</h1>
-            <p class="myqer-tagline">pronounced "My Care"</p>
+            <h4 class="font-bold text-slate-800 mb-3">Medical Disclaimer</h4>
+            <p class="text-sm text-slate-600">This is informational only. Emergency responders must verify all medical information.</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-800 mb-3">Support</h4>
+            <p class="text-sm text-slate-600">Need help? Contact our support team 24/7 for assistance.</p>
           </div>
         </div>
-        <div class="flex items-center gap-4">
-          <select id="langSelect" class="input-field text-sm" style="width: auto;">
-            <option value="en">🇺🇸 English</option>
-            <option value="es">🇪🇸 Español</option>
-            <option value="fr">🇫🇷 Français</option>
-            <option value="de">🇩🇪 Deutsch</option>
-            <option value="it">🇮🇹 Italiano</option>
-            <option value="pt">🇵🇹 Português</option>
-            <option value="nl">🇳🇱 Nederlands</option>
-            <option value="sv">🇸🇪 Svenska</option>
-            <option value="no">🇳🇴 Norsk</option>
-            <option value="da">🇩🇰 Dansk</option>
-          </select>
-          <span id="userEmail" class="text-sm text-slate-600">Loading...</span>
-          <button id="logoutBtn" class="btn-secondary">
-            <span id="logoutSpinner" class="loading-spinner hidden inline-block mr-2"></span>
-            Logout
-          </button>
-        </div>
       </div>
-    </div>
-  </header>
-
-  <!-- Dashboard Content -->
-  <main class="pt-8 pb-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        
-        <!-- Main Content: Two-Row Layout -->
-        <div class="lg:col-span-3">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            
-            <!-- 1. Identity – Personal Information -->
-            <section class="glass-card rounded-xl p-6 ribbon">
-              <span class="accolade accolade--identity">Identity</span>
-              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                <h2 class="text-xl font-extrabold mb-2 text-slate-800">👤 Personal Information</h2>
-                <p class="text-sm text-slate-500 mb-6">These details help responders confirm who you are.</p>
-
-                <form id="profileForm" class="space-y-4">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
-                      <input id="fullName" name="fullName" class="input-field" placeholder="John Doe">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                      <input id="dateOfBirth" name="dateOfBirth" type="date" class="input-field">
-                    </div>
-                  </div>
-                  
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Country</label>
-                      <select id="country" name="country" class="input-field">
-                        <option value="">Select country</option>
-                        <option value="United States">🇺🇸 United States</option>
-                        <option value="Canada">🇨🇦 Canada</option>
-                        <option value="United Kingdom">🇬🇧 United Kingdom</option>
-                        <option value="Australia">🇦🇺 Australia</option>
-                        <option value="Germany">🇩🇪 Germany</option>
-                        <option value="France">🇫🇷 France</option>
-                        <option value="Spain">🇪🇸 Spain</option>
-                        <option value="Italy">🇮🇹 Italy</option>
-                        <option value="Netherlands">🇳🇱 Netherlands</option>
-                        <option value="Sweden">🇸🇪 Sweden</option>
-                        <option value="Norway">🇳🇴 Norway</option>
-                        <option value="Denmark">🇩🇰 Denmark</option>
-                        <option value="Switzerland">🇨🇭 Switzerland</option>
-                        <option value="Austria">🇦🇹 Austria</option>
-                        <option value="Belgium">🇧🇪 Belgium</option>
-                        <option value="Japan">🇯🇵 Japan</option>
-                        <option value="South Korea">🇰🇷 South Korea</option>
-                        <option value="Singapore">🇸🇬 Singapore</option>
-                        <option value="New Zealand">🇳🇿 New Zealand</option>
-                        <option value="Ireland">🇮🇪 Ireland</option>
-                        <option value="Finland">🇫🇮 Finland</option>
-                        <option value="Portugal">🇵🇹 Portugal</option>
-                        <option value="Czech Republic">🇨🇿 Czech Republic</option>
-                        <option value="Poland">🇵🇱 Poland</option>
-                        <option value="Other">🌍 Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">National ID (optional)</label>
-                      <input id="nationalId" name="nationalId" class="input-field" placeholder="123-45-6789">
-                    </div>
-                  </div>
-
-                  <div class="flex justify-end pt-4 border-t border-slate-200/60">
-                    <button type="submit" class="btn-primary text-sm">
-                      <span id="profileSpinner" class="loading-spinner hidden inline-block mr-2"></span>
-                      Save Profile
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </section>
-
-            <!-- 2. Critical – Medical Details -->
-            <section class="glass-card rounded-xl p-6 ribbon">
-              <span class="accolade accolade--critical">Critical</span>
-              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                <h2 class="text-xl font-extrabold mb-2 text-slate-800">🩺 Medical Details</h2>
-                <p class="text-sm text-slate-500 mb-6">Keep this current. It appears on your emergency card.</p>
-
-                <form id="healthForm" class="space-y-4">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Blood type</label>
-                      <select id="bloodType" name="bloodType" class="input-field">
-                        <option value="">—</option>
-                        <option>A+</option><option>A-</option>
-                        <option>B+</option><option>B-</option>
-                        <option>AB+</option><option>AB-</option>
-                        <option>O+</option><option>O-</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Organ donor</label>
-                      <select id="organDonor" name="organDonor" class="input-field">
-                        <option value="">—</option>
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Critical allergies</label>
-                    <textarea id="allergies" name="allergies" rows="2" class="input-field" placeholder="Penicillin, Nuts"></textarea>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Conditions</label>
-                    <textarea id="conditions" name="conditions" rows="2" class="input-field" placeholder="Diabetes, Asthma"></textarea>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Current medications</label>
-                    <textarea id="medications" name="medications" rows="2" class="input-field" placeholder="Metformin"></textarea>
-                  </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Life support preference</label>
-                    <select id="lifeSupportPref" name="lifeSupportPref" class="input-field">
-                      <option value="">—</option>
-                      <option value="Full support">All resuscitation efforts (Full)</option>
-                      <option value="Comfort only">Comfort-focused care only</option>
-                      <option value="DNR">Do not resuscitate (DNR)</option>
-                    </select>
-                    <p class="text-xs text-slate-400 mt-1">Informational only. Clinicians must verify with official documents.</p>
-                  </div>
-
-                  <div class="flex justify-end pt-4 border-t border-slate-200/60">
-                    <button type="submit" class="btn-primary">
-                      <span id="healthSpinner" class="loading-spinner hidden inline-block mr-2"></span>
-                      Save Health
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </section>
-
-            <!-- 3. Emergency Contacts (ICE) -->
-            <section class="glass-card rounded-xl p-6 ribbon">
-              <span class="accolade accolade--ice">ICE</span>
-              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                <div class="flex items-center justify-between mb-2">
-                  <h2 class="text-xl font-extrabold text-slate-800">📞 Emergency Contacts</h2>
-                  <button id="addContact" class="btn-outline text-sm">Add contact</button>
-                </div>
-                <p class="text-sm text-slate-500 mb-6">Add up to 3 trusted contacts.</p>
-                <div id="contactsList" class="space-y-4">
-                  <div class="text-slate-400 text-sm italic">No contacts yet.</div>
-                </div>
-              </div>
-            </section>
-
-            <!-- 4. Document Vault -->
-            <section class="glass-card rounded-xl p-6 ribbon">
-              <span class="accolade accolade--vault">Vault</span>
-              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                <h2 class="text-xl font-extrabold mb-2 text-slate-800">📁 Document Vault</h2>
-                <p class="text-sm text-slate-500 mb-6">Secure, encrypted storage for critical documents.</p>
-                <div class="grid grid-cols-1 gap-3">
-                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                    <span class="legend-dot" style="background:#7c3aed"></span>
-                    <div>
-                      <div class="font-semibold text-slate-600 text-sm">DNR Orders</div>
-                      <div class="text-xs text-slate-400">Coming soon</div>
-                    </div>
-                  </div>
-                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                    <span class="legend-dot" style="background:#7c3aed"></span>
-                    <div>
-                      <div class="font-semibold text-slate-600 text-sm">Living Will</div>
-                      <div class="text-xs text-slate-400">Coming soon</div>
-                    </div>
-                  </div>
-                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                    <span class="legend-dot" style="background:#7c3aed"></span>
-                    <div>
-                      <div class="font-semibold text-slate-600 text-sm">Insurance Documents</div>
-                      <div class="text-xs text-slate-400">Coming soon</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <!-- Right Sidebar -->
-        <aside class="lg:col-span-1 space-y-6">
-
-          <!-- Triage Status -->
-          <section class="glass-card rounded-xl p-6">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-lg font-extrabold text-slate-800">🚨 Triage Status</h3>
-              <span id="triageStatus" class="status-pill pill-green">GREEN</span>
-            </div>
-            <p class="text-sm text-slate-500 mb-4">Auto-computed from your data. You can override.</p>
-            
-            <select id="triageOverride" class="input-field mb-4">
-              <option value="">Auto (recommended)</option>
-              <option value="green">GREEN - Standard</option>
-              <option value="yellow">AMBER - Urgent</option>
-              <option value="red">RED - Critical</option>
-              <option value="black">BLACK - Comfort care</option>
-            </select>
-            
-            <div class="flex gap-2">
-              <button id="speakBtn" class="btn-secondary flex-1 text-sm">🔊 Speak</button>
-              <button id="stopSpeakBtn" class="btn-secondary text-sm">⏹</button>
-            </div>
-          </section>
-
-          <!-- Emergency Card & QR -->
-          <section class="glass-card rounded-xl p-6 ribbon">
-            <span class="accolade accolade--qr">QR Card</span>
-            <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-              <h3 class="text-lg font-extrabold mb-3 text-slate-800">📱 Emergency Card</h3>
-              <p class="text-sm text-slate-500 mb-4">Scan for emergency access</p>
-              
-              <div class="text-center mb-6">
-                <div id="qrContainer" class="qr-container inline-block relative">
-                  <div class="offline-badge">Works offline</div>
-                  <div id="qrPlaceholder" class="qr-placeholder">
-                    <div>
-                      <div class="text-slate-400 mb-2">📋</div>
-                      <div>Complete profile<br>to generate QR</div>
-                    </div>
-                  </div>
-                  <canvas id="qrCanvas" width="200" height="200" class="hidden"></canvas>
-                </div>
-                <div class="mt-3">
-                  <span class="text-sm text-slate-500">Code: </span>
-                  <code id="qrCode" class="text-sm font-mono font-bold text-slate-800">—</code>
-                </div>
-                <div class="mt-2">
-                  <p class="text-xs text-green-600 font-medium">✓ Readable anywhere, no internet required</p>
-                </div>
-              </div>
-              
-              <!-- Generate Code Button (appears when profile is complete) -->
-              <div id="generateSection" class="hidden mb-4">
-                <button id="generateCode" class="btn-primary w-full text-sm">
-                  <span id="generateSpinner" class="loading-spinner hidden inline-block mr-2"></span>
-                  🎯 Generate Emergency Code
-                </button>
-              </div>
-              
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Emergency data (embedded)</label>
-                  <div class="flex gap-2">
-                    <input id="emergencyData" class="input-field flex-1 text-xs" readonly placeholder="Generate code to see data">
-                    <button id="copyData" class="btn-secondary text-sm">Copy</button>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="grid grid-cols-3 gap-2 mt-4">
-                <button id="downloadPNG" class="btn-outline text-xs">PNG</button>
-                <button id="downloadSVG" class="btn-outline text-xs">SVG</button>
-                <button id="printCard" class="btn-outline text-xs">Print</button>
-              </div>
-            </div>
-          </section>
-
-          <!-- Triage Legend -->
-          <section class="glass-card rounded-xl p-6">
-            <h3 class="text-lg font-extrabold mb-4 text-slate-800">🎯 Triage Colors</h3>
-            <div class="space-y-3">
-              <div class="flex items-center">
-                <span class="legend-dot" style="background:#16a34a"></span>
-                <div>
-                  <div class="font-semibold text-slate-700 text-sm">GREEN</div>
-                  <div class="text-xs text-slate-400">Standard care</div>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <span class="legend-dot" style="background:#f59e0b"></span>
-                <div>
-                  <div class="font-semibold text-slate-700 text-sm">AMBER</div>
-                  <div class="text-xs text-slate-400">Urgent attention</div>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <span class="legend-dot" style="background:#ef4444"></span>
-                <div>
-                  <div class="font-semibold text-slate-700 text-sm">RED</div>
-                  <div class="text-xs text-slate-400">Critical/immediate</div>
-                </div>
-              </div>
-              <div class="flex items-center">
-                <span class="legend-dot" style="background:#111827"></span>
-                <div>
-                  <div class="font-semibold text-slate-700 text-sm">BLACK</div>
-                  <div class="text-xs text-slate-400">Comfort care</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Delete Account -->
-          <section class="glass-card rounded-xl p-6 border-red-200">
-            <h3 class="text-lg font-extrabold mb-3 text-red-600">⚠️ Danger Zone</h3>
-            <p class="text-sm text-slate-500 mb-4">Permanently delete your account and all data.</p>
-            <button id="deleteAccountBtn" class="btn-danger w-full text-sm">Delete Account</button>
-          </section>
-
-        </aside>
-      </div>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="glass-card border-t border-slate-200/50 mt-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div>
-          <h4 class="font-bold text-slate-800 mb-3">Privacy & Security</h4>
-          <p class="text-sm text-slate-600">Your medical data is encrypted and stored securely. Only you control access.</p>
-        </div>
-        <div>
-          <h4 class="font-bold text-slate-800 mb-3">Medical Disclaimer</h4>
-          <p class="text-sm text-slate-600">This is informational only. Emergency responders must verify all medical information.</p>
-        </div>
-        <div>
-          <h4 class="font-bold text-slate-800 mb-3">Support</h4>
-          <p class="text-sm text-slate-600">Need help? Contact our support team 24/7 for assistance.</p>
-        </div>
-      </div>
-    </div>
-  </footer>
+    </footer>
+  </div>
 
   <!-- Delete Account Modal -->
   <div id="deleteModal" class="modal">
@@ -784,30 +852,353 @@
   </div>
 
   <script>
-    // Supabase configuration
-    const SUPABASE_URL = 'https://your-project.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key';
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Initialize Supabase - Using demo mode for now
+    let sb = null;
+    let isDemoMode = true;
+
+    // Try to initialize Supabase, fall back to demo mode if it fails
+    try {
+      const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+      
+      if (typeof supabase !== 'undefined') {
+        sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        isDemoMode = false;
+      }
+    } catch (error) {
+      console.log('Supabase not available, using demo mode');
+      isDemoMode = true;
+    }
 
     // Global state
-    let currentUser = null;
-    let currentLang = 'en';
+    let currentUser = isDemoMode ? { id: 'demo-user', email: 'demo@myqer.com' } : null;
+    let currentLang = localStorage.getItem('myqer_lang') || 'en';
     let userData = {
       profile: { fullName: '', dateOfBirth: '', country: '', nationalId: '', code: null },
-      health: { bloodType: '', organDonor: '', allergies: '', conditions: '', medications: '', lifeSupportPref: '' },
+      health: { bloodType: '', organDonor: '', allergies: '', conditions: '', medications: '', lifeSupportPref: '', triageOverride: '' },
       contacts: [],
       triageOverride: ''
     };
 
+    // Internationalization
+    const translations = {
+      en: {
+        emergency_contacts: 'Emergency Contacts',
+        add_contact: 'Add contact',
+        contacts_desc: 'Add up to 3 trusted contacts.',
+        no_contacts: 'No contacts yet.',
+        ice: 'ICE',
+        name: 'Name',
+        relationship: 'Relationship',
+        phone: 'Phone',
+        delete_contact: 'Delete this contact?',
+        contact_removed: 'Contact removed',
+        max_contacts: 'Maximum 3 contacts allowed',
+        triage_status: 'Triage Status',
+        auto_recommended: 'Auto (recommended)',
+        standard: 'Standard',
+        urgent: 'Urgent', 
+        critical: 'Critical',
+        comfort_care: 'Comfort care',
+        speak: 'Speak',
+        stop: 'Stop',
+        speaking_summary: 'Speaking emergency summary',
+        speech_stopped: 'Speech stopped',
+        speech_not_supported: 'Speech synthesis not supported',
+        language_changed: 'Language changed to'
+      },
+      es: {
+        emergency_contacts: 'Contactos de Emergencia',
+        add_contact: 'Agregar contacto',
+        contacts_desc: 'Agregue hasta 3 contactos de confianza.',
+        no_contacts: 'Aún no hay contactos.',
+        ice: 'ICE',
+        name: 'Nombre',
+        relationship: 'Relación',
+        phone: 'Teléfono',
+        delete_contact: '¿Eliminar este contacto?',
+        contact_removed: 'Contacto eliminado',
+        max_contacts: 'Máximo 3 contactos permitidos',
+        triage_status: 'Estado de Triaje',
+        auto_recommended: 'Auto (recomendado)',
+        standard: 'Estándar',
+        urgent: 'Urgente',
+        critical: 'Crítico',
+        comfort_care: 'Cuidados paliativos',
+        speak: 'Hablar',
+        stop: 'Parar',
+        speaking_summary: 'Hablando resumen de emergencia',
+        speech_stopped: 'Voz detenida',
+        speech_not_supported: 'Síntesis de voz no compatible',
+        language_changed: 'Idioma cambiado a'
+      },
+      fr: {
+        emergency_contacts: 'Contacts d\'Urgence',
+        add_contact: 'Ajouter contact',
+        contacts_desc: 'Ajoutez jusqu\'à 3 contacts de confiance.',
+        no_contacts: 'Aucun contact pour le moment.',
+        ice: 'ICE',
+        name: 'Nom',
+        relationship: 'Relation',
+        phone: 'Téléphone',
+        delete_contact: 'Supprimer ce contact?',
+        contact_removed: 'Contact supprimé',
+        max_contacts: 'Maximum 3 contacts autorisés',
+        triage_status: 'Statut de Triage',
+        auto_recommended: 'Auto (recommandé)',
+        standard: 'Standard',
+        urgent: 'Urgent',
+        critical: 'Critique',
+        comfort_care: 'Soins palliatifs',
+        speak: 'Parler',
+        stop: 'Arrêter',
+        speaking_summary: 'Lecture du résumé d\'urgence',
+        speech_stopped: 'Parole arrêtée',
+        speech_not_supported: 'Synthèse vocale non prise en charge',
+        language_changed: 'Langue changée en'
+      },
+      de: {
+        emergency_contacts: 'Notfallkontakte',
+        add_contact: 'Kontakt hinzufügen',
+        contacts_desc: 'Fügen Sie bis zu 3 vertrauenswürdige Kontakte hinzu.',
+        no_contacts: 'Noch keine Kontakte.',
+        ice: 'ICE',
+        name: 'Name',
+        relationship: 'Beziehung',
+        phone: 'Telefon',
+        delete_contact: 'Diesen Kontakt löschen?',
+        contact_removed: 'Kontakt entfernt',
+        max_contacts: 'Maximal 3 Kontakte erlaubt',
+        triage_status: 'Triage-Status',
+        auto_recommended: 'Auto (empfohlen)',
+        standard: 'Standard',
+        urgent: 'Dringend',
+        critical: 'Kritisch',
+        comfort_care: 'Palliativpflege',
+        speak: 'Sprechen',
+        stop: 'Stopp',
+        speaking_summary: 'Notfallzusammenfassung sprechen',
+        speech_stopped: 'Sprache gestoppt',
+        speech_not_supported: 'Sprachsynthese nicht unterstützt',
+        language_changed: 'Sprache geändert zu'
+      },
+      it: {
+        emergency_contacts: 'Contatti di Emergenza',
+        add_contact: 'Aggiungi contatto',
+        contacts_desc: 'Aggiungi fino a 3 contatti fidati.',
+        no_contacts: 'Nessun contatto ancora.',
+        ice: 'ICE',
+        name: 'Nome',
+        relationship: 'Relazione',
+        phone: 'Telefono',
+        delete_contact: 'Eliminare questo contatto?',
+        contact_removed: 'Contatto rimosso',
+        max_contacts: 'Massimo 3 contatti consentiti',
+        triage_status: 'Stato Triage',
+        auto_recommended: 'Auto (raccomandato)',
+        standard: 'Standard',
+        urgent: 'Urgente',
+        critical: 'Critico',
+        comfort_care: 'Cure palliative',
+        speak: 'Parla',
+        stop: 'Ferma',
+        speaking_summary: 'Lettura riassunto emergenza',
+        speech_stopped: 'Voce fermata',
+        speech_not_supported: 'Sintesi vocale non supportata',
+        language_changed: 'Lingua cambiata in'
+      },
+      pt: {
+        emergency_contacts: 'Contactos de Emergência',
+        add_contact: 'Adicionar contacto',
+        contacts_desc: 'Adicione até 3 contactos de confiança.',
+        no_contacts: 'Ainda sem contactos.',
+        ice: 'ICE',
+        name: 'Nome',
+        relationship: 'Relação',
+        phone: 'Telefone',
+        delete_contact: 'Eliminar este contacto?',
+        contact_removed: 'Contacto removido',
+        max_contacts: 'Máximo 3 contactos permitidos',
+        triage_status: 'Estado de Triagem',
+        auto_recommended: 'Auto (recomendado)',
+        standard: 'Padrão',
+        urgent: 'Urgente',
+        critical: 'Crítico',
+        comfort_care: 'Cuidados paliativos',
+        speak: 'Falar',
+        stop: 'Parar',
+        speaking_summary: 'Falando resumo de emergência',
+        speech_stopped: 'Voz parada',
+        speech_not_supported: 'Síntese de voz não suportada',
+        language_changed: 'Idioma alterado para'
+      },
+      ro: {
+        emergency_contacts: 'Contacte de Urgență',
+        add_contact: 'Adaugă contact',
+        contacts_desc: 'Adaugă până la 3 contacte de încredere.',
+        no_contacts: 'Încă nu există contacte.',
+        ice: 'ICE',
+        name: 'Nume',
+        relationship: 'Relație',
+        phone: 'Telefon',
+        delete_contact: 'Ștergi acest contact?',
+        contact_removed: 'Contact eliminat',
+        max_contacts: 'Maxim 3 contacte permise',
+        triage_status: 'Starea Triajului',
+        auto_recommended: 'Auto (recomandat)',
+        standard: 'Standard',
+        urgent: 'Urgent',
+        critical: 'Critic',
+        comfort_care: 'Îngrijire paliativă',
+        speak: 'Vorbește',
+        stop: 'Oprește',
+        speaking_summary: 'Citind rezumatul de urgență',
+        speech_stopped: 'Voce oprită',
+        speech_not_supported: 'Sinteza vocală nu este suportată',
+        language_changed: 'Limba schimbată în'
+      },
+      ar: {
+        emergency_contacts: 'جهات الاتصال الطارئة',
+        add_contact: 'إضافة جهة اتصال',
+        contacts_desc: 'أضف حتى 3 جهات اتصال موثوقة.',
+        no_contacts: 'لا توجد جهات اتصال بعد.',
+        ice: 'ICE',
+        name: 'الاسم',
+        relationship: 'العلاقة',
+        phone: 'الهاتف',
+        delete_contact: 'حذف جهة الاتصال هذه؟',
+        contact_removed: 'تم حذف جهة الاتصال',
+        max_contacts: 'الحد الأقصى 3 جهات اتصال مسموحة',
+        triage_status: 'حالة الفرز',
+        auto_recommended: 'تلقائي (موصى به)',
+        standard: 'قياسي',
+        urgent: 'عاجل',
+        critical: 'حرج',
+        comfort_care: 'الرعاية التلطيفية',
+        speak: 'تحدث',
+        stop: 'توقف',
+        speaking_summary: 'قراءة ملخص الطوارئ',
+        speech_stopped: 'توقف الصوت',
+        speech_not_supported: 'تركيب الكلام غير مدعوم',
+        language_changed: 'تم تغيير اللغة إلى'
+      },
+      hi: {
+        emergency_contacts: 'आपातकालीन संपर्क',
+        add_contact: 'संपर्क जोड़ें',
+        contacts_desc: '3 विश्वसनीय संपर्क तक जोड़ें।',
+        no_contacts: 'अभी तक कोई संपर्क नहीं।',
+        ice: 'ICE',
+        name: 'नाम',
+        relationship: 'रिश्ता',
+        phone: 'फोन',
+        delete_contact: 'इस संपर्क को हटाएं?',
+        contact_removed: 'संपर्क हटाया गया',
+        max_contacts: 'अधिकतम 3 संपर्क की अनुमति है',
+        triage_status: 'ट्राइएज स्थिति',
+        auto_recommended: 'ऑटो (अनुशंसित)',
+        standard: 'मानक',
+        urgent: 'तत्काल',
+        critical: 'गंभीर',
+        comfort_care: 'आराम देखभाल',
+        speak: 'बोलें',
+        stop: 'रोकें',
+        speaking_summary: 'आपातकालीन सारांश बोल रहे हैं',
+        speech_stopped: 'आवाज रुक गई',
+        speech_not_supported: 'वाक् संश्लेषण समर्थित नहीं',
+        language_changed: 'भाषा बदली गई'
+      },
+      zh: {
+        emergency_contacts: '紧急联系人',
+        add_contact: '添加联系人',
+        contacts_desc: '添加最多3个可信联系人。',
+        no_contacts: '暂无联系人。',
+        ice: 'ICE',
+        name: '姓名',
+        relationship: '关系',
+        phone: '电话',
+        delete_contact: '删除此联系人？',
+        contact_removed: '联系人已删除',
+        max_contacts: '最多允许3个联系人',
+        triage_status: '分诊状态',
+        auto_recommended: '自动（推荐）',
+        standard: '标准',
+        urgent: '紧急',
+        critical: '危急',
+        comfort_care: '舒缓护理',
+        speak: '朗读',
+        stop: '停止',
+        speaking_summary: '正在朗读紧急摘要',
+        speech_stopped: '语音已停止',
+        speech_not_supported: '不支持语音合成',
+        language_changed: '语言已更改为'
+      }
+    };
+
+    function t(key) {
+      return translations[currentLang]?.[key] || translations.en[key] || key;
+    }
+
+    function updateLanguage() {
+      // Set document direction for RTL languages
+      document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+      
+      // Update language selector
+      document.getElementById('langSelect').value = currentLang;
+      
+      // Update all elements with data-i18n attribute
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+      });
+      
+      // Update select options
+      const triageSelect = document.getElementById('triageOverride');
+      if (triageSelect) {
+        triageSelect.innerHTML = `
+          <option value="">${t('auto_recommended')}</option>
+          <option value="green">GREEN - ${t('standard')}</option>
+          <option value="yellow">AMBER - ${t('urgent')}</option>
+          <option value="red">RED - ${t('critical')}</option>
+          <option value="black">BLACK - ${t('comfort_care')}</option>
+        `;
+        triageSelect.value = userData.health.triageOverride || '';
+      }
+    }
+
     // Initialize app
     document.addEventListener('DOMContentLoaded', async function() {
+      // Set initial language
+      updateLanguage();
+      
+      // Setup event listeners
       setupEventListeners();
+      
+      // Check session and load data
       await checkSession();
+      
+      // Hide loading screen and show main app
+      setTimeout(() => {
+        document.getElementById('loadingScreen').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+      }, 1500);
     });
 
     // Session management
     async function checkSession() {
       try {
+        if (isDemoMode) {
+          // Demo mode - simulate logged in user
+          currentUser = { id: 'demo-user', email: 'demo@myqer.com' };
+          document.getElementById('userEmail').textContent = currentUser.email;
+          
+          // Load demo data from localStorage
+          loadDemoData();
+          renderAll();
+          showToast('Welcome to MYQER Demo!', 'success');
+          return;
+        }
+
+        // Real Supabase mode
         const { data: { session }, error } = await sb.auth.getSession();
         
         if (error) {
@@ -829,21 +1220,38 @@
         showToast('Welcome back!', 'success');
       } catch (error) {
         console.error('Session check failed:', error);
-        redirectToLogin();
+        if (!isDemoMode) {
+          redirectToLogin();
+        }
       }
     }
 
     function redirectToLogin() {
-      // In a real app, this would redirect to your login page
-      showToast('Session expired. Please login again.', 'error');
+      showToast('Please login to access your dashboard', 'warning');
       setTimeout(() => {
-        window.location.href = '/';
+        location.replace('/');
       }, 2000);
+    }
+
+    // Demo data management
+    function loadDemoData() {
+      const saved = localStorage.getItem('myqer_demo_data');
+      if (saved) {
+        try {
+          userData = JSON.parse(saved);
+        } catch (e) {
+          console.log('Failed to load demo data, using defaults');
+        }
+      }
+    }
+
+    function saveDemoData() {
+      localStorage.setItem('myqer_demo_data', JSON.stringify(userData));
     }
 
     // Data management with Supabase
     async function loadUserData() {
-      if (!currentUser) return;
+      if (!currentUser || isDemoMode) return;
 
       try {
         // Load profile
@@ -859,7 +1267,7 @@
             dateOfBirth: profile.date_of_birth || '',
             country: profile.country || '',
             nationalId: profile.national_id || '',
-            code: profile.emergency_code || null
+            code: profile.code || null
           };
         }
 
@@ -873,13 +1281,13 @@
         if (health && !healthError) {
           userData.health = {
             bloodType: health.blood_type || '',
-            organDonor: health.organ_donor || '',
+            organDonor: health.organ_donor || false,
             allergies: health.allergies || '',
             conditions: health.conditions || '',
-            medications: health.medications || '',
-            lifeSupportPref: health.life_support_preference || ''
+            medications: health.meds || '',
+            lifeSupportPref: health.life_support_pref || '',
+            triageOverride: health.triage_override || ''
           };
-          userData.triageOverride = health.triage_override || '';
         }
 
         // Load ICE contacts
@@ -893,7 +1301,7 @@
           userData.contacts = contacts.map(contact => ({
             id: contact.id,
             name: contact.name || '',
-            relation: contact.relationship || '',
+            relation: contact.relation || '',
             phone: contact.phone || ''
           }));
         }
@@ -911,17 +1319,24 @@
       spinner.classList.remove('hidden');
 
       try {
+        if (isDemoMode) {
+          // Demo mode - save to localStorage
+          saveDemoData();
+          showToast('Profile saved (demo mode)', 'success');
+          renderProfile();
+          renderQR();
+          return;
+        }
+
         const { error } = await sb
           .from('profiles')
           .upsert({
             id: currentUser.id,
-            email: currentUser.email, // Required NOT NULL field
+            email: currentUser.email,
             full_name: userData.profile.fullName,
             date_of_birth: userData.profile.dateOfBirth,
             country: userData.profile.country,
-            national_id: userData.profile.nationalId,
-            emergency_code: userData.profile.code,
-            updated_at: new Date().toISOString()
+            code: userData.profile.code
           });
 
         if (error) throw error;
@@ -944,18 +1359,26 @@
       spinner.classList.remove('hidden');
 
       try {
+        if (isDemoMode) {
+          // Demo mode - save to localStorage
+          saveDemoData();
+          showToast('Health information saved (demo mode)', 'success');
+          renderTriage();
+          renderQR();
+          return;
+        }
+
         const { error } = await sb
           .from('health_profiles')
           .upsert({
             user_id: currentUser.id,
             blood_type: userData.health.bloodType,
-            organ_donor: userData.health.organDonor,
+            organ_donor: userData.health.organDonor === 'yes',
             allergies: userData.health.allergies,
             conditions: userData.health.conditions,
-            medications: userData.health.medications,
-            life_support_preference: userData.health.lifeSupportPref,
-            triage_override: userData.triageOverride,
-            updated_at: new Date().toISOString()
+            meds: userData.health.medications,
+            life_support_pref: userData.health.lifeSupportPref,
+            triage_override: userData.health.triageOverride
           });
 
         if (error) throw error;
@@ -975,6 +1398,14 @@
       if (!currentUser) return;
 
       try {
+        if (isDemoMode) {
+          // Demo mode - save to localStorage
+          saveDemoData();
+          showToast('Emergency contacts saved (demo mode)', 'success');
+          renderQR();
+          return;
+        }
+
         // Delete existing contacts
         await sb
           .from('ice_contacts')
@@ -984,11 +1415,11 @@
         // Insert new contacts
         if (userData.contacts.length > 0) {
           const contactsToInsert = userData.contacts
-            .filter(contact => contact.name || contact.phone) // Only save non-empty contacts
+            .filter(contact => contact.name || contact.phone)
             .map(contact => ({
               user_id: currentUser.id,
               name: contact.name,
-              relationship: contact.relation,
+              relation: contact.relation,
               phone: contact.phone
             }));
 
@@ -1042,17 +1473,17 @@
     function renderContacts() {
       const container = document.getElementById('contactsList');
       if (!userData.contacts.length) {
-        container.innerHTML = '<div class="text-slate-400 text-sm italic">No contacts yet.</div>';
+        container.innerHTML = `<div class="text-slate-400 text-sm italic" data-i18n="no_contacts">${t('no_contacts')}</div>`;
         return;
       }
       
       container.innerHTML = userData.contacts.map((contact, index) => `
         <div class="glass-card rounded-lg p-4 border border-slate-200/40">
           <div class="grid grid-cols-1 gap-3">
-            <input class="input-field" placeholder="Name" value="${contact.name || ''}" data-index="${index}" data-field="name">
-            <input class="input-field" placeholder="Relationship" value="${contact.relation || ''}" data-index="${index}" data-field="relation">
+            <input class="input-field" placeholder="${t('name')}" value="${contact.name || ''}" data-index="${index}" data-field="name">
+            <input class="input-field" placeholder="${t('relationship')}" value="${contact.relation || ''}" data-index="${index}" data-field="relation">
             <div class="flex gap-2">
-              <input class="input-field flex-1" placeholder="Phone" value="${contact.phone || ''}" data-index="${index}" data-field="phone">
+              <input class="input-field flex-1" placeholder="${t('phone')}" value="${contact.phone || ''}" data-index="${index}" data-field="phone">
               <button class="btn-secondary px-3 py-2 text-sm hover:bg-red-50 hover:text-red-600" onclick="removeContact(${index})">🗑</button>
             </div>
           </div>
@@ -1068,7 +1499,7 @@
       pill.classList.add(`pill-${level}`);
       pill.textContent = level === 'yellow' ? 'AMBER' : level.toUpperCase();
       
-      document.getElementById('triageOverride').value = userData.triageOverride || '';
+      document.getElementById('triageOverride').value = userData.health.triageOverride || '';
     }
 
     function renderQR() {
@@ -1092,13 +1523,17 @@
       codeDisplay.textContent = userData.profile.code;
       
       try {
-        const emergencyData = generateEmergencyData();
-        dataField.value = emergencyData;
+        const cardUrl = `${window.location.origin}/card.html?code=${userData.profile.code}`;
+        dataField.value = cardUrl;
+        
+        // Clear canvas first
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 200, 200);
         
         // Generate QR code using QRCode.toCanvas
-        QRCode.toCanvas(canvas, emergencyData, { 
+        QRCode.toCanvas(canvas, cardUrl, { 
           width: 200, 
-          margin: 2,
+          margin: 3,
           errorCorrectionLevel: 'M',
           color: {
             dark: '#1e293b',
@@ -1109,7 +1544,6 @@
             console.error('QR Code generation failed:', error);
             showToast('QR code generation failed', 'error');
             // Show error in canvas
-            const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, 200, 200);
             ctx.fillStyle = '#ef4444';
             ctx.font = '14px sans-serif';
@@ -1133,17 +1567,19 @@
 
     // Utility functions
     function computeTriage() {
-      if (userData.triageOverride) return userData.triageOverride;
+      if (userData.health.triageOverride) return userData.health.triageOverride;
 
       const hasDNR = (userData.health.lifeSupportPref || '').toLowerCase().includes('dnr') || 
                      (userData.health.lifeSupportPref || '').toLowerCase().includes('comfort');
       if (hasDNR) return 'black';
 
       const severe = (userData.health.allergies || '').toLowerCase().includes('anaphyl') ||
-                     (userData.health.conditions || '').toLowerCase().includes('severe');
+                     (userData.health.allergies || '').toLowerCase().includes('severe') ||
+                     (userData.health.conditions || '').toLowerCase().includes('severe') ||
+                     (userData.health.conditions || '').toLowerCase().includes('critical');
       if (severe) return 'red';
 
-      const hasCond = !!(userData.health.conditions || '').trim();
+      const hasCond = !!(userData.health.conditions || '').trim() || !!(userData.health.allergies || '').trim();
       if (hasCond) return 'yellow';
 
       return 'green';
@@ -1181,8 +1617,16 @@
       spinner.classList.remove('hidden');
       
       try {
+        // Generate unique code
         userData.profile.code = 'MYQER-' + Math.random().toString(36).slice(2, 9).toUpperCase();
+        
+        // Save to database or localStorage
         await saveProfile();
+        
+        // Re-render everything
+        renderProfile();
+        renderQR();
+        
         showToast('Emergency code generated successfully!', 'success');
       } catch (error) {
         console.error('Failed to generate code:', error);
@@ -1194,7 +1638,7 @@
 
     function addContact() {
       if (userData.contacts.length >= 3) {
-        showToast('Maximum 3 contacts allowed', 'warning');
+        showToast(t('max_contacts'), 'warning');
         return;
       }
       
@@ -1203,18 +1647,18 @@
     }
 
     async function removeContact(index) {
-      if (confirm('Delete this contact?')) {
+      if (confirm(t('delete_contact'))) {
         userData.contacts.splice(index, 1);
         renderContacts();
         await saveContacts();
-        showToast('Contact removed', 'success');
+        showToast(t('contact_removed'), 'success');
       }
     }
 
     // Multi-language voice synthesis with gentle female voice
     function speakEmergencySummary() {
       if (!('speechSynthesis' in window)) {
-        showToast('Speech synthesis not supported', 'warning');
+        showToast(t('speech_not_supported'), 'warning');
         return;
       }
 
@@ -1223,15 +1667,22 @@
       const name = userData.profile.fullName || 'Unknown';
       const blood = userData.health.bloodType || 'Unknown';
       const allergies = userData.health.allergies || 'None listed';
-      const conditions = userData.health.conditions || 'None listed';
       const medications = userData.health.medications || 'None listed';
+      const triage = computeTriage().toUpperCase();
+      const firstContact = userData.contacts.length > 0 ? 
+        `${userData.contacts[0].name} ${userData.contacts[0].phone}` : 'No emergency contact';
       
       const summaries = {
-        en: `Hello, this is an emergency summary for ${name}. Blood type is ${blood}. Known allergies include ${allergies}. Medical conditions are ${conditions}. Current medications are ${medications}. Please provide appropriate care.`,
-        es: `Hola, este es un resumen de emergencia para ${name}. El tipo de sangre es ${blood}. Las alergias conocidas incluyen ${allergies}. Las condiciones médicas son ${conditions}. Los medicamentos actuales son ${medications}. Por favor proporcione atención apropiada.`,
-        fr: `Bonjour, ceci est un résumé d'urgence pour ${name}. Le groupe sanguin est ${blood}. Les allergies connues incluent ${allergies}. Les conditions médicales sont ${conditions}. Les médicaments actuels sont ${medications}. Veuillez fournir des soins appropriés.`,
-        de: `Hallo, dies ist eine Notfallzusammenfassung für ${name}. Die Blutgruppe ist ${blood}. Bekannte Allergien umfassen ${allergies}. Medizinische Bedingungen sind ${conditions}. Aktuelle Medikamente sind ${medications}. Bitte angemessene Pflege bereitstellen.`,
-        it: `Ciao, questo è un riassunto di emergenza per ${name}. Il gruppo sanguigno è ${blood}. Le allergie note includono ${allergies}. Le condizioni mediche sono ${conditions}. I farmaci attuali sono ${medications}. Si prega di fornire cure appropriate.`
+        en: `Emergency summary for ${name}. Blood type ${blood}. Allergies: ${allergies}. Medications: ${medications}. Triage level ${triage}. Emergency contact: ${firstContact}.`,
+        es: `Resumen de emergencia para ${name}. Tipo de sangre ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nivel de triaje ${triage}. Contacto de emergencia: ${firstContact}.`,
+        fr: `Résumé d'urgence pour ${name}. Groupe sanguin ${blood}. Allergies: ${allergies}. Médicaments: ${medications}. Niveau de triage ${triage}. Contact d'urgence: ${firstContact}.`,
+        de: `Notfallzusammenfassung für ${name}. Blutgruppe ${blood}. Allergien: ${allergies}. Medikamente: ${medications}. Triage-Stufe ${triage}. Notfallkontakt: ${firstContact}.`,
+        it: `Riassunto di emergenza per ${name}. Gruppo sanguigno ${blood}. Allergie: ${allergies}. Farmaci: ${medications}. Livello di triage ${triage}. Contatto di emergenza: ${firstContact}.`,
+        pt: `Resumo de emergência para ${name}. Tipo sanguíneo ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nível de triagem ${triage}. Contacto de emergência: ${firstContact}.`,
+        ro: `Rezumat de urgență pentru ${name}. Grupa sanguină ${blood}. Alergii: ${allergies}. Medicamente: ${medications}. Nivel de triaj ${triage}. Contact de urgență: ${firstContact}.`,
+        ar: `ملخص الطوارئ لـ ${name}. فصيلة الدم ${blood}. الحساسية: ${allergies}. الأدوية: ${medications}. مستوى الفرز ${triage}. جهة اتصال الطوارئ: ${firstContact}.`,
+        hi: `${name} के लिए आपातकालीन सारांश। रक्त समूह ${blood}। एलर्जी: ${allergies}। दवाएं: ${medications}। ट्राइएज स्तर ${triage}। आपातकालीन संपर्क: ${firstContact}।`,
+        zh: `${name}的紧急摘要。血型${blood}。过敏：${allergies}。药物：${medications}。分诊级别${triage}。紧急联系人：${firstContact}。`
       };
       
       const text = summaries[currentLang] || summaries.en;
@@ -1244,7 +1695,7 @@
       
       const langMap = {
         'en': 'en-US', 'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'it': 'it-IT',
-        'pt': 'pt-PT', 'nl': 'nl-NL', 'sv': 'sv-SE', 'no': 'nb-NO', 'da': 'da-DK'
+        'pt': 'pt-PT', 'ro': 'ro-RO', 'ar': 'ar-SA', 'hi': 'hi-IN', 'zh': 'zh-CN'
       };
       
       utterance.lang = langMap[currentLang] || 'en-US';
@@ -1257,7 +1708,9 @@
          voice.name.toLowerCase().includes('woman') ||
          voice.name.toLowerCase().includes('samantha') ||
          voice.name.toLowerCase().includes('karen') ||
-         voice.name.toLowerCase().includes('susan'))
+         voice.name.toLowerCase().includes('susan') ||
+         voice.name.toLowerCase().includes('zira') ||
+         voice.name.toLowerCase().includes('hazel'))
       );
       
       if (femaleVoice) {
@@ -1265,7 +1718,7 @@
       }
       
       speechSynthesis.speak(utterance);
-      showToast('Speaking emergency summary gently', 'success');
+      showToast(t('speaking_summary'), 'success');
     }
 
     // Toast notification system
@@ -1284,19 +1737,26 @@
 
     // Event listeners setup
     function setupEventListeners() {
-      // Logout with session management
+      // Logout
       document.getElementById('logoutBtn').addEventListener('click', async function() {
         if (confirm('Are you sure you want to logout?')) {
           const spinner = document.getElementById('logoutSpinner');
           spinner.classList.remove('hidden');
           
           try {
-            const { error } = await sb.auth.signOut();
-            if (error) throw error;
+            if (!isDemoMode && sb) {
+              const { error } = await sb.auth.signOut();
+              if (error) throw error;
+            }
+            
+            // Clear demo data if in demo mode
+            if (isDemoMode) {
+              localStorage.removeItem('myqer_demo_data');
+            }
             
             showToast('Logged out successfully', 'success');
             setTimeout(() => {
-              window.location.href = '/';
+              location.replace('/');
             }, 1000);
           } catch (error) {
             console.error('Logout failed:', error);
@@ -1310,7 +1770,10 @@
       // Language selector
       document.getElementById('langSelect').addEventListener('change', function(e) {
         currentLang = e.target.value;
-        showToast('Language changed to ' + e.target.selectedOptions[0].text, 'success');
+        localStorage.setItem('myqer_lang', currentLang);
+        updateLanguage();
+        renderContacts(); // Re-render contacts with new language
+        showToast(t('language_changed') + ' ' + e.target.selectedOptions[0].text, 'success');
       });
 
       // Profile form
@@ -1360,7 +1823,8 @@
 
       // Triage override
       document.getElementById('triageOverride').addEventListener('change', async function(e) {
-        userData.triageOverride = e.target.value;
+        userData.health.triageOverride = e.target.value;
+        renderTriage();
         await saveHealth();
       });
 
@@ -1369,7 +1833,7 @@
       document.getElementById('stopSpeakBtn').addEventListener('click', function() {
         if ('speechSynthesis' in window) {
           speechSynthesis.cancel();
-          showToast('Speech stopped', 'success');
+          showToast(t('speech_stopped'), 'success');
         }
       });
 
@@ -1446,8 +1910,20 @@
         w.document.write(`
           <html>
             <head>
-              <title>MYQER Emergency Card - ${name}</title>
+              <title>MYQER™ Emergency Card - ${name}</title>
               <style>
+                @media print {
+                  body { margin: 0; }
+                  .card { 
+                    box-shadow: none !important; 
+                    border: 2px solid #dc2626 !important;
+                    page-break-inside: avoid;
+                  }
+                  .qr-img { 
+                    width: 240px !important; 
+                    height: 240px !important; 
+                  }
+                }
                 body { 
                   font-family: system-ui, -apple-system, sans-serif; 
                   display: flex; 
@@ -1476,6 +1952,12 @@
                 }
                 .logo .myq { color: #000000; }
                 .logo .er { color: #dc2626; }
+                .logo .tm { 
+                  font-size: 0.75rem; 
+                  color: #64748b; 
+                  vertical-align: super; 
+                  margin-left: 2px;
+                }
                 .tagline {
                   font-size: 0.75rem;
                   color: #64748b;
@@ -1487,6 +1969,7 @@
                   border: 2px solid #dc2626;
                   border-radius: 12px;
                   margin: 16px auto;
+                  display: block;
                 }
                 .code {
                   font-family: monospace;
@@ -1534,7 +2017,7 @@
             <body>
               <div class="card">
                 <div class="logo">
-                  <span class="myq">MYQ</span><span class="er">ER</span>
+                  <span class="myq">MYQ</span><span class="er">ER</span><span class="tm">™</span>
                 </div>
                 <div class="tagline">pronounced "My Care"</div>
                 <div class="emergency">🚨 EMERGENCY MEDICAL CARD</div>
@@ -1577,18 +2060,25 @@
           spinner.classList.remove('hidden');
           
           try {
-            // Delete user data from all tables
-            await Promise.all([
-              sb.from('ice_contacts').delete().eq('user_id', currentUser.id),
-              sb.from('health_profiles').delete().eq('user_id', currentUser.id),
-              sb.from('profiles').delete().eq('id', currentUser.id)
-            ]);
+            if (isDemoMode) {
+              // Demo mode - clear localStorage
+              localStorage.removeItem('myqer_demo_data');
+              showToast('Demo account deleted', 'success');
+            } else {
+              // Delete user data from all tables
+              await Promise.all([
+                sb.from('ice_contacts').delete().eq('user_id', currentUser.id),
+                sb.from('health_profiles').delete().eq('user_id', currentUser.id),
+                sb.from('profiles').delete().eq('id', currentUser.id)
+              ]);
+              
+              // Sign out user
+              const { error } = await sb.auth.signOut();
+              if (error) throw error;
+              
+              showToast('Account deleted successfully', 'success');
+            }
             
-            // Delete auth user
-            const { error } = await sb.auth.admin.deleteUser(currentUser.id);
-            if (error) throw error;
-            
-            showToast('Account deleted successfully', 'success');
             setTimeout(() => {
               document.getElementById('deleteModal').classList.remove('show');
               window.location.href = '/';
@@ -1606,5 +2096,5 @@
     // Make removeContact globally accessible
     window.removeContact = removeContact;
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'976722c41067b29c',t:'MTc1NjQxODk5Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97674b72049e4428',t:'MTc1NjQyMDY2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
