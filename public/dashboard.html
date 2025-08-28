@@ -1,575 +1,902 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>MYQER — Dashboard</title>
-  <link rel="icon" href="/assets/logo-myqer.png" />
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="theme-color" content="#c62828" />
+
+  <!-- QR Code -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <!-- Supabase v2 -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    window.supabase = createClient(
+      'https://tgddpmxpbgrzrbzpomou.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM'
+    );
+  </script>
 
   <style>
     :root{
       --brand:#c62828;
-      --ink:#111318;
-      --muted:#667085;
-      --stroke:rgba(17,24,39,.12);
+      --ink:#0f172a;
+      --muted:#64748b;
+      --ring:rgba(198,40,40,.14);
+      --stroke:rgba(15,23,42,.08);
       --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
-      --r:18px;
-      --red:#ef4444; --amber:#f59e0b; --green:#10b981; --blue:#60a5fa;
+      --rad:16px;
     }
-    html,body{background:linear-gradient(180deg,#f7fafc 0%,#eef2f7 100%);color:var(--ink)}
-    .glass-card{background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border:1px solid var(--stroke);border-radius:18px;box-shadow:var(--shadow)}
-    .section-ribbon{position:relative;padding-top:1.25rem;border-left:4px solid}
-    .section-ribbon.red{border-color:var(--red)}
-    .section-ribbon.amber{border-color:var(--amber)}
-    .section-ribbon.blue{border-color:var(--blue)}
-    .section-ribbon.green{border-color:var(--green)}
-    .ribbon-title{display:flex;align-items:center;gap:.5rem;font-weight:800}
-    .btn{display:inline-flex;align-items:center;justify-content:center;padding:.6rem 1rem;border-radius:.75rem;font-weight:600}
-    .btn-primary{background:var(--brand);color:#fff}
-    .btn-secondary{border:1px solid var(--stroke);background:#fff}
-    .btn-danger{background:#ef4444;color:#fff}
-    .input{width:100%;border:1px solid #e5e7eb;border-radius:.75rem;padding:.65rem .8rem;background:rgba(255,255,255,.9)}
-    .tag{border:1px solid var(--stroke);background:#fff;border-radius:999px;padding:.3rem .6rem;font-size:.75rem}
-    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px}
-    .offline{background:#fff3c4;border:1px solid #f3d08e;color:#7c5400}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .phone-shadow{box-shadow:0 30px 60px rgba(2,8,23,.18)}
+    body{background:linear-gradient(135deg,#f8fafc 0%,#eef2f7 100%);color:var(--ink)}
+    .glass{background:rgba(255,255,255,.7);backdrop-filter:blur(14px);border:1px solid var(--stroke)}
+    .card{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border:1px solid var(--stroke);border-radius:var(--rad);box-shadow:var(--shadow)}
+    .ribbon{position:relative;padding-top:14px}
+    .ribbon::before{content:attr(data-title);position:absolute;top:0;left:-1px;font-weight:800;font-size:.78rem;letter-spacing:.02em;color:#fff;padding:.28rem .6rem;border-top-left-radius:10px;border-bottom-right-radius:10px}
+    .r-red::before{background:#dc2626}
+    .r-orange::before{background:#ea580c}
+    .r-green::before{background:#16a34a}
+    .r-purple::before{background:#7c3aed}
+    .pill{border-radius:999px;border:1px solid var(--stroke);background:#fff;padding:.3rem .6rem;font-size:.75rem}
+    .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-weight:700}
+    .btn-red{background:var(--brand);color:#fff}
+    .btn-red:hover{filter:brightness(1.02)}
+    .btn-outline{border:1px solid var(--brand);color:var(--brand);background:#fff}
+    .kicker{font-size:.7rem;color:#64748b}
+    .qr-ring{box-shadow:0 0 0 2px var(--brand), 0 8px 20px var(--ring);border-radius:14px}
+    .phone-shadow{box-shadow:0 25px 60px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.08)}
+    .disabled-tile{opacity:.55;cursor:not-allowed}
+    .legend-dot{width:.65rem;height:.65rem;border-radius:999px;display:inline-block;margin-right:.4rem}
   </style>
-
-  <!-- Supabase + QRCode -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
-<body>
-  <!-- Top bar -->
-  <header class="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-white/60">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2 font-extrabold text-lg select-none">
-        <img src="/assets/logo.svg" class="h-6" onerror="this.src='/assets/logo-myqer.png'">
-        <span>MYQ<span class="text-[#c62828]">ER</span>™</span>
-      </a>
+<body class="min-h-screen">
 
-      <div class="flex items-center gap-3">
-        <!-- Language -->
-        <select id="langSelect" class="input !py-2 !px-3 w-[140px]">
-          <option value="en">English</option>
-          <option value="es">Español</option>
-          <option value="de">Deutsch</option>
-          <option value="fr">Français</option>
-          <option value="it">Italiano</option>
-          <option value="pt">Português</option>
-          <option value="ro">Română</option>
-          <option value="ar">العربية</option>
-          <option value="hi">हिन्दी</option>
-          <option value="zh">中文</option>
-        </select>
+  <!-- Top Bar -->
+  <header class="glass sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="h-16 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2 font-extrabold text-xl">
+          MYQ<span class="text-[var(--brand)]">ER</span><sup class="text-xs ml-0.5">™</sup>
+        </a>
 
-        <a href="/" class="tag" data-i18n="nav.back_home">Back to Home</a>
-        <button id="logoutBtn" class="btn btn-secondary" data-i18n="nav.logout">Logout</button>
+        <div class="flex items-center gap-3">
+          <!-- Language -->
+          <select id="lang" class="border rounded-md px-3 py-1 text-sm">
+            <option value="en">🇺🇸 EN</option>
+            <option value="es">🇪🇸 ES</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="de">🇩🇪 DE</option>
+            <option value="it">🇮🇹 IT</option>
+            <option value="pt">🇵🇹 PT</option>
+            <option value="ro">🇷🇴 RO</option>
+            <option value="ar">🇸🇦 AR</option>
+            <option value="hi">🇮🇳 HI</option>
+            <option value="zh">🇨🇳 中文</option>
+          </select>
+
+          <button id="logout" class="btn btn-outline px-4 py-2 text-sm">Logout</button>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Offline note -->
-  <div id="offlineNote" class="hidden offline max-w-7xl mx-auto mt-4 rounded-lg px-4 py-2 text-sm">
-    <span data-i18n="offline.message">You're offline — edits will sync when connection returns</span>
+  <!-- Loading / Error -->
+  <div id="loading" class="flex items-center justify-center min-h-[40vh]">
+    <div class="text-center">
+      <div class="animate-spin h-10 w-10 rounded-full border-b-2 border-[var(--brand)] mx-auto mb-3"></div>
+      <p class="text-[var(--muted)]">Loading your dashboard…</p>
+    </div>
   </div>
-    <!-- Middle column -->
-    <section class="lg:col-span-1 space-y-6">
-      <!-- CRITICAL -->
-      <section class="glass-card p-6 section-ribbon red">
-        <h2 class="ribbon-title text-red-700 text-lg mb-4">
-          <span>🚨</span><span data-i18n="critical.title">CRITICAL - Emergency Priority</span>
-        </h2>
 
-        <label class="text-sm font-medium mb-1 block" data-i18n="health.blood_type">Blood Type *</label>
-        <select id="blood_type" class="input mb-4">
-          <option value="">—</option>
-          <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
-          <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
-        </select>
+  <div id="errorBox" class="hidden max-w-3xl mx-auto mt-8 card p-5">
+    <div class="text-red-600 font-bold mb-1">Something went wrong</div>
+    <div id="errorMsg" class="text-sm text-slate-600"></div>
+  </div>
 
-        <label class="text-sm font-medium mb-1 block" data-i18n="health.allergies">Critical Allergies *</label>
-        <input id="allergies" class="input mb-4" placeholder="Penicillin, Midazolam" />
+  <!-- Dashboard -->
+  <main id="dash" class="hidden pt-6 pb-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        <label class="text-sm font-medium mb-1 block" data-i18n="health.life_support">Life Support & DNR Preferences *</label>
-        <select id="life_support" class="input mb-4">
-          <option value="full">Full</option>
-          <option value="dnr">Do Not Resuscitate (DNR)</option>
-          <option value="comfort">Comfort-focused only</option>
-        </select>
+      <!-- LEFT / CENTER: Main forms -->
+      <div class="lg:col-span-2 space-y-8">
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-sm font-medium mb-1 block" data-i18n="health.burial_preference">Burial Preference</label>
-            <select id="burial_pref" class="input">
-              <option value="">—</option>
-              <option value="burial">Burial</option>
-              <option value="cremation">Cremation</option>
-            </select>
+        <!-- Identity – Personal Information -->
+        <section class="card p-6 ribbon r-green" data-title="Identity">
+          <h2 class="text-xl font-extrabold mb-1" data-i18n="identityTitle">Identity — Personal Information</h2>
+          <p class="kicker mb-5" data-i18n="identityHint">These details help responders confirm who you are.</p>
+
+          <form id="profileForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium" data-i18n="fullName">Full name</label>
+              <input name="full_name" class="w-full mt-1 border rounded-md px-3 py-2">
+            </div>
+            <div>
+              <label class="text-sm font-medium" data-i18n="dob">Date of Birth</label>
+              <input name="date_of_birth" type="date" class="w-full mt-1 border rounded-md px-3 py-2">
+            </div>
+            <div>
+              <label class="text-sm font-medium" data-i18n="country">Country</label>
+              <input name="country" class="w-full mt-1 border rounded-md px-3 py-2">
+            </div>
+            <div>
+              <label class="text-sm font-medium" data-i18n="nationalId">National ID (optional)</label>
+              <input name="national_id" class="w-full mt-1 border rounded-md px-3 py-2">
+            </div>
+            <div class="md:col-span-2 flex items-center justify-between">
+              <div>
+                <span class="kicker" data-i18n="codeLabel">Your card code:</span>
+                <code id="codeText" class="ml-2 px-2 py-1 rounded bg-slate-100 text-[.85rem]">—</code>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" id="genCode" class="btn px-3 py-2 border" data-i18n="genCode">Generate code</button>
+                <button class="btn btn-red px-4 py-2" data-i18n="saveProfile">Save Profile</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <!-- Critical – Medical – Health Details -->
+        <section class="card p-6 ribbon r-red" data-title="Critical">
+          <h2 class="text-xl font-extrabold mb-1" data-i18n="criticalTitle">Critical — Medical — Health Details</h2>
+          <p class="kicker mb-5" data-i18n="criticalHint">Keep this current. It appears on your emergency card.</p>
+
+          <form id="healthForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium" data-i18n="bloodType">Blood type</label>
+              <select name="blood_type" class="w-full mt-1 border rounded-md px-3 py-2">
+                <option value="">—</option>
+                <option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option>
+                <option>O+</option><option>O-</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-sm font-medium" data-i18n="organDonor">Organ donor</label>
+              <select name="organ_donor" class="w-full mt-1 border rounded-md px-3 py-2">
+                <option value="">—</option>
+                <option value="yes" data-i18n="yes">Yes</option>
+                <option value="no" data-i18n="no">No</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium" data-i18n="allergies">Critical allergies</label>
+              <textarea name="allergies" rows="2" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Penicillin, Nuts"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium" data-i18n="conditions">Conditions</label>
+              <textarea name="conditions" rows="2" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Diabetes, Asthma"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium" data-i18n="meds">Current medications</label>
+              <textarea name="meds" rows="2" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Metformin"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium" data-i18n="implants">Implants / devices</label>
+              <textarea name="implants" rows="2" class="w-full mt-1 border rounded-md px-3 py-2" placeholder="Pacemaker, Insulin pump"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium" data-i18n="lifeSupport">Life support preference (informational)</label>
+              <select name="life_support_pref" class="w-full mt-1 border rounded-md px-3 py-2">
+                <option value="">—</option>
+                <option data-i18n="fullSupport" value="Full support">All resuscitation efforts (Full)</option>
+                <option data-i18n="comfortOnly" value="Comfort only">Comfort-focused care only</option>
+                <option data-i18n="dnr" value="DNR">Do not resuscitate (DNR)</option>
+              </select>
+              <p class="kicker mt-1" data-i18n="lifeSupportNote">These preferences are informational only. Clinicians must confirm with official documents.</p>
+            </div>
+
+            <div class="md:col-span-2 flex justify-end">
+              <button class="btn btn-red px-4 py-2" data-i18n="saveHealth">Save Health</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Emergency Contacts (ICE) -->
+        <section class="card p-6 ribbon r-orange" data-title="ICE">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xl font-extrabold" data-i18n="iceTitle">Emergency Contacts (ICE)</h2>
+            <button id="addIce" class="btn btn-outline px-3 py-2 text-sm" data-i18n="addContact">Add contact</button>
           </div>
-          <div>
-            <label class="text-sm font-medium mb-1 block">Religious/Cultural Preference</label>
-            <input id="religion" class="input" placeholder="No religious preference" />
+          <p class="kicker mb-4" data-i18n="iceHint">Add up to 3 trusted contacts.</p>
+          <div id="iceList" class="space-y-3"></div>
+        </section>
+
+        <!-- Document Vault (Coming Soon) -->
+        <section class="card p-6 ribbon r-purple" data-title="Document Vault">
+          <h2 class="text-xl font-extrabold mb-1" data-i18n="vaultTitle">Document Vault (Coming Soon)</h2>
+          <p class="kicker mb-5" data-i18n="vaultHint">Secure, client-side encrypted storage for critical documents.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="disabled-tile border rounded-lg p-4 flex items-center gap-3">
+              <span class="legend-dot" style="background:#7c3aed"></span>
+              <div>
+                <div class="font-semibold" data-i18n="dnr">DNR Orders</div>
+                <div class="kicker">—</div>
+              </div>
+            </div>
+            <div class="disabled-tile border rounded-lg p-4 flex items-center gap-3">
+              <span class="legend-dot" style="background:#7c3aed"></span>
+              <div>
+                <div class="font-semibold" data-i18n="livingWill">Living Will</div>
+                <div class="kicker">—</div>
+              </div>
+            </div>
+            <div class="disabled-tile border rounded-lg p-4 flex items-center gap-3">
+              <span class="legend-dot" style="background:#7c3aed"></span>
+              <div>
+                <div class="font-semibold" data-i18n="mpoa">Medical Power of Attorney</div>
+                <div class="kicker">—</div>
+              </div>
+            </div>
+            <div class="disabled-tile border rounded-lg p-4 flex items-center gap-3">
+              <span class="legend-dot" style="background:#7c3aed"></span>
+              <div>
+                <div class="font-semibold" data-i18n="insurance">Insurance Documents</div>
+                <div class="kicker">—</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- MEDICAL -->
-      <section class="glass-card p-6 section-ribbon blue">
-        <h2 class="ribbon-title text-blue-700 text-lg mb-4">
-          <span>📋</span><span data-i18n="medical.title">MEDICAL - Health Details</span>
-        </h2>
-
-        <label class="text-sm font-medium mb-1 block">Organ Donor</label>
-        <input id="organ_donor" type="checkbox" class="mr-2 align-middle">
-        <span class="text-sm align-middle">Yes</span>
-
-        <div class="grid grid-cols-1 mt-4 gap-3">
-          <div>
-            <label class="text-sm font-medium mb-1 block">Medical Conditions</label>
-            <input id="conditions" class="input" placeholder="Asthma, Diabetes" />
+        <!-- Danger zone: Delete Account -->
+        <section class="card p-6 border-2 border-red-300">
+          <h2 class="text-xl font-extrabold text-red-700 mb-2" data-i18n="deleteTitle">Delete account</h2>
+          <p class="kicker mb-3" data-i18n="deleteWarning">Type <strong>DELETE MY ACCOUNT</strong> to enable. This is permanent.</p>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="deletePhrase" class="border rounded-md px-3 py-2 flex-1" placeholder="DELETE MY ACCOUNT">
+            <button id="deleteBtn" class="btn px-4 py-2 bg-red-600 text-white disabled:opacity-50" disabled data-i18n="deleteBtn">Delete my account</button>
           </div>
-          <div>
-            <label class="text-sm font-medium mb-1 block">Current Medications</label>
-            <input id="medications" class="input" placeholder="Metformin 500mg daily" />
+          <p id="deleteNote" class="kicker mt-2"></p>
+        </section>
+
+      </div>
+
+      <!-- RIGHT: Triage, QR, Legend -->
+      <aside class="space-y-8">
+
+        <!-- Triage Status -->
+        <section class="card p-6">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-extrabold" data-i18n="triageTitle">Emergency Triage Status</h3>
+            <span id="triagePill" class="pill">—</span>
           </div>
-          <div>
-            <label class="text-sm font-medium mb-1 block">Implants/Devices</label>
-            <input id="implants" class="input" placeholder="Pacemaker" />
+          <p class="kicker mb-4" data-i18n="triageHint">Auto-computed from your data. You can override.</p>
+
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="text-sm font-medium" data-i18n="override">Manual override</label>
+              <select id="triageOverride" class="w-full mt-1 border rounded-md px-3 py-2">
+                <option value="">Auto</option>
+                <option value="green">Green</option>
+                <option value="yellow">Yellow</option>
+                <option value="red">Red</option>
+                <option value="black">Black</option>
+              </select>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="speak" class="btn btn-outline px-3 py-2 text-sm" data-i18n="speak">🔈 Speak summary</button>
+              <button id="stopSpeak" class="btn px-3 py-2 border text-sm" data-i18n="stop">Stop</button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- DOCUMENT VAULT (coming soon) -->
-      <section class="glass-card p-6 section-ribbon amber opacity-80">
-        <h2 class="ribbon-title text-amber-700 text-lg mb-2">🗄️ DOCUMENT VAULT — Legacy & Critical Papers</h2>
-        <div class="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm p-3 mb-3">
-          Coming soon — securely store DNR orders, living will, medical power of attorney, insurance papers.
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">DNR Orders</div>
-          <div class="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">Living Will</div>
-          <div class="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">Med. Power of Attorney</div>
-          <div class="border-2 border-dashed rounded-lg p-6 text-center text-gray-400">Insurance Docs</div>
-        </div>
-      </section>
-    </section>
-
-    <!-- Right column -->
-    <section class="lg:col-span-1 space-y-6">
-      <!-- Triage Status -->
-      <section class="glass-card p-6">
-        <h3 class="font-bold text-lg mb-1" data-i18n="triage.title">Emergency Triage Status</h3>
-        <div class="text-sm text-gray-600 mb-3" data-i18n="triage.auto_computed">Auto-computed from health profile</div>
-
-        <div class="flex items-center gap-2 mb-3">
-          <span class="tag">GREEN — Standard</span>
-          <span class="tag">AMBER — Urgent</span>
-          <span class="tag">RED — Immediate</span>
-          <span class="tag">BLUE — Non-urgent</span>
-        </div>
-
-        <label class="text-sm font-medium mb-1 block" data-i18n="triage.override">Override:</label>
-        <select id="triage_override" class="input">
-          <option value="auto" data-i18n="triage.use_auto">Use auto-computed</option>
-          <option value="red">RED — Immediate</option>
-          <option value="amber">AMBER — Urgent</option>
-          <option value="green">GREEN — Standard</option>
-          <option value="blue">BLUE — Non-urgent</option>
-        </select>
-      </section>
-
-      <!-- QR & share -->
-      <section class="glass-card p-6">
-        <h3 class="font-bold text-lg mb-2" data-i18n="qr.title">Emergency Card & QR</h3>
-        <div class="text-sm text-gray-600 mb-4" data-i18n="qr.scan_info">Scan to view emergency information</div>
-
-        <div id="qrBox" class="w-full flex items-center justify-center mb-4">
-          <canvas id="qrCanvas"></canvas>
-        </div>
-
-        <div class="flex gap-2">
-          <button id="downloadQR" class="btn btn-secondary" data-i18n="qr.download">Download QR Code</button>
-          <button id="printCard" class="btn btn-secondary" data-i18n="qr.print">Print Emergency Card</button>
-        </div>
-
-        <div class="mt-4">
-          <label class="text-sm font-medium mb-1 block" data-i18n="qr.shareable_link">Shareable Link:</label>
-          <div class="flex gap-2">
-            <input id="shareLink" class="input" readonly />
-            <button id="copyLink" class="btn btn-secondary" data-i18n="qr.copy">Copy</button>
+        <!-- Emergency Card & QR -->
+        <section class="card p-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-extrabold" data-i18n="cardTitle">Emergency Card & QR</h3>
+            <span class="kicker" id="qrStatus"></span>
           </div>
-        </div>
 
-        <!-- Voice controls -->
-        <div class="mt-5 flex items-center gap-3">
-          <button id="playVoice" class="btn btn-primary text-sm">
-            ▶️ <span data-i18n="voice.play">Play voice</span>
-          </button>
-          <button id="stopVoice" class="btn btn-secondary text-sm">
-            ⏹ <span data-i18n="voice.stop">Stop</span>
-          </button>
-          <span class="text-xs text-gray-500" data-i18n="voice.note">(Speaks a short triage summary in your selected language)</span>
-        </div>
-      </section>
+          <div class="grid grid-cols-1 gap-3">
+            <div class="flex items-center justify-center">
+              <div class="qr-ring bg-white p-3 rounded-xl">
+                <canvas id="qrCanvas" width="200" height="200"></canvas>
+              </div>
+            </div>
 
-      <!-- Legend -->
-      <section class="glass-card p-6">
-        <h3 class="font-bold text-lg mb-3" data-i18n="help.triage_colors">Triage Colors</h3>
-        <div class="space-y-2 text-sm">
-          <div><strong data-i18n="help.red_title">RED - Immediate</strong> — <span data-i18n="help.red_desc">Life-threatening conditions</span></div>
-          <div><strong data-i18n="help.amber_title">AMBER - Urgent</strong> — <span data-i18n="help.amber_desc">Serious but stable</span></div>
-          <div><strong data-i18n="help.green_title">GREEN - Standard</strong> — <span data-i18n="help.green_desc">Non-urgent care needed</span></div>
-          <div><strong data-i18n="help.blue_title">BLUE - Non-urgent</strong> — <span data-i18n="help.blue_desc">Minor conditions</span></div>
-        </div>
+            <div class="text-center">
+              <div class="text-xs text-slate-500 mb-1" data-i18n="scanTip">Scan for emergency access</div>
+              <div class="font-mono text-sm" id="codeUnderQR">—</div>
+            </div>
 
-        <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 p-3 text-sm">
-          <strong data-i18n="help.privacy_title">User-Controlled Priority</strong><br>
-          <span data-i18n="help.privacy_desc">You control what's most important for emergency responders to see first. Your data works offline and stays private.</span>
-        </div>
-      </section>
+            <div>
+              <label class="text-sm font-medium" data-i18n="cardLink">Card link</label>
+              <div class="flex gap-2 mt-1">
+                <input id="cardUrl" class="border rounded-md px-3 py-2 flex-1" readonly>
+                <button id="copyLink" class="btn btn-outline px-3 py-2 text-sm" data-i18n="copy">Copy</button>
+              </div>
+            </div>
 
-      <!-- Delete account -->
-      <section class="glass-card p-6 border border-red-300 bg-red-50/70">
-        <h3 class="font-bold text-lg text-red-700 mb-1" data-i18n="delete.title">Danger zone — Delete account</h3>
-        <p class="text-sm text-red-700 mb-3" data-i18n="delete.desc">
-          This permanently removes your account and all profile/health data. This cannot be undone.
-        </p>
-        <label class="text-sm text-red-800 mb-2 block" data-i18n="delete.type">Type <strong>DELETE MY ACCOUNT</strong> to confirm:</label>
-        <input id="confirmDelete" class="input mb-3" placeholder="DELETE MY ACCOUNT" />
-        <button id="deleteAccount" class="btn btn-danger" disabled data-i18n="delete.button">Delete my account</button>
-        <div class="text-xs text-red-600 mt-2">Placed far from Logout to avoid misclicks.</div>
-      </section>
-    </section>
+            <div class="grid grid-cols-3 gap-2">
+              <button id="dlPNG" class="btn px-2 py-2 border text-sm" data-i18n="png">PNG</button>
+              <button id="dlSVG" class="btn px-2 py-2 border text-sm" data-i18n="svg">SVG</button>
+              <button id="printQR" class="btn px-2 py-2 border text-sm" data-i18n="print">Print</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Legend + Disclaimers -->
+        <section class="card p-6">
+          <h3 class="text-lg font-extrabold mb-2" data-i18n="legend">Triage colours</h3>
+          <ul class="space-y-1 text-sm">
+            <li><span class="legend-dot" style="background:#16a34a"></span><strong>Green</strong> — mild allergies, no major conditions.</li>
+            <li><span class="legend-dot" style="background:#f59e0b"></span><strong>Yellow</strong> — stable chronic conditions.</li>
+            <li><span class="legend-dot" style="background:#ef4444"></span><strong>Red</strong> — severe allergies / life-threatening conditions.</li>
+            <li><span class="legend-dot" style="background:#111827"></span><strong>Black</strong> — DNR / Comfort care set.</li>
+          </ul>
+
+          <div class="mt-4 text-xs text-slate-500 space-y-2">
+            <p data-i18n="infoOnly"><strong>Info only:</strong> This card supports care; clinicians must verify with official records.</p>
+            <p data-i18n="privacyNote"><strong>Privacy:</strong> Your data stays on your device unless you share it. No ads, no trackers.</p>
+            <p data-i18n="qrNote">Your QR code stays the same — it always opens your latest information.</p>
+          </div>
+        </section>
+
+      </aside>
+    </div>
   </main>
 
-  <footer class="py-10 text-center text-sm text-gray-500">
-    © 2025 MYQER — My QR for Emergency Response · No ads · No trackers · Your data stays on your device unless you share it.
+  <!-- Footer -->
+  <footer class="mt-10 pb-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-slate-500">
+      © 2025 MYQER — My QR for Emergency Response · GDPR/HIPAA-minded ·
+      <a class="underline" href="/privacy.html">Privacy</a> ·
+      <a class="underline" href="/terms.html">Terms</a>
+    </div>
   </footer>
 
-  <!-- Toast -->
-  <div id="toast" class="toast hidden">
-    <div class="px-4 py-2 bg-white rounded-lg shadow border text-sm">✔️ <span data-i18n="toast.saved">Changes saved</span></div>
-  </div>
-
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-    // ===== Supabase config (browser-safe) =====
-    const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-    // Your anon key (ok in browser):
-    const SUPABASE_ANON_KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // ===== Elements =====
-    const logoutBtn = document.getElementById('logoutBtn');
-    const langSelect = document.getElementById('langSelect');
-    const toast = document.getElementById('toast');
-    const offlineNote = document.getElementById('offlineNote');
-
-    const fields = {
-      blood_type: document.getElementById('blood_type'),
-      allergies:  document.getElementById('allergies'),
-      life_support: document.getElementById('life_support'),
-      burial_pref: document.getElementById('burial_pref'),
-      religion: document.getElementById('religion'),
-      organ_donor: document.getElementById('organ_donor'),
-      conditions: document.getElementById('conditions'),
-      medications: document.getElementById('medications'),
-      implants: document.getElementById('implants'),
-      triage_override: document.getElementById('triage_override'),
+  <!-- Scripts -->
+  <script>
+    // ------- i18n (10 languages) -------
+    const t = {
+      en:{identityTitle:"Identity — Personal Information",identityHint:"These details help responders confirm who you are.",
+          fullName:"Full name",dob:"Date of Birth",country:"Country",nationalId:"National ID (optional)",
+          codeLabel:"Your card code:",genCode:"Generate code",saveProfile:"Save Profile",
+          criticalTitle:"Critical — Medical — Health Details",criticalHint:"Keep this current. It appears on your emergency card.",
+          bloodType:"Blood type",organDonor:"Organ donor",yes:"Yes",no:"No",allergies:"Critical allergies",
+          conditions:"Conditions",meds:"Current medications",implants:"Implants / devices",
+          lifeSupport:"Life support preference (informational)",lifeSupportNote:"These preferences are informational only. Clinicians must confirm with official documents.",
+          saveHealth:"Save Health",iceTitle:"Emergency Contacts (ICE)",iceHint:"Add up to 3 trusted contacts.",
+          addContact:"Add contact",triageTitle:"Emergency Triage Status",triageHint:"Auto-computed from your data. You can override.",
+          override:"Manual override",speak:"Speak summary",stop:"Stop",cardTitle:"Emergency Card & QR",scanTip:"Scan for emergency access",
+          cardLink:"Card link",copy:"Copy",png:"PNG",svg:"SVG",print:"Print",legend:"Triage colours",
+          infoOnly:"Info only: This card supports care; clinicians must verify with official records.",
+          privacyNote:"Privacy: Your data stays on your device unless you share it. No ads, no trackers.",
+          qrNote:"Your QR code stays the same — it always opens your latest information.",
+          vaultTitle:"Document Vault (Coming Soon)",vaultHint:"Secure, client-side encrypted storage for critical documents.",
+          dnr:"DNR Orders",livingWill:"Living Will",mpoa:"Medical Power of Attorney",insurance:"Insurance Documents",
+          deleteTitle:"Delete account",deleteWarning:"Type DELETE MY ACCOUNT to enable. This is permanent.",deleteBtn:"Delete my account"},
+      es:{identityTitle:"Identidad — Información Personal",identityHint:"Estos datos ayudan a confirmar su identidad.",
+          fullName:"Nombre completo",dob:"Fecha de nacimiento",country:"País",nationalId:"ID nacional (opcional)",
+          codeLabel:"Tu código de tarjeta:",genCode:"Generar código",saveProfile:"Guardar perfil",
+          criticalTitle:"Crítico — Información Médica",criticalHint:"Mantén esto actualizado. Aparece en tu tarjeta.",
+          bloodType:"Grupo sanguíneo",organDonor:"Donante de órganos",yes:"Sí",no:"No",allergies:"Alergias críticas",
+          conditions:"Condiciones",meds:"Medicamentos actuales",implants:"Implantes / dispositivos",
+          lifeSupport:"Preferencia de soporte vital (informativo)",lifeSupportNote:"Solo informativo. Los clínicos deben verificar con documentos oficiales.",
+          saveHealth:"Guardar salud",iceTitle:"Contactos de Emergencia (ICE)",iceHint:"Agrega hasta 3 contactos de confianza.",
+          addContact:"Añadir contacto",triageTitle:"Estado de Triaje",triageHint:"Se calcula automáticamente. Puedes cambiarlo.",
+          override:"Anulación manual",speak:"Reproducir resumen",stop:"Detener",cardTitle:"Tarjeta & QR",scanTip:"Escanee para acceso de emergencia",
+          cardLink:"Enlace de tarjeta",copy:"Copiar",png:"PNG",svg:"SVG",print:"Imprimir",legend:"Colores de triaje",
+          infoOnly:"Solo informativo: Verificar con registros oficiales.",
+          privacyNote:"Privacidad: Tus datos permanecen en tu dispositivo.",
+          qrNote:"Tu QR no cambia: siempre muestra la información actual.",
+          vaultTitle:"Bóveda de Documentos (Próximamente)",vaultHint:"Almacenamiento cifrado del lado del cliente.",
+          dnr:"Orden DNR",livingWill:"Testamento vital",mpoa:"Poder médico",insurance:"Documentos de seguro",
+          deleteTitle:"Eliminar cuenta",deleteWarning:"Escribe DELETE MY ACCOUNT para habilitar.",deleteBtn:"Eliminar mi cuenta"},
+      fr:{identityTitle:"Identité — Informations personnelles",identityHint:"Ces détails aident à confirmer votre identité.",
+          fullName:"Nom complet",dob:"Date de naissance",country:"Pays",nationalId:"ID national (optionnel)",
+          codeLabel:"Votre code de carte :",genCode:"Générer le code",saveProfile:"Enregistrer le profil",
+          criticalTitle:"Critique — Informations médicales",criticalHint:"Gardez cela à jour. Apparaît sur votre carte.",
+          bloodType:"Groupe sanguin",organDonor:"Donneur d'organes",yes:"Oui",no:"Non",allergies:"Allergies critiques",
+          conditions:"Affections",meds:"Médicaments actuels",implants:"Implants / dispositifs",
+          lifeSupport:"Préférence de soins intensifs (info)",lifeSupportNote:"À titre informatif uniquement.",
+          saveHealth:"Enregistrer la santé",iceTitle:"Contacts d'urgence (ICE)",iceHint:"Ajoutez jusqu'à 3 contacts.",
+          addContact:"Ajouter un contact",triageTitle:"Statut de triage",triageHint:"Calculé automatiquement.",
+          override:"Remplacement manuel",speak:"Lire le résumé",stop:"Arrêter",cardTitle:"Carte d'urgence & QR",scanTip:"Scanner pour l'accès d'urgence",
+          cardLink:"Lien de la carte",copy:"Copier",png:"PNG",svg:"SVG",print:"Imprimer",legend:"Couleurs de triage",
+          infoOnly:"Informations indicatives; vérification requise.",privacyNote:"Vos données restent sur votre appareil.",
+          qrNote:"Le QR reste identique; contenu toujours à jour.",
+          vaultTitle:"Coffre de documents (Bientôt)",vaultHint:"Stockage chiffré côté client.",
+          dnr:"Ordres DNR",livingWill:"Directives anticipées",mpoa:"Mandat médical",insurance:"Assurance",
+          deleteTitle:"Supprimer le compte",deleteWarning:"Tapez DELETE MY ACCOUNT pour activer.",deleteBtn:"Supprimer mon compte"},
+      de:{identityTitle:"Identität — Persönliche Daten",identityHint:"Diese Angaben bestätigen Ihre Identität.",
+          fullName:"Vollständiger Name",dob:"Geburtsdatum",country:"Land",nationalId:"Nationale ID (optional)",
+          codeLabel:"Ihr Karten-Code:",genCode:"Code erzeugen",saveProfile:"Profil speichern",
+          criticalTitle:"Kritisch — Medizinische Angaben",criticalHint:"Aktuell halten. Erscheint auf der Notfallkarte.",
+          bloodType:"Blutgruppe",organDonor:"Organspender",yes:"Ja",no:"Nein",allergies:"Kritische Allergien",
+          conditions:"Erkrankungen",meds:"Aktuelle Medikamente",implants:"Implantate / Geräte",
+          lifeSupport:"Lebenserhaltungspräferenz (Info)",lifeSupportNote:"Nur informativ. Ärztliche Bestätigung nötig.",
+          saveHealth:"Gesundheit speichern",iceTitle:"Notfallkontakte (ICE)",iceHint:"Bis zu 3 Kontakte.",
+          addContact:"Kontakt hinzufügen",triageTitle:"Triage-Status",triageHint:"Automatisch berechnet.",
+          override:"Manuell überschreiben",speak:"Zusammenfassung sprechen",stop:"Stopp",cardTitle:"Notfallkarte & QR",scanTip:"Für Notfallzugriff scannen",
+          cardLink:"Kartenlink",copy:"Kopieren",png:"PNG",svg:"SVG",print:"Drucken",legend:"Triage-Farben",
+          infoOnly:"Nur als Unterstützung; ärztl. Prüfung nötig.",
+          privacyNote:"Daten bleiben auf Ihrem Gerät.",
+          qrNote:"QR bleibt gleich — zeigt immer aktuelle Infos.",
+          vaultTitle:"Dokumenten-Tresor (Bald)",vaultHint:"Client-seitig verschlüsselt.",
+          dnr:"DNR-Anordnung",livingWill:"Patientenverfügung",mpoa:"Vorsorgevollmacht",insurance:"Versicherung",
+          deleteTitle:"Konto löschen",deleteWarning:"DELETE MY ACCOUNT eingeben.",deleteBtn:"Konto löschen"},
+      it:{identityTitle:"Identità — Informazioni personali",identityHint:"Aiuta i soccorritori a confermare la tua identità.",
+          fullName:"Nome completo",dob:"Data di nascita",country:"Paese",nationalId:"ID nazionale (opz.)",
+          codeLabel:"Codice tessera:",genCode:"Genera codice",saveProfile:"Salva profilo",
+          criticalTitle:"Critico — Dati sanitari",criticalHint:"Tienili aggiornati. Appaiono sulla tessera.",
+          bloodType:"Gruppo sanguigno",organDonor:"Donatore di organi",yes:"Sì",no:"No",allergies:"Allergie critiche",
+          conditions:"Condizioni",meds:"Farmaci in uso",implants:"Impianti / dispositivi",
+          lifeSupport:"Preferenze di rianimazione (info)",lifeSupportNote:"Solo informativo.",
+          saveHealth:"Salva salute",iceTitle:"Contatti di emergenza (ICE)",iceHint:"Fino a 3 contatti.",
+          addContact:"Aggiungi contatto",triageTitle:"Stato triage",triageHint:"Calcolato automaticamente.",
+          override:"Override manuale",speak:"Voce: riepilogo",stop:"Stop",cardTitle:"Tessera & QR",scanTip:"Scansiona per accesso",
+          cardLink:"Link tessera",copy:"Copia",png:"PNG",svg:"SVG",print:"Stampa",legend:"Colori triage",
+          infoOnly:"Solo supporto; serve verifica clinica.",
+          privacyNote:"Dati sul tuo dispositivo.",
+          qrNote:"Il QR non cambia, mostra sempre i dati aggiornati.",
+          vaultTitle:"Vault documenti (Prossimamente)",vaultHint:"Cifratura lato client.",
+          dnr:"Ordini DNR",livingWill:"Testamento biologico",mpoa:"Delega sanitaria",insurance:"Assicurazione",
+          deleteTitle:"Elimina account",deleteWarning:"Scrivi DELETE MY ACCOUNT.",deleteBtn:"Elimina account"},
+      pt:{identityTitle:"Identidade — Informações Pessoais",identityHint:"Ajuda a confirmar quem você é.",
+          fullName:"Nome completo",dob:"Data de nascimento",country:"País",nationalId:"ID nacional (opcional)",
+          codeLabel:"Seu código:",genCode:"Gerar código",saveProfile:"Salvar perfil",
+          criticalTitle:"Crítico — Saúde",criticalHint:"Mantenha atualizado. Aparece no cartão.",
+          bloodType:"Tipo sanguíneo",organDonor:"Doador de órgãos",yes:"Sim",no:"Não",allergies:"Alergias críticas",
+          conditions:"Condições",meds:"Medicamentos atuais",implants:"Implantes / dispositivos",
+          lifeSupport:"Preferência de suporte de vida (info)",lifeSupportNote:"Apenas informativo.",
+          saveHealth:"Salvar saúde",iceTitle:"Contatos de Emergência (ICE)",iceHint:"Até 3 contatos.",
+          addContact:"Adicionar contato",triageTitle:"Status de Triagem",triageHint:"Calculado automaticamente.",
+          override:"Substituição manual",speak:"Falar resumo",stop:"Parar",cardTitle:"Cartão & QR",scanTip:"Escaneie para acesso",
+          cardLink:"Link do cartão",copy:"Copiar",png:"PNG",svg:"SVG",print:"Imprimir",legend:"Cores de triagem",
+          infoOnly:"Apenas apoio; verificação clínica necessária.",
+          privacyNote:"Dados no seu dispositivo.",
+          qrNote:"QR fixo; sempre mostra dados atuais.",
+          vaultTitle:"Cofre de Documentos (Em breve)",vaultHint:"Criptografia no cliente.",
+          dnr:"Ordem DNR",livingWill:"Testamento vital",mpoa:"Procuração médica",insurance:"Seguro",
+          deleteTitle:"Excluir conta",deleteWarning:"Digite DELETE MY ACCOUNT.",deleteBtn:"Excluir conta"},
+      ro:{identityTitle:"Identitate — Informații personale",identityHint:"Ajută la confirmarea identității.",
+          fullName:"Nume complet",dob:"Data nașterii",country:"Țară",nationalId:"ID național (opțional)",
+          codeLabel:"Codul tău:",genCode:"Generează cod",saveProfile:"Salvează profil",
+          criticalTitle:"Critic — Detalii medicale",criticalHint:"Ține actualizat. Apare pe card.",
+          bloodType:"Grupa sanguină",organDonor:"Donator de organe",yes:"Da",no:"Nu",allergies:"Alergii critice",
+          conditions:"Afectiuni",meds:"Medicație curentă",implants:"Implanturi / dispozitive",
+          lifeSupport:"Preferință suport vital (info)",lifeSupportNote:"Informativ doar.",
+          saveHealth:"Salvează datele",iceTitle:"Contacte de urgență (ICE)",iceHint:"Până la 3 contacte.",
+          addContact:"Adaugă contact",triageTitle:"Stare triere",triageHint:"Calcul automat.",
+          override:"Suprascriere manuală",speak:"Voce: sumar",stop:"Stop",cardTitle:"Card & QR",scanTip:"Scanează pentru acces",
+          cardLink:"Link card",copy:"Copiază",png:"PNG",svg:"SVG",print:"Printează",legend:"Culori triere",
+          infoOnly:"Doar informativ; verificare medicală necesară.",
+          privacyNote:"Datele rămân pe dispozitiv.",
+          qrNote:"QR rămâne același; arată datele actuale.",
+          vaultTitle:"Seif Documente (În curând)",vaultHint:"Criptare pe client.",
+          dnr:"Ordin DNR",livingWill:"Testament vital",mpoa:"Mandat medical",insurance:"Asigurare",
+          deleteTitle:"Șterge contul",deleteWarning:"Tastează DELETE MY ACCOUNT.",deleteBtn:"Șterge contul"},
+      ar:{identityTitle:"الهوية — المعلومات الشخصية",identityHint:"تساعد في تأكيد هويتك.",
+          fullName:"الاسم الكامل",dob:"تاريخ الميلاد",country:"الدولة",nationalId:"الهوية الوطنية (اختياري)",
+          codeLabel:"رمز بطاقتك:",genCode:"إنشاء رمز",saveProfile:"حفظ الملف",
+          criticalTitle:"حرِج — معلومات صحية",criticalHint:"أبقها محدثة. تظهر على البطاقة.",
+          bloodType:"فصيلة الدم",organDonor:"متبرع بالأعضاء",yes:"نعم",no:"لا",allergies:"حساسية خطيرة",
+          conditions:"حالات",meds:"أدوية حالية",implants:"زرعات / أجهزة",
+          lifeSupport:"تفضيل دعم الحياة (معلوماتي)",lifeSupportNote:"للمعلومات فقط.",
+          saveHealth:"حفظ الصحة",iceTitle:"جهات الطوارئ (ICE)",iceHint:"حتى 3 جهات.",
+          addContact:"إضافة جهة",triageTitle:"حالة الفرز الطبي",triageHint:"تُحسب تلقائياً.",
+          override:"تجاوز يدوي",speak:"تشغيل الملخص",stop:"إيقاف",cardTitle:"البطاقة و رمز QR",scanTip:"امسح للوصول الطارئ",
+          cardLink:"رابط البطاقة",copy:"نسخ",png:"PNG",svg:"SVG",print:"طباعة",legend:"ألوان الفرز",
+          infoOnly:"للاسترشاد فقط؛ يلزم التحقق الرسمي.",
+          privacyNote:"بياناتك على جهازك.",
+          qrNote:"رمز QR ثابت — يعرض أحدث المعلومات.",
+          vaultTitle:"مستودع المستندات (قريباً)",vaultHint:"تشفير على الجهاز.",
+          dnr:"أوامر DNR",livingWill:"الوصية الطبية",mpoa:"تفويض طبي",insurance:"التأمين",
+          deleteTitle:"حذف الحساب",deleteWarning:"اكتب DELETE MY ACCOUNT.",deleteBtn:"حذف الحساب"},
+      hi:{identityTitle:"पहचान — व्यक्तिगत जानकारी",identityHint:"पहचान की पुष्टि में सहायक.",
+          fullName:"पूरा नाम",dob:"जन्म तिथि",country:"देश",nationalId:"राष्ट्रीय आईडी (वैकल्पिक)",
+          codeLabel:"आपका कार्ड कोड:",genCode:"कोड बनाएँ",saveProfile:"प्रोफ़ाइल सहेजें",
+          criticalTitle:"महत्वपूर्ण — चिकित्सीय विवरण",criticalHint:"अपडेट रखें. कार्ड पर दिखेगा।",
+          bloodType:"रक्त समूह",organDonor:"अंग दाता",yes:"हाँ",no:"नहीं",allergies:"गंभीर एलर्जी",
+          conditions:"स्थितियाँ",meds:"वर्तमान दवाएँ",implants:"इम्प्लांट/डिवाइस",
+          lifeSupport:"जीवन-समर्थन वरीयता (सूचनात्मक)",lifeSupportNote:"केवल सूचना हेतु.",
+          saveHealth:"स्वास्थ्य सहेजें",iceTitle:"आपातकालीन संपर्क (ICE)",iceHint:"अधिकतम 3.",
+          addContact:"संपर्क जोड़ें",triageTitle:"ट्रायेज स्थिति",triageHint:"स्वतः गणना।",
+          override:"मैन्युअल ओवरराइड",speak:"आवाज़: सारांश",stop:"रोकें",cardTitle:"कार्ड व QR",scanTip:"स्कैन करें",
+          cardLink:"कार्ड लिंक",copy:"कॉपी",png:"PNG",svg:"SVG",print:"प्रिंट",legend:"ट्रायेज रंग",
+          infoOnly:"सिर्फ सहायता; आधिकारिक जाँच आवश्यक।",
+          privacyNote:"डेटा आपके डिवाइस पर रहता है।",
+          qrNote:"QR स्थिर है — हमेशा नवीनतम जानकारी दिखाता है।",
+          vaultTitle:"दस्तावेज़ वॉल्ट (जल्द)",vaultHint:"क्लाइंट-साइड एन्क्रिप्शन।",
+          dnr:"DNR आदेश",livingWill:"लिविंग विल",mpoa:"मेडिकल पावर",insurance:"बीमा",
+          deleteTitle:"खाता हटाएँ",deleteWarning:"DELETE MY ACCOUNT टाइप करें।",deleteBtn:"खाता हटाएँ"},
+      zh:{identityTitle:"身份 — 个人信息",identityHint:"帮助急救人员确认身份。",
+          fullName:"姓名",dob:"出生日期",country:"国家",nationalId:"国家证件（可选）",
+          codeLabel:"你的卡片代码：",genCode:"生成代码",saveProfile:"保存资料",
+          criticalTitle:"重要 — 医疗信息",criticalHint:"保持最新。显示在急救卡上。",
+          bloodType:"血型",organDonor:"器官捐献者",yes:"是",no:"否",allergies:"重要过敏",
+          conditions:"病症",meds:"当前用药",implants:"植入/设备",
+          lifeSupport:"生命支持偏好（信息）",lifeSupportNote:"仅供参考。",
+          saveHealth:"保存健康信息",iceTitle:"紧急联系人 (ICE)",iceHint:"最多添加3位联系人。",
+          addContact:"添加联系人",triageTitle:"分诊状态",triageHint:"自动计算，可手动覆盖。",
+          override:"手动覆盖",speak:"朗读摘要",stop:"停止",cardTitle:"急救卡 & 二维码",scanTip:"扫描获取急救信息",
+          cardLink:"卡片链接",copy:"复制",png:"PNG",svg:"SVG",print:"打印",legend:"分诊颜色",
+          infoOnly:"仅供参考；需官方记录核实。",
+          privacyNote:"数据留在你的设备上。",
+          qrNote:"二维码固定不变，始终显示最新信息。",
+          vaultTitle:"文档库（即将推出）",vaultHint:"客户端加密存储。",
+          dnr:"DNR 指令",livingWill:"生前预嘱",mpoa:"医疗代理",insurance:"保险",
+          deleteTitle:"删除账户",deleteWarning:"输入 DELETE MY ACCOUNT 以启用。",deleteBtn:"删除账户"}
     };
 
-    const phone = {
-      triage: document.getElementById('phoneTriagePill'),
-      blood: document.getElementById('ph_blood'),
-      ice: document.getElementById('ph_ice'),
-      allergies: document.getElementById('ph_allergies'),
-      meds: document.getElementById('ph_meds')
-    };
-
-    // ===== i18n (10 languages, minimal keys — extend anytime) =====
-    const I18N = {
-      en:{ "nav.back_home":"Back to Home","nav.logout":"Logout","offline.message":"You're offline — edits will sync when connection returns",
-           "critical.title":"CRITICAL - Emergency Priority","health.blood_type":"Blood Type *","health.allergies":"Critical Allergies *",
-           "health.life_support":"Life Support & DNR Preferences *","health.burial_preference":"Burial Preference",
-           "medical.title":"MEDICAL - Health Details","triage.title":"Emergency Triage Status","triage.auto_computed":"Auto-computed from health profile",
-           "triage.override":"Override:","triage.use_auto":"Use auto-computed","qr.title":"Emergency Card & QR","qr.scan_info":"Scan to view emergency information",
-           "qr.download":"Download QR Code","qr.print":"Print Emergency Card","qr.shareable_link":"Shareable Link:","qr.copy":"Copy",
-           "help.triage_colors":"Triage Colors","help.red_title":"RED - Immediate","help.red_desc":"Life-threatening conditions",
-           "help.amber_title":"AMBER - Urgent","help.amber_desc":"Serious but stable","help.green_title":"GREEN - Standard","help.green_desc":"Non-urgent care needed",
-           "help.blue_title":"BLUE - Non-urgent","help.blue_desc":"Minor conditions","help.privacy_title":"User-Controlled Priority",
-           "help.privacy_desc":"You control what's most important for emergency responders to see first. Your data works offline and stays private.",
-           "voice.play":"Play voice","voice.stop":"Stop","voice.note":"(Speaks a short triage summary in your selected language)",
-           "delete.title":"Danger zone — Delete account","delete.desc":"This permanently removes your account and all profile/health data. This cannot be undone.",
-           "delete.type":"Type DELETE MY ACCOUNT to confirm:","delete.button":"Delete my account","toast.saved":"Changes saved",
-           "phone.h1a":"Your","phone.h1b":"emergency","phone.h1c":"card.","phone.h2a":"One scan, instant","phone.h2b":"triage",
-           "phone.sub1":"A QR triage code to guide","phone.sub2":"responders","phone.sub3":"anywhere, anytime.",
-           "phone.pronounce1":"pronounced","phone.blood":"Blood","phone.allergies":"Allergies","phone.meds":"Meds",
-           "tag.simple":"Simple for people.","tag.precise":"Precise","tag.for_resp":"for responders.","btn.signin":"Sign In","btn.signup":"Sign Up"
-      },
-      es:{ "nav.back_home":"Volver al inicio","nav.logout":"Cerrar sesión","offline.message":"Sin conexión — los cambios se sincronizarán al volver",
-           "critical.title":"CRÍTICO - Prioridad de emergencia","health.blood_type":"Grupo sanguíneo *","health.allergies":"Alergias críticas *",
-           "health.life_support":"Soporte vital y DNR *","health.burial_preference":"Preferencia funeraria","medical.title":"MÉDICO - Detalles de salud",
-           "triage.title":"Estado de triaje","triage.auto_computed":"Calculado automáticamente","triage.override":"Anular:",
-           "triage.use_auto":"Usar automático","qr.title":"Tarjeta de emergencia y QR","qr.scan_info":"Escanea para ver la información",
-           "qr.download":"Descargar QR","qr.print":"Imprimir tarjeta","qr.shareable_link":"Enlace para compartir:","qr.copy":"Copiar",
-           "help.triage_colors":"Colores de triaje","help.red_title":"ROJO - Inmediato","help.red_desc":"Amenaza vital",
-           "help.amber_title":"ÁMBAR - Urgente","help.amber_desc":"Grave pero estable","help.green_title":"VERDE - Estándar","help.green_desc":"No urgente",
-           "help.blue_title":"AZUL - No urgente","help.blue_desc":"Leve","help.privacy_title":"Prioridad controlada por el usuario",
-           "help.privacy_desc":"Tú decides qué es más importante para los respondedores.","voice.play":"Reproducir voz","voice.stop":"Detener",
-           "voice.note":"(Lee un breve resumen en tu idioma)","delete.title":"Zona de peligro — Eliminar cuenta",
-           "delete.desc":"Esto elimina permanentemente tu cuenta y datos.","delete.type":"Escribe DELETE MY ACCOUNT para confirmar:",
-           "delete.button":"Eliminar mi cuenta","toast.saved":"Cambios guardados",
-           "phone.h1a":"Tu","phone.h1b":"emergencia","phone.h1c":"tarjeta.","phone.h2a":"Un escaneo, triaje","phone.h2b":"instantáneo",
-           "phone.sub1":"Un código QR para guiar a","phone.sub2":"respondedores","phone.sub3":"en cualquier lugar, en cualquier momento.",
-           "phone.pronounce1":"se pronuncia","phone.blood":"Sangre","phone.allergies":"Alergias","phone.meds":"Medicación",
-           "tag.simple":"Simple para la gente.","tag.precise":"Preciso","tag.for_resp":"para respondedores.","btn.signin":"Entrar","btn.signup":"Crear cuenta"
-      },
-      de:{}, fr:{}, it:{}, pt:{}, ro:{}, ar:{}, hi:{}, zh:{}
-    };
-
-    // simple populate: fall back to English if translation missing
-    function applyI18n(lang='en'){
-      const dict = {...I18N.en, ...(I18N[lang]||{})};
+    const langSel = document.getElementById('lang');
+    function applyI18n(){
+      const L = t[langSel.value] || t.en;
       document.querySelectorAll('[data-i18n]').forEach(el=>{
-        const k = el.getAttribute('data-i18n');
-        if(dict[k]) el.textContent = dict[k];
+        const key = el.getAttribute('data-i18n');
+        if(L[key]) el.textContent = L[key];
       });
+      // RTL for Arabic
+      document.documentElement.dir = langSel.value==='ar' ? 'rtl' : 'ltr';
     }
-
-    // ===== Auth/session =====
-    const { data:{ session } } = await supabase.auth.getSession();
-    if(!session){ window.location.href = '/?modal=login'; }
-
-    logoutBtn.addEventListener('click', async ()=>{
-      await supabase.auth.signOut();
-      window.location.replace('/');
+    langSel.addEventListener('change', ()=>{
+      applyI18n();
+      updateVoiceLocale();
+      // refresh static labels under selects (Yes/No already translated when re-rendering)
     });
 
-    // ===== Connectivity banner =====
-    function updateOnline(){ offlineNote.classList.toggle('hidden', navigator.onLine); }
-    window.addEventListener('online', updateOnline);
-    window.addEventListener('offline', updateOnline);
-    updateOnline();
+    // ------- Auth / session -------
+    const sb = window.supabase;
+    let session, user, profile={}, health={}, ice=[];
+    const loading = document.getElementById('loading');
+    const dash = document.getElementById('dash');
+    const errorBox = document.getElementById('errorBox');
+    const errorMsg = document.getElementById('errorMsg');
 
-    // ===== Load user profile + health + contacts =====
-    let profile=null, health=null, contacts=[];
-    let userId = session?.user?.id;
-
-    async function loadAll(){
-      const p = await supabase.from('profiles').select('id, full_name, country, date_of_birth, code').eq('id', userId).single();
-      profile = p.data || {};
-      const h = await supabase.from('health_profiles').select('*').eq('user_id', userId).single();
-      health = h.data || {};
-      const c = await supabase.from('ice_contacts').select('name, relation, phone').eq('user_id', userId).order('id');
-      contacts = c.data || [];
-
-      // Put values in fields
-      fields.blood_type.value = health?.blood_type || '';
-      fields.allergies.value = health?.allergies || '';
-      fields.life_support.value = health?.life_support || 'full';
-      fields.burial_pref.value = health?.burial_pref || '';
-      fields.religion.value = health?.religion || '';
-      fields.organ_donor.checked = !!health?.organ_donor;
-      fields.conditions.value = health?.conditions || '';
-      fields.medications.value = health?.medications || '';
-      fields.implants.value = health?.implants || '';
-      fields.triage_override.value = health?.triage_override || 'auto';
-
-      // Phone preview
-      phone.blood.textContent = health?.blood_type || '—';
-      const firstICE = contacts[0]?.phone || '—';
-      phone.ice.textContent = firstICE.length>4 ? firstICE.slice(0,5)+'…' : firstICE;
-      phone.allergies.textContent = health?.allergies || '—';
-      phone.meds.textContent = (health?.medications || '—').split(',')[0];
-
-      // Triage pill
-      setTriagePill(computeTriage(health, fields.triage_override.value));
-
-      // QR
-      updateQR();
+    async function ensureSession(){
+      const { data:{ session:s } } = await sb.auth.getSession();
+      if(!s){ location.replace('/'); return; }
+      session = s; user = s.user;
     }
 
-    function computeTriage(h, override='auto'){
-      if(override && override!=='auto') return override;
-      // naive heuristic
-      if(h?.life_support === 'dnr' || h?.life_support==='comfort') return 'red';
-      if((h?.allergies||'').toLowerCase().includes('ana')) return 'red';
-      if((h?.conditions||'').match(/asthma|diabet/i)) return 'amber';
+    // ------- Load / Save helpers -------
+    async function loadAll(){
+      // Profile
+      let { data:p, error:pe } = await sb.from('profiles').select('*').eq('id', user.id).single();
+      if(pe && pe.code==='PGRST116'){ // not found
+        p = { id:user.id, email:user.email, code:null };
+        await sb.from('profiles').insert(p).select().single().then(res=>{p=res.data});
+      } else if(pe){ throw pe; }
+      profile = p||{};
+
+      // Health
+      let { data:h, error:he } = await sb.from('health_profiles').select('*').eq('user_id', user.id).single();
+      if(he && he.code==='PGRST116'){ h = {}; }
+      else if(he){ throw he; }
+      health = h||{};
+
+      // ICE
+      const { data:ic, error:ie } = await sb.from('ice_contacts').select('*').eq('user_id', user.id).order('created_at');
+      if(ie){ throw ie; }
+      ice = ic||[];
+    }
+
+    // ------- Renderers -------
+    const profileForm = document.getElementById('profileForm');
+    const healthForm  = document.getElementById('healthForm');
+    const iceList     = document.getElementById('iceList');
+    const codeText    = document.getElementById('codeText');
+    const codeUnderQR = document.getElementById('codeUnderQR');
+    const cardUrlEl   = document.getElementById('cardUrl');
+    const qrStatus    = document.getElementById('qrStatus');
+    const triagePill  = document.getElementById('triagePill');
+    const triageOverride = document.getElementById('triageOverride');
+
+    function renderProfile(){
+      const f = profileForm;
+      f.full_name.value     = profile.full_name || '';
+      f.date_of_birth.value = profile.date_of_birth || '';
+      f.country.value       = profile.country || '';
+      f.national_id.value   = profile.national_id || '';
+      codeText.textContent  = profile.code || '—';
+      const link = profile.code ? `${location.origin}/card.html?code=${profile.code}` : '';
+      cardUrlEl.value = link;
+      codeUnderQR.textContent = profile.code || '—';
+    }
+
+    function renderHealth(){
+      const f = healthForm;
+      f.blood_type.value      = health.blood_type || '';
+      f.organ_donor.value     = (health.organ_donor===true||health.organ_donor==='yes') ? 'yes' : (health.organ_donor==='no'? 'no' : '');
+      f.allergies.value       = health.allergies || '';
+      f.conditions.value      = health.conditions || '';
+      f.meds.value            = health.meds || '';
+      f.implants.value        = health.implants || '';
+      f.life_support_pref.value = health.life_support_pref || '';
+    }
+
+    function renderIce(){
+      if(!ice.length){
+        iceList.innerHTML = `<div class="text-slate-500 text-sm">No contacts yet.</div>`;
+        return;
+      }
+      iceList.innerHTML = ice.map(c=>`
+        <div class="border rounded-lg p-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input class="border rounded-md px-3 py-2" placeholder="Name" value="${c.name||''}" data-id="${c.id}" data-field="name">
+            <input class="border rounded-md px-3 py-2" placeholder="Relationship" value="${c.relation||''}" data-id="${c.id}" data-field="relation">
+            <div class="flex gap-2">
+              <input class="border rounded-md px-3 py-2 flex-1" placeholder="Phone" value="${c.phone||''}" data-id="${c.id}" data-field="phone">
+              <button class="btn px-3 py-2 border text-sm" data-del="${c.id}">🗑</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function computeTriage(){
+      // Manual override first
+      const ov = triageOverride.value;
+      if(ov) return ov;
+
+      // Heuristic
+      const hasDNR = (health.life_support_pref||'').toLowerCase().includes('dnr') || (health.life_support_pref||'').toLowerCase().includes('comfort');
+      if(hasDNR) return 'black';
+
+      const severe = (health.allergies||'').toLowerCase().includes('anaphyl') ||
+                     (health.conditions||'').toLowerCase().includes('severe');
+      if(severe) return 'red';
+
+      const hasCond = !!(health.conditions||'').trim();
+      if(hasCond) return 'yellow';
+
       return 'green';
     }
-    function setTriagePill(level){
-      const map = {red:['RED — Immediate','text-red-700','bg-red-100','border-red-300'],
-                   amber:['AMBER — Urgent','text-amber-700','bg-amber-100','border-amber-300'],
-                   green:['GREEN — Standard','text-green-700','bg-green-100','border-green-300'],
-                   blue:['BLUE — Non-urgent','text-blue-700','bg-blue-100','border-blue-300']};
-      const [label, text, bg, br] = map[level] || map.green;
-      phone.triage.textContent = label;
-      phone.triage.className = `text-[12px] font-medium ${text}`;
-      phone.triage.parentElement.className = `inline-flex items-center px-2 py-1 rounded-full ${bg} border ${br}`;
+
+    function applyTriage(){
+      const level = computeTriage();
+      const map = {
+        green:{bg:'#16a34a1a', text:'GREEN', color:'#16a34a'},
+        yellow:{bg:'#f59e0b1a', text:'YELLOW', color:'#f59e0b'},
+        red:{bg:'#ef44441a', text:'RED', color:'#ef4444'},
+        black:{bg:'#1118271a', text:'BLACK', color:'#111827'},
+      };
+      const v = map[level]||map.green;
+      triagePill.style.background = '#fff';
+      triagePill.style.border = '1px solid ' + v.color + '55';
+      triagePill.style.color = v.color;
+      triagePill.textContent = v.text + ' — ' + (level==='green'?'Standard':'');
+
+      // little badge at top of phone (optional; not shown here)
     }
 
-    // ===== Debounced auto-save =====
-    let t=null;
-    Object.values(fields).forEach(el=>{
-      el?.addEventListener(el.type==='checkbox'?'change':'input', ()=>{
-        clearTimeout(t);
-        t = setTimeout(saveAll, 600);
+    function renderQR(){
+      if(!profile.code){
+        qrStatus.textContent = 'No code yet';
+        const ctx = document.getElementById('qrCanvas').getContext('2d');
+        ctx.clearRect(0,0,200,200);
+        return;
+      }
+      const url = `${location.origin}/card.html?code=${profile.code}`;
+      qrStatus.textContent = '';
+      QRCode.toCanvas(document.getElementById('qrCanvas'), url, {width:200, margin:2}, err=>{
+        if(err){ qrStatus.textContent = 'QR error'; }
       });
-    });
+    }
 
-    async function saveAll(){
-      if(!userId) return;
-      const patch = {
-        user_id: userId,
-        blood_type: fields.blood_type.value || null,
-        allergies: fields.allergies.value || null,
-        life_support: fields.life_support.value || null,
-        burial_pref: fields.burial_pref.value || null,
-        religion: fields.religion.value || null,
-        organ_donor: fields.organ_donor.checked,
-        conditions: fields.conditions.value || null,
-        medications: fields.medications.value || null,
-        implants: fields.implants.value || null,
-        triage_override: fields.triage_override.value || 'auto'
+    // ------- Save handlers -------
+    profileForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(profileForm);
+      const data = {
+        id:user.id, email:user.email,
+        full_name: fd.get('full_name')||null,
+        date_of_birth: fd.get('date_of_birth')||null,
+        country: fd.get('country')||null,
+        national_id: fd.get('national_id')||null,
+        code: profile.code || null
       };
-      const { error } = await supabase.from('health_profiles')
-        .upsert(patch, { onConflict:'user_id' });
-      if(!error){
-        showToast();
-        // refresh preview + triage
-        setTriagePill(computeTriage(patch, patch.triage_override));
-        phone.blood.textContent = patch.blood_type || '—';
-        phone.allergies.textContent = patch.allergies || '—';
-        phone.meds.textContent = (patch.medications||'—').split(',')[0];
-        updateQR();
-      }
-    }
-
-    function showToast(){
-      toast.classList.remove('hidden');
-      setTimeout(()=>toast.classList.add('hidden'), 1200);
-    }
-
-    // ===== QR =====
-    const qrCanvas = document.getElementById('qrCanvas');
-    const shareLink = document.getElementById('shareLink');
-    const downloadQR = document.getElementById('downloadQR');
-    const copyLink = document.getElementById('copyLink');
-    const printCard = document.getElementById('printCard');
-
-    function currentLang(){ return langSelect.value || 'en'; }
-    function cardUrl(){
-      const code = profile?.code || '';
-      const lang = currentLang();
-      return `${SUPABASE_URL}/functions/v1/card?code=${encodeURIComponent(code)}&lang=${lang}`;
-    }
-    async function updateQR(){
-      const url = cardUrl();
-      shareLink.value = url;
-      await QRCode.toCanvas(qrCanvas, url, { width: 220, margin: 1 });
-    }
-    downloadQR.addEventListener('click', ()=>{
-      const a = document.createElement('a');
-      a.download = 'myqer-qr.png';
-      a.href = qrCanvas.toDataURL('image/png');
-      a.click();
+      const { error } = await sb.from('profiles').upsert(data);
+      if(error) return showToast(error.message,'err');
+      profile = { ...profile, ...data };
+      renderProfile(); renderQR();
+      showToast('Profile saved','ok');
     });
-    copyLink.addEventListener('click', async ()=>{
-      await navigator.clipboard.writeText(shareLink.value);
-      showToast();
+
+    document.getElementById('genCode').addEventListener('click', async ()=>{
+      if(profile.code){ showToast('Code already exists','warn'); return; }
+      const newCode = 'MYQER-' + Math.random().toString(36).slice(2, 9).toUpperCase();
+      const { error } = await sb.from('profiles').update({ code:newCode }).eq('id', user.id);
+      if(error) return showToast(error.message,'err');
+      profile.code = newCode;
+      renderProfile(); renderQR();
+      showToast('Code generated','ok');
     });
-    printCard.addEventListener('click', ()=>{ window.open(shareLink.value, '_blank'); });
 
-    // ===== Voice (Web Speech Synthesis) =====
-    const playVoice = document.getElementById('playVoice');
-    const stopVoice = document.getElementById('stopVoice');
-
-    function langCodeForTTS(lang){
-      // map to supported BCP-47 codes (best-effort)
-      const map = {en:'en-US', es:'es-ES', de:'de-DE', fr:'fr-FR', it:'it-IT',
-                   pt:'pt-PT', ro:'ro-RO', ar:'ar-SA', hi:'hi-IN', zh:'zh-CN'};
-      return map[lang] || 'en-US';
-    }
-    function voiceSummary(){
-      const a = fields.allergies.value || 'None';
-      const m = fields.medications.value || 'None';
-      const ice = (contacts[0]?.name? contacts[0].name + ' ' : '') + (contacts[0]?.phone||'');
-      const lang = currentLang();
-      const parts = {
-        en:`Emergency summary. Allergies: ${a}. Medications: ${m}. Primary emergency contact: ${ice}.`,
-        es:`Resumen de emergencia. Alergias: ${a}. Medicación: ${m}. Contacto de emergencia: ${ice}.`,
-        de:`Notfallzusammenfassung. Allergien: ${a}. Medikamente: ${m}. Notfallkontakt: ${ice}.`,
-        fr:`Résumé d'urgence. Allergies : ${a}. Médicaments : ${m}. Contact d'urgence : ${ice}.`,
-        it:`Riepilogo di emergenza. Allergie: ${a}. Farmaci: ${m}. Contatto di emergenza: ${ice}.`,
-        pt:`Resumo de emergência. Alergias: ${a}. Medicamentos: ${m}. Contato de emergência: ${ice}.`,
-        ro:`Rezumat de urgență. Alergii: ${a}. Medicamente: ${m}. Contact de urgență: ${ice}.`,
-        ar:`ملخص الطوارئ. الحساسية: ${a}. الأدوية: ${m}. جهة الاتصال في الطوارئ: ${ice}.`,
-        hi:`आपातकाल सारांश। एलर्जी: ${a}। दवाइयाँ: ${m}। आपातकालीन संपर्क: ${ice}।`,
-        zh:`紧急摘要。过敏：${a}。药物：${m}。紧急联系人：${ice}。`
+    healthForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(healthForm);
+      const data = {
+        user_id: user.id,
+        blood_type: fd.get('blood_type')||null,
+        organ_donor: fd.get('organ_donor')==='yes' ? true : (fd.get('organ_donor')==='no' ? false : null),
+        allergies: fd.get('allergies')||null,
+        conditions: fd.get('conditions')||null,
+        meds: fd.get('meds')||null,
+        implants: fd.get('implants')||null,
+        life_support_pref: fd.get('life_support_pref')||null
       };
-      return parts[lang] || parts.en;
+      const { error } = await sb.from('health_profiles').upsert(data);
+      if(error) return showToast(error.message,'err');
+      health = { ...health, ...data };
+      applyTriage();
+      showToast('Health saved','ok');
+    });
+
+    // ICE interactivity
+    document.getElementById('addIce').addEventListener('click', async ()=>{
+      if(ice.length>=3){ showToast('Maximum 3 contacts','warn'); return; }
+      const { data, error } = await sb.from('ice_contacts').insert({user_id:user.id,name:'',relation:'',phone:''}).select().single();
+      if(error) return showToast(error.message,'err');
+      ice.push(data); renderIce();
+    });
+
+    iceList.addEventListener('input', async (e)=>{
+      const id = e.target.dataset.id; const field = e.target.dataset.field;
+      if(!id||!field) return;
+      const val = e.target.value;
+      const { error } = await sb.from('ice_contacts').update({ [field]:val }).eq('id', id);
+      if(error){ showToast('Update failed','err'); return; }
+      const row = ice.find(x=>String(x.id)===String(id)); if(row) row[field]=val;
+    });
+
+    iceList.addEventListener('click', async (e)=>{
+      const del = e.target.dataset.del;
+      if(!del) return;
+      if(!confirm('Delete this contact?')) return;
+      const { error } = await sb.from('ice_contacts').delete().eq('id', del);
+      if(error) return showToast(error.message,'err');
+      ice = ice.filter(x=>String(x.id)!==String(del)); renderIce();
+    });
+
+    // ------- Voice (Web Speech API) -------
+    let voiceLang = 'en-US';
+    function updateVoiceLocale(){
+      const map = {en:'en-US',es:'es-ES',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',ro:'ro-RO',ar:'ar-SA',hi:'hi-IN',zh:'zh-CN'};
+      voiceLang = map[langSel.value] || 'en-US';
     }
-    playVoice.addEventListener('click', ()=>{
-      const utter = new SpeechSynthesisUtterance(voiceSummary());
-      utter.lang = langCodeForTTS(currentLang());
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utter);
-    });
-    stopVoice.addEventListener('click', ()=> window.speechSynthesis.cancel());
+    updateVoiceLocale();
 
-    // ===== Phone buttons (reuse your existing auth flow) =====
-    document.getElementById('phoneSignIn')?.addEventListener('click', ()=>{ window.location.href='/?modal=login'; });
-    document.getElementById('phoneSignUp')?.addEventListener('click', ()=>{ window.location.href='/?modal=register'; });
+    function buildSummary(){
+      const L = t[langSel.value]||t.en;
+      const n = profile.full_name || '';
+      const b = health.blood_type || L.bloodType;
+      const a = (health.allergies||'').trim() || L.allergies;
+      const m = (health.meds||'').trim() || L.meds;
+      const c = (health.conditions||'').trim() || L.conditions;
+      // Keep it short & safe
+      return `${n}. ${L.bloodType}: ${health.blood_type||'—'}. ${L.allergies}: ${a}. ${L.conditions}: ${c}. ${L.meds}: ${m}.`;
+    }
 
-    // ===== Delete account (Edge Function) =====
-    const confirmDelete = document.getElementById('confirmDelete');
-    const deleteAccount = document.getElementById('deleteAccount');
-    confirmDelete.addEventListener('input', ()=>{
-      deleteAccount.disabled = (confirmDelete.value.trim() !== 'DELETE MY ACCOUNT');
+    document.getElementById('speak').addEventListener('click', ()=>{
+      try{ speechSynthesis.cancel(); }catch(_){}
+      const utter = new SpeechSynthesisUtterance(buildSummary());
+      utter.lang = voiceLang;
+      speechSynthesis.speak(utter);
     });
-    deleteAccount.addEventListener('click', async ()=>{
-      if(deleteAccount.disabled) return;
-      if(!confirm('This cannot be undone. Delete your account now?')) return;
+    document.getElementById('stopSpeak').addEventListener('click', ()=>{
+      try{ speechSynthesis.cancel(); }catch(_){}
+    });
+
+    // ------- QR actions -------
+    document.getElementById('copyLink').addEventListener('click', async ()=>{
+      if(cardUrlEl.value){ await navigator.clipboard.writeText(cardUrlEl.value); showToast('Copied','ok'); }
+    });
+    document.getElementById('dlPNG').addEventListener('click', ()=>{
+      const canvas = document.getElementById('qrCanvas');
+      const link = document.createElement('a');
+      link.download = 'myqer-qr.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+    document.getElementById('dlSVG').addEventListener('click', ()=>{
+      if(!profile.code){ return; }
+      const url = `${location.origin}/card.html?code=${profile.code}`;
+      // quick SVG: render into a data URL
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#fff"><img src="${document.getElementById('qrCanvas').toDataURL()}" /></div></foreignObject></svg>`;
+      const blob = new Blob([svg], {type:'image/svg+xml'});
+      const link = document.createElement('a');
+      link.download = 'myqer-qr.svg';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      setTimeout(()=>URL.revokeObjectURL(link.href), 1500);
+    });
+    document.getElementById('printQR').addEventListener('click', ()=>{
+      const w = window.open('','_blank','width=340,height=420');
+      const code = profile.code || '';
+      const img = document.getElementById('qrCanvas').toDataURL();
+      const link = cardUrlEl.value || '';
+      w.document.write(`
+        <html><head><title>Print QR</title></head>
+        <body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100%;margin:0">
+          <div style="text-align:center">
+            <img src="${img}" style="width:260px;height:260px;border:2px solid #c62828;border-radius:12px"/><br/>
+            <div style="margin-top:8px;font-family:monospace">${code}</div>
+            <div style="font-size:12px;color:#475569">${link}</div>
+          </div>
+        </body></html>
+      `);
+      w.document.close(); w.focus(); w.print();
+    });
+
+    // ------- Logout -------
+    document.getElementById('logout').addEventListener('click', async ()=>{
+      await sb.auth.signOut();
+      location.replace('/');
+    });
+
+    // ------- Delete account (Edge Function optional) -------
+    const deleteBtn = document.getElementById('deleteBtn');
+    const deletePhrase = document.getElementById('deletePhrase');
+    const deleteNote = document.getElementById('deleteNote');
+
+    deletePhrase.addEventListener('input', ()=>{
+      deleteBtn.disabled = deletePhrase.value.trim().toUpperCase() !== 'DELETE MY ACCOUNT';
+    });
+
+    deleteBtn.addEventListener('click', async ()=>{
+      if(!confirm('This will permanently delete your account. Continue?')) return;
+      deleteBtn.disabled = true;
+      deleteNote.textContent = 'Processing…';
+
+      // Preferred: call your Edge Function /functions/v1/delete-account (you create it) 
       try{
-        // TODO: Create an Edge Function named 'delete-user' that deletes auth user + rows
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
+        const resp = await fetch('https://tgddpmxpbgrzrbzpomou.supabase.co/functions/v1/delete-account', {
           method:'POST',
-          headers:{ 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type':'application/json' },
-          body: JSON.stringify({ user_id:userId })
+          headers:{ Authorization:`Bearer ${session.access_token}` }
         });
-        if(!res.ok){
-          alert('Delete not available yet. Please ensure the delete-user Edge Function is deployed.');
-          return;
-        }
-        await supabase.auth.signOut();
-        window.location.replace('/');
+        if(!resp.ok) throw new Error('Edge function not available');
+        deleteNote.textContent = 'Deleted. Signing out…';
+        setTimeout(async ()=>{ await sb.auth.signOut(); location.replace('/'); }, 800);
+        return;
       }catch(_e){
-        alert('Delete failed. Please try again.');
+        // Fallback guidance
+        deleteNote.innerHTML = 'Could not delete automatically. Please contact support or enable the delete-account Edge Function.';
+        deleteBtn.disabled = false;
       }
     });
 
-    // ===== Language change =====
-    langSelect.addEventListener('change', ()=>{
-      applyI18n(currentLang());
-      updateQR();
-    });
+    // ------- Tiny toast -------
+    function showToast(msg,type='ok'){
+      const el = document.createElement('div');
+      el.className = `fixed top-4 right-4 z-[1000] px-4 py-2 rounded-md text-white shadow ${type==='ok'?'bg-emerald-600':type==='warn'?'bg-amber-600':'bg-red-600'}`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 2200);
+    }
 
-    // Init
-    applyI18n('en');
-    await loadAll();
+    // ------- Init sequence -------
+    (async ()=>{
+      try{
+        await ensureSession();
+        await loadAll();
+        renderProfile(); renderHealth(); renderIce(); renderQR(); applyTriage();
+        applyI18n();
+        loading.classList.add('hidden');
+        dash.classList.remove('hidden');
+      }catch(e){
+        console.error(e);
+        loading.classList.add('hidden');
+        errorMsg.textContent = e.message||'Unknown error';
+        errorBox.classList.remove('hidden');
+      }
+    })();
 
-    // Keep session awareness
-    supabase.auth.onAuthStateChange((_evt, s)=>{ if(!s) window.location.href='/?modal=login'; });
+    // React to manual triage override
+    triageOverride.addEventListener('change', applyTriage);
   </script>
 
-  <!-- Service worker keep -->
+  <!-- Service worker registration (kept) -->
   <script>
     if('serviceWorker' in navigator){
       navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
