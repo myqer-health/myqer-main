@@ -12,13 +12,22 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
   <!-- Supabase v2 -->
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    window.supabase = createClient(
-      'https://tgddpmxpbgrzrbzpomou.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM'
-    );
-  </script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+  const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+
+  // Create supabase client and expose globally
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window._supabase = sb;
+
+  // Redirect if no session
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    window.location.replace('/');
+  }
+</script>
 
   <style>
     :root{
@@ -897,10 +906,13 @@
   </script>
 
   <!-- Service worker registration (kept) -->
-  <script>
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
-    }
-  </script>
+ <script type="module">
+  const sb = window._supabase;
+  const logoutBtn = document.getElementById('logoutBtn');
+  logoutBtn?.addEventListener('click', async () => {
+    try { await sb.auth.signOut(); } catch (e) { console.error(e); }
+    window.location.replace('/');
+  });
+</script>
 </body>
 </html>
