@@ -11,23 +11,20 @@
   <!-- QR Code -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
-  <!-- Supabase v2 -->
-<script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+  <!-- Supabase v2: single client, early session guard -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-  const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+    const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
 
-  // Create supabase client and expose globally
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  window._supabase = sb;
+    // One global name only
+    window.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Redirect if no session
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    window.location.replace('/');
-  }
-</script>
+    // Redirect if not authenticated
+    const { data:{ session } } = await window.sb.auth.getSession();
+    if (!session) window.location.replace('/');
+  </script>
 
   <style>
     :root{
@@ -41,7 +38,7 @@
     }
     body{background:linear-gradient(135deg,#f8fafc 0%,#eef2f7 100%);color:var(--ink)}
     .glass{background:rgba(255,255,255,.7);backdrop-filter:blur(14px);border:1px solid var(--stroke)}
-    .card{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border:1px solid var(--stroke);border-radius:var(--rad);box-shadow:var(--shadow)}
+    .card{background:rgba(255,255,255,.9);backdrop-filter:blur(10px);border:1px solid var(--stroke);border-radius:var(--rad);box-shadow:var(--shadow)}
     .ribbon{position:relative;padding-top:14px}
     .ribbon::before{content:attr(data-title);position:absolute;top:0;left:-1px;font-weight:800;font-size:.78rem;letter-spacing:.02em;color:#fff;padding:.28rem .6rem;border-top-left-radius:10px;border-bottom-right-radius:10px}
     .r-red::before{background:#dc2626}
@@ -55,7 +52,6 @@
     .btn-outline{border:1px solid var(--brand);color:var(--brand);background:#fff}
     .kicker{font-size:.7rem;color:#64748b}
     .qr-ring{box-shadow:0 0 0 2px var(--brand), 0 8px 20px var(--ring);border-radius:14px}
-    .phone-shadow{box-shadow:0 25px 60px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.08)}
     .disabled-tile{opacity:.55;cursor:not-allowed}
     .legend-dot{width:.65rem;height:.65rem;border-radius:999px;display:inline-block;margin-right:.4rem}
   </style>
@@ -69,6 +65,10 @@
         <a href="/" class="flex items-center gap-2 font-extrabold text-xl">
           MYQ<span class="text-[var(--brand)]">ER</span><sup class="text-xs ml-0.5">™</sup>
         </a>
+
+        <nav class="hidden sm:flex items-center gap-6 text-sm">
+          <a href="/" class="hover:underline">Back to Home</a>
+        </nav>
 
         <div class="flex items-center gap-3">
           <!-- Language -->
@@ -285,7 +285,7 @@
               <select id="triageOverride" class="w-full mt-1 border rounded-md px-3 py-2">
                 <option value="">Auto</option>
                 <option value="green">Green</option>
-                <option value="yellow">Yellow</option>
+                <option value="amber">Amber</option>
                 <option value="red">Red</option>
                 <option value="black">Black</option>
               </select>
@@ -338,7 +338,7 @@
           <h3 class="text-lg font-extrabold mb-2" data-i18n="legend">Triage colours</h3>
           <ul class="space-y-1 text-sm">
             <li><span class="legend-dot" style="background:#16a34a"></span><strong>Green</strong> — mild allergies, no major conditions.</li>
-            <li><span class="legend-dot" style="background:#f59e0b"></span><strong>Yellow</strong> — stable chronic conditions.</li>
+            <li><span class="legend-dot" style="background:#f59e0b"></span><strong>Amber</strong> — stable chronic conditions.</li>
             <li><span class="legend-dot" style="background:#ef4444"></span><strong>Red</strong> — severe allergies / life-threatening conditions.</li>
             <li><span class="legend-dot" style="background:#111827"></span><strong>Black</strong> — DNR / Comfort care set.</li>
           </ul>
@@ -363,7 +363,7 @@
     </div>
   </footer>
 
-  <!-- Scripts -->
+  <!-- App Logic: i18n, data load/save, triage, QR, voice, logout, delete -->
   <script>
     // ------- i18n (10 languages) -------
     const t = {
@@ -379,7 +379,7 @@
           override:"Manual override",speak:"Speak summary",stop:"Stop",cardTitle:"Emergency Card & QR",scanTip:"Scan for emergency access",
           cardLink:"Card link",copy:"Copy",png:"PNG",svg:"SVG",print:"Print",legend:"Triage colours",
           infoOnly:"Info only: This card supports care; clinicians must verify with official records.",
-          privacyNote:"Privacy: Your data stays on your device unless you share it. No ads, no trackers.",
+          privacyNote:"Privacy: Your data stays on your device unless you share it.",
           qrNote:"Your QR code stays the same — it always opens your latest information.",
           vaultTitle:"Document Vault (Coming Soon)",vaultHint:"Secure, client-side encrypted storage for critical documents.",
           dnr:"DNR Orders",livingWill:"Living Will",mpoa:"Medical Power of Attorney",insurance:"Insurance Documents",
@@ -473,7 +473,7 @@
           codeLabel:"Codul tău:",genCode:"Generează cod",saveProfile:"Salvează profil",
           criticalTitle:"Critic — Detalii medicale",criticalHint:"Ține actualizat. Apare pe card.",
           bloodType:"Grupa sanguină",organDonor:"Donator de organe",yes:"Da",no:"Nu",allergies:"Alergii critice",
-          conditions:"Afectiuni",meds:"Medicație curentă",implants:"Implanturi / dispozitive",
+          conditions:"Afecțiuni",meds:"Medicație curentă",implants:"Implanturi / dispozitive",
           lifeSupport:"Preferință suport vital (info)",lifeSupportNote:"Informativ doar.",
           saveHealth:"Salvează datele",iceTitle:"Contacte de urgență (ICE)",iceHint:"Până la 3 contacte.",
           addContact:"Adaugă contact",triageTitle:"Stare triere",triageHint:"Calcul automat.",
@@ -545,17 +545,21 @@
         const key = el.getAttribute('data-i18n');
         if(L[key]) el.textContent = L[key];
       });
-      // RTL for Arabic
       document.documentElement.dir = langSel.value==='ar' ? 'rtl' : 'ltr';
     }
     langSel.addEventListener('change', ()=>{
+      localStorage.setItem('myqer_lang', langSel.value);
       applyI18n();
       updateVoiceLocale();
-      // refresh static labels under selects (Yes/No already translated when re-rendering)
     });
+    // restore saved language
+    (()=>{
+      const saved = localStorage.getItem('myqer_lang');
+      if(saved && t[saved]) { langSel.value = saved; applyI18n(); }
+    })();
 
     // ------- Auth / session -------
-    const sb = window.supabase;
+    const sb = window.sb; // single source of truth
     let session, user, profile={}, health={}, ice=[];
     const loading = document.getElementById('loading');
     const dash = document.getElementById('dash');
@@ -608,7 +612,7 @@
       f.country.value       = profile.country || '';
       f.national_id.value   = profile.national_id || '';
       codeText.textContent  = profile.code || '—';
-      const link = profile.code ? `${location.origin}/card.html?code=${profile.code}` : '';
+      const link = profile.code ? `${location.origin}/functions/v1/card?code=${encodeURIComponent(profile.code)}` : '';
       cardUrlEl.value = link;
       codeUnderQR.textContent = profile.code || '—';
     }
@@ -649,15 +653,15 @@
       if(ov) return ov;
 
       // Heuristic
-      const hasDNR = (health.life_support_pref||'').toLowerCase().includes('dnr') || (health.life_support_pref||'').toLowerCase().includes('comfort');
-      if(hasDNR) return 'black';
+      const pref = (health.life_support_pref||'').toLowerCase();
+      if(pref.includes('dnr') || pref.includes('comfort')) return 'black';
 
       const severe = (health.allergies||'').toLowerCase().includes('anaphyl') ||
                      (health.conditions||'').toLowerCase().includes('severe');
       if(severe) return 'red';
 
       const hasCond = !!(health.conditions||'').trim();
-      if(hasCond) return 'yellow';
+      if(hasCond) return 'amber';
 
       return 'green';
     }
@@ -665,18 +669,15 @@
     function applyTriage(){
       const level = computeTriage();
       const map = {
-        green:{bg:'#16a34a1a', text:'GREEN', color:'#16a34a'},
-        yellow:{bg:'#f59e0b1a', text:'YELLOW', color:'#f59e0b'},
-        red:{bg:'#ef44441a', text:'RED', color:'#ef4444'},
-        black:{bg:'#1118271a', text:'BLACK', color:'#111827'},
+        green:{text:'GREEN', color:'#16a34a'},
+        amber:{text:'AMBER', color:'#f59e0b'},
+        red:{text:'RED', color:'#ef4444'},
+        black:{text:'BLACK', color:'#111827'},
       };
       const v = map[level]||map.green;
-      triagePill.style.background = '#fff';
       triagePill.style.border = '1px solid ' + v.color + '55';
       triagePill.style.color = v.color;
-      triagePill.textContent = v.text + ' — ' + (level==='green'?'Standard':'');
-
-      // little badge at top of phone (optional; not shown here)
+      triagePill.textContent = v.text + (level==='green'?' — Standard':'' );
     }
 
     function renderQR(){
@@ -686,7 +687,7 @@
         ctx.clearRect(0,0,200,200);
         return;
       }
-      const url = `${location.origin}/card.html?code=${profile.code}`;
+      const url = `${location.origin}/functions/v1/card?code=${encodeURIComponent(profile.code)}`;
       qrStatus.textContent = '';
       QRCode.toCanvas(document.getElementById('qrCanvas'), url, {width:200, margin:2}, err=>{
         if(err){ qrStatus.textContent = 'QR error'; }
@@ -750,12 +751,21 @@
       ice.push(data); renderIce();
     });
 
-    iceList.addEventListener('input', async (e)=>{
+    // Debounced update helper
+    const debouncers = {};
+    function debounceSave(id, fn, ms=400){
+      clearTimeout(debouncers[id]);
+      debouncers[id] = setTimeout(fn, ms);
+    }
+
+    iceList.addEventListener('input', (e)=>{
       const id = e.target.dataset.id; const field = e.target.dataset.field;
       if(!id||!field) return;
       const val = e.target.value;
-      const { error } = await sb.from('ice_contacts').update({ [field]:val }).eq('id', id);
-      if(error){ showToast('Update failed','err'); return; }
+      debounceSave(`${id}:${field}`, async ()=>{
+        const { error } = await sb.from('ice_contacts').update({ [field]:val }).eq('id', id);
+        if(error) showToast('Update failed','err');
+      });
       const row = ice.find(x=>String(x.id)===String(id)); if(row) row[field]=val;
     });
 
@@ -779,12 +789,11 @@
     function buildSummary(){
       const L = t[langSel.value]||t.en;
       const n = profile.full_name || '';
-      const b = health.blood_type || L.bloodType;
       const a = (health.allergies||'').trim() || L.allergies;
       const m = (health.meds||'').trim() || L.meds;
       const c = (health.conditions||'').trim() || L.conditions;
-      // Keep it short & safe
-      return `${n}. ${L.bloodType}: ${health.blood_type||'—'}. ${L.allergies}: ${a}. ${L.conditions}: ${c}. ${L.meds}: ${m}.`;
+      const bt = health.blood_type || '—';
+      return `${n}. ${L.bloodType}: ${bt}. ${L.allergies}: ${a}. ${L.conditions}: ${c}. ${L.meds}: ${m}.`;
     }
 
     document.getElementById('speak').addEventListener('click', ()=>{
@@ -803,48 +812,51 @@
     });
     document.getElementById('dlPNG').addEventListener('click', ()=>{
       const canvas = document.getElementById('qrCanvas');
+      if(!profile.code) return;
       const link = document.createElement('a');
       link.download = 'myqer-qr.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     });
     document.getElementById('dlSVG').addEventListener('click', ()=>{
-      if(!profile.code){ return; }
-      const url = `${location.origin}/card.html?code=${profile.code}`;
-      // quick SVG: render into a data URL
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#fff"><img src="${document.getElementById('qrCanvas').toDataURL()}" /></div></foreignObject></svg>`;
+      if(!profile.code) return;
+      // Convert existing canvas PNG into an SVG wrapper (simple portable export)
+      const png = document.getElementById('qrCanvas').toDataURL();
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" fill="#fff"/><image href="${png}" x="0" y="0" height="512" width="512"/></svg>`;
       const blob = new Blob([svg], {type:'image/svg+xml'});
-      const link = document.createElement('a');
-      link.download = 'myqer-qr.svg';
-      link.href = URL.createObjectURL(blob);
-      link.click();
-      setTimeout(()=>URL.revokeObjectURL(link.href), 1500);
+      const a = document.createElement('a');
+      a.download = 'myqer-qr.svg';
+      a.href = URL.createObjectURL(blob);
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1200);
     });
     document.getElementById('printQR').addEventListener('click', ()=>{
-      const w = window.open('','_blank','width=340,height=420');
-      const code = profile.code || '';
+      if(!profile.code) return;
+      const w = window.open('','_blank','width=360,height=480');
       const img = document.getElementById('qrCanvas').toDataURL();
       const link = cardUrlEl.value || '';
+      const code = profile.code || '';
       w.document.write(`
-        <html><head><title>Print QR</title></head>
-        <body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100%;margin:0">
+        <html><head><title>Print Emergency Card</title>
+        <style>body{font-family:system-ui;margin:0} .wrap{display:flex;align-items:center;justify-content:center;height:100vh}</style>
+        </head><body><div class="wrap">
           <div style="text-align:center">
-            <img src="${img}" style="width:260px;height:260px;border:2px solid #c62828;border-radius:12px"/><br/>
+            <img src="${img}" style="width:280px;height:280px;border:2px solid #c62828;border-radius:12px"/><br/>
             <div style="margin-top:8px;font-family:monospace">${code}</div>
             <div style="font-size:12px;color:#475569">${link}</div>
           </div>
-        </body></html>
+        </div></body></html>
       `);
       w.document.close(); w.focus(); w.print();
     });
 
     // ------- Logout -------
-    document.getElementById('logout').addEventListener('click', async ()=>{
-      await sb.auth.signOut();
+    document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+      try { await sb.auth.signOut(); } catch(e) { console.error(e); }
       location.replace('/');
     });
 
-    // ------- Delete account (Edge Function optional) -------
+    // ------- Delete account (Edge Function preferred) -------
     const deleteBtn = document.getElementById('deleteBtn');
     const deletePhrase = document.getElementById('deletePhrase');
     const deleteNote = document.getElementById('deleteNote');
@@ -854,23 +866,19 @@
     });
 
     deleteBtn.addEventListener('click', async ()=>{
-      if(!confirm('This will permanently delete your account. Continue?')) return;
+      if(!confirm('This will permanently delete your account and data. Continue?')) return;
       deleteBtn.disabled = true;
       deleteNote.textContent = 'Processing…';
-
-      // Preferred: call your Edge Function /functions/v1/delete-account (you create it) 
       try{
-        const resp = await fetch('https://tgddpmxpbgrzrbzpomou.supabase.co/functions/v1/delete-account', {
+        const resp = await fetch(`${location.origin}/functions/v1/delete-account`, {
           method:'POST',
           headers:{ Authorization:`Bearer ${session.access_token}` }
         });
-        if(!resp.ok) throw new Error('Edge function not available');
+        if(!resp.ok) throw new Error('Delete endpoint not available');
         deleteNote.textContent = 'Deleted. Signing out…';
         setTimeout(async ()=>{ await sb.auth.signOut(); location.replace('/'); }, 800);
-        return;
-      }catch(_e){
-        // Fallback guidance
-        deleteNote.innerHTML = 'Could not delete automatically. Please contact support or enable the delete-account Edge Function.';
+      }catch(e){
+        deleteNote.textContent = 'Automatic deletion not available. Please enable the secured Edge Function.';
         deleteBtn.disabled = false;
       }
     });
@@ -905,14 +913,11 @@
     triageOverride.addEventListener('change', applyTriage);
   </script>
 
-  <!-- Service worker registration (kept) -->
- <script type="module">
-  const sb = window._supabase;
-  const logoutBtn = document.getElementById('logoutBtn');
-  logoutBtn?.addEventListener('click', async () => {
-    try { await sb.auth.signOut(); } catch (e) { console.error(e); }
-    window.location.replace('/');
-  });
-</script>
+  <!-- Keep service worker registration (no private API caching) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    }
+  </script>
 </body>
 </html>
