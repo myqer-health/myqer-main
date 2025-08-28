@@ -718,11 +718,11 @@
                 
                 <div class="text-center mb-6">
                   <div id="qrContainer" class="qr-container inline-block relative">
-                    <div class="offline-badge">Works offline</div>
+                    <div class="offline-badge">Hybrid QR</div>
                     <div id="qrPlaceholder" class="qr-placeholder">
                       <div>
                         <div class="text-slate-400 mb-2">📋</div>
-                        <div>Complete profile<br>to generate QR</div>
+                        <div>Complete profile<br>to generate hybrid QR</div>
                       </div>
                     </div>
                     <canvas id="qrCanvas" width="200" height="200" class="hidden"></canvas>
@@ -732,7 +732,7 @@
                     <code id="qrCode" class="text-sm font-mono font-bold text-slate-800">—</code>
                   </div>
                   <div class="mt-2">
-                    <p class="text-xs text-green-600 font-medium">✓ Readable anywhere, no internet required</p>
+                    <p class="text-xs text-green-600 font-medium">✓ Contains medical essentials + online link</p>
                   </div>
                 </div>
                 
@@ -1655,7 +1655,7 @@
       }
     }
 
-    // Multi-language voice synthesis with gentle female voice
+    // Multi-language voice synthesis with gentle female voice - now reads hybrid payload
     function speakEmergencySummary() {
       if (!('speechSynthesis' in window)) {
         showToast(t('speech_not_supported'), 'warning');
@@ -1664,28 +1664,43 @@
 
       speechSynthesis.cancel();
       
-      const name = userData.profile.fullName || 'Unknown';
-      const blood = userData.health.bloodType || 'Unknown';
-      const allergies = userData.health.allergies || 'None listed';
-      const medications = userData.health.medications || 'None listed';
-      const triage = computeTriage().toUpperCase();
-      const firstContact = userData.contacts.length > 0 ? 
-        `${userData.contacts[0].name} ${userData.contacts[0].phone}` : 'No emergency contact';
+      // Use hybrid payload if available, otherwise fallback to manual summary
+      const hybridPayload = generateHybridQRPayload();
+      let text;
       
-      const summaries = {
-        en: `Emergency summary for ${name}. Blood type ${blood}. Allergies: ${allergies}. Medications: ${medications}. Triage level ${triage}. Emergency contact: ${firstContact}.`,
-        es: `Resumen de emergencia para ${name}. Tipo de sangre ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nivel de triaje ${triage}. Contacto de emergencia: ${firstContact}.`,
-        fr: `Résumé d'urgence pour ${name}. Groupe sanguin ${blood}. Allergies: ${allergies}. Médicaments: ${medications}. Niveau de triage ${triage}. Contact d'urgence: ${firstContact}.`,
-        de: `Notfallzusammenfassung für ${name}. Blutgruppe ${blood}. Allergien: ${allergies}. Medikamente: ${medications}. Triage-Stufe ${triage}. Notfallkontakt: ${firstContact}.`,
-        it: `Riassunto di emergenza per ${name}. Gruppo sanguigno ${blood}. Allergie: ${allergies}. Farmaci: ${medications}. Livello di triage ${triage}. Contatto di emergenza: ${firstContact}.`,
-        pt: `Resumo de emergência para ${name}. Tipo sanguíneo ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nível de triagem ${triage}. Contacto de emergência: ${firstContact}.`,
-        ro: `Rezumat de urgență pentru ${name}. Grupa sanguină ${blood}. Alergii: ${allergies}. Medicamente: ${medications}. Nivel de triaj ${triage}. Contact de urgență: ${firstContact}.`,
-        ar: `ملخص الطوارئ لـ ${name}. فصيلة الدم ${blood}. الحساسية: ${allergies}. الأدوية: ${medications}. مستوى الفرز ${triage}. جهة اتصال الطوارئ: ${firstContact}.`,
-        hi: `${name} के लिए आपातकालीन सारांश। रक्त समूह ${blood}। एलर्जी: ${allergies}। दवाएं: ${medications}। ट्राइएज स्तर ${triage}। आपातकालीन संपर्क: ${firstContact}।`,
-        zh: `${name}的紧急摘要。血型${blood}。过敏：${allergies}。药物：${medications}。分诊级别${triage}。紧急联系人：${firstContact}。`
-      };
+      if (hybridPayload) {
+        // Clean up the hybrid payload for speech (remove separators, make more natural)
+        text = hybridPayload
+          .replace(/\|/g, '.')
+          .replace(/Link: https:\/\/[^\s]+/, 'Full details available online.')
+          .replace(/\.\s*\./g, '.')
+          .trim();
+      } else {
+        // Fallback to manual summary
+        const name = userData.profile.fullName || 'Unknown';
+        const blood = userData.health.bloodType || 'Unknown';
+        const allergies = userData.health.allergies || 'None listed';
+        const medications = userData.health.medications || 'None listed';
+        const triage = computeTriage().toUpperCase();
+        const firstContact = userData.contacts.length > 0 ? 
+          `${userData.contacts[0].name} ${userData.contacts[0].phone}` : 'No emergency contact';
+        
+        const summaries = {
+          en: `Emergency summary for ${name}. Blood type ${blood}. Allergies: ${allergies}. Medications: ${medications}. Triage level ${triage}. Emergency contact: ${firstContact}.`,
+          es: `Resumen de emergencia para ${name}. Tipo de sangre ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nivel de triaje ${triage}. Contacto de emergencia: ${firstContact}.`,
+          fr: `Résumé d'urgence pour ${name}. Groupe sanguin ${blood}. Allergies: ${allergies}. Médicaments: ${medications}. Niveau de triage ${triage}. Contact d'urgence: ${firstContact}.`,
+          de: `Notfallzusammenfassung für ${name}. Blutgruppe ${blood}. Allergien: ${allergies}. Medikamente: ${medications}. Triage-Stufe ${triage}. Notfallkontakt: ${firstContact}.`,
+          it: `Riassunto di emergenza per ${name}. Gruppo sanguigno ${blood}. Allergie: ${allergies}. Farmaci: ${medications}. Livello di triage ${triage}. Contatto di emergenza: ${firstContact}.`,
+          pt: `Resumo de emergência para ${name}. Tipo sanguíneo ${blood}. Alergias: ${allergies}. Medicamentos: ${medications}. Nível de triagem ${triage}. Contacto de emergência: ${firstContact}.`,
+          ro: `Rezumat de urgență pentru ${name}. Grupa sanguină ${blood}. Alergii: ${allergies}. Medicamente: ${medications}. Nivel de triaj ${triage}. Contact de urgență: ${firstContact}.`,
+          ar: `ملخص الطوارئ لـ ${name}. فصيلة الدم ${blood}. الحساسية: ${allergies}. الأدوية: ${medications}. مستوى الفرز ${triage}. جهة اتصال الطوارئ: ${firstContact}.`,
+          hi: `${name} के लिए आपातकालीन सारांश। रक्त समूह ${blood}। एलर्जी: ${allergies}। दवाएं: ${medications}। ट्राइएज स्तर ${triage}। आपातकालीन संपर्क: ${firstContact}।`,
+          zh: `${name}的紧急摘要。血型${blood}。过敏：${allergies}。药物：${medications}。分诊级别${triage}。紧急联系人：${firstContact}。`
+        };
+        
+        text = summaries[currentLang] || summaries.en;
+      }
       
-      const text = summaries[currentLang] || summaries.en;
       const utterance = new SpeechSynthesisUtterance(text);
       
       // Set gentle female voice preferences
@@ -2096,5 +2111,5 @@
     // Make removeContact globally accessible
     window.removeContact = removeContact;
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97674b72049e4428',t:'MTc1NjQyMDY2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'976773c3f6f8cd0e',t:'MTc1NjQyMjMxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
