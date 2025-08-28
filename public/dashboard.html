@@ -911,37 +911,32 @@
       setTimeout(()=>el.remove(), 2200);
     }
 
-   <!-- ===== Init sequence ===== -->
+  <!-- ------- Init sequence (final, wrapped correctly) ------- -->
 <script>
-  // assumes you already added initSupabase() + SUPABASE_URL/KEY earlier
+  /* assumes you already pasted the initSupabase() function + SUPABASE_URL/KEY earlier in this file */
 
-  /* Elements */
+  // Elements used during boot and error states
   const loading  = document.getElementById('loading');
   const dash     = document.getElementById('dash');
   const errorBox = document.getElementById('errorBox');
   const errorMsg = document.getElementById('errorMsg');
 
-  // watchdog: if startup hangs, show error after 8s
-  let stallTimer = setTimeout(()=>{
-    loading.classList.add('hidden');
-    errorMsg.textContent = 'Startup stalled — could not reach Supabase or import SDK.';
-    errorBox.classList.remove('hidden');
-  }, 8000);
-
-  (async ()=>{
+  // Boot the dashboard
+  (async () => {
     try {
-      /* 1) Ensure Supabase client */
+      // 1) Ensure Supabase client exists (works on iOS Safari too)
       await initSupabase();
-      if (!window.sb) throw new Error('Supabase client not created');
+      const sb = window.sb;
+      if (!sb) throw new Error('Supabase client not created');
 
-      /* 2) Ensure session */
-      const { data:{ session } } = await sb.auth.getSession();
+      // 2) Session guard
+      const { data: { session } } = await sb.auth.getSession();
       if (!session) { window.location.replace('/'); return; }
 
-      /* 3) Load all data */
+      // 3) Load data from DB
       await loadAll();
 
-      /* 4) Render */
+      // 4) Render UI
       renderProfile();
       renderHealth();
       renderIce();
@@ -949,27 +944,33 @@
       applyTriage();
       applyI18n();
 
-      /* 5) Show dashboard */
-      clearTimeout(stallTimer);
+      // 5) Reveal dashboard
       loading.classList.add('hidden');
       dash.classList.remove('hidden');
-    } catch(e){
+    } catch (e) {
       console.error(e);
-      clearTimeout(stallTimer);
       loading.classList.add('hidden');
       errorMsg.textContent = e.message || 'Unknown error';
       errorBox.classList.remove('hidden');
     }
   })();
-    // React to manual triage override
-    triageOverride.addEventListener('change', applyTriage);
-  </script>
 
-  <!-- Keep service worker registration (update filename if your repo uses a different SW) -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(()=>{});
-    }
-  </script>
+  // Listeners (keep only one copy)
+  document.getElementById('triageOverride')
+    ?.addEventListener('change', applyTriage);
+
+  document.getElementById('logoutBtn')
+    ?.addEventListener('click', async () => {
+      try { await window.sb.auth.signOut(); } catch (_) {}
+      window.location.replace('/');
+    });
+</script>
+
+<!-- (optional) Service worker registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
+  }
+</script>
 </body>
 </html>
