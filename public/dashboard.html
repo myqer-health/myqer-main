@@ -15,7 +15,8 @@
             critical: '#dc2626',
             ice: '#ea580c',
             identity: '#16a34a',
-            vault: '#7c3aed'
+            vault: '#7c3aed',
+            qr: '#f59e0b'
           }
         }
       }
@@ -110,6 +111,9 @@
     }
     .accolade--vault { 
       background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #7c3aed 100%);
+    }
+    .accolade--qr { 
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #f59e0b 100%);
     }
     
     /* Premium button system */
@@ -208,6 +212,7 @@
         0 0 20px rgba(198, 40, 40, 0.3),
         0 8px 16px rgba(198, 40, 40, 0.15);
       position: relative;
+      z-index: 1;
     }
     
     .offline-badge {
@@ -224,6 +229,7 @@
       letter-spacing: 0.05em;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
       animation: pulse 2s infinite;
+      z-index: 2;
     }
     
     @keyframes pulse {
@@ -332,337 +338,280 @@
     }
     
     .hidden { display: none !important; }
+    
+    .qr-placeholder {
+      width: 180px;
+      height: 180px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 0.875rem;
+      text-align: center;
+      background: rgba(248, 250, 252, 0.8);
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200">
 
-  <!-- Login Screen -->
-  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-8 w-full max-w-md">
-      <div class="text-center mb-8">
-        <div class="w-16 h-16 bg-gradient-to-br from-brand to-red-700 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
-          <span class="text-white font-bold text-2xl">Q</span>
-        </div>
-        <h1 class="text-2xl font-extrabold text-slate-800 mb-2">Welcome to MyQER</h1>
-        <p class="text-slate-600">Your emergency medical dashboard</p>
-      </div>
-      
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-          <input id="loginEmail" type="email" class="input-field" placeholder="your@email.com" value="demo@myqer.com">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-          <input id="loginPassword" type="password" class="input-field" placeholder="••••••••" value="demo123">
-        </div>
-        <button id="loginBtn" class="btn-primary w-full">Sign In</button>
-        <div class="text-center">
-          <span class="text-sm text-slate-500">Don't have an account? </span>
-          <button id="showSignup" class="text-sm text-brand font-medium hover:underline">Sign up</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Signup Screen -->
-  <div id="signupScreen" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-8 w-full max-w-md">
-      <div class="text-center mb-8">
-        <div class="w-16 h-16 bg-gradient-to-br from-brand to-red-700 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
-          <span class="text-white font-bold text-2xl">Q</span>
-        </div>
-        <h1 class="text-2xl font-extrabold text-slate-800 mb-2">Create Account</h1>
-        <p class="text-slate-600">Join MyQER emergency network</p>
-      </div>
-      
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-          <input id="signupName" class="input-field" placeholder="John Doe">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-          <input id="signupEmail" type="email" class="input-field" placeholder="your@email.com">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-          <input id="signupPassword" type="password" class="input-field" placeholder="••••••••">
-        </div>
-        <button id="signupBtn" class="btn-primary w-full">Create Account</button>
-        <div class="text-center">
-          <span class="text-sm text-slate-500">Already have an account? </span>
-          <button id="showLogin" class="text-sm text-brand font-medium hover:underline">Sign in</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Loading Screen -->
-  <div id="loadingScreen" class="hidden min-h-screen flex items-center justify-center">
-    <div class="text-center">
-      <div class="animate-spin h-12 w-12 rounded-full border-b-2 border-brand mx-auto mb-4"></div>
-      <p class="text-slate-500 font-medium">Loading your dashboard…</p>
-    </div>
-  </div>
-
-  <!-- Main Dashboard -->
-  <div id="dashboardScreen" class="hidden">
-    <!-- Header -->
-    <header class="glass-card border-b border-slate-200/50 sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="flex items-center justify-between h-16">
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 bg-gradient-to-br from-brand to-red-700 rounded-xl flex items-center justify-center shadow-lg">
-              <span class="text-white font-bold text-lg">Q</span>
-            </div>
-            <h1 class="text-xl font-extrabold text-slate-800">🏥 MyQER Dashboard</h1>
+  <!-- Header -->
+  <header class="glass-card border-b border-slate-200/50 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 bg-gradient-to-br from-brand to-red-700 rounded-xl flex items-center justify-center shadow-lg">
+            <span class="text-white font-bold text-lg">Q</span>
           </div>
-          <div class="flex items-center gap-4">
-            <select id="langSelect" class="input-field text-sm" style="width: auto;">
-              <option value="en">🇺🇸 English</option>
-              <option value="es">🇪🇸 Español</option>
-              <option value="fr">🇫🇷 Français</option>
-              <option value="de">🇩🇪 Deutsch</option>
-              <option value="it">🇮🇹 Italiano</option>
-              <option value="pt">🇵🇹 Português</option>
-              <option value="nl">🇳🇱 Nederlands</option>
-              <option value="sv">🇸🇪 Svenska</option>
-              <option value="no">🇳🇴 Norsk</option>
-              <option value="da">🇩🇰 Dansk</option>
-            </select>
-            <span id="userEmail" class="text-sm text-slate-600">user@example.com</span>
-            <button id="logoutBtn" class="btn-secondary">Logout</button>
-          </div>
+          <h1 class="text-xl font-extrabold text-slate-800">🏥 MyQER Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <select id="langSelect" class="input-field text-sm" style="width: auto;">
+            <option value="en">🇺🇸 English</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="it">🇮🇹 Italiano</option>
+            <option value="pt">🇵🇹 Português</option>
+            <option value="nl">🇳🇱 Nederlands</option>
+            <option value="sv">🇸🇪 Svenska</option>
+            <option value="no">🇳🇴 Norsk</option>
+            <option value="da">🇩🇰 Dansk</option>
+          </select>
+          <span id="userEmail" class="text-sm text-slate-600">user@example.com</span>
+          <button id="logoutBtn" class="btn-secondary">Logout</button>
         </div>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <!-- Dashboard Content -->
-    <main class="pt-8 pb-16">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
-          <!-- Main Content: Two-Row Layout -->
-          <div class="lg:col-span-3">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-              
-              <!-- 1. Identity – Personal Information -->
-              <section class="glass-card rounded-xl p-6 ribbon">
-                <span class="accolade accolade--identity">Identity</span>
-                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">👤 Personal Information</h2>
-                  <p class="text-sm text-slate-500 mb-6">These details help responders confirm who you are.</p>
+  <!-- Dashboard Content -->
+  <main class="pt-8 pb-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Main Content: Two-Row Layout -->
+        <div class="lg:col-span-3">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            
+            <!-- 1. Identity – Personal Information -->
+            <section class="glass-card rounded-xl p-6 ribbon">
+              <span class="accolade accolade--identity">Identity</span>
+              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                <h2 class="text-xl font-extrabold mb-2 text-slate-800">👤 Personal Information</h2>
+                <p class="text-sm text-slate-500 mb-6">These details help responders confirm who you are.</p>
 
-                  <form id="profileForm" class="space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
-                        <input id="fullName" name="fullName" class="input-field" placeholder="John Doe">
-                      </div>
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                        <input id="dateOfBirth" name="dateOfBirth" type="date" class="input-field">
-                      </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Country</label>
-                        <select id="country" name="country" class="input-field">
-                          <option value="">Select country</option>
-                          <option value="United States">🇺🇸 United States</option>
-                          <option value="Canada">🇨🇦 Canada</option>
-                          <option value="United Kingdom">🇬🇧 United Kingdom</option>
-                          <option value="Australia">🇦🇺 Australia</option>
-                          <option value="Germany">🇩🇪 Germany</option>
-                          <option value="France">🇫🇷 France</option>
-                          <option value="Spain">🇪🇸 Spain</option>
-                          <option value="Italy">🇮🇹 Italy</option>
-                          <option value="Netherlands">🇳🇱 Netherlands</option>
-                          <option value="Sweden">🇸🇪 Sweden</option>
-                          <option value="Norway">🇳🇴 Norway</option>
-                          <option value="Denmark">🇩🇰 Denmark</option>
-                          <option value="Switzerland">🇨🇭 Switzerland</option>
-                          <option value="Austria">🇦🇹 Austria</option>
-                          <option value="Belgium">🇧🇪 Belgium</option>
-                          <option value="Japan">🇯🇵 Japan</option>
-                          <option value="South Korea">🇰🇷 South Korea</option>
-                          <option value="Singapore">🇸🇬 Singapore</option>
-                          <option value="New Zealand">🇳🇿 New Zealand</option>
-                          <option value="Ireland">🇮🇪 Ireland</option>
-                          <option value="Finland">🇫🇮 Finland</option>
-                          <option value="Portugal">🇵🇹 Portugal</option>
-                          <option value="Czech Republic">🇨🇿 Czech Republic</option>
-                          <option value="Poland">🇵🇱 Poland</option>
-                          <option value="Other">🌍 Other</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">National ID (optional)</label>
-                        <input id="nationalId" name="nationalId" class="input-field" placeholder="123-45-6789">
-                      </div>
-                    </div>
-
-                    <div class="flex items-center justify-between pt-4 border-t border-slate-200/60">
-                      <div class="flex items-center gap-3">
-                        <span class="text-sm text-slate-500">Your card code:</span>
-                        <code id="cardCode" class="px-3 py-1 rounded-lg bg-slate-100 text-sm font-mono font-bold text-slate-800">—</code>
-                      </div>
-                      <div class="flex gap-3">
-                        <button type="button" id="generateCode" class="btn-outline text-sm">Generate code</button>
-                        <button type="submit" class="btn-primary text-sm">Save Profile</button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-              </section>
-
-              <!-- 2. Critical – Medical Details -->
-              <section class="glass-card rounded-xl p-6 ribbon">
-                <span class="accolade accolade--critical">Critical</span>
-                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">🩺 Medical Details</h2>
-                  <p class="text-sm text-slate-500 mb-6">Keep this current. It appears on your emergency card.</p>
-
-                  <form id="healthForm" class="space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Blood type</label>
-                        <select id="bloodType" name="bloodType" class="input-field">
-                          <option value="">—</option>
-                          <option>A+</option><option>A-</option>
-                          <option>B+</option><option>B-</option>
-                          <option>AB+</option><option>AB-</option>
-                          <option>O+</option><option>O-</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Organ donor</label>
-                        <select id="organDonor" name="organDonor" class="input-field">
-                          <option value="">—</option>
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      </div>
-                    </div>
-
+                <form id="profileForm" class="space-y-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Critical allergies</label>
-                      <textarea id="allergies" name="allergies" rows="2" class="input-field" placeholder="Penicillin, Nuts"></textarea>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Full name</label>
+                      <input id="fullName" name="fullName" class="input-field" placeholder="John Doe">
                     </div>
-
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Conditions</label>
-                      <textarea id="conditions" name="conditions" rows="2" class="input-field" placeholder="Diabetes, Asthma"></textarea>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                      <input id="dateOfBirth" name="dateOfBirth" type="date" class="input-field">
                     </div>
-
+                  </div>
+                  
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Current medications</label>
-                      <textarea id="medications" name="medications" rows="2" class="input-field" placeholder="Metformin"></textarea>
-                    </div>
-
-                    <div>
-                      <label class="block text-sm font-medium text-slate-700 mb-1">Life support preference</label>
-                      <select id="lifeSupportPref" name="lifeSupportPref" class="input-field">
-                        <option value="">—</option>
-                        <option value="Full support">All resuscitation efforts (Full)</option>
-                        <option value="Comfort only">Comfort-focused care only</option>
-                        <option value="DNR">Do not resuscitate (DNR)</option>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                      <select id="country" name="country" class="input-field">
+                        <option value="">Select country</option>
+                        <option value="United States">🇺🇸 United States</option>
+                        <option value="Canada">🇨🇦 Canada</option>
+                        <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                        <option value="Australia">🇦🇺 Australia</option>
+                        <option value="Germany">🇩🇪 Germany</option>
+                        <option value="France">🇫🇷 France</option>
+                        <option value="Spain">🇪🇸 Spain</option>
+                        <option value="Italy">🇮🇹 Italy</option>
+                        <option value="Netherlands">🇳🇱 Netherlands</option>
+                        <option value="Sweden">🇸🇪 Sweden</option>
+                        <option value="Norway">🇳🇴 Norway</option>
+                        <option value="Denmark">🇩🇰 Denmark</option>
+                        <option value="Switzerland">🇨🇭 Switzerland</option>
+                        <option value="Austria">🇦🇹 Austria</option>
+                        <option value="Belgium">🇧🇪 Belgium</option>
+                        <option value="Japan">🇯🇵 Japan</option>
+                        <option value="South Korea">🇰🇷 South Korea</option>
+                        <option value="Singapore">🇸🇬 Singapore</option>
+                        <option value="New Zealand">🇳🇿 New Zealand</option>
+                        <option value="Ireland">🇮🇪 Ireland</option>
+                        <option value="Finland">🇫🇮 Finland</option>
+                        <option value="Portugal">🇵🇹 Portugal</option>
+                        <option value="Czech Republic">🇨🇿 Czech Republic</option>
+                        <option value="Poland">🇵🇱 Poland</option>
+                        <option value="Other">🌍 Other</option>
                       </select>
-                      <p class="text-xs text-slate-400 mt-1">Informational only. Clinicians must verify with official documents.</p>
                     </div>
-
-                    <div class="flex justify-end pt-4 border-t border-slate-200/60">
-                      <button type="submit" class="btn-primary">Save Health</button>
-                    </div>
-                  </form>
-                </div>
-              </section>
-
-              <!-- 3. Emergency Contacts (ICE) -->
-              <section class="glass-card rounded-xl p-6 ribbon">
-                <span class="accolade accolade--ice">ICE</span>
-                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                  <div class="flex items-center justify-between mb-2">
-                    <h2 class="text-xl font-extrabold text-slate-800">📞 Emergency Contacts</h2>
-                    <button id="addContact" class="btn-outline text-sm">Add contact</button>
-                  </div>
-                  <p class="text-sm text-slate-500 mb-6">Add up to 3 trusted contacts.</p>
-                  <div id="contactsList" class="space-y-4">
-                    <div class="text-slate-400 text-sm italic">No contacts yet.</div>
-                  </div>
-                </div>
-              </section>
-
-              <!-- 4. Document Vault -->
-              <section class="glass-card rounded-xl p-6 ribbon">
-                <span class="accolade accolade--vault">Vault</span>
-                <div class="glass-card rounded-xl p-6 border border-slate-200/60">
-                  <h2 class="text-xl font-extrabold mb-2 text-slate-800">📁 Document Vault</h2>
-                  <p class="text-sm text-slate-500 mb-6">Secure, encrypted storage for critical documents.</p>
-                  <div class="grid grid-cols-1 gap-3">
-                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                      <span class="legend-dot" style="background:#7c3aed"></span>
-                      <div>
-                        <div class="font-semibold text-slate-600 text-sm">DNR Orders</div>
-                        <div class="text-xs text-slate-400">Coming soon</div>
-                      </div>
-                    </div>
-                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                      <span class="legend-dot" style="background:#7c3aed"></span>
-                      <div>
-                        <div class="font-semibold text-slate-600 text-sm">Living Will</div>
-                        <div class="text-xs text-slate-400">Coming soon</div>
-                      </div>
-                    </div>
-                    <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
-                      <span class="legend-dot" style="background:#7c3aed"></span>
-                      <div>
-                        <div class="font-semibold text-slate-600 text-sm">Insurance Documents</div>
-                        <div class="text-xs text-slate-400">Coming soon</div>
-                      </div>
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">National ID (optional)</label>
+                      <input id="nationalId" name="nationalId" class="input-field" placeholder="123-45-6789">
                     </div>
                   </div>
-                </div>
-              </section>
-            </div>
-          </div>
 
-          <!-- Right Sidebar -->
-          <aside class="lg:col-span-1 space-y-6">
-
-            <!-- Triage Status -->
-            <section class="glass-card rounded-xl p-6">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-extrabold text-slate-800">🚨 Triage Status</h3>
-                <span id="triageStatus" class="status-pill pill-green">GREEN</span>
-              </div>
-              <p class="text-sm text-slate-500 mb-4">Auto-computed from your data. You can override.</p>
-              
-              <select id="triageOverride" class="input-field mb-4">
-                <option value="">Auto (recommended)</option>
-                <option value="green">GREEN - Standard</option>
-                <option value="yellow">AMBER - Urgent</option>
-                <option value="red">RED - Critical</option>
-                <option value="black">BLACK - Comfort care</option>
-              </select>
-              
-              <div class="flex gap-2">
-                <button id="speakBtn" class="btn-secondary flex-1 text-sm">🔊 Speak</button>
-                <button id="stopSpeakBtn" class="btn-secondary text-sm">⏹</button>
+                  <div class="flex justify-end pt-4 border-t border-slate-200/60">
+                    <button type="submit" class="btn-primary text-sm">Save Profile</button>
+                  </div>
+                </form>
               </div>
             </section>
 
-            <!-- Emergency Card & QR -->
-            <section class="glass-card rounded-xl p-6">
+            <!-- 2. Critical – Medical Details -->
+            <section class="glass-card rounded-xl p-6 ribbon">
+              <span class="accolade accolade--critical">Critical</span>
+              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                <h2 class="text-xl font-extrabold mb-2 text-slate-800">🩺 Medical Details</h2>
+                <p class="text-sm text-slate-500 mb-6">Keep this current. It appears on your emergency card.</p>
+
+                <form id="healthForm" class="space-y-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Blood type</label>
+                      <select id="bloodType" name="bloodType" class="input-field">
+                        <option value="">—</option>
+                        <option>A+</option><option>A-</option>
+                        <option>B+</option><option>B-</option>
+                        <option>AB+</option><option>AB-</option>
+                        <option>O+</option><option>O-</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-slate-700 mb-1">Organ donor</label>
+                      <select id="organDonor" name="organDonor" class="input-field">
+                        <option value="">—</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Critical allergies</label>
+                    <textarea id="allergies" name="allergies" rows="2" class="input-field" placeholder="Penicillin, Nuts"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Conditions</label>
+                    <textarea id="conditions" name="conditions" rows="2" class="input-field" placeholder="Diabetes, Asthma"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Current medications</label>
+                    <textarea id="medications" name="medications" rows="2" class="input-field" placeholder="Metformin"></textarea>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Life support preference</label>
+                    <select id="lifeSupportPref" name="lifeSupportPref" class="input-field">
+                      <option value="">—</option>
+                      <option value="Full support">All resuscitation efforts (Full)</option>
+                      <option value="Comfort only">Comfort-focused care only</option>
+                      <option value="DNR">Do not resuscitate (DNR)</option>
+                    </select>
+                    <p class="text-xs text-slate-400 mt-1">Informational only. Clinicians must verify with official documents.</p>
+                  </div>
+
+                  <div class="flex justify-end pt-4 border-t border-slate-200/60">
+                    <button type="submit" class="btn-primary">Save Health</button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <!-- 3. Emergency Contacts (ICE) -->
+            <section class="glass-card rounded-xl p-6 ribbon">
+              <span class="accolade accolade--ice">ICE</span>
+              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                <div class="flex items-center justify-between mb-2">
+                  <h2 class="text-xl font-extrabold text-slate-800">📞 Emergency Contacts</h2>
+                  <button id="addContact" class="btn-outline text-sm">Add contact</button>
+                </div>
+                <p class="text-sm text-slate-500 mb-6">Add up to 3 trusted contacts.</p>
+                <div id="contactsList" class="space-y-4">
+                  <div class="text-slate-400 text-sm italic">No contacts yet.</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 4. Document Vault -->
+            <section class="glass-card rounded-xl p-6 ribbon">
+              <span class="accolade accolade--vault">Vault</span>
+              <div class="glass-card rounded-xl p-6 border border-slate-200/60">
+                <h2 class="text-xl font-extrabold mb-2 text-slate-800">📁 Document Vault</h2>
+                <p class="text-sm text-slate-500 mb-6">Secure, encrypted storage for critical documents.</p>
+                <div class="grid grid-cols-1 gap-3">
+                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                    <span class="legend-dot" style="background:#7c3aed"></span>
+                    <div>
+                      <div class="font-semibold text-slate-600 text-sm">DNR Orders</div>
+                      <div class="text-xs text-slate-400">Coming soon</div>
+                    </div>
+                  </div>
+                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                    <span class="legend-dot" style="background:#7c3aed"></span>
+                    <div>
+                      <div class="font-semibold text-slate-600 text-sm">Living Will</div>
+                      <div class="text-xs text-slate-400">Coming soon</div>
+                    </div>
+                  </div>
+                  <div class="border-2 border-slate-200 rounded-lg p-3 flex items-center gap-3 opacity-60" title="Coming soon">
+                    <span class="legend-dot" style="background:#7c3aed"></span>
+                    <div>
+                      <div class="font-semibold text-slate-600 text-sm">Insurance Documents</div>
+                      <div class="text-xs text-slate-400">Coming soon</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <aside class="lg:col-span-1 space-y-6">
+
+          <!-- Triage Status -->
+          <section class="glass-card rounded-xl p-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-extrabold text-slate-800">🚨 Triage Status</h3>
+              <span id="triageStatus" class="status-pill pill-green">GREEN</span>
+            </div>
+            <p class="text-sm text-slate-500 mb-4">Auto-computed from your data. You can override.</p>
+            
+            <select id="triageOverride" class="input-field mb-4">
+              <option value="">Auto (recommended)</option>
+              <option value="green">GREEN - Standard</option>
+              <option value="yellow">AMBER - Urgent</option>
+              <option value="red">RED - Critical</option>
+              <option value="black">BLACK - Comfort care</option>
+            </select>
+            
+            <div class="flex gap-2">
+              <button id="speakBtn" class="btn-secondary flex-1 text-sm">🔊 Speak</button>
+              <button id="stopSpeakBtn" class="btn-secondary text-sm">⏹</button>
+            </div>
+          </section>
+
+          <!-- Emergency Card & QR -->
+          <section class="glass-card rounded-xl p-6 ribbon">
+            <span class="accolade accolade--qr">QR Card</span>
+            <div class="glass-card rounded-xl p-6 border border-slate-200/60">
               <h3 class="text-lg font-extrabold mb-3 text-slate-800">📱 Emergency Card</h3>
               <p class="text-sm text-slate-500 mb-4">Scan for emergency access</p>
               
               <div class="text-center mb-6">
-                <div class="qr-container inline-block relative">
+                <div id="qrContainer" class="qr-container inline-block relative">
                   <div class="offline-badge">Works offline</div>
-                  <canvas id="qrCanvas" width="180" height="180"></canvas>
+                  <div id="qrPlaceholder" class="qr-placeholder">
+                    <div>
+                      <div class="text-slate-400 mb-2">📋</div>
+                      <div>Complete profile<br>to generate QR</div>
+                    </div>
+                  </div>
+                  <canvas id="qrCanvas" width="180" height="180" class="hidden"></canvas>
                 </div>
                 <div class="mt-3">
                   <span class="text-sm text-slate-500">Code: </span>
@@ -673,11 +622,16 @@
                 </div>
               </div>
               
+              <!-- Generate Code Button (appears when profile is complete) -->
+              <div id="generateSection" class="hidden mb-4">
+                <button id="generateCode" class="btn-primary w-full text-sm">🎯 Generate Emergency Code</button>
+              </div>
+              
               <div class="space-y-3">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">Emergency data (embedded)</label>
                   <div class="flex gap-2">
-                    <input id="emergencyData" class="input-field flex-1 text-xs" readonly>
+                    <input id="emergencyData" class="input-field flex-1 text-xs" readonly placeholder="Generate code to see data">
                     <button id="copyData" class="btn-secondary text-sm">Copy</button>
                   </div>
                 </div>
@@ -688,75 +642,75 @@
                 <button id="downloadSVG" class="btn-outline text-xs">SVG</button>
                 <button id="printCard" class="btn-outline text-xs">Print</button>
               </div>
-            </section>
+            </div>
+          </section>
 
-            <!-- Triage Legend -->
-            <section class="glass-card rounded-xl p-6">
-              <h3 class="text-lg font-extrabold mb-4 text-slate-800">🎯 Triage Colors</h3>
-              <div class="space-y-3">
-                <div class="flex items-center">
-                  <span class="legend-dot" style="background:#16a34a"></span>
-                  <div>
-                    <div class="font-semibold text-slate-700 text-sm">GREEN</div>
-                    <div class="text-xs text-slate-400">Standard care</div>
-                  </div>
-                </div>
-                <div class="flex items-center">
-                  <span class="legend-dot" style="background:#f59e0b"></span>
-                  <div>
-                    <div class="font-semibold text-slate-700 text-sm">AMBER</div>
-                    <div class="text-xs text-slate-400">Urgent attention</div>
-                  </div>
-                </div>
-                <div class="flex items-center">
-                  <span class="legend-dot" style="background:#ef4444"></span>
-                  <div>
-                    <div class="font-semibold text-slate-700 text-sm">RED</div>
-                    <div class="text-xs text-slate-400">Critical/immediate</div>
-                  </div>
-                </div>
-                <div class="flex items-center">
-                  <span class="legend-dot" style="background:#111827"></span>
-                  <div>
-                    <div class="font-semibold text-slate-700 text-sm">BLACK</div>
-                    <div class="text-xs text-slate-400">Comfort care</div>
-                  </div>
+          <!-- Triage Legend -->
+          <section class="glass-card rounded-xl p-6">
+            <h3 class="text-lg font-extrabold mb-4 text-slate-800">🎯 Triage Colors</h3>
+            <div class="space-y-3">
+              <div class="flex items-center">
+                <span class="legend-dot" style="background:#16a34a"></span>
+                <div>
+                  <div class="font-semibold text-slate-700 text-sm">GREEN</div>
+                  <div class="text-xs text-slate-400">Standard care</div>
                 </div>
               </div>
-            </section>
+              <div class="flex items-center">
+                <span class="legend-dot" style="background:#f59e0b"></span>
+                <div>
+                  <div class="font-semibold text-slate-700 text-sm">AMBER</div>
+                  <div class="text-xs text-slate-400">Urgent attention</div>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <span class="legend-dot" style="background:#ef4444"></span>
+                <div>
+                  <div class="font-semibold text-slate-700 text-sm">RED</div>
+                  <div class="text-xs text-slate-400">Critical/immediate</div>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <span class="legend-dot" style="background:#111827"></span>
+                <div>
+                  <div class="font-semibold text-slate-700 text-sm">BLACK</div>
+                  <div class="text-xs text-slate-400">Comfort care</div>
+                </div>
+              </div>
+            </div>
+          </section>
 
-            <!-- Delete Account -->
-            <section class="glass-card rounded-xl p-6 border-red-200">
-              <h3 class="text-lg font-extrabold mb-3 text-red-600">⚠️ Danger Zone</h3>
-              <p class="text-sm text-slate-500 mb-4">Permanently delete your account and all data.</p>
-              <button id="deleteAccountBtn" class="btn-danger w-full text-sm">Delete Account</button>
-            </section>
+          <!-- Delete Account -->
+          <section class="glass-card rounded-xl p-6 border-red-200">
+            <h3 class="text-lg font-extrabold mb-3 text-red-600">⚠️ Danger Zone</h3>
+            <p class="text-sm text-slate-500 mb-4">Permanently delete your account and all data.</p>
+            <button id="deleteAccountBtn" class="btn-danger w-full text-sm">Delete Account</button>
+          </section>
 
-          </aside>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="glass-card border-t border-slate-200/50 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div>
+          <h4 class="font-bold text-slate-800 mb-3">Privacy & Security</h4>
+          <p class="text-sm text-slate-600">Your medical data is encrypted and stored securely. Only you control access.</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800 mb-3">Medical Disclaimer</h4>
+          <p class="text-sm text-slate-600">This is informational only. Emergency responders must verify all medical information.</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800 mb-3">Support</h4>
+          <p class="text-sm text-slate-600">Need help? Contact our support team 24/7 for assistance.</p>
         </div>
       </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="glass-card border-t border-slate-200/50 mt-16">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h4 class="font-bold text-slate-800 mb-3">Privacy & Security</h4>
-            <p class="text-sm text-slate-600">Your medical data is encrypted and stored securely. Only you control access.</p>
-          </div>
-          <div>
-            <h4 class="font-bold text-slate-800 mb-3">Medical Disclaimer</h4>
-            <p class="text-sm text-slate-600">This is informational only. Emergency responders must verify all medical information.</p>
-          </div>
-          <div>
-            <h4 class="font-bold text-slate-800 mb-3">Support</h4>
-            <p class="text-sm text-slate-600">Need help? Contact our support team 24/7 for assistance.</p>
-          </div>
-        </div>
-      </div>
-    </footer>
-  </div>
+    </div>
+  </footer>
 
   <!-- Delete Account Modal -->
   <div id="deleteModal" class="modal">
@@ -778,7 +732,7 @@
 
   <script>
     // Global state
-    let currentUser = null;
+    let currentUser = { email: 'user@example.com', name: 'User' }; // Simulate logged in user
     let currentLang = 'en';
     let userData = {
       profile: { fullName: '', dateOfBirth: '', country: '', nationalId: '', code: null },
@@ -790,109 +744,9 @@
     // Initialize app
     document.addEventListener('DOMContentLoaded', function() {
       setupEventListeners();
-      
-      // Check if user is already logged in (simulate with localStorage)
-      const savedUser = localStorage.getItem('myqer_user');
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        loadUserData();
-        showDashboard();
-      } else {
-        showLogin();
-      }
-    });
-
-    // Screen management
-    function showLogin() {
-      hideAllScreens();
-      document.getElementById('loginScreen').classList.remove('hidden');
-    }
-
-    function showSignup() {
-      hideAllScreens();
-      document.getElementById('signupScreen').classList.remove('hidden');
-    }
-
-    function showLoading() {
-      hideAllScreens();
-      document.getElementById('loadingScreen').classList.remove('hidden');
-    }
-
-    function showDashboard() {
-      hideAllScreens();
-      document.getElementById('dashboardScreen').classList.remove('hidden');
-      if (currentUser) {
-        document.getElementById('userEmail').textContent = currentUser.email;
-      }
+      loadUserData();
       renderAll();
-    }
-
-    function hideAllScreens() {
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('signupScreen').classList.add('hidden');
-      document.getElementById('loadingScreen').classList.add('hidden');
-      document.getElementById('dashboardScreen').classList.add('hidden');
-    }
-
-    // Authentication functions
-    function login(email, password) {
-      showLoading();
-      
-      // Simulate API call
-      setTimeout(() => {
-        if (email && password) {
-          currentUser = { 
-            id: 'user_' + Date.now(), 
-            email: email, 
-            name: email.split('@')[0] 
-          };
-          localStorage.setItem('myqer_user', JSON.stringify(currentUser));
-          loadUserData();
-          showDashboard();
-          showToast('Welcome back!', 'success');
-        } else {
-          showLogin();
-          showToast('Invalid credentials', 'error');
-        }
-      }, 1500);
-    }
-
-    function signup(name, email, password) {
-      showLoading();
-      
-      // Simulate API call
-      setTimeout(() => {
-        if (name && email && password) {
-          currentUser = { 
-            id: 'user_' + Date.now(), 
-            email: email, 
-            name: name 
-          };
-          userData.profile.fullName = name;
-          localStorage.setItem('myqer_user', JSON.stringify(currentUser));
-          saveUserData();
-          showDashboard();
-          showToast('Account created successfully!', 'success');
-        } else {
-          showSignup();
-          showToast('Please fill all fields', 'error');
-        }
-      }, 1500);
-    }
-
-    function logout() {
-      localStorage.removeItem('myqer_user');
-      localStorage.removeItem('myqer_data');
-      currentUser = null;
-      userData = {
-        profile: { fullName: '', dateOfBirth: '', country: '', nationalId: '', code: null },
-        health: { bloodType: '', organDonor: '', allergies: '', conditions: '', medications: '', lifeSupportPref: '' },
-        contacts: [],
-        triageOverride: ''
-      };
-      showLogin();
-      showToast('Logged out successfully', 'success');
-    }
+    });
 
     // Data management
     function loadUserData() {
@@ -906,14 +760,25 @@
       localStorage.setItem('myqer_data', JSON.stringify(userData));
     }
 
+    // Check if profile is complete enough to generate code
+    function isProfileComplete() {
+      return !!(userData.profile.fullName && userData.profile.dateOfBirth && userData.profile.country);
+    }
+
     // Render functions
     function renderProfile() {
       document.getElementById('fullName').value = userData.profile.fullName || '';
       document.getElementById('dateOfBirth').value = userData.profile.dateOfBirth || '';
       document.getElementById('country').value = userData.profile.country || '';
       document.getElementById('nationalId').value = userData.profile.nationalId || '';
-      document.getElementById('cardCode').textContent = userData.profile.code || '—';
-      document.getElementById('qrCode').textContent = userData.profile.code || '—';
+      
+      // Show/hide generate button based on profile completion
+      const generateSection = document.getElementById('generateSection');
+      if (isProfileComplete() && !userData.profile.code) {
+        generateSection.classList.remove('hidden');
+      } else {
+        generateSection.classList.add('hidden');
+      }
     }
 
     function renderHealth() {
@@ -958,21 +823,55 @@
     }
 
     function renderQR() {
+      const canvas = document.getElementById('qrCanvas');
+      const placeholder = document.getElementById('qrPlaceholder');
+      const codeDisplay = document.getElementById('qrCode');
+      const dataField = document.getElementById('emergencyData');
+      
       if (!userData.profile.code) {
-        const ctx = document.getElementById('qrCanvas').getContext('2d');
-        ctx.clearRect(0, 0, 180, 180);
-        document.getElementById('emergencyData').value = '';
+        // Show placeholder
+        canvas.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        codeDisplay.textContent = '—';
+        dataField.value = '';
         return;
       }
       
-      const emergencyData = generateEmergencyData();
-      document.getElementById('emergencyData').value = emergencyData;
+      // Hide placeholder, show canvas
+      placeholder.classList.add('hidden');
+      canvas.classList.remove('hidden');
+      codeDisplay.textContent = userData.profile.code;
       
-      QRCode.toCanvas(document.getElementById('qrCanvas'), emergencyData, { 
-        width: 180, 
-        margin: 2,
-        errorCorrectionLevel: 'M'
-      });
+      try {
+        const emergencyData = generateEmergencyData();
+        dataField.value = emergencyData;
+        
+        // Generate QR code using the correct API
+        QRCode.toCanvas(canvas, emergencyData, { 
+          width: 180, 
+          margin: 2,
+          errorCorrectionLevel: 'M',
+          color: {
+            dark: '#1e293b',
+            light: '#ffffff'
+          }
+        }, function(error) {
+          if (error) {
+            console.error('QR Code generation failed:', error);
+            showToast('QR code generation failed', 'error');
+            // Show error in canvas
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 180, 180);
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('QR Error', 90, 90);
+          }
+        });
+      } catch (error) {
+        console.error('QR rendering error:', error);
+        showToast('QR code rendering failed', 'error');
+      }
     }
 
     function renderAll() {
@@ -1019,6 +918,11 @@
     }
 
     function generateCode() {
+      if (!isProfileComplete()) {
+        showToast('Please complete your profile first', 'warning');
+        return;
+      }
+      
       if (userData.profile.code) {
         showToast('Code already exists', 'warning');
         return;
@@ -1028,7 +932,7 @@
       saveUserData();
       renderProfile();
       renderQR();
-      showToast('Emergency code generated', 'success');
+      showToast('Emergency code generated successfully!', 'success');
     }
 
     function addContact() {
@@ -1052,7 +956,7 @@
       }
     }
 
-    // Multi-language voice synthesis
+    // Multi-language voice synthesis with gentle female voice
     function speakEmergencySummary() {
       if (!('speechSynthesis' in window)) {
         showToast('Speech synthesis not supported', 'warning');
@@ -1068,15 +972,20 @@
       const medications = userData.health.medications || 'None listed';
       
       const summaries = {
-        en: `Emergency summary for ${name}. Blood type: ${blood}. Allergies: ${allergies}. Conditions: ${conditions}. Current medications: ${medications}.`,
-        es: `Resumen de emergencia para ${name}. Tipo de sangre: ${blood}. Alergias: ${allergies}. Condiciones: ${conditions}. Medicamentos actuales: ${medications}.`,
-        fr: `Résumé d'urgence pour ${name}. Groupe sanguin: ${blood}. Allergies: ${allergies}. Conditions: ${conditions}. Médicaments actuels: ${medications}.`,
-        de: `Notfallzusammenfassung für ${name}. Blutgruppe: ${blood}. Allergien: ${allergies}. Erkrankungen: ${conditions}. Aktuelle Medikamente: ${medications}.`,
-        it: `Riassunto di emergenza per ${name}. Gruppo sanguigno: ${blood}. Allergie: ${allergies}. Condizioni: ${conditions}. Farmaci attuali: ${medications}.`
+        en: `Hello, this is an emergency summary for ${name}. Blood type is ${blood}. Known allergies include ${allergies}. Medical conditions are ${conditions}. Current medications are ${medications}. Please provide appropriate care.`,
+        es: `Hola, este es un resumen de emergencia para ${name}. El tipo de sangre es ${blood}. Las alergias conocidas incluyen ${allergies}. Las condiciones médicas son ${conditions}. Los medicamentos actuales son ${medications}. Por favor proporcione atención apropiada.`,
+        fr: `Bonjour, ceci est un résumé d'urgence pour ${name}. Le groupe sanguin est ${blood}. Les allergies connues incluent ${allergies}. Les conditions médicales sont ${conditions}. Les médicaments actuels sont ${medications}. Veuillez fournir des soins appropriés.`,
+        de: `Hallo, dies ist eine Notfallzusammenfassung für ${name}. Die Blutgruppe ist ${blood}. Bekannte Allergien umfassen ${allergies}. Medizinische Bedingungen sind ${conditions}. Aktuelle Medikamente sind ${medications}. Bitte angemessene Pflege bereitstellen.`,
+        it: `Ciao, questo è un riassunto di emergenza per ${name}. Il gruppo sanguigno è ${blood}. Le allergie note includono ${allergies}. Le condizioni mediche sono ${conditions}. I farmaci attuali sono ${medications}. Si prega di fornire cure appropriate.`
       };
       
       const text = summaries[currentLang] || summaries.en;
       const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Set gentle female voice preferences
+      utterance.rate = 0.8; // Slower, more gentle pace
+      utterance.pitch = 1.1; // Slightly higher pitch for female voice
+      utterance.volume = 0.9;
       
       const langMap = {
         'en': 'en-US', 'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'it': 'it-IT',
@@ -1084,9 +993,24 @@
       };
       
       utterance.lang = langMap[currentLang] || 'en-US';
-      speechSynthesis.speak(utterance);
       
-      showToast('Speaking emergency summary', 'success');
+      // Try to select a female voice if available
+      const voices = speechSynthesis.getVoices();
+      const femaleVoice = voices.find(voice => 
+        voice.lang.startsWith(langMap[currentLang] || 'en') && 
+        (voice.name.toLowerCase().includes('female') || 
+         voice.name.toLowerCase().includes('woman') ||
+         voice.name.toLowerCase().includes('samantha') ||
+         voice.name.toLowerCase().includes('karen') ||
+         voice.name.toLowerCase().includes('susan'))
+      );
+      
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
+      
+      speechSynthesis.speak(utterance);
+      showToast('Speaking emergency summary gently', 'success');
     }
 
     // Toast notification system
@@ -1105,23 +1029,17 @@
 
     // Event listeners setup
     function setupEventListeners() {
-      // Authentication
-      document.getElementById('loginBtn').addEventListener('click', function() {
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        login(email, password);
+      // Logout - redirect to homepage
+      document.getElementById('logoutBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to logout?')) {
+          localStorage.removeItem('myqer_data');
+          showToast('Logged out successfully', 'success');
+          // Redirect to homepage (simulate)
+          setTimeout(() => {
+            window.location.href = '/'; // This would redirect to your homepage
+          }, 1000);
+        }
       });
-
-      document.getElementById('signupBtn').addEventListener('click', function() {
-        const name = document.getElementById('signupName').value;
-        const email = document.getElementById('signupEmail').value;
-        const password = document.getElementById('signupPassword').value;
-        signup(name, email, password);
-      });
-
-      document.getElementById('showSignup').addEventListener('click', showSignup);
-      document.getElementById('showLogin').addEventListener('click', showLogin);
-      document.getElementById('logoutBtn').addEventListener('click', logout);
 
       // Language selector
       document.getElementById('langSelect').addEventListener('change', function(e) {
@@ -1191,6 +1109,7 @@
       document.getElementById('stopSpeakBtn').addEventListener('click', function() {
         if ('speechSynthesis' in window) {
           speechSynthesis.cancel();
+          showToast('Speech stopped', 'success');
         }
       });
 
@@ -1198,15 +1117,26 @@
       document.getElementById('copyData').addEventListener('click', async function() {
         const data = document.getElementById('emergencyData').value;
         if (data) {
-          await navigator.clipboard.writeText(data);
-          showToast('Emergency data copied to clipboard', 'success');
+          try {
+            await navigator.clipboard.writeText(data);
+            showToast('Emergency data copied to clipboard', 'success');
+          } catch (err) {
+            showToast('Failed to copy data', 'error');
+          }
+        } else {
+          showToast('No data to copy', 'warning');
         }
       });
 
       document.getElementById('downloadPNG').addEventListener('click', function() {
+        if (!userData.profile.code) {
+          showToast('Generate a code first', 'warning');
+          return;
+        }
+        
         const canvas = document.getElementById('qrCanvas');
         const link = document.createElement('a');
-        link.download = 'myqer-emergency-qr.png';
+        link.download = `myqer-emergency-${userData.profile.code}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         showToast('PNG downloaded', 'success');
@@ -1221,16 +1151,13 @@
         const canvas = document.getElementById('qrCanvas');
         const dataURL = canvas.toDataURL('image/png');
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#fff">
-              <img src="${dataURL}" style="width:100%;height:100%" />
-            </div>
-          </foreignObject>
+          <rect width="100%" height="100%" fill="white"/>
+          <image href="${dataURL}" x="0" y="0" width="512" height="512"/>
         </svg>`;
         
         const blob = new Blob([svg], { type: 'image/svg+xml' });
         const link = document.createElement('a');
-        link.download = 'myqer-emergency-qr.svg';
+        link.download = `myqer-emergency-${userData.profile.code}.svg`;
         link.href = URL.createObjectURL(blob);
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 1500);
@@ -1243,15 +1170,15 @@
           return;
         }
         
-        const w = window.open('', '_blank', 'width=340,height=420');
-        const code = userData.profile.code || '';
+        const w = window.open('', '_blank', 'width=400,height=500');
+        const code = userData.profile.code;
         const img = document.getElementById('qrCanvas').toDataURL();
         const name = userData.profile.fullName || 'Emergency Contact';
         
         w.document.write(`
           <html>
             <head>
-              <title>Print Emergency QR Code</title>
+              <title>MyQER Emergency Card - ${name}</title>
               <style>
                 body { 
                   font-family: system-ui, -apple-system, sans-serif; 
@@ -1266,45 +1193,73 @@
                   text-align: center;
                   background: rgba(255, 255, 255, 0.95);
                   backdrop-filter: blur(12px);
-                  padding: 24px;
-                  border-radius: 16px;
-                  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-                  border: 1px solid rgba(148, 163, 184, 0.3);
+                  padding: 32px;
+                  border-radius: 20px;
+                  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                  border: 2px solid #c62828;
+                  max-width: 320px;
+                }
+                .logo {
+                  width: 48px;
+                  height: 48px;
+                  background: linear-gradient(135deg, #c62828, #b71c1c);
+                  border-radius: 12px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                  font-size: 24px;
+                  margin: 0 auto 16px;
                 }
                 .qr-img {
-                  width: 260px;
-                  height: 260px;
+                  width: 240px;
+                  height: 240px;
                   border: 2px solid #c62828;
                   border-radius: 12px;
-                  margin-bottom: 16px;
+                  margin: 16px auto;
                 }
                 .code {
                   font-family: monospace;
                   font-size: 18px;
                   font-weight: bold;
-                  margin: 12px 0;
+                  margin: 16px 0;
                   color: #1e293b;
+                  background: #f1f5f9;
+                  padding: 8px 16px;
+                  border-radius: 8px;
                 }
                 .name {
-                  font-size: 16px;
-                  font-weight: 600;
+                  font-size: 20px;
+                  font-weight: 700;
                   color: #374151;
                   margin-bottom: 8px;
                 }
                 .offline {
-                  font-size: 12px;
+                  font-size: 14px;
                   color: #16a34a;
                   font-weight: 600;
-                  margin-top: 8px;
+                  margin-top: 16px;
+                  background: rgba(22, 163, 74, 0.1);
+                  padding: 8px 16px;
+                  border-radius: 20px;
+                }
+                .emergency {
+                  font-size: 16px;
+                  color: #c62828;
+                  font-weight: 600;
+                  margin-bottom: 16px;
                 }
               </style>
             </head>
             <body>
               <div class="card">
+                <div class="logo">Q</div>
+                <div class="emergency">🚨 EMERGENCY MEDICAL CARD</div>
                 <div class="name">${name}</div>
                 <img src="${img}" class="qr-img" alt="Emergency QR Code"/>
                 <div class="code">${code}</div>
-                <div class="offline">✓ Works offline</div>
+                <div class="offline">✓ Works offline • Scan for medical info</div>
               </div>
             </body>
           </html>
@@ -1312,7 +1267,10 @@
         
         w.document.close();
         w.focus();
-        setTimeout(() => w.print(), 500);
+        setTimeout(() => {
+          w.print();
+          showToast('Print dialog opened', 'success');
+        }, 500);
       });
 
       // Delete account
@@ -1332,26 +1290,12 @@
 
       document.getElementById('confirmDelete').addEventListener('click', function() {
         if (confirm('Are you absolutely sure? This cannot be undone.')) {
-          localStorage.removeItem('myqer_user');
           localStorage.removeItem('myqer_data');
           showToast('Account deleted successfully', 'success');
           setTimeout(() => {
             document.getElementById('deleteModal').classList.remove('show');
-            showLogin();
+            window.location.href = '/'; // Redirect to homepage
           }, 2000);
-        }
-      });
-
-      // Enter key support for login/signup
-      document.getElementById('loginPassword').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          document.getElementById('loginBtn').click();
-        }
-      });
-
-      document.getElementById('signupPassword').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          document.getElementById('signupBtn').click();
         }
       });
     }
@@ -1359,5 +1303,5 @@
     // Make removeContact globally accessible
     window.removeContact = removeContact;
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9766ac1de6d6b3b3',t:'MTc1NjQxNDEzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9766cabcb5d163d2',t:'MTc1NjQxNTM5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
