@@ -699,20 +699,25 @@
     }
 
     function renderQR(){
-      const canvas = document.getElementById('qrCanvas');
-      const ctx = canvas.getContext('2d');
-      if(!profile.code){
-        qrStatus.textContent = 'No code yet';
-        ctx.clearRect(0,0,200,200);
-        return;
-      }
-      const url = `${CARD_BASE}?code=${encodeURIComponent(profile.code)}`;
-      qrStatus.textContent = '';
-      QRCode.toCanvas(canvas, url, { width:200, margin:2 }, err=>{
-        if(err){ qrStatus.textContent = 'QR error'; }
-      });
-    }
+  if(!profile.code){
+    qrStatus.textContent = 'No code yet';
+    const ctx = document.getElementById('qrCanvas').getContext('2d');
+    ctx.clearRect(0,0,200,200);
+    return;
+  }
+  const url = `${location.origin}/functions/v1/card?code=${encodeURIComponent(profile.code)}`;
+  qrStatus.textContent = '';
 
+  // ✅ Safe QR code rendering
+  const QR = window.QRCode;
+  if (!QR) { 
+    qrStatus.textContent = 'QR library not loaded'; 
+    return; 
+  }
+  QR.toCanvas(document.getElementById('qrCanvas'), url, { width:200, margin:2 }, err=>{
+    if(err){ qrStatus.textContent = 'QR error'; }
+  });
+}
     // ---- data I/O ----
     async function ensureSession(){
       const { data:{ session:s } } = await sb.auth.getSession();
