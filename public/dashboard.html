@@ -1921,283 +1921,208 @@
           showToast(t('speech_stopped'), 'success');
         }
       });
-// Generate hybrid QR payload
-    function generateHybridQRPayload() {
-      const name = demoData.profile.fullName || '';
-      const dob = demoData.profile.dateOfBirth || '';
-      const blood = demoData.health.bloodType || '';
-      const allergies = demoData.health.allergies || '';
-      const conditions = demoData.health.conditions || '';
-      const medications = demoData.health.medications || '';
-      const organDonor = demoData.health.organDonor === 'yes' ? 'Yes' : '';
-      
-      // Get first ICE contact
-      const firstContact = demoData.contacts.length > 0 ? 
-        `${demoData.contacts[0].name} (${demoData.contacts[0].phone})` : '';
-      
-      // Format date nicely
-      let formattedDob = dob;
-      if (dob) {
-        try {
-          const date = new Date(dob);
-          formattedDob = date.toLocaleDateString('en-GB', { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
-          });
-        } catch (e) {
-          formattedDob = dob;
-        }
-      }
-      
-      // Limit medications to first 2
-      let shortMeds = medications;
-      if (medications) {
-        const medList = medications.split(',').map(m => m.trim()).filter(m => m);
-        if (medList.length > 2) {
-          shortMeds = medList.slice(0, 2).join(', ') + ' + more';
-        }
-      }
-      
-      // Build compact payload
-      const parts = [];
-      if (name) parts.push(`Name: ${name}`);
-      if (formattedDob) parts.push(`DOB: ${formattedDob}`);
-      if (blood) parts.push(`Blood: ${blood}`);
-      if (allergies) parts.push(`Allergies: ${allergies}`);
-      if (conditions) parts.push(`Conditions: ${conditions}`);
-      if (shortMeds) parts.push(`Meds: ${shortMeds}`);
-      if (organDonor) parts.push(`Organ Donor: ${organDonor}`);
-      if (firstContact) parts.push(`ICE: ${firstContact}`);
-      
-      const essentials = parts.join(' | ');
-      const link = `https://myqer.com/card.html?code=${demoData.profile.code}`;
-      
-      return `${essentials} | Link: ${link}`;
-    }
 
-    // Debug status updater
-    function updateDebugStatus() {
-      const libStatus = document.getElementById('libStatus');
-      const canvasStatus = document.getElementById('canvasStatus');
-      const genStatus = document.getElementById('genStatus');
-      
-      // Check QRCode library
-      if (typeof QRCode !== 'undefined') {
-        libStatus.textContent = '✅ Loaded';
-        libStatus.className = 'text-green-600 font-bold';
-      } else {
-        libStatus.textContent = '❌ Missing';
-        libStatus.className = 'text-red-600 font-bold';
-      }
-      
-      // Check canvas
-      const canvas = document.getElementById('qrCanvas');
-      if (canvas) {
-        canvasStatus.textContent = '✅ Found';
-        canvasStatus.className = 'text-green-600 font-bold';
-      } else {
-        canvasStatus.textContent = '❌ Missing';
-        canvasStatus.className = 'text-red-600 font-bold';
-      }
-    }
-
-    // Test QR generation function
-    function testQRGeneration() {
-      const genStatus = document.getElementById('genStatus');
-      const canvas = document.getElementById('qrCanvas');
-      
-      console.log('🧪 Testing QR generation...');
-      genStatus.textContent = '🔄 Testing...';
-      genStatus.className = 'text-blue-600 font-bold';
-      
-      if (!canvas) {
-        genStatus.textContent = '❌ No Canvas';
-        genStatus.className = 'text-red-600 font-bold';
-        return;
-      }
-      
-      if (typeof QRCode === 'undefined') {
-        genStatus.textContent = '❌ No Library';
-        genStatus.className = 'text-red-600 font-bold';
-        // Try manual QR creation
-        createManualQR();
-        return;
-      }
-      
-      // Clear canvas first
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, 200, 200);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 200, 200);
-      
-      // Test with simple text first
-      const testText = 'MYQER-CJ00FTX';
-      
-      try {
-        QRCode.toCanvas(canvas, testText, { 
-          width: 200, 
-          margin: 2,
-          errorCorrectionLevel: 'L',
-          color: {
-            dark: '#000000',
-            light: '#ffffff'
+      // QR actions
+      document.getElementById('copyData').addEventListener('click', async function() {
+        const hybridPayload = generateHybridQRPayload();
+        if (hybridPayload) {
+          try {
+            await navigator.clipboard.writeText(hybridPayload);
+            showToast('Hybrid emergency data copied to clipboard', 'success');
+          } catch (err) {
+            showToast('Failed to copy data', 'error');
           }
-        }, function(error) {
-          if (error) {
-            console.error('❌ Test QR failed:', error);
-            genStatus.textContent = '❌ Failed: ' + error.message;
-            genStatus.className = 'text-red-600 font-bold';
-            
-            // Try manual QR creation as fallback
-            createManualQR();
-          } else {
-            console.log('✅ Test QR generated!');
-            genStatus.textContent = '✅ Success!';
-            genStatus.className = 'text-green-600 font-bold';
-            showToast('Test QR generated successfully!', 'success');
-            
-            // Now try the real payload
-            setTimeout(() => {
-              generateRealQR();
-            }, 2000);
-          }
-        });
-      } catch (e) {
-        console.error('❌ QRCode.toCanvas threw error:', e);
-        genStatus.textContent = '❌ Exception: ' + e.message;
-        genStatus.className = 'text-red-600 font-bold';
-        createManualQR();
-      }
-    }
-
-    // Manual QR creation as fallback
-    function createManualQR() {
-      const canvas = document.getElementById('qrCanvas');
-      const ctx = canvas.getContext('2d');
-      const genStatus = document.getElementById('genStatus');
-      
-      console.log('🎨 Creating manual QR pattern...');
-      genStatus.textContent = '🎨 Manual QR...';
-      genStatus.className = 'text-purple-600 font-bold';
-      
-      // Clear canvas
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 200, 200);
-      
-      // Create a simple QR-like pattern
-      ctx.fillStyle = 'black';
-      const size = 8; // Size of each "pixel"
-      const pattern = [
-        [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1,0,1,0,0,0,1,0,1,1,1,0,1],
-        [1,0,0,0,0,0,1,0,1,1,0,1,1,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],
-        [0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0],
-        [1,0,1,1,0,1,1,1,0,0,1,0,1,1,0,1,1,0,1],
-        [0,1,0,0,1,0,0,0,1,1,0,1,0,0,1,0,0,1,0],
-        [1,1,1,0,0,1,1,1,1,0,1,0,1,1,1,0,0,1,1],
-        [0,0,0,1,1,0,0,0,0,1,0,1,0,0,0,1,1,0,0],
-        [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1,0,1,0,0,0,1,0,1,1,1,0,1],
-        [1,0,0,0,0,0,1,0,1,1,0,1,1,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1]
-      ];
-      
-      const startX = (200 - pattern[0].length * size) / 2;
-      const startY = (200 - pattern.length * size) / 2;
-      
-      for (let row = 0; row < pattern.length; row++) {
-        for (let col = 0; col < pattern[row].length; col++) {
-          if (pattern[row][col] === 1) {
-            ctx.fillRect(
-              startX + col * size, 
-              startY + row * size, 
-              size, 
-              size
-            );
-          }
-        }
-      }
-      
-      genStatus.textContent = '✅ Manual QR Created!';
-      genStatus.className = 'text-green-600 font-bold';
-      showToast('✅ QR Code Created: MYQER-CJ00FTX', 'success');
-    }
-
-    // Generate real QR with hybrid payload
-    function generateRealQR() {
-      const canvas = document.getElementById('qrCanvas');
-      const genStatus = document.getElementById('genStatus');
-      
-      console.log('🔄 Generating real QR...');
-      genStatus.textContent = '🔄 Real QR...';
-      genStatus.className = 'text-blue-600 font-bold';
-      
-      const hybridPayload = generateHybridQRPayload();
-      console.log('📝 Hybrid payload length:', hybridPayload.length);
-      console.log('📝 Payload:', hybridPayload);
-      
-      QRCode.toCanvas(canvas, hybridPayload, { 
-        width: 200, 
-        margin: 3,
-        errorCorrectionLevel: 'M',
-        color: {
-          dark: '#1e293b',
-          light: '#ffffff'
-        }
-      }, function(error) {
-        if (error) {
-          console.error('❌ Real QR failed:', error);
-          genStatus.textContent = '❌ Real QR Failed';
-          genStatus.className = 'text-red-600 font-bold';
-          showToast('Real QR failed: ' + error.message, 'error');
         } else {
-          console.log('✅ Real QR generated!');
-          genStatus.textContent = '✅ Real QR Success!';
-          genStatus.className = 'text-green-600 font-bold';
-          showToast('✅ Hybrid QR Generated: MYQER-CJ00FTX', 'success');
+          showToast('No emergency code generated yet', 'warning');
         }
       });
-    }
 
-    // Generate QR code on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('🔄 Starting QR debug system...');
-      
-      // Update debug status
-      setTimeout(updateDebugStatus, 100);
-      
-      // Add test button listener
-      document.getElementById('testQR').addEventListener('click', testQRGeneration);
-      
-      // Auto-test after 1 second
-      setTimeout(() => {
-        console.log('🔄 Auto-testing QR generation...');
-        testQRGeneration();
-      }, 1000);
-    });
+      document.getElementById('downloadPNG').addEventListener('click', function() {
+        if (!userData.profile.code) {
+          showToast('Generate a code first', 'warning');
+          return;
+        }
+        
+        const canvas = document.getElementById('qrCanvas');
+        const link = document.createElement('a');
+        link.download = `myqer-emergency-${userData.profile.code}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('PNG downloaded', 'success');
+      });
 
-    // Toast notification system
-    function showToast(message, type = 'success') {
-      const toast = document.createElement('div');
-      toast.className = `toast toast-${type}`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-      
-      setTimeout(() => toast.classList.add('show'), 100);
-      setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => document.body.removeChild(toast), 300);
-      }, 4000);
-    }
-  </script>
+      document.getElementById('downloadSVG').addEventListener('click', function() {
+        if (!userData.profile.code) {
+          showToast('Generate a code first', 'warning');
+          return;
+        }
+        
+        const canvas = document.getElementById('qrCanvas');
+        const dataURL = canvas.toDataURL('image/png');
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+          <rect width="100%" height="100%" fill="white"/>
+          <image href="${dataURL}" x="0" y="0" width="512" height="512"/>
+        </svg>`;
+        
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const link = document.createElement('a');
+        link.download = `myqer-emergency-${userData.profile.code}.svg`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+        showToast('SVG downloaded', 'success');
+      });
+
+      document.getElementById('printCard').addEventListener('click', function() {
+        if (!userData.profile.code) {
+          showToast('Generate a code first', 'warning');
+          return;
+        }
+        
+        const w = window.open('', '_blank', 'width=400,height=500');
+        const code = userData.profile.code;
+        const img = document.getElementById('qrCanvas').toDataURL();
+        const name = userData.profile.fullName || 'Emergency Contact';
+        const triage = computeTriage().toUpperCase();
+        const triageColor = {
+          'GREEN': '#16a34a',
+          'YELLOW': '#f59e0b', 
+          'AMBER': '#f59e0b',
+          'RED': '#ef4444',
+          'BLACK': '#111827'
+        }[triage] || '#16a34a';
+        
+        w.document.write(`
+          <html>
+            <head>
+              <title>MYQER™ Emergency Card - ${name}</title>
+              <style>
+                @media print {
+                  body { margin: 0; }
+                  .card { 
+                    box-shadow: none !important; 
+                    border: 2px solid #dc2626 !important;
+                    page-break-inside: avoid;
+                  }
+                  .qr-img { 
+                    width: 240px !important; 
+                    height: 240px !important; 
+                  }
+                }
+                body { 
+                  font-family: system-ui, -apple-system, sans-serif; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center; 
+                  height: 100vh; 
+                  margin: 0; 
+                  background: linear-gradient(to bottom right, #f8fafc, #f1f5f9);
+                }
+                .card {
+                  text-align: center;
+                  background: rgba(255, 255, 255, 0.95);
+                  backdrop-filter: blur(12px);
+                  padding: 32px;
+                  border-radius: 20px;
+                  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                  border: 2px solid #dc2626;
+                  max-width: 320px;
+                }
+                .logo {
+                  font-family: system-ui, -apple-system, sans-serif;
+                  font-weight: 800;
+                  font-size: 2rem;
+                  letter-spacing: -0.025em;
+                  margin-bottom: 8px;
+                }
+                .logo .myq { color: #000000; }
+                .logo .er { color: #dc2626; }
+                .logo .tm { 
+                  font-size: 0.75rem; 
+                  color: #64748b; 
+                  vertical-align: super; 
+                  margin-left: 2px;
+                }
+                .tagline {
+                  font-size: 0.75rem;
+                  color: #64748b;
+                  margin-bottom: 16px;
+                }
+                .qr-img {
+                  width: 240px;
+                  height: 240px;
+                  border: 2px solid #dc2626;
+                  border-radius: 12px;
+                  margin: 16px auto;
+                  display: block;
+                }
+                .code {
+                  font-family: monospace;
+                  font-size: 18px;
+                  font-weight: bold;
+                  margin: 16px 0;
+                  color: #1e293b;
+                  background: #f1f5f9;
+                  padding: 8px 16px;
+                  border-radius: 8px;
+                }
+                .name {
+                  font-size: 20px;
+                  font-weight: 700;
+                  color: #374151;
+                  margin-bottom: 8px;
+                }
+                .triage {
+                  font-size: 14px;
+                  font-weight: 700;
+                  color: ${triageColor};
+                  background: rgba(${triageColor === '#16a34a' ? '22, 163, 74' : triageColor === '#f59e0b' ? '245, 158, 11' : triageColor === '#ef4444' ? '239, 68, 68' : '17, 24, 39'}, 0.1);
+                  padding: 6px 12px;
+                  border-radius: 20px;
+                  margin-bottom: 16px;
+                  display: inline-block;
+                }
+                .offline {
+                  font-size: 14px;
+                  color: #16a34a;
+                  font-weight: 600;
+                  margin-top: 16px;
+                  background: rgba(22, 163, 74, 0.1);
+                  padding: 8px 16px;
+                  border-radius: 20px;
+                }
+                .emergency {
+                  font-size: 16px;
+                  color: #dc2626;
+                  font-weight: 600;
+                  margin-bottom: 16px;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <div class="logo">
+                  <span class="myq">MYQ</span><span class="er">ER</span><span class="tm">™</span>
+                </div>
+                <div class="tagline">pronounced "My Care"</div>
+                <div class="emergency">🚨 EMERGENCY MEDICAL CARD</div>
+                <div class="name">${name}</div>
+                <div class="triage">TRIAGE: ${triage}</div>
+                <img src="${img}" class="qr-img" alt="Emergency QR Code"/>
+                <div class="code">${code}</div>
+                <div class="offline">✓ Works offline • Scan for medical info</div>
+              </div>
+            </body>
+          </html>
+        `);
+        
+        w.document.close();
+        w.focus();
+        setTimeout(() => {
+          w.print();
+          showToast('Print dialog opened', 'success');
+        }, 500);
+      });
 
       // Delete account
       document.getElementById('deleteAccountBtn').addEventListener('click', function() {
