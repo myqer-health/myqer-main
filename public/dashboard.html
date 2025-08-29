@@ -2,1102 +2,564 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MYQER™ — Emergency Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MYQER™ – Emergency Dashboard</title>
 
   <!-- Libs -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter','system-ui','-apple-system','Segoe UI','sans-serif'] },
+          colors: {
+            brand: '#0f172a',
+            identity: '#16a34a',
+            critical: '#dc2626',
+            triage: '#64748b',
+            ice: '#ea580c',
+            vault: '#7c3aed',
+            qr: '#f59e0b'
+          },
+          boxShadow: {
+            glass: '0 20px 50px rgba(16,24,40,.08), 0 8px 16px rgba(16,24,40,.04)'
+          }
+        }
+      }
+    }
+  </script>
 
   <style>
-    :root{
-      --lux-shadow:0 20px 50px rgba(16,24,40,.08),0 8px 16px rgba(16,24,40,.04);
-      --lux-shadow-hover:0 32px 64px rgba(16,24,40,.12),0 16px 24px rgba(16,24,40,.06);
-    }
-    *{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-    body{background:linear-gradient(135deg,#f8fafc, #f1f5f9); font-size:14px; font-weight:500; line-height:1.5}
-
-    .card{background:rgba(255,255,255,.92); backdrop-filter:blur(20px); border-radius:24px; box-shadow:var(--lux-shadow); border:1px solid rgba(148,163,184,.2); padding:32px; transition:.35s cubic-bezier(.4,0,.2,1)}
-    .card:hover{box-shadow:var(--lux-shadow-hover); transform:translateY(-2px)}
-    @media(max-width:768px){.card{border-radius:20px; padding:24px}}
-
-    .ribbon{position:absolute; inset:0 auto auto 0; height:5px; border-radius:24px 24px 0 0}
-    @media(max-width:768px){.ribbon{border-radius:20px 20px 0 0}}
-    .ribbon-identity{background:#16a34a}
-    .ribbon-critical{background:#dc2626}
-    .ribbon-ice{background:#ea580c}
-    .ribbon-triage{background:#64748b}
-    .ribbon-vault{background:#7c3aed}
-    .ribbon-qr{background:#f59e0b}
-    .ribbon-danger{background:#dc2626}
-
-    .input-field{padding:14px 16px; border-radius:10px; border:1.5px solid #e2e8f0; background:#fff; font-weight:600; width:100%; box-shadow:0 1px 3px rgba(0,0,0,.05); transition:.25s}
-    .input-field:focus{outline:none; border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.12), 0 1px 3px rgba(0,0,0,.1); transform:translateY(-1px)}
-    .field-pair{display:grid; grid-template-columns:1fr 1fr; gap:24px}
-    @media(max-width:640px){.field-pair{grid-template-columns:1fr; gap:16px}}
-    .label{font-size:12px; font-weight:800; color:#475569; margin-bottom:8px; letter-spacing:.6px; text-transform:uppercase}
-    .helper-text{font-size:12px; color:#64748b; margin-top:6px}
-    .card-helper{font-size:13px; color:#64748b; margin-top:20px; padding-top:16px; border-top:1px solid #f1f5f9}
-
-    .btn-primary{background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; font-weight:800; padding:14px 22px; border-radius:12px; box-shadow:0 6px 14px rgba(220,38,38,.3); transition:.25s}
-    .btn-primary:hover{transform:translateY(-2px); box-shadow:0 12px 24px rgba(220,38,38,.4); filter:saturate(1.1)}
-    .btn-secondary{background:#fff; color:#0f172a; border:1.5px solid #e2e8f0; font-weight:700; padding:12px 18px; border-radius:12px; transition:.25s}
-    .btn-secondary:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.08)}
-
-    .btn-danger{background:linear-gradient(135deg,#dc2626,#991b1b); color:#fff; font-weight:800; padding:16px 22px; border-radius:14px; box-shadow:0 10px 24px rgba(220,38,38,.32); transition:.25s}
-
-    .triage-pill{display:inline-block; padding:10px 24px; border-radius:999px; font-weight:900; letter-spacing:.8px; box-shadow:0 6px 14px rgba(0,0,0,.15)}
-    .triage-green{background:#22c55e; color:#fff}
-    .triage-yellow{background:#f59e0b; color:#fff}
-    .triage-red{background:#ef4444; color:#fff}
-    .triage-black{background:#1f2937; color:#fff}
-
-    .status-dot{width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:10px; box-shadow:0 0 8px rgba(0,0,0,.3)}
-    .status-online{background:#22c55e}
-    .status-offline{background:#ef4444}
-    .status-hybrid{background:#f59e0b}
-
-    .saved-indicator,.auto-saved{font-size:12px; font-weight:700; opacity:0; transition:.25s}
-    .saved-indicator{color:#22c55e} .auto-saved{color:#64748b}
-    .saved-indicator.show,.auto-saved.show{opacity:1}
-
-    .qr-container{width:200px; height:200px; border-radius:16px; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; background:#fff; border:2px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08)}
-
-    .grid-layout{display:grid; grid-template-columns:2fr 1fr; gap:32px; max-width:1400px; margin:0 auto}
-    @media(max-width:1024px){.grid-layout{grid-template-columns:1fr; gap:24px}}
-
-    .danger-zone-card{width:80%; margin:0 auto}
-    @media(max-width:1024px){.danger-zone-card{width:100%}}
-
-    .toast{position:fixed; top:24px; right:24px; padding:14px 18px; border-radius:12px; font-weight:800; z-index:1000; transform:translateX(120%); transition:.35s}
-    .toast.show{transform:translateX(0)}
-    .toast.success{background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff}
-    .toast.warning{background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff}
-    .toast.error{background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff}
-
-    .remember-toggle{display:flex; align-items:center; gap:10px; font-size:12px; color:#64748b}
-    .toggle-switch{position:relative; width:44px; height:24px; background:#cbd5e1; border-radius:12px; cursor:pointer; transition:.25s}
-    .toggle-switch.active{background:#22c55e}
-    .toggle-switch::after{content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.25s; box-shadow:0 2px 4px rgba(0,0,0,.2)}
-    .toggle-switch.active::after{transform:translateX(20px)}
-
-    .modal{position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; visibility:hidden; transition:.35s; backdrop-filter:blur(8px)}
-    .modal.show{opacity:1; visibility:visible}
-    .modal-content{background:#fff; border-radius:24px; padding:36px; max-width:520px; margin:20px; box-shadow:0 32px 80px rgba(0,0,0,.3); transform:translateY(16px) scale(.98); transition:.35s}
-    .modal.show .modal-content{transform:translateY(0) scale(1)}
-
-    .revoked-banner{background:linear-gradient(135deg,#fef2f2,#fecaca); border:1px solid #fca5a5; border-radius:12px; padding:16px; margin-bottom:16px; text-align:center}
-    .country-dropdown{position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 12px 24px rgba(0,0,0,.12); max-height:220px; overflow-y:auto; z-index:50; display:none}
-    .country-option{padding:12px 14px; cursor:pointer}
-    .country-option:hover{background:#f8fafc}
-    .country-option.popular{background:#f0f9ff; border-bottom:1px solid #e0f2fe}
-
-    /* Print mini-card */
-    @media print{body *{visibility:hidden} .print-card,.print-card *{visibility:visible} .print-card{position:absolute; left:0; top:0; width:100%; height:100%; background:#fff; padding:40px; box-sizing:border-box}}
-    .print-card{max-width:420px; margin:0 auto; background:#fff; border:3px solid #dc2626; border-radius:16px; padding:28px; text-align:center}
-    .print-card h1{color:#dc2626; font-size:28px; font-weight:900; margin:0 0 6px}
-    .print-card .subtitle{color:#475569; font-weight:700; margin:0 0 18px}
+    :root{--ring:rgba(220,38,38,.15)}
+    *{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    body{background:linear-gradient(135deg,#f8fafc,#eef2f7)}
+    .card{background:rgba(255,255,255,.92);backdrop-filter:blur(18px);border:1px solid rgba(148,163,184,.25);border-radius:24px;box-shadow:var(--glass,0 20px 50px rgba(16,24,40,.08));padding:28px}
+    .ribbon{height:6px;border-radius:20px 20px 0 0;margin:-28px -28px 20px}
+    .r-identity{background:#16a34a}.r-critical{background:#dc2626}.r-ice{background:#ea580c}.r-triage{background:#64748b}.r-vault{background:#7c3aed}.r-qr{background:#f59e0b}.r-danger{background:#dc2626}
+    .label{font-size:.8rem;font-weight:800;letter-spacing:.06em;color:#475569;text-transform:uppercase;margin-bottom:.4rem}
+    .input{border:1.5px solid #e2e8f0;border-radius:.6rem;padding:.7rem .85rem;background:#fff;transition:box-shadow .2s,border-color .2s;width:100%}
+    .input:focus{outline:none;border-color:#dc2626;box-shadow:0 0 0 3px var(--ring)}
+    .btn{border-radius:.65rem;padding:.7rem 1rem;font-weight:700;transition:transform .15s,box-shadow .15s}
+    .btn-primary{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;box-shadow:0 6px 16px rgba(220,38,38,.28)}
+    .btn-primary:hover{transform:translateY(-1px)}
+    .btn-muted{background:#fff;border:1.5px solid #e2e8f0;color:#334155}
+    .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+    .pill{display:inline-block;border-radius:9999px;padding:.35rem .9rem;font-weight:800;border:2px solid}
+    .pill-green{background:#ecfdf5;border-color:#10b981;color:#047857}
+    .pill-amber{background:#fffbeb;border-color:#f59e0b;color:#b45309}
+    .pill-red{background:#fef2f2;border-color:#ef4444;color:#b91c1c}
+    .pill-black{background:#f3f4f6;border-color:#111827;color:#111827}
+    .qr-wrap{width:216px;height:216px;border-radius:1rem;border:2px solid #e5e7eb;background:#fff;display:grid;place-items:center;box-shadow:0 0 0 2px #f59e0b22,0 12px 24px rgba(0,0,0,.06)}
+    .qr-placeholder{width:184px;height:184px;border:2px dashed #cbd5e1;border-radius:.75rem;display:grid;place-items:center;color:#64748b}
+    .toast{position:fixed;top:20px;right:20px;padding:12px 16px;border-radius:12px;color:#fff;font-weight:700;transform:translateX(120%);transition:transform .3s;z-index:1000}
+    .toast.show{transform:translateX(0)}.t-ok{background:linear-gradient(135deg,#16a34a,#15803d)}.t-warn{background:linear-gradient(135deg,#f59e0b,#d97706)}.t-err{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+    .toggle{width:46px;height:26px;border-radius:9999px;position:relative;background:#cbd5e1;cursor:pointer}
+    .toggle.active{background:#22c55e}.toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:9999px;transition:transform .2s}.toggle.active::after{transform:translateX(20px)}
+    .print-card{max-width:380px;margin:0 auto;border:3px solid #dc2626;border-radius:16px;padding:26px;text-align:center}
+    @media print{body *{visibility:hidden}.print-card,.print-card *{visibility:visible}.print-card{position:absolute;inset:0;margin:auto}}
   </style>
 </head>
-<body>
+<body class="min-h-screen">
+
   <!-- Header -->
-  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
-    <div class="max-w-[1400px] mx-auto px-6 py-4">
-      <div class="flex items-center justify-between">
-        <!-- Brand -->
-        <div class="flex items-center gap-4">
-          <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">
-            MYQ<span class="text-red-600">ER</span><span class="text-xs align-top text-slate-500">™</span>
-          </h1>
-          <span class="text-slate-500 text-xs font-semibold hidden md:inline">pronounced: “my care”</span>
-          <span class="hidden md:inline text-slate-600 font-semibold">• Emergency Dashboard</span>
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="text-2xl font-extrabold text-slate-900 tracking-tight">
+          MYQ<span class="text-red-600">ER</span><span class="text-xs align-top text-slate-400 font-black">™</span>
+        </div>
+        <div class="text-slate-700 font-semibold">Emergency Dashboard</div>
+        <div class="text-slate-500 text-sm">pronounced: “<em>my care</em>”</div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow" id="statusDot"></span>
+          <span class="text-sm text-slate-600" id="statusText">Online</span>
         </div>
 
-        <!-- Status -->
-        <div class="flex items-center">
-          <span id="statusDot" class="status-dot status-online"></span>
-          <span id="statusText" class="text-sm text-slate-600 font-semibold">Online</span>
-        </div>
+        <select id="languageSelect" class="input text-sm !py-1.5 !px-2 w-auto">
+          <option value="en">🇺🇸 English</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="pt">🇵🇹 Português</option>
+          <option value="ro">🇷🇴 Română</option>
+          <option value="ar">🇸🇦 العربية</option>
+          <option value="hi">🇮🇳 हिन्दी</option>
+          <option value="zh">🇨🇳 中文</option>
+        </select>
 
-        <!-- Controls -->
-        <div class="flex items-center gap-3">
-          <select id="languageSelect" class="input-field text-sm py-2 px-3 w-auto">
-            <option value="en">🇺🇸 English</option>
-            <option value="es">🇪🇸 Español</option>
-            <option value="fr">🇫🇷 Français</option>
-            <option value="de">🇩🇪 Deutsch</option>
-            <option value="it">🇮🇹 Italiano</option>
-            <option value="pt">🇵🇹 Português</option>
-            <option value="ro">🇷🇴 Română</option>
-            <option value="ar">🇸🇦 العربية</option>
-            <option value="hi">🇮🇳 हिन्दी</option>
-            <option value="zh">🇨🇳 中文</option>
-          </select>
-
-          <div class="hidden md:flex flex-col items-end">
-            <div id="userEmail" class="text-sm text-slate-700 font-semibold">Loading…</div>
-            <div class="remember-toggle">
-              <span>Remember me</span>
-              <div id="rememberToggle" class="toggle-switch active" onclick="toggleRememberMe()"></div>
-            </div>
+        <div class="hidden sm:flex flex-col items-end">
+          <div class="text-sm text-slate-700 font-medium" id="userEmail">Loading…</div>
+          <div class="flex items-center gap-2 text-xs text-slate-500">
+            <span>Remember me</span>
+            <div id="rememberToggle" class="toggle active"></div>
           </div>
-
-          <button class="btn-primary" onclick="logout()">🚪 Logout</button>
         </div>
+
+        <button id="logoutBtn" class="btn btn-muted">🚪 Logout</button>
       </div>
     </div>
   </header>
 
   <!-- Main -->
-  <main class="max-w-[1400px] mx-auto px-6 py-8">
-    <div class="grid-layout">
-      <!-- LEFT column -->
-      <div class="flex flex-col gap-8">
+  <main class="max-w-7xl mx-auto px-5 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- LEFT: content -->
+    <div class="lg:col-span-2 space-y-8">
 
-        <!-- IDENTITY -->
-        <section class="card relative">
-          <div class="ribbon ribbon-identity"></div>
-          <div class="flex items-start justify-between mb-6">
-            <div>
-              <h2 class="text-lg font-extrabold">Identity Profile</h2>
-              <p class="helper-text">Used to identify you and help responders reach your care team.</p>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-              <span id="identitySaved" class="saved-indicator">✓ Saved just now</span>
-              <span id="identityAutoSaved" class="auto-saved">✓ Saved just now</span>
-            </div>
+      <!-- Identity -->
+      <section class="card">
+        <div class="ribbon r-identity"></div>
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">Identity Profile</h2>
+            <p class="text-sm text-slate-500">Used across global systems to confirm who you are.</p>
+          </div>
+          <div id="identitySaved" class="text-emerald-600 text-xs font-bold opacity-0 transition">✓ Saved</div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="label">Full Name</label>
+            <input id="fullName" class="input" placeholder="Jane Appleseed">
+          </div>
+          <div>
+            <label class="label">Date of Birth</label>
+            <input id="dob" type="date" class="input">
           </div>
 
-          <div class="space-y-6">
-            <div>
-              <label class="label">Full Name</label>
-              <input id="fullName" class="input-field" placeholder="Your full name" oninput="handleAutoSave('identity')"/>
-            </div>
-
-            <div class="field-pair">
-              <div>
-                <label class="label">Date of Birth</label>
-                <input id="dob" type="date" class="input-field" oninput="handleAutoSave('identity')"/>
-              </div>
-              <div class="relative">
-                <label class="label">Country</label>
-                <input id="countrySearch" class="input-field" placeholder="Search countries…" oninput="filterCountries()" onfocus="showCountryDropdown()" onblur="hideCountryDropdown()"/>
-                <input id="country" type="hidden" onchange="handleAutoSave('identity')"/>
-                <div id="countryDropdown" class="country-dropdown"></div>
-              </div>
-            </div>
-
-            <div>
-              <label class="label">Health ID</label>
-              <input id="healthId" class="input-field" placeholder="NHS, EHIC, national health number" oninput="handleAutoSave('identity')"/>
-              <p class="helper-text">Examples: NHS (UK), CHI (Scotland), HCN (CA), Versicherungsnummer (DE). Don’t enter passport/ID.</p>
-            </div>
-          </div>
-
-          <div class="mt-8">
-            <button class="btn-primary" onclick="saveIdentity()">Save Identity</button>
-          </div>
-
-          <p class="card-helper">Responders use this to confirm you and contact your providers.</p>
-        </section>
-
-        <!-- CRITICAL -->
-        <section class="card relative">
-          <div class="ribbon ribbon-critical"></div>
-          <div class="flex items-start justify-between mb-6">
-            <div>
-              <h2 class="text-lg font-extrabold">Critical Medical Info</h2>
-              <p class="helper-text">Patient-provided; clinicians must verify.</p>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-              <span id="criticalSaved" class="saved-indicator">✓ Saved just now</span>
-              <span id="criticalAutoSaved" class="auto-saved">✓ Saved just now</span>
-            </div>
-          </div>
-
-          <div class="space-y-6">
-            <div class="field-pair">
-              <div>
-                <label class="label">Blood Type</label>
-                <select id="bloodType" class="input-field" onchange="handleAutoSave('critical')">
-                  <option value="">Select Blood Type</option>
-                  <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-                  <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-                </select>
-              </div>
-              <div>
-                <label class="label">Organ Donor</label>
-                <select id="organDonor" class="input-field" onchange="handleAutoSave('critical')">
-                  <option value="">Select</option>
-                  <option>Yes</option><option>No</option><option>Unknown</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="label">Allergies</label>
-              <textarea id="allergies" rows="3" class="input-field resize-none" placeholder="Penicillin, Peanuts, Latex" oninput="handleAutoSave('critical')"></textarea>
-            </div>
-            <div>
-              <label class="label">Conditions</label>
-              <textarea id="conditions" rows="3" class="input-field resize-none" placeholder="Diabetes, Hypertension, Asthma" oninput="handleAutoSave('critical')"></textarea>
-            </div>
-            <div>
-              <label class="label">Medications</label>
-              <textarea id="medications" rows="3" class="input-field resize-none" placeholder="Medication name and dose" oninput="handleAutoSave('critical')"></textarea>
-            </div>
-
-            <div>
-              <label class="label">Resuscitation Preference</label>
-              <select id="resuscitationPref" class="input-field" onchange="handleAutoSave('critical')">
-                <option value="">Select Preference</option>
-                <option value="full">Full Life Support — CPR, ventilation, meds</option>
-                <option value="comfort">Comfort Care Only — no life-prolonging measures</option>
-                <option value="dnr">Do Not Resuscitate (DNR)</option>
-              </select>
-              <p class="helper-text">Guidance only — confirm with official records.</p>
-            </div>
-          </div>
-
-          <div class="mt-8">
-            <button class="btn-primary" onclick="saveCritical()">Save Critical Info</button>
-          </div>
-
-          <p class="card-helper">Keep this accurate; responders use it to make time-critical decisions.</p>
-        </section>
-                <!-- ICE -->
-        <section class="card relative">
-          <div class="ribbon ribbon-ice"></div>
-          <div class="flex items-start justify-between mb-6">
-            <div>
-              <h2 class="text-lg font-extrabold">In Case of Emergency (ICE)</h2>
-              <p class="helper-text">Tap-to-call numbers responders use first.</p>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-              <span id="iceSaved" class="saved-indicator">✓ Saved just now</span>
-              <span id="iceAutoSaved" class="auto-saved">✓ Saved just now</span>
-            </div>
-          </div>
-
-          <div id="iceContacts" class="space-y-6"></div>
-
-          <div class="flex items-center justify-between mt-8">
-            <button id="addICEBtn" class="btn-secondary" onclick="addICEContact()">Add ICE Contact</button>
-            <span id="iceCounter" class="text-sm text-slate-500 font-semibold">0/3 contacts</span>
-          </div>
-
-          <p class="card-helper">Add up to three contacts who can speak for you in an emergency.</p>
-        </section>
-
-        <!-- DANGER ZONE (centered) -->
-        <section class="card danger-zone-card relative">
-          <div class="ribbon ribbon-danger"></div>
-          <h2 class="text-lg font-extrabold text-red-600 mb-4">⚠️ DANGER ZONE</h2>
-
-          <div class="revoked-banner">
-            <p>This permanently deletes your data, QR, and contacts. This cannot be undone.</p>
-          </div>
-
-          <label class="label mb-2">Type <b>DELETE MY ACCOUNT</b> to confirm</label>
-          <input id="deleteConfirmInput" class="input-field" placeholder="DELETE MY ACCOUNT" oninput="checkDeleteConfirmation()"/>
-
-          <div class="flex gap-3 mt-5">
-            <button class="btn-secondary" onclick="cancelDelete()">Cancel</button>
-            <button id="deleteConfirmBtn" class="btn-danger" disabled onclick="showDeleteModal()">Delete Account Forever</button>
-          </div>
-        </section>
-
-      </div><!-- /LEFT -->
-
-      <!-- RIGHT column -->
-      <div class="flex flex-col gap-8">
-
-        <!-- TRIAGE -->
-        <section class="card relative">
-          <div class="ribbon ribbon-triage"></div>
-          <h2 class="text-lg font-extrabold mb-1">Triage Assessment</h2>
-          <p class="helper-text mb-6">Computed from your info. Clinicians make final decisions.</p>
-
-          <div class="text-center mb-6">
-            <div id="triagePill" class="triage-pill triage-green mb-3"><span>GREEN</span></div>
-            <p id="triageDescription" class="text-sm text-slate-600">Standard emergency protocols apply.</p>
-          </div>
-
-          <div class="mb-6">
-            <label class="label">Override (Optional)</label>
-            <select id="triageOverride" class="input-field" onchange="handleTriageOverride()">
-              <option value="auto">Auto (Recommended)</option>
-              <option value="green">Green — Standard</option>
-              <option value="yellow">Yellow — Urgent</option>
-              <option value="red">Red — Emergency</option>
-              <option value="black">Black — Expectant</option>
+          <div>
+            <label class="label">Country</label>
+            <select id="country" class="input">
+              <option value="">Select country</option>
+              <option>United Kingdom</option>
+              <option>United States</option>
+              <option>Canada</option>
+              <option>Australia</option>
+              <option>Germany</option>
+              <option>France</option>
+              <option>Italy</option>
+              <option>Spain</option>
+              <option>Ireland</option>
+              <option>Netherlands</option>
+              <option>Sweden</option>
+              <option>Norway</option>
+              <option>Denmark</option>
+              <option>Finland</option>
+              <option>Poland</option>
+              <option>Portugal</option>
+              <option>Romania</option>
+              <option>Switzerland</option>
+              <option>Greece</option>
+              <option>Japan</option>
+              <option>South Korea</option>
+              <option>Singapore</option>
+              <option>India</option>
+              <option>United Arab Emirates</option>
+              <option>South Africa</option>
+              <option>New Zealand</option>
+              <option value="Other">Other</option>
             </select>
-            <p class="helper-text">Aid chosen from patient data. Use clinical judgment.</p>
           </div>
 
-          <div class="flex gap-3">
-            <button class="btn-secondary flex-1" onclick="speakTriage()">🔊 Speak</button>
-            <button class="btn-secondary flex-1" onclick="stopSpeaking()">⏹️ Stop</button>
+          <div>
+            <label class="label">Health ID (optional)</label>
+            <input id="healthId" class="input" placeholder="NHS, EHIC, national health number">
+            <p class="text-xs text-slate-500 mt-1">Do not enter passport/ID. Examples: NHS (UK), CHI (Scotland), HCN (CA).</p>
           </div>
-        </section>
+        </div>
 
-        <!-- QR & TAGS -->
-        <section class="card relative">
-          <div class="ribbon ribbon-qr"></div>
-          <h2 class="text-lg font-extrabold mb-1">QR Code & Tags</h2>
-          <p class="helper-text mb-6">Text-first (works offline) + link (for future online view).</p>
+        <div class="flex justify-end mt-6">
+          <button id="saveIdentityBtn" class="btn btn-primary">Save Identity</button>
+        </div>
+        <p class="text-sm text-slate-500 mt-3">Responders use this to confirm you and contact providers.</p>
+      </section>
 
-          <div id="qrSection">
-            <!-- No code yet -->
-            <div id="noCodeState" class="text-center py-8">
-              <div class="text-6xl mb-4">📱</div>
-              <p class="text-slate-600 mb-6">No emergency code yet</p>
-              <button class="btn-primary" onclick="generateEmergencyCode()">🚨 Generate Emergency Code</button>
-            </div>
+      <!-- Critical Medical -->
+      <section class="card">
+        <div class="ribbon r-critical"></div>
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">Critical Medical Info</h2>
+            <p class="text-sm text-slate-500">Patient-provided; clinicians must verify.</p>
+          </div>
+          <div id="criticalSaved" class="text-emerald-600 text-xs font-bold opacity-0 transition">✓ Saved</div>
+        </div>
 
-            <!-- Has code -->
-            <div id="hasCodeState" class="hidden">
-              <div id="revokedBanner" class="revoked-banner hidden">
-                <p>🚫 Revoked — generate a new code.</p>
-              </div>
-
-              <div class="qr-container">
-                <canvas id="qrCanvas" width="200" height="200"></canvas>
-              </div>
-
-              <div class="mb-4 text-center text-sm text-slate-500">
-                <span>Status: </span><span id="qrStatus" class="font-bold text-green-600">Active</span>
-                <div id="rotateInfo" class="text-xs text-slate-500 mt-1 hidden"></div>
-              </div>
-
-              <div class="mb-6">
-                <label class="label">QR Payload</label>
-                <textarea id="qrPayloadDisplay" class="input-field resize-none bg-gray-50" rows="6" readonly></textarea>
-              </div>
-
-              <div class="mb-4">
-                <div class="remember-toggle">
-                  <span>Offline mode</span>
-                  <div id="offlineToggle" class="toggle-switch active" onclick="toggleOfflineMode()"></div>
-                </div>
-                <p class="helper-text mt-2">When enabled, the QR is readable without internet.</p>
-              </div>
-
-              <div class="grid grid-cols-3 gap-3 mb-3">
-                <button id="copyBtn" class="btn-secondary text-sm py-3" onclick="copyPayload()">📋 Copy</button>
-                <button id="downloadBtn" class="btn-secondary text-sm py-3" onclick="downloadQR(1024)">📥 1024px</button>
-                <button id="download512Btn" class="btn-secondary text-sm py-3" onclick="downloadQR(512)">📥 512px</button>
-              </div>
-
-              <div class="grid grid-cols-3 gap-3">
-                <button id="rotateBtn" class="btn-secondary text-sm py-3" onclick="rotateCode()">🔄 Rotate</button>
-                <button id="revokeBtn" class="btn-primary text-sm py-3" onclick="revokeCode()">🚫 Revoke</button>
-                <button id="printBtn" class="btn-secondary text-sm py-3" onclick="printCard()">🖨️ Print</button>
-              </div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="label">Blood Type</label>
+            <select id="bloodType" class="input">
+              <option value="">—</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+              <option>O+</option><option>O-</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Organ Donor</label>
+            <select id="organDonor" class="input">
+              <option value="">—</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+              <option value="Unknown">Unknown</option>
+            </select>
           </div>
 
-          <p class="card-helper">One scan shows essentials in big text. If online, the link may open more later.</p>
-        </section>
-
-        <!-- VAULT (disabled) -->
-        <section class="card relative opacity-70">
-          <div class="ribbon ribbon-vault"></div>
-          <h2 class="text-lg font-extrabold mb-1">Vault</h2>
-          <p class="helper-text mb-6">Secure storage for DNR, Living Will, insurance — Coming soon.</p>
-
-          <div class="grid gap-3">
-            <div class="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-              <div class="flex items-center gap-3"><span class="text-2xl">📄</span><div><h4 class="font-bold">DNR Directive</h4><p class="text-sm text-slate-500">Do Not Resuscitate</p></div></div>
-              <span class="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded">Coming soon</span>
-            </div>
-            <div class="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-              <div class="flex items-center gap-3"><span class="text-2xl">📋</span><div><h4 class="font-bold">Living Will</h4><p class="text-sm text-slate-500">Advance directives</p></div></div>
-              <span class="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded">Coming soon</span>
-            </div>
-            <div class="p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-              <div class="flex items-center gap-3"><span class="text-2xl">🏥</span><div><h4 class="font-bold">Insurance Cards</h4><p class="text-sm text-slate-500">Health insurance info</p></div></div>
-              <span class="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded">Coming soon</span>
-            </div>
+          <div class="md:col-span-2">
+            <label class="label">Allergies</label>
+            <textarea id="allergies" rows="2" class="input resize-none" placeholder="Penicillin, Midazolam, Peanuts"></textarea>
           </div>
-        </section>
 
-      </div><!-- /RIGHT -->
+          <div class="md:col-span-2">
+            <label class="label">Medical Conditions</label>
+            <textarea id="conditions" rows="2" class="input resize-none" placeholder="Diabetes, Hypertension, Asthma"></textarea>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="label">Current Medications</label>
+            <textarea id="medications" rows="2" class="input resize-none" placeholder="Name and dose"></textarea>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="label">Resuscitation Preference</label>
+            <select id="lifeSupportPref" class="input">
+              <option value="">—</option>
+              <option value="Full Life Support — all resuscitation">Full Life Support — CPR, ventilation, meds</option>
+              <option value="Comfort Care Only">Comfort Care Only — no life-prolonging measures</option>
+              <option value="DNR">Do Not Resuscitate (DNR)</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Guidance only — confirm with official records.</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button id="saveCriticalBtn" class="btn btn-primary">Save Critical Info</button>
+        </div>
+      </section>
+
+      <!-- ICE -->
+      <section class="card">
+        <div class="ribbon r-ice"></div>
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-extrabold text-slate-900">In Case of Emergency (ICE)</h2>
+          <button id="addIceBtn" class="btn btn-muted text-sm">Add ICE Contact</button>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">Tap-to-call helps responders connect instantly. (Max 3)</p>
+
+        <div id="iceList" class="space-y-4">
+          <!-- contacts rendered here -->
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+          <span id="iceCounter" class="text-sm text-slate-500">0/3 contacts</span>
+          <span id="iceSaved" class="text-emerald-600 text-xs font-bold opacity-0 transition">✓ Saved</span>
+        </div>
+      </section>
+
+      <!-- Danger Zone -->
+      <section class="card">
+        <div class="ribbon r-danger"></div>
+        <h2 class="text-red-600 font-extrabold text-lg mb-3">⚠️ Danger Zone</h2>
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 mb-4">
+          This action is permanent. All your data, QR codes and ICE contacts will be deleted.
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <input id="deleteConfirm" class="input" placeholder="Type DELETE MY ACCOUNT">
+          <button id="deleteBtn" class="btn btn-danger" disabled>Delete Account Forever</button>
+        </div>
+      </section> 
+
     </div>
+        <!-- RIGHT: sidebar -->
+    <aside class="space-y-8">
 
-    <!-- Footer -->
-    <footer class="mt-10 text-center text-xs text-slate-500">
-      <p>MYQER is an emergency aid, not a medical record. Use clinical judgment.</p>
-      <p class="mt-1">© <span id="yearNow"></span> MYQER™ — All rights reserved.</p>
-    </footer>
+      <!-- Triage -->
+      <section class="card">
+        <div class="ribbon r-triage"></div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-extrabold text-slate-900">Triage Assessment</h3>
+          <span id="triagePill" class="pill pill-green">GREEN</span>
+        </div>
+        <p id="triageDesc" class="text-sm text-slate-500 mb-4">Standard emergency protocols apply.</p>
+
+        <label class="label">Override (Optional)</label>
+        <select id="triageOverride" class="input mb-3">
+          <option value="">Auto (Recommended)</option>
+          <option value="green">GREEN — Standard</option>
+          <option value="yellow">AMBER — Urgent</option>
+          <option value="red">RED — Emergency</option>
+          <option value="black">BLACK — Comfort care</option>
+        </select>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="speakBtn" class="btn btn-muted">🔊 Speak</button>
+          <button id="stopSpeakBtn" class="btn btn-muted">⏹ Stop</button>
+        </div>
+      </section>
+
+      <!-- QR & Tags -->
+      <section class="card">
+        <div class="ribbon r-qr"></div>
+        <h3 class="text-lg font-extrabold text-slate-900 mb-2">QR Code & Tags</h3>
+        <p class="text-sm text-slate-500 mb-4">Text-first (works offline) + link (for future online view).</p>
+
+        <div class="flex flex-col items-center mb-3">
+          <div class="qr-wrap">
+            <div id="qrPlaceholder" class="qr-placeholder">
+              <div class="text-center text-xs">
+                <div class="text-2xl">📱</div>
+                Complete profile then generate
+              </div>
+            </div>
+            <canvas id="qrCanvas" width="184" height="184" class="hidden"></canvas>
+          </div>
+          <div class="mt-2 text-sm text-slate-600">
+            Status: <span id="qrStatus" class="font-semibold text-emerald-600">Active</span>
+          </div>
+        </div>
+
+        <div id="generateWrap" class="mb-3 hidden">
+          <button id="generateBtn" class="btn btn-primary w-full">🎯 Generate Emergency Code</button>
+        </div>
+
+        <label class="label">QR Payload</label>
+        <textarea id="qrPayload" class="input text-xs h-28 bg-slate-50" readonly placeholder="Generate code to view payload"></textarea>
+
+        <div class="flex items-center justify-between mt-3 text-sm">
+          <div class="flex items-center gap-2">
+            <span>Offline mode</span>
+            <div id="offlineToggle" class="toggle active"></div>
+          </div>
+          <div class="text-slate-500">One scan shows essentials in big text.</div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 mt-3">
+          <button id="copyBtn" class="btn btn-muted text-xs">📋 Copy</button>
+          <button id="dl1024" class="btn btn-muted text-xs">📥 1024px</button>
+          <button id="dl512" class="btn btn-muted text-xs">📥 512px</button>
+          <button id="printBtn" class="btn btn-muted text-xs">🖨️ Print</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button id="rotateBtn" class="btn btn-muted text-xs">🔄 Rotate</button>
+          <button id="revokeBtn" class="btn btn-danger text-xs">🚫 Revoke</button>
+        </div>
+      </section>
+
+      <!-- Vault (coming soon) -->
+      <section class="card">
+        <div class="ribbon r-vault"></div>
+        <h3 class="text-lg font-extrabold text-slate-900 mb-2">Vault (Documents)</h3>
+        <p class="text-sm text-slate-500 mb-4">Secure storage — coming soon.</p>
+        <div class="grid gap-2">
+          <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/70 opacity-60">🧾 DNR Directive</div>
+          <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/70 opacity-60">📄 Living Will</div>
+          <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/70 opacity-60">🏥 Insurance Cards</div>
+          <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/70 opacity-60">🔒 Secure Document Storage</div>
+        </div>
+      </section>
+    </aside>
   </main>
 
-  <!-- Delete Modal -->
-  <div id="deleteModal" class="modal">
-    <div class="modal-content">
-      <h3 class="text-xl font-extrabold text-red-600 mb-3">Confirm deletion</h3>
-      <p class="text-slate-700 mb-3">You’re about to permanently delete:</p>
-      <ul class="list-disc list-inside text-sm text-slate-600 space-y-1 mb-4">
-        <li>Identity & medical info</li>
-        <li>All ICE contacts</li>
-        <li>QR code and settings</li>
-        <li>Language & preferences</li>
-      </ul>
-      <p class="text-red-600 font-bold mb-5">This cannot be undone.</p>
-      <div class="flex gap-3">
-        <button class="btn-secondary flex-1" onclick="hideDeleteModal()">Cancel</button>
-        <button class="btn-danger flex-1" onclick="deleteAccountForever()">Delete Forever</button>
-      </div>
+  <!-- Footer -->
+  <footer class="border-t border-slate-200 bg-white/80 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-5 py-8 grid md:grid-cols-3 gap-6 text-sm text-slate-600">
+      <div><h4 class="font-bold text-slate-900 mb-2">Privacy & Security</h4>Your data is encrypted and stored securely.</div>
+      <div><h4 class="font-bold text-slate-900 mb-2">Medical Disclaimer</h4>Informational only. Responders must verify.</div>
+      <div><h4 class="font-bold text-slate-900 mb-2">Support</h4>Help 24/7 for your emergency codes.</div>
     </div>
+  </footer>
+
+  <!-- Print layout -->
+  <div id="printArea" class="print-card hidden">
+    <h1 class="text-3xl font-black text-red-600 mb-1">MYQER</h1>
+    <p class="text-slate-600 mb-4">Emergency Medical Card</p>
+    <div id="printQR" class="mx-auto mb-3"></div>
+    <div id="printCode" class="font-mono text-sm text-slate-700"></div>
+    <p class="text-xs text-slate-500 mt-2">Hybrid QR: essentials offline + link for full details.</p>
   </div>
 
-  <!-- Print Mini-Card (used by window.print) -->
-  <div id="printRoot" class="print-card hidden">
-    <h1>MYQER™</h1>
-    <p class="subtitle">Emergency Essentials</p>
-    <div id="printQR" class="mb-3"></div>
-    <div id="printText" class="text-left text-sm text-slate-700 whitespace-pre-wrap"></div>
-    <p class="mt-4 text-xs text-slate-500">Scan with phone camera • myqer.com</p>
-  </div>
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+  <script>
+/* ---------- Supabase ---------- */
+const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, storage: localStorage }
+});
 
-  <!-- Toasts -->
-  <div id="toastContainer"></div>
-  <!-- SECTION 4/4 — SCRIPTS (place just before </body></html>) -->
-<script>
-/* =========================
-   MYQER™ Dashboard Scripts
-   =========================
-   - Supabase auth + data
-   - State & i18n
-   - Country search
-   - Identity / Critical autosave
-   - ICE add/update/remove (max 3)
-   - Triage compute + speech
-   - QR Hybrid (offline essentials + URL)
-   - Download/print/copy/rotate/revoke
-   - Logout, Remember me, Delete account
-*/
-(function () {
-  // ---------- Supabase ----------
-  const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, storage: window.localStorage }
-  });
+/* ---------- State ---------- */
+let currentUser = null;
+let rememberMe = true;
+let offlineMode = true;
+let currentCode = null;
+let currentPayload = '';
+let rotateDeg = 0;
 
-  // ---------- DOM refs ----------
-  const $ = (s) => document.querySelector(s);
-  const $$ = (s) => Array.from(document.querySelectorAll(s));
-  const refs = {
-    userEmail:  $('#userEmail'),
-    statusDot:  $('#statusDot'),
-    statusText: $('#statusText'),
-    langSelect: $('#languageSelect'),
-    rememberToggle: $('#rememberToggle'),
-    fullName:   $('#fullName'),
-    dob:        $('#dob'),
-    countrySearch: $('#countrySearch'),
-    countryHidden: $('#country'),
-    healthId:   $('#healthId'),
-    bloodType:  $('#bloodType'),
-    organDonor: $('#organDonor'),
-    allergies:  $('#allergies'),
-    conditions: $('#conditions'),
-    medications:$('#medications'),
-    resus:      $('#resuscitationPref'),
-    triagePill: $('#triagePill'),
-    triageDesc: $('#triageDescription'),
-    triageOverride: $('#triageOverride'),
-    iceWrap:    $('#iceContacts'),
-    iceCounter: $('#iceCounter'),
-    addICEBtn:  $('#addICEBtn'),
-    // QR
-    noCodeState: $('#noCodeState'),
-    hasCodeState:$('#hasCodeState'),
-    revokedBanner: $('#revokedBanner'),
-    qrCanvas:   $('#qrCanvas'),
-    qrPayloadDisplay: $('#qrPayloadDisplay'),
-    offlineToggle: $('#offlineToggle'),
-    qrStatus:   $('#qrStatus'),
-    // Danger zone
-    delInput:   $('#deleteConfirmInput'),
-    delBtn:     $('#deleteConfirmBtn'),
-    delModal:   $('#deleteModal'),
-  };
+/* Simple i18n placeholders (expand later if needed) */
+const i18n = {
+  en: { online:'Online', offline:'No signal', saved:'Saved', warnFill:'Please fill Name, DOB, Country' },
+  ar: { online:'متصل', offline:'لا إشارة', saved:'تم الحفظ', warnFill:'يرجى إدخال الاسم وتاريخ الميلاد والدولة' }
+};
+let lang = localStorage.getItem('myqer_lang') || 'en';
 
-  // ---------- State ----------
-  let currentUser = null;
-  let currentLang  = (localStorage.getItem('myqer_lang') || 'en');
-  let rememberMe   = (localStorage.getItem('myqer_remember_me') !== 'false');
-  let offlineMode  = (localStorage.getItem('myqer_offline') !== 'false');
-  let currentCode  = null;   // e.g. MYQER-XXXXXXX
-  let iceCount     = 0;
-  const autosaveTimers = {};
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const showToast = (msg, type='ok') => {
+  const el = $('#toast'); el.className = `toast ${type==='ok'?'t-ok':type==='warn'?'t-warn':'t-err'} show`; el.textContent = msg;
+  setTimeout(()=>el.classList.remove('show'), 2200);
+};
+const showSaved = id => { const el = $(id); if(!el) return; el.style.opacity=1; setTimeout(()=>el.style.opacity=0,1200); };
 
-  // ---------- i18n (EN base; others optional) ----------
-  const t = (k) => (translations[currentLang] && translations[currentLang][k]) || translations.en[k] || k;
-  const translations = {
-    en: {
-      'status.online':'Online','status.offline':'No signal','status.hybrid':'Hybrid-ready',
-      'toast.saved':'Saved','toast.error':'Something went wrong',
-      'toast.identity_saved':'Identity saved','toast.health_saved':'Medical info saved',
-      'toast.add_contact':'Contact added','toast.remove_contact':'Contact removed',
-      'toast.generate_ok':'Emergency code generated','toast.qr_fail':'QR generation failed',
-      'toast.copy_ok':'Copied','toast.copy_fail':'Copy failed',
-      'toast.logout_ok':'Logged out','toast.logout_fail':'Logout failed',
-      'toast.delete_ok':'Account deleted','toast.delete_fail':'Delete failed',
-      'warn.fill_min':'Please fill Full Name, Date of Birth, and Country first',
-      'qr.active':'Active','qr.revoked':'Revoked'
-    },
-    es:{'status.online':'En línea','status.offline':'Sin señal','status.hybrid':'Listo híbrido','qr.active':'Activo','qr.revoked':'Revocado'},
-    fr:{'status.online':'En ligne','status.offline':'Hors réseau','status.hybrid':'Hybride prêt','qr.active':'Actif','qr.revoked':'Révoqué'},
-    de:{'status.online':'Online','status.offline':'Kein Signal','status.hybrid':'Hybridbereit','qr.active':'Aktiv','qr.revoked':'Widerrufen'},
-    it:{'status.online':'Online','status.offline':'Nessun segnale','status.hybrid':'Ibrido pronto','qr.active':'Attivo','qr.revoked':'Revocato'},
-    pt:{'status.online':'Online','status.offline':'Sem sinal','status.hybrid':'Híbrido pronto','qr.active':'Ativo','qr.revoked':'Revogado'},
-    ro:{'status.online':'Online','status.offline':'Fără semnal','status.hybrid':'Pregătit hibrid','qr.active':'Activ','qr.revoked':'Revocat'},
-    ar:{'status.online':'متصل','status.offline':'لا توجد إشارة','status.hybrid':'جاهز هجين','qr.active':'نشط','qr.revoked':'ملغى'},
-    hi:{'status.online':'ऑनलाइन','status.offline':'कोई सिग्नल नहीं','status.hybrid':'हाइब्रिड तैयार','qr.active':'सक्रिय','qr.revoked':'रद्द'},
-    zh:{'status.online':'在线','status.offline':'无信号','status.hybrid':'混合就绪','qr.active':'有效','qr.revoked':'已撤销'}
-  };
-  function applyTranslations(){
-    // Direction for Arabic
-    document.documentElement.setAttribute('dir', currentLang==='ar'?'rtl':'ltr');
-    // Status text refresh
-    updateNetStatus();
-    // Placeholders/labels bound in HTML via data-i18n will remain English unless extended here.
-  }
-
-  // ---------- Countries (fallback) ----------
-  const fallbackCountries = (window.MYQER_COUNTRIES && Array.isArray(window.MYQER_COUNTRIES))
-    ? window.MYQER_COUNTRIES
-    : [
-      {code:'US',name:'United States',flag:'🇺🇸',popular:true},
-      {code:'GB',name:'United Kingdom',flag:'🇬🇧',popular:true},
-      {code:'CA',name:'Canada',flag:'🇨🇦',popular:true},
-      {code:'AU',name:'Australia',flag:'🇦🇺',popular:true},
-      {code:'DE',name:'Germany',flag:'🇩🇪',popular:true},
-      {code:'FR',name:'France',flag:'🇫🇷',popular:true},
-      {code:'IT',name:'Italy',flag:'🇮🇹',popular:true},
-      {code:'ES',name:'Spain',flag:'🇪🇸',popular:true},
-      {code:'NL',name:'Netherlands',flag:'🇳🇱'},
-      {code:'SE',name:'Sweden',flag:'🇸🇪'},
-      // Add full list in window.MYQER_COUNTRIES to override this fallback
-    ];
-  const countryDD = $('#countryDropdown');
-
-  function renderCountryOptions(filter=''){
-    const list = fallbackCountries.filter(c =>
-      c.name.toLowerCase().includes(filter.toLowerCase()) || c.code.toLowerCase().includes(filter.toLowerCase())
-    );
-    countryDD.innerHTML='';
-    list.forEach(c=>{
-      const el = document.createElement('div');
-      el.className = 'country-option'+(c.popular?' popular':'');
-      el.textContent = `${c.flag||''} ${c.name}`;
-      el.onclick = ()=> selectCountry(c);
-      countryDD.appendChild(el);
-    });
-  }
-  function selectCountry(c){
-    refs.countrySearch.value = `${c.flag||''} ${c.name}`;
-    refs.countryHidden.value = c.code;
-    hideCountryDropdown();
-    queueAutosave('identity');
-  }
-  function showCountryDropdown(){ countryDD.style.display='block'; }
-  function hideCountryDropdown(){ setTimeout(()=> countryDD.style.display='none', 150); }
-  function filterCountries(){ renderCountryOptions(refs.countrySearch.value); showCountryDropdown(); }
-
-  // ---------- Toast ----------
-  function toast(msg, type='success'){
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = msg;
-    document.body.appendChild(el);
-    requestAnimationFrame(()=> el.classList.add('show'));
-    setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 350); }, 2600);
-  }
-
-  // ---------- Network status ----------
-  function updateNetStatus(){
-    const online = navigator.onLine;
-    refs.statusDot.className = 'status-dot ' + (online ? 'status-online' : 'status-offline');
-    refs.statusText.textContent = t(online ? 'status.online' : 'status.offline');
-  }
-  window.addEventListener('online',  updateNetStatus);
-  window.addEventListener('offline', updateNetStatus);
-
-  // ---------- Auth & session ----------
-  async function checkSession(){
-    const { data:{ session }, error } = await sb.auth.getSession();
-    if (error || !session){ location.replace('/'); return; }
-    currentUser = session.user;
-    refs.userEmail.textContent = currentUser.email || '';
-    updateNetStatus();
-  }
-  async function logout(){
-    if(!confirm('Logout now?')) return;
-    try{ await sb.auth.signOut(); toast(t('toast.logout_ok')); location.replace('/'); }
-    catch(e){ console.error(e); toast(t('toast.logout_fail'),'error'); }
-  }
-  function loadRemember(){
-    rememberMe = (localStorage.getItem('myqer_remember_me') !== 'false');
-    refs.rememberToggle.classList.toggle('active', rememberMe);
-  }
-  function toggleRemember(){
+/* ---------- Session ---------- */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Remember-me toggle
+  rememberMe = localStorage.getItem('myqer_remember_me') !== 'false';
+  if(!rememberMe) $('#rememberToggle').classList.remove('active');
+  $('#rememberToggle').addEventListener('click', () => {
     rememberMe = !rememberMe;
     localStorage.setItem('myqer_remember_me', String(rememberMe));
-    refs.rememberToggle.classList.toggle('active', rememberMe);
-  }
-  window.addEventListener('beforeunload', async ()=>{
-    if (!rememberMe){ try{ await sb.auth.signOut({ scope:'local' }); }catch{} }
+    $('#rememberToggle').classList.toggle('active', rememberMe);
   });
 
-  // ---------- Language ----------
-  function onLangChange(){
-    currentLang = refs.langSelect.value;
-    localStorage.setItem('myqer_lang', currentLang);
-    // Persist preference (best-effort)
-    sb.from('profiles').upsert({ id: currentUser.id, language_pref: currentLang }).then(()=>{}).catch(()=>{});
-    applyTranslations();
-  }
+  // Language select
+  $('#languageSelect').value = lang;
+  $('#languageSelect').addEventListener('change', () => {
+    lang = $('#languageSelect').value; localStorage.setItem('myqer_lang', lang);
+    document.documentElement.dir = (lang==='ar')?'rtl':'ltr';
+    $('#statusText').textContent = i18n[lang]?.online || i18n.en.online;
+  });
+  document.documentElement.dir = (lang==='ar')?'rtl':'ltr';
 
-  // ---------- Load data ----------
-  async function loadData(){
+  // Logout
+  $('#logoutBtn').addEventListener('click', async () => {
+    try { await sb.auth.signOut(); location.replace('/'); } 
+    catch(e){ showToast('Logout failed','err'); }
+  });
+
+  // Inputs autosave
+  ['fullName','dob','country','healthId'].forEach(id => $(`#${id}`).addEventListener('input', debounce(saveIdentity, 500)));
+  ['bloodType','organDonor','allergies','conditions','medications','lifeSupportPref'].forEach(id => $(`#${id}`).addEventListener('input', debounce(saveCritical, 500)));
+  $('#triageOverride').addEventListener('change', () => { saveCritical(); updateTriage(); renderQR(); });
+
+  // Buttons
+  $('#saveIdentityBtn').addEventListener('click', saveIdentity);
+  $('#saveCriticalBtn').addEventListener('click', saveCritical);
+  $('#addIceBtn').addEventListener('click', addIce);
+  $('#deleteBtn').addEventListener('click', confirmDelete);
+  $('#generateBtn').addEventListener('click', generateCode);
+  $('#copyBtn').addEventListener('click', () => { navigator.clipboard.writeText(currentPayload).then(()=>showToast('Copied')); });
+  $('#dl1024').addEventListener('click', () => downloadQR(1024));
+  $('#dl512').addEventListener('click', () => downloadQR(512));
+  $('#printBtn').addEventListener('click', printCard);
+  $('#rotateBtn').addEventListener('click', () => { rotateDeg=(rotateDeg+90)%360; $('#qrCanvas').style.transform=`rotate(${rotateDeg}deg)`; });
+  $('#revokeBtn').addEventListener('click', () => { currentCode=null; updateQRState(false); showToast('Code revoked','warn'); saveIdentity(); });
+
+  // Offline toggle
+  $('#offlineToggle').addEventListener('click', () => { offlineMode=!offlineMode; $('#offlineToggle').classList.toggle('active', offlineMode); renderQR(); });
+
+  // Speak
+  $('#speakBtn').addEventListener('click', speakSummary);
+  $('#stopSpeakBtn').addEventListener('click', () => speechSynthesis.cancel());
+
+  // Load session + data
+  await checkSession();
+  window.addEventListener('beforeunload', async () => { if(!rememberMe) await sb.auth.signOut({ scope:'local' }); });
+});
+
+/* ---------- Debounce ---------- */
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
+
+/* ---------- Check session & load ---------- */
+async function checkSession(){
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ location.replace('/'); return; }
+    currentUser = session.user;
+    $('#userEmail').textContent = currentUser.email || '—';
+    $('#statusText').textContent = i18n[lang]?.online || i18n.en.online;
+    await loadAll();
+  }catch(e){ console.error(e); location.replace('/'); }
+}
+
+/* ---------- Load all ---------- */
+async function loadAll(){
+  try{
     // Profile
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    const { data:profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
     if(profile){
-      refs.fullName.value = profile.full_name || '';
-      refs.dob.value      = profile.dob || '';
-      refs.healthId.value = profile.health_id || '';
-      if (profile.language_pref){ currentLang = profile.language_pref; refs.langSelect.value = currentLang; }
-      if (profile.country){
-        const c = (fallbackCountries.find(x=>x.code===profile.country) || {flag:'',name:profile.country});
-        refs.countrySearch.value = (c.flag?`${c.flag} `:'') + (c.name||profile.country);
-        refs.countryHidden.value = profile.country;
-      }
-      if (profile.code){ currentCode = profile.code; showCodeUI(); await buildAndDrawQR(); }
+      $('#fullName').value = profile.full_name || '';
+      $('#dob').value = profile.dob || profile.date_of_birth || '';
+      $('#country').value = profile.country || '';
+      $('#healthId').value = profile.health_id || '';
+      currentCode = profile.code || null;
     }
     // Health
-    const { data: hp } = await sb.from('health_profiles').select('*').eq('user_id', currentUser.id).single();
-    if (hp){
-      refs.bloodType.value = hp.blood_type || '';
-      refs.organDonor.value= hp.organ_donor || '';
-      refs.allergies.value = hp.allergies || '';
-      refs.conditions.value= hp.conditions || '';
-      refs.medications.value= hp.meds || '';
-      refs.resus.value     = hp.life_support_pref || '';
-      refs.triageOverride.value = hp.triage_override || 'auto';
+    const { data:hp } = await sb.from('health_profiles').select('*').eq('user_id', currentUser.id).single();
+    if(hp){
+      $('#bloodType').value = hp.blood_type || '';
+      $('#organDonor').value = hp.organ_donor || '';
+      $('#allergies').value = hp.allergies || '';
+      $('#conditions').value = hp.conditions || '';
+      $('#medications').value = hp.meds || '';
+      $('#lifeSupportPref').value = hp.life_support_pref || '';
+      $('#triageOverride').value = hp.triage_override || '';
     }
     // ICE
-    const { data: ices } = await sb.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at');
-    refs.iceWrap.innerHTML=''; iceCount=0;
-    (ices||[]).forEach(addICEToDOM);
-    updateICECounter();
-    applyTranslations();
+    const { data:ice } = await sb.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at');
+    renderICE(ice || []);
+
+    // UI
     updateTriage();
-  }
+    updateQRState(Boolean(currentCode));
+    renderQR();
+    updateGenerateVisibility();
+  }catch(e){ console.error('Load error',e); showToast('Failed to load data','warn'); }
+}
 
-  // ---------- Autosave ----------
-  function queueAutosave(section){
-    clearTimeout(autosaveTimers[section]);
-    autosaveTimers[section] = setTimeout(async ()=>{
-      if(section==='identity') await saveIdentity(true);
-      if(section==='critical'){ await saveCritical(true); updateTriage(); if(currentCode) buildAndDrawQR(); }
-    }, 700);
-  }
-
-  async function saveIdentity(isAuto=false){
-    try{
-      await sb.from('profiles').upsert({
-        id: currentUser.id,
-        full_name: refs.fullName.value || null,
-        dob: refs.dob.value || null,
-        country: refs.countryHidden.value || null,
-        health_id: refs.healthId.value || null,
-        language_pref: currentLang,
-        code: currentCode || null,
-        updated_at: new Date().toISOString()
-      });
-      if(!isAuto) toast(t('toast.identity_saved'));
-    }catch(e){ console.error(e); if(!isAuto) toast(t('toast.error'),'error'); }
-  }
-  async function saveCritical(isAuto=false){
-    try{
-      await sb.from('health_profiles').upsert({
-        user_id: currentUser.id,
-        blood_type: refs.bloodType.value || null,
-        organ_donor: refs.organDonor.value || null,
-        allergies: refs.allergies.value || '',
-        conditions: refs.conditions.value || '',
-        meds: refs.medications.value || '',
-        life_support_pref: refs.resus.value || '',
-        triage_override: refs.triageOverride.value || 'auto'
-      });
-      if(!isAuto) toast(t('toast.health_saved'));
-    }catch(e){ console.error(e); if(!isAuto) toast(t('toast.error'),'error'); }
-  }
-
-  // ---------- ICE ----------
-  async function addICE(){
-    if (iceCount>=3) return;
-    try{
-      const { data, error } = await sb.from('ice_contacts').insert({
-        user_id: currentUser.id, name:'', relation:'', phone:''
-      }).select().single();
-      if (error) throw error;
-      addICEToDOM(data);
-      updateICECounter();
-      toast(t('toast.add_contact'));
-      if(currentCode) buildAndDrawQR();
-    }catch(e){ console.error(e); toast(t('toast.error'),'error'); }
-  }
-  function addICEToDOM(contact){
-    iceCount++;
-    const box = document.createElement('div');
-    box.className='space-y-4 p-6 border border-slate-200 rounded-lg bg-slate-50/50';
-    box.id = `ice-${contact.id}`;
-    box.innerHTML = `
-      <div class="flex justify-between items-center">
-        <h4 class="font-semibold text-slate-700">Contact ${iceCount}</h4>
-        <button class="text-red-600 hover:text-red-700 text-sm font-medium" data-remove="${contact.id}">Remove</button>
-      </div>
-      <div class="field-pair">
-        <div>
-          <label class="label">Name</label>
-          <input class="input-field" value="${contact.name||''}" data-edit="${contact.id}" data-field="name">
-        </div>
-        <div>
-          <label class="label">Relation</label>
-          <input class="input-field" value="${contact.relation||''}" data-edit="${contact.id}" data-field="relation">
-        </div>
-      </div>
-      <div>
-        <label class="label">Phone</label>
-        <input class="input-field" value="${contact.phone||''}" data-edit="${contact.id}" data-field="phone">
-      </div>`;
-    refs.iceWrap.appendChild(box);
-  }
-  function updateICECounter(){
-    refs.iceCounter.innerHTML = `${iceCount}/3 <span data-i18n="ice.contacts">contacts</span>`;
-    refs.addICEBtn.disabled = (iceCount>=3);
-    refs.addICEBtn.classList.toggle('opacity-50', (iceCount>=3));
-    refs.addICEBtn.classList.toggle('cursor-not-allowed', (iceCount>=3));
-  }
-  async function onICEEdit(id, field, val){
-    if(field==='phone'){ val = normalizePhone(val); }
-    try{
-      await sb.from('ice_contacts').update({ [field]: val }).eq('id', id);
-      if(currentCode) buildAndDrawQR();
-    }catch(e){ console.error(e); }
-  }
-  async function onICERemove(id){
-    try{
-      await sb.from('ice_contacts').delete().eq('id', id);
-      const el = $(`#ice-${id}`); if(el) el.remove();
-      iceCount = Math.max(0, iceCount-1);
-      updateICECounter();
-      toast(t('toast.remove_contact'));
-      if(currentCode) buildAndDrawQR();
-    }catch(e){ console.error(e); toast(t('toast.error'),'error'); }
-  }
-  function normalizePhone(p){
-    let x = (p||'').replace(/\s+/g,'').replace(/[^\d+]/g,'');
-    if(x && !x.startsWith('+') && x.length>10) x = '+'+x;
-    return x;
-  }
-
-  // ---------- Triage ----------
-  function updateTriage(){
-    const override = refs.triageOverride.value;
-    let level='green';
-    if(override!=='auto'){
-      level = override;
-    }else{
-      const a=(refs.allergies.value||'').toLowerCase();
-      const c=(refs.conditions.value||'').toLowerCase();
-      const redA = /anaphylaxis|anaphylactic|epipen|severe/.test(a);
-      const redC = /seizure disorder|insulin pump|anticoagulant|pacemaker/.test(c);
-      if (redA||redC) level='red';
-      else if (a.trim() || c.trim()) level='yellow';
-      else level='green';
-    }
-    setTriage(level);
-  }
-  function setTriage(level){
-    refs.triagePill.className = `triage-pill triage-${level} mb-4`;
-    const labelMap = {green:'GREEN',yellow:'YELLOW',red:'RED',black:'BLACK'};
-    const descMap  = {
-      green:'Standard emergency protocols apply.',
-      yellow:'Medical conditions present — monitor closely.',
-      red:'Critical conditions requiring immediate attention.',
-      black:'Expectant — comfort care priority.'
+/* ---------- Identity save ---------- */
+async function saveIdentity(){
+  try{
+    const up = {
+      id: currentUser.id,
+      full_name: $('#fullName').value.trim(),
+      dob: $('#dob').value || null,
+      country: $('#country').value || null,
+      health_id: $('#healthId').value || null,
+      code: currentCode || null,
+      updated_at: new Date().toISOString()
     };
-    refs.triagePill.querySelector('span').textContent = labelMap[level] || 'GREEN';
-    refs.triageDesc.textContent = descMap[level] || descMap.green;
-  }
-  function speakTriage(){
-    if(!('speechSynthesis' in window)) return;
-    const synth = window.speechSynthesis;
-    const name = refs.fullName.value || 'Unknown patient';
-    const dob  = refs.dob.value || 'Unknown date of birth';
-    const allergies = refs.allergies.value || 'No known allergies';
-    const conditions= refs.conditions.value || 'No known conditions';
-    const meds = refs.medications.value || 'No current medications';
-    // first ICE (best-effort)
-    const firstNameInput = refs.iceWrap.querySelector('input[data-field="name"]');
-    const firstPhoneInput= refs.iceWrap.querySelector('input[data-field="phone"]');
-    const ice = firstNameInput ? `${firstNameInput.value||'No emergency contact'} ${firstPhoneInput?firstPhoneInput.value:''}` : 'No emergency contact';
-    const text = `Patient ${name}. Date of birth ${dob}. Allergies: ${allergies}. Conditions: ${conditions}. Medications: ${meds}. Emergency contact: ${ice}.`;
-    const u = new SpeechSynthesisUtterance(text);
-    const langMap = {en:'en-US',es:'es-ES',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',ro:'ro-RO',ar:'ar-SA',hi:'hi-IN',zh:'zh-CN'};
-    u.lang = langMap[currentLang] || 'en-US'; u.rate=0.9; u.pitch=1.05;
-    synth.cancel(); synth.speak(u);
-  }
-  function stopSpeak(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }
+    await sb.from('profiles').upsert(up);
+    showSaved('#identitySaved');
+    updateGenerateVisibility();
+    if(currentCode) renderQR();
+  }catch(e){ console.error(e); showToast('Save failed','err'); }
+}
 
-  // ---------- QR Hybrid ----------
-  function fmtDOB(d){
-    if(!d) return 'Unknown';
-    const date = new Date(d); if(isNaN(date)) return d;
-    return date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  }
-  async function buildHybridPayload(){
-    const name = refs.fullName.value || 'Unknown';
-    const dob  = fmtDOB(refs.dob.value);
-    const blood= refs.bloodType.value || 'Unknown';
-    const donor= refs.organDonor.value || 'Unknown';
-    const allergies = (refs.allergies.value||'None reported').trim();
-    const conditions= (refs.conditions.value||'None reported').trim();
-    const meds = (refs.medications.value||'None reported').trim();
-    // first ICE from DB (fresh, one call)
-    let ice = 'None';
-    try{
-      const { data } = await sb.from('ice_contacts').select('name,phone').eq('user_id', currentUser.id).order('created_at').limit(1);
-      if(data && data.length){ ice = `${data[0].name||'Unknown'}, ${data[0].phone||'No phone'}`; }
-    }catch{}
-    const triage = refs.triagePill.classList.contains('triage-red')?'RED':
-                   refs.triagePill.classList.contains('triage-yellow')?'YELLOW':
-                   refs.triagePill.classList.contains('triage-black')?'BLACK':'GREEN';
-
-    // Shorten long lines
-    const truncate = (txt, n=120) => (txt.length<=n?txt : (txt.slice(0,n).replace(/\s+\S*$/,'')+' +more'));
-
-    const essentials =
-`EMERGENCY: ${name}
-DOB: ${dob}  TRIAGE: ${triage}
-BLOOD: ${blood}  DONOR: ${donor}
-ALLERGIES: ${truncate(allergies)}
-CONDITIONS: ${truncate(conditions)}
-MEDS: ${truncate(meds)}
-ICE: ${ice}`;
-
-    // Always append a link form so both offline & URL work by default
-    const url = `https://myqer.com/qr/${(currentCode||'').replace('MYQER-','')}`;
-    return `${essentials}\nLINK: ${url}`;
-  }
-
-  async function buildAndDrawQR(){
-    if(!currentCode) return;
-    try{
-      const payload = await buildHybridPayload();
-      refs.qrPayloadDisplay.value = payload;
-      await QRCode.toCanvas(refs.qrCanvas, payload, {
-        width: 200, margin: 3, errorCorrectionLevel: 'M',
-        color:{dark:'#1f2937', light:'#ffffff'}
-      });
-    }catch(e){ console.error(e); toast(t('toast.qr_fail'),'error'); }
-  }
-
-  async function generateCode(){
-    // minimal profile guard
-    if(!(refs.fullName.value && refs.dob.value && refs.countryHidden.value)){
-      toast(t('warn.fill_min'),'warning'); return;
-    }
-    currentCode = 'MYQER-' + Math.random().toString(36).slice(2,9).toUpperCase();
-    await sb.from('profiles').upsert({ id: currentUser.id, code: currentCode });
-    showCodeUI();
-    await buildAndDrawQR();
-    toast(t('toast.generate_ok'));
-  }
-  function showCodeUI(){
-    refs.noCodeState.classList.add('hidden');
-    refs.hasCodeState.classList.remove('hidden');
-    refs.revokedBanner.classList.add('hidden');
-    refs.qrStatus.textContent = t('qr.active');
-    refs.qrStatus.className = 'font-semibold text-green-600';
-    // enable actions
-    ['copyBtn','downloadBtn','download512Btn','printBtn','rotateBtn','revokeBtn'].forEach(id=>{
-      const el = document.getElementById(id); if(!el) return;
-      el.disabled=false; el.classList.remove('opacity-50','cursor-not-allowed');
-    });
-  }
-  function showRevokedUI(){
-    refs.revokedBanner.classList.remove('hidden');
-    refs.qrStatus.textContent = t('qr.revoked');
-    refs.qrStatus.className = 'font-semibold text-red-600';
-    // disable relevant actions
-    ['copyBtn','downloadBtn','download512Btn','printBtn'].forEach(id=>{
-      const el = document.getElementById(id); if(!el) return;
-      el.disabled=true; el.classList.add('opacity-50','cursor-not-allowed');
-    });
-  }
-  async function rotateCode(){
-    if(!currentCode) return;
-    currentCode = 'MYQER-' + Math.random().toString(36).slice(2,9).toUpperCase();
-    await sb.from('profiles').upsert({ id: currentUser.id, code: currentCode });
-    await buildAndDrawQR();
-    toast('Code rotated');
-  }
-  async function revokeCode(){
-    if(!currentCode) return;
-    if(!confirm('Revoke current code? This will stop the tag from working.')) return;
-    await sb.from('profiles').upsert({ id: currentUser.id, code: null });
-    currentCode = null;
-    showRevokedUI();
-  }
-  async function copyPayload(){
-    try{ await navigator.clipboard.writeText(refs.qrPayloadDisplay.value || ''); toast(t('toast.copy_ok')); }
-    catch(e){ toast(t('toast.copy_fail'),'error'); }
-  }
-  async function downloadQR(size=1024){
-    const data = refs.qrPayloadDisplay.value; if(!data) return;
-    const temp = document.createElement('canvas');
-    await QRCode.toCanvas(temp, data, { width:size, margin:4, errorCorrectionLevel:'M' });
-    const a = document.createElement('a');
-    a.download = `myqer-emergency-${(currentCode||'code')}-${size}.png`;
-    a.href = temp.toDataURL('image/png');
-    a.click();
-  }
-  function printCard(){
-    const img = refs.qrCanvas.toDataURL('image/png');
-    const name = refs.fullName.value || 'Emergency Card';
-    const triage = refs.triagePill.textContent.trim();
-    const w = window.open('', '_blank', 'width=420,height=600');
-    w.document.write(`
-      <html><head><title>MYQER Card</title>
-      <style>
-        body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;}
-        .card{max-width:360px;border:3px solid #dc2626;border-radius:16px;padding:28px;background:#fff;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08)}
-        .logo{font-weight:800;font-size:28px;margin-bottom:6px}.logo .er{color:#dc2626}
-        .sub{color:#64748b;font-size:12px;margin-bottom:10px}
-        .qr{width:240px;height:240px;border:2px solid #dc2626;border-radius:12px;margin:10px auto}
-        .code{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#334155;background:#f1f5f9;padding:8px 12px;border-radius:8px;display:inline-block;margin-top:10px}
-        .tri{font-weight:800;margin:6px 0;color:#dc2626}
-        @media print {.card{box-shadow:none}}
-      </style></head>
-      <body><div class="card">
-        <div class="logo">MYQ<span class="er">ER</span><span style="font-size:10px;color:#94a3b8;vertical-align:super;margin-left:2px">™</span></div>
-        <div class="sub">pronounced “My Care”</div>
-        <div style="font-weight:700;margin:6px 0">${name}</div>
-        <div class="tri">TRIAGE: ${triage}</div>
-        <img class="qr" src="${img}"/>
-        <div class="code">${currentCode||''}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:8px">✓ Works offline • Scan for medical info</div>
-      </div></body></html>`);
-    w.document.close(); w.focus(); setTimeout(()=> w.print(), 400);
-  }
-
-  // ---------- Danger Zone (Delete) ----------
-  function checkDeleteAble(){
-    refs.delBtn.disabled = (refs.delInput.value.trim().toUpperCase() !== 'DELETE MY ACCOUNT');
-  }
-  function showDeleteModal(){ refs.delModal.classList.add('show'); }
-  function hideDeleteModal(){ refs.delModal.classList.remove('show'); refs.delInput.value=''; checkDeleteAble(); }
-  async function deleteForever(){
-    if(!confirm('This cannot be undone. Delete everything?')) return;
-    try{
-      await sb.from('ice_contacts').delete().eq('user_id', currentUser.id);
-      await sb.from('health_profiles').delete().eq('user_id', currentUser.id);
-      await sb.from('profiles').delete().eq('id', currentUser.id);
-      await sb.auth.signOut();
-      toast(t('toast.delete_ok'));
-      setTimeout(()=> location.replace('/'), 800);
-    }catch(e){ console.error(e); toast(t('toast.delete_fail'),'error'); }
-  }
-
-  // ---------- Events wiring ----------
-  function wireEvents(){
-    // Language
-    refs.langSelect.addEventListener('change', onLangChange);
-    // Remember me
-    refs.rememberToggle.addEventListener('click', toggleRemember);
-    // Country search
-    refs.countrySearch.addEventListener('input', filterCountries);
-    refs.countrySearch.addEventListener('focus', showCountryDropdown);
-    refs.countrySearch.addEventListener('blur', hideCountryDropdown);
-
-    // Manual saves
-    $('[data-hook="btn-save-profile"]')?.addEventListener('click', ()=> saveIdentity(false));
-    $('[data-hook="btn-save-health"]')?.addEventListener('click', ()=> saveCritical(false));
-
-    // Autosaves
-    [refs.fullName, refs.dob, refs.healthId].forEach(el=> el&&el.addEventListener('input', ()=> queueAutosave('identity')));
-    [refs.bloodType, refs.organDonor, refs.allergies, refs.conditions, refs.medications, refs.resus].forEach(el=> el&&el.addEventListener('input', ()=> queueAutosave('critical')));
-
-    // Triage
-    refs.triageOverride.addEventListener('change', ()=> { updateTriage(); queueAutosave('critical'); });
-
-    // ICE
-    refs.addICEBtn.addEventListener('click', addICE);
-    refs.iceWrap.addEventListener('click', (e)=>{
-      const id = e.target.getAttribute('data-remove'); if(id) onICERemove(id);
-    });
-    refs.iceWrap.addEventListener('input',(e)=>{
-      const id = e.target.getAttribute('data-edit'); const field = e.target.getAttribute('data-field');
-      if(id && field) onICEEdit(id, field, e.target.value);
-    });
-
-    // Speech
-    $('[data-hook="btn-speak"]')?.addEventListener('click', speakTriage);
-    $('[data-hook="btn-stop"]')?.addEventListener('click', stopSpeak);
-
-    // QR actions
-    $('[data-hook="qr-generate"]')?.addEventListener('click', generateCode);
-    $('[data-hook="qr-copy"]')?.addEventListener('click', copyPayload);
-    $('[data-hook="qr-dl-png"]')?.addEventListener('click', ()=> downloadQR(1024));
-    $('#download512Btn')?.addEventListener('click', ()=> downloadQR(512));
-    $('[data-hook="qr-print"]')?.addEventListener('click', printCard);
-    $('[data-hook="qr-rotate"]')?.addEventListener('click', rotateCode);
-    $('[data-hook="qr-revoke"]')?.addEventListener('click', revokeCode);
-    // Offline toggle
-    refs.offlineToggle.addEventListener('click', ()=>{
-      offlineMode = !offlineMode; localStorage.setItem('myqer_offline', String(offlineMode));
-      refs.offlineToggle.classList.toggle('active', offlineMode);
-      // (PWA caching would be wired to this in a service worker in a future release)
-    });
-
-    // Logout
-    $('[data-hook="btn-logout"]')?.addEventListener('click', logout);
-
-    // Delete
-    refs.delInput.addEventListener('input', checkDeleteAble);
-    $('[data-hook="btn-del"]')?.addEventListener('click', showDeleteModal);
-    $('#cancelDelete')?.addEventListener('click', hideDeleteModal);
-    $('#confirmDelete')?.addEventListener('click', deleteForever);
-  }
-
-  // ---------- Init ----------
-  async function init(){
-    // toggle visuals
-    refs.rememberToggle.classList.toggle('active', rememberMe);
-    refs.offlineToggle.classList.toggle('active', offlineMode);
-    renderCountryOptions('');
-    await checkSession();
-    applyTranslations();
-    await loadData();
-  }
-
-  // Boot
-  wireEvents();
-  init();
-})();
-</script>
-</body>
-</html>
+/* ---------- Critical save ---------- */
+async function saveCritical(){
+  try{
+    const up = {
+      user_id: currentUser.id,
+      blood_type: $('#bloodType').value || null,
+      organ_donor: $('#organDonor').value || null,
+      allergies: $('#allergies').value || null,
+      conditions: $('#conditions').value || null,
+      meds: $('#medications').value || null,
+      life_support_pref: $('#lifeSupportPref').value || null,
+      triage_override: $('#triageOverride').value || null
+    };
+    await sb.from('health_profiles').upsert(up);
+    showSaved('#criticalSaved');
+    updateTriage();
+    if(currentCode) render
