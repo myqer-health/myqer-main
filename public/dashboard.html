@@ -7,214 +7,593 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --brand-red: #dc2626;
+            --brand-red-dark: #b91c1c;
+            --brand-red-light: #fecaca;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --shadow-light: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-heavy: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --gradient-bg: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 50%, #CBD5E1 100%);
+            --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: linear-gradient(135deg, #F5F7FB 0%, #E2E8F0 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gradient-bg);
             min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: #1e293b;
+            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        
+
+        /* Glass Morphism Cards */
         .glass-card {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            box-shadow: 0 18px 40px rgba(2, 8, 23, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.2s ease;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-medium);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
+            overflow: hidden;
         }
-        
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            z-index: 1;
+        }
+
         .glass-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 24px 50px rgba(2, 8, 23, 0.1);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-heavy);
+            border-color: rgba(255, 255, 255, 0.4);
         }
-        
+
+        /* Card Ribbons */
         .card-ribbon {
             position: absolute;
             top: 0;
             left: 0;
-            width: 4px;
+            width: 6px;
             height: 100%;
-            border-radius: 16px 0 0 16px;
+            border-radius: 20px 0 0 20px;
+            z-index: 2;
         }
-        
-        .ribbon-identity { background: #10B981; }
-        .ribbon-health { background: #dc2626; }
-        .ribbon-ice { background: #F59E0B; }
-        .ribbon-qr { background: #3B82F6; }
-        .ribbon-triage { background: #EAB308; }
-        .ribbon-danger { background: #EF4444; }
-        .ribbon-vault { background: #8B5CF6; }
-        .ribbon-family { background: linear-gradient(135deg, #FF6B9D, #C084FC); }
-        .ribbon-silver { background: linear-gradient(135deg, #94A3B8, #64748B); }
-        
-        .brand-red { color: #dc2626; }
-        .bg-brand-red { background-color: #dc2626; }
-        
-        .triage-status {
-            display: inline-flex;
-            align-items: center;
-            padding: 8px 16px;
-            border-radius: 20px;
+
+        .ribbon-identity { background: linear-gradient(180deg, #10B981, #059669); }
+        .ribbon-health { background: linear-gradient(180deg, #dc2626, #b91c1c); }
+        .ribbon-ice { background: linear-gradient(180deg, #F59E0B, #D97706); }
+        .ribbon-qr { background: linear-gradient(180deg, #3B82F6, #2563EB); }
+        .ribbon-triage { background: linear-gradient(180deg, #EAB308, #CA8A04); }
+        .ribbon-danger { background: linear-gradient(180deg, #EF4444, #DC2626); }
+        .ribbon-vault { background: linear-gradient(180deg, #8B5CF6, #7C3AED); }
+        .ribbon-family { background: linear-gradient(180deg, #FF6B9D, #C084FC); }
+        .ribbon-silver { background: linear-gradient(180deg, #94A3B8, #64748B); }
+        .ribbon-premium { background: linear-gradient(180deg, #FFD700, #FFA500); }
+        .ribbon-analytics { background: linear-gradient(180deg, #06B6D4, #0891B2); }
+
+        /* Brand Styling */
+        .brand-red { color: var(--brand-red); }
+        .bg-brand-red { background-color: var(--brand-red); }
+        .border-brand-red { border-color: var(--brand-red); }
+
+        /* Header Styling */
+        .header-glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark));
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px;
             font-weight: 600;
             font-size: 14px;
-        }
-        
-        .triage-green { background: #DCFCE7; color: #166534; }
-        .triage-amber { background: #FEF3C7; color: #92400E; }
-        .triage-red { background: #FEE2E2; color: #991B1B; }
-        .triage-black { background: #F3F4F6; color: #374151; }
-        
-        .btn-primary {
-            background: #dc2626;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: none;
             cursor: pointer;
+            box-shadow: 0 4px 14px 0 rgba(220, 38, 38, 0.3);
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
         .btn-primary:hover {
-            background: #b91c1c;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px 0 rgba(220, 38, 38, 0.4);
         }
-        
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
         .btn-secondary {
-            background: white;
-            color: #0F172A;
-            padding: 12px 24px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #374151;
+            padding: 14px 28px;
+            border-radius: 12px;
             font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid #E5E7EB;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 1);
+            border-color: #D1D5DB;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .btn-tertiary {
+            background: transparent;
+            color: #6B7280;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13px;
             transition: all 0.2s ease;
             border: 1px solid #E5E7EB;
             cursor: pointer;
         }
-        
-        .btn-secondary:hover {
+
+        .btn-tertiary:hover {
             background: #F9FAFB;
-            border-color: #D1D5DB;
-        }
-        
-        .disclaimer {
-            background: #FEF3C7;
-            border: 1px solid #F59E0B;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 24px 0;
-        }
-        
-        input, textarea, select {
-            transition: all 0.2s ease;
-            min-height: 48px;
-            font-size: 16px;
-            border-radius: 8px;
-            border: 2px solid #E5E7EB;
-            padding: 12px 16px;
-        }
-        
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: #dc2626;
-            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-        }
-        
-        .pill {
-            background: #F3F4F6;
             color: #374151;
-            padding: 4px 12px;
-            border-radius: 20px;
+        }
+
+        /* Form Elements */
+        .form-input, .form-select, .form-textarea {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--brand-red);
+            box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
             font-size: 14px;
+            color: #374151;
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+
+        /* Triage Status Badges */
+        .triage-status {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            margin: 2px;
-        }
-        
-        .pill-remove {
-            cursor: pointer;
-            color: #6B7280;
-            font-weight: bold;
-        }
-        
-        .pill-remove:hover {
-            color: #EF4444;
-        }
-        
-        .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
+            justify-content: center;
             padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            opacity: 0;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: var(--shadow-light);
             transition: all 0.3s ease;
         }
-        
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
+
+        .triage-green { 
+            background: linear-gradient(135deg, #DCFCE7, #BBF7D0); 
+            color: #166534; 
+            border: 2px solid #22C55E;
         }
-        
-        .toast.success { background: #10B981; color: white; }
-        .toast.warning { background: #F59E0B; color: white; }
-        .toast.error { background: #EF4444; color: white; }
-        .toast.info { background: #3B82F6; color: white; }
-        
+        .triage-amber { 
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A); 
+            color: #92400E; 
+            border: 2px solid #F59E0B;
+        }
+        .triage-red { 
+            background: linear-gradient(135deg, #FEE2E2, #FECACA); 
+            color: #991B1B; 
+            border: 2px solid #EF4444;
+        }
+        .triage-black { 
+            background: linear-gradient(135deg, #F3F4F6, #E5E7EB); 
+            color: #374151; 
+            border: 2px solid #6B7280;
+        }
+
+        /* Pills */
+        .pill {
+            background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+            color: #475569;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px;
+            border: 1px solid #E2E8F0;
+            transition: all 0.2s ease;
+        }
+
+        .pill:hover {
+            background: linear-gradient(135deg, #F1F5F9, #E2E8F0);
+            transform: translateY(-1px);
+        }
+
+        .pill-remove {
+            cursor: pointer;
+            color: #94A3B8;
+            font-weight: 700;
+            font-size: 16px;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .pill-remove:hover {
+            background: #EF4444;
+            color: white;
+        }
+
+        /* QR Code Styling */
         .qr-container {
-            width: 128px;
-            height: 128px;
+            width: 160px;
+            height: 160px;
             margin: 0 auto;
-            border-radius: 8px;
+            border-radius: 16px;
             overflow: hidden;
             background: white;
             display: grid;
             place-items: center;
             aspect-ratio: 1/1;
             position: relative;
+            box-shadow: var(--shadow-medium);
+            border: 3px solid var(--brand-red);
         }
-        
+
         .qr-placeholder {
             text-align: center;
-            color: #6B7280;
+            color: #94A3B8;
             font-size: 12px;
+            font-weight: 500;
             padding: 20px;
+            line-height: 1.4;
         }
-        
-        .code-display {
-            background: #F8FAFC;
-            border: 2px dashed #CBD5E1;
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            font-size: 18px;
-            font-weight: bold;
-            color: #374151;
-            letter-spacing: 2px;
-        }
-        
-        .code-display.has-code {
-            background: #ECFDF5;
-            border-color: #10B981;
-            color: #065F46;
-        }
-        
+
         .offline-badge {
             position: absolute;
             top: -8px;
             right: -8px;
-            background: #10B981;
+            background: linear-gradient(135deg, #10B981, #059669);
             color: white;
             font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-weight: bold;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+            z-index: 10;
+        }
+
+        /* Code Display */
+        .code-display {
+            background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+            border: 3px dashed #CBD5E1;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: #64748B;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .code-display.has-code {
+            background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
+            border-color: #10B981;
+            color: #065F46;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            z-index: 9999;
+            padding: 16px 32px;
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: var(--shadow-heavy);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.9)); 
+            color: white; 
+        }
+        .toast.warning { 
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.9)); 
+            color: white; 
+        }
+        .toast.error { 
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9)); 
+            color: white; 
+        }
+        .toast.info { 
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9)); 
+            color: white; 
+        }
+
+        /* Disclaimer */
+        .disclaimer {
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+            border: 2px solid #F59E0B;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 24px 0;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* ICE Contact Cards */
+        .ice-contact-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 2px solid #E5E7EB;
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .ice-contact-card:hover {
+            border-color: #D1D5DB;
+            box-shadow: var(--shadow-medium);
+        }
+
+        /* Progress Indicators */
+        .progress-ring {
+            width: 60px;
+            height: 60px;
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring-circle {
+            fill: none;
+            stroke: #E5E7EB;
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.3s ease;
+        }
+
+        .progress-ring-progress {
+            fill: none;
+            stroke: var(--brand-red);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 0 188.5;
+            transition: stroke-dasharray 0.3s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .glass-card {
+                border-radius: 16px;
+                margin: 0 4px;
+            }
+            
+            .btn-primary, .btn-secondary {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+            
+            .qr-container {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .form-input, .form-select, .form-textarea {
+                padding: 14px 16px;
+                font-size: 16px;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .glass-card {
+                background: white;
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+            
+            .btn-primary, .btn-secondary, .btn-tertiary {
+                display: none;
+            }
+            
+            .qr-container {
+                border: 2px solid #000;
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--brand-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Focus Styles for Accessibility */
+        .focus-visible:focus {
+            outline: 2px solid var(--brand-red);
+            outline-offset: 2px;
+        }
+
+        /* High Contrast Mode Support */
+        @media (prefers-contrast: high) {
+            .glass-card {
+                background: white;
+                border: 2px solid #000;
+            }
+            
+            .btn-primary {
+                background: #000;
+                border: 2px solid #000;
+            }
+            
+            .btn-secondary {
+                background: white;
+                border: 2px solid #000;
+                color: #000;
+            }
+        }
+
+        /* Reduced Motion Support */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -223,259 +602,708 @@
     <div id="toast" class="toast"></div>
 
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-100">
-        <div class="max-w-6xl mx-auto px-4 py-4">
+    <header class="header-glass sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                    <div class="text-2xl font-bold text-slate-900">
-                        MYQ<span class="brand-red">ER</span>™
+                <div class="flex items-center space-x-4">
+                    <div class="text-3xl font-black text-slate-900">
+                        MYQ<span class="brand-red">ER</span><span class="text-lg">™</span>
                     </div>
-                    <div class="text-xs text-gray-500 hidden sm:block">
-                        Privacy-first. Works offline.
+                    <div class="hidden sm:block">
+                        <div class="text-sm text-gray-600 font-medium">
+                            Privacy-first Emergency Care
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Pronounced "my care" • Works offline
+                        </div>
                     </div>
                 </div>
                 
-                <div class="hidden md:block">
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm text-gray-600">MYQER (pronounced 'my care')</span>
+                <div class="hidden lg:flex items-center space-x-6">
+                    <div class="text-sm text-gray-600">
+                        <span class="font-semibold">MYQER</span> keeps your emergency information secure and accessible when it matters most.
                     </div>
                 </div>
                 
                 <div class="flex items-center space-x-4">
-                    <button id="logoutBtn" class="btn-secondary text-sm">Logout</button>
+                    <div class="hidden md:flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span>Online</span>
+                    </div>
+                    <button id="logoutBtn" class="btn-tertiary">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        Logout
+                    </button>
                 </div>
             </div>
         </div>
     </header>
 
     <!-- Medical Disclaimer -->
-    <div class="max-w-6xl mx-auto px-4 pt-6">
-        <div class="disclaimer">
-            <div class="font-semibold text-amber-800 mb-2">Medical Disclaimer</div>
-            <div class="text-sm text-amber-700">
-                This information is for emergency reference only and does not constitute medical advice. Healthcare professionals must independently verify all medical information and make their own clinical assessments. MYQER™ is not responsible for medical decisions made based on this data.
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div class="disclaimer animate-fade-in-up">
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="font-bold text-amber-800 text-lg mb-2">Medical Disclaimer</div>
+                    <div class="text-sm text-amber-700 leading-relaxed">
+                        This information is for emergency reference only and does not constitute medical advice. Healthcare professionals must independently verify all medical information and make their own clinical assessments. MYQER™ is not responsible for medical decisions made based on this data. Always consult with qualified healthcare providers for medical advice.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Main Dashboard -->
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- Identity Card -->
-        <div class="glass-card p-6 mb-6">
-            <div class="card-ribbon ribbon-identity"></div>
-            <h2 class="text-xl font-bold text-slate-900 mb-2">Identity</h2>
-            <p class="text-sm text-gray-600 mb-6">These details help responders confirm who you are.</p>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Profile Completion Progress -->
+        <div class="glass-card p-6 mb-8 animate-fade-in-up">
+            <div class="flex items-center justify-between mb-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
-                    <input type="text" id="fullName" class="w-full" placeholder="Enter your full name">
+                    <h2 class="text-xl font-bold text-slate-900">Profile Completion</h2>
+                    <p class="text-sm text-gray-600">Complete your profile to generate your emergency QR code</p>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Date of Birth</label>
-                    <input type="date" id="dateOfBirth" class="w-full">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Country</label>
-                    <select id="country" class="w-full">
-                        <option value="">Select country</option>
-                        <option value="US">United States</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="CA">Canada</option>
-                        <option value="AU">Australia</option>
-                        <option value="DE">Germany</option>
-                        <option value="FR">France</option>
-                        <option value="ES">Spain</option>
-                        <option value="IT">Italy</option>
-                        <option value="NL">Netherlands</option>
-                        <option value="SE">Sweden</option>
-                        <option value="NO">Norway</option>
-                        <option value="DK">Denmark</option>
-                        <option value="FI">Finland</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Emergency Code</label>
-                    <div id="codeDisplay" class="code-display">
-                        <span id="cardCodeDisplay">Complete profile to generate</span>
+                <div class="flex items-center space-x-4">
+                    <svg class="progress-ring">
+                        <circle class="progress-ring-circle" cx="30" cy="30" r="28"></circle>
+                        <circle class="progress-ring-progress" cx="30" cy="30" r="28" id="progressCircle"></circle>
+                    </svg>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-slate-900" id="progressPercent">0%</div>
+                        <div class="text-xs text-gray-500">Complete</div>
                     </div>
                 </div>
             </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div class="flex items-center space-x-2" id="checkIdentity">
+                    <div class="w-4 h-4 rounded-full bg-gray-300"></div>
+                    <span class="text-gray-600">Identity</span>
+                </div>
+                <div class="flex items-center space-x-2" id="checkHealth">
+                    <div class="w-4 h-4 rounded-full bg-gray-300"></div>
+                    <span class="text-gray-600">Health Profile</span>
+                </div>
+                <div class="flex items-center space-x-2" id="checkContacts">
+                    <div class="w-4 h-4 rounded-full bg-gray-300"></div>
+                    <span class="text-gray-600">ICE Contacts</span>
+                </div>
+                <div class="flex items-center space-x-2" id="checkCode">
+                    <div class="w-4 h-4 rounded-full bg-gray-300"></div>
+                    <span class="text-gray-600">Emergency Code</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identity Card -->
+        <div class="glass-card p-8 mb-8 animate-fade-in-up">
+            <div class="card-ribbon ribbon-identity"></div>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Identity Information</h2>
+                    <p class="text-gray-600">These details help first responders confirm who you are and contact your emergency contacts.</p>
+                </div>
+                <div class="hidden md:block">
+                    <svg class="w-12 h-12 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
             
-            <div class="flex items-center justify-between mt-6">
-                <div class="text-xs text-gray-500">Auto-saves as you type</div>
-                <button id="generateCodeBtn" class="btn-primary">🎲 Generate Emergency Code</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                    <label class="form-label">Full Legal Name *</label>
+                    <input type="text" id="fullName" class="form-input" placeholder="Enter your full legal name" maxlength="100">
+                    <div class="text-xs text-gray-500 mt-1">As it appears on your ID</div>
+                </div>
+                <div>
+                    <label class="form-label">Date of Birth *</label>
+                    <input type="date" id="dateOfBirth" class="form-input">
+                    <div class="text-xs text-gray-500 mt-1">Used for age verification</div>
+                </div>
+                <div>
+                    <label class="form-label">Country of Residence *</label>
+                    <select id="country" class="form-select">
+                        <option value="">Select your country</option>
+                        <option value="US">🇺🇸 United States</option>
+                        <option value="GB">🇬🇧 United Kingdom</option>
+                        <option value="CA">🇨🇦 Canada</option>
+                        <option value="AU">🇦🇺 Australia</option>
+                        <option value="DE">🇩🇪 Germany</option>
+                        <option value="FR">🇫🇷 France</option>
+                        <option value="ES">🇪🇸 Spain</option>
+                        <option value="IT">🇮🇹 Italy</option>
+                        <option value="NL">🇳🇱 Netherlands</option>
+                        <option value="SE">🇸🇪 Sweden</option>
+                        <option value="NO">🇳🇴 Norway</option>
+                        <option value="DK">🇩🇰 Denmark</option>
+                        <option value="FI">🇫🇮 Finland</option>
+                        <option value="CH">🇨🇭 Switzerland</option>
+                        <option value="AT">🇦🇹 Austria</option>
+                        <option value="BE">🇧🇪 Belgium</option>
+                        <option value="IE">🇮🇪 Ireland</option>
+                        <option value="PT">🇵🇹 Portugal</option>
+                        <option value="GR">🇬🇷 Greece</option>
+                        <option value="PL">🇵🇱 Poland</option>
+                        <option value="CZ">🇨🇿 Czech Republic</option>
+                        <option value="HU">🇭🇺 Hungary</option>
+                        <option value="SK">🇸🇰 Slovakia</option>
+                        <option value="SI">🇸🇮 Slovenia</option>
+                        <option value="HR">🇭🇷 Croatia</option>
+                        <option value="BG">🇧🇬 Bulgaria</option>
+                        <option value="RO">🇷🇴 Romania</option>
+                        <option value="LT">🇱🇹 Lithuania</option>
+                        <option value="LV">🇱🇻 Latvia</option>
+                        <option value="EE">🇪🇪 Estonia</option>
+                        <option value="MT">🇲🇹 Malta</option>
+                        <option value="CY">🇨🇾 Cyprus</option>
+                        <option value="LU">🇱🇺 Luxembourg</option>
+                        <option value="IS">🇮🇸 Iceland</option>
+                        <option value="LI">🇱🇮 Liechtenstein</option>
+                        <option value="MC">🇲🇨 Monaco</option>
+                        <option value="SM">🇸🇲 San Marino</option>
+                        <option value="VA">🇻🇦 Vatican City</option>
+                        <option value="AD">🇦🇩 Andorra</option>
+                        <option value="JP">🇯🇵 Japan</option>
+                        <option value="KR">🇰🇷 South Korea</option>
+                        <option value="SG">🇸🇬 Singapore</option>
+                        <option value="HK">🇭🇰 Hong Kong</option>
+                        <option value="TW">🇹🇼 Taiwan</option>
+                        <option value="NZ">🇳🇿 New Zealand</option>
+                        <option value="MX">🇲🇽 Mexico</option>
+                        <option value="BR">🇧🇷 Brazil</option>
+                        <option value="AR">🇦🇷 Argentina</option>
+                        <option value="CL">🇨🇱 Chile</option>
+                        <option value="CO">🇨🇴 Colombia</option>
+                        <option value="PE">🇵🇪 Peru</option>
+                        <option value="UY">🇺🇾 Uruguay</option>
+                        <option value="PY">🇵🇾 Paraguay</option>
+                        <option value="BO">🇧🇴 Bolivia</option>
+                        <option value="EC">🇪🇨 Ecuador</option>
+                        <option value="VE">🇻🇪 Venezuela</option>
+                        <option value="GY">🇬🇾 Guyana</option>
+                        <option value="SR">🇸🇷 Suriname</option>
+                        <option value="FK">🇫🇰 Falkland Islands</option>
+                        <option value="GF">🇬🇫 French Guiana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Preferred Language</label>
+                    <select id="preferredLanguage" class="form-select">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="it">Italiano</option>
+                        <option value="pt">Português</option>
+                        <option value="nl">Nederlands</option>
+                        <option value="sv">Svenska</option>
+                        <option value="no">Norsk</option>
+                        <option value="da">Dansk</option>
+                        <option value="fi">Suomi</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Height</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="heightFeet" class="form-input" placeholder="Feet" min="0" max="8">
+                        <input type="number" id="heightInches" class="form-input" placeholder="Inches" min="0" max="11">
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Optional - helps with identification</div>
+                </div>
+                <div class="md:col-span-2 lg:col-span-1">
+                    <label class="form-label">Emergency Code</label>
+                    <div id="codeDisplay" class="code-display">
+                        <span id="cardCodeDisplay">Complete profile to generate</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">Unique identifier for your emergency card</div>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+                <div class="flex items-center space-x-2 text-sm text-gray-500">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span>Auto-saves as you type</span>
+                </div>
+                <button id="generateCodeBtn" class="btn-primary">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                    </svg>
+                    Generate Emergency Code
+                </button>
             </div>
         </div>
 
         <!-- Health Profile Card -->
-        <div class="glass-card p-6 mb-6">
+        <div class="glass-card p-8 mb-8 animate-fade-in-up">
             <div class="card-ribbon ribbon-health"></div>
-            <h2 class="text-xl font-bold text-slate-900 mb-2">Health Profile</h2>
-            <p class="text-sm text-gray-600 mb-6">Keep this current. It appears on your emergency card.</p>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Health Profile</h2>
+                    <p class="text-gray-600">Critical medical information that appears on your emergency card. Keep this current and accurate.</p>
+                </div>
+                <div class="hidden md:block">
+                    <svg class="w-12 h-12 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                    </svg>
+                </div>
+            </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Blood Type</label>
-                    <select id="bloodType" class="w-full">
-                        <option value="">Unknown</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
+                    <label class="form-label">Blood Type</label>
+                    <select id="bloodType" class="form-select">
+                        <option value="">Unknown / Not tested</option>
+                        <option value="A+">A+ (A Positive)</option>
+                        <option value="A-">A- (A Negative)</option>
+                        <option value="B+">B+ (B Positive)</option>
+                        <option value="B-">B- (B Negative)</option>
+                        <option value="AB+">AB+ (AB Positive)</option>
+                        <option value="AB-">AB- (AB Negative)</option>
+                        <option value="O+">O+ (O Positive)</option>
+                        <option value="O-">O- (O Negative)</option>
                     </select>
+                    <div class="text-xs text-gray-500 mt-1">Critical for blood transfusions</div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Organ Donor</label>
-                    <select id="organDonor" class="w-full">
+                    <label class="form-label">Organ Donor Status</label>
+                    <select id="organDonor" class="form-select">
                         <option value="">Not specified</option>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
+                        <option value="true">✅ Yes - Registered organ donor</option>
+                        <option value="false">❌ No - Not an organ donor</option>
                     </select>
+                    <div class="text-xs text-gray-500 mt-1">Check your driver's license or ID</div>
+                </div>
+                <div>
+                    <label class="form-label">Weight (lbs)</label>
+                    <input type="number" id="weight" class="form-input" placeholder="Enter weight" min="50" max="500">
+                    <div class="text-xs text-gray-500 mt-1">Helps with medication dosing</div>
                 </div>
                 
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Critical Allergies</label>
-                    <input type="text" id="allergiesInput" class="w-full" placeholder="Type allergy and press Enter (e.g., Penicillin, Nuts)">
-                    <div id="allergiesPills" class="flex flex-wrap gap-2 mt-2"></div>
+                <div class="md:col-span-2 lg:col-span-3">
+                    <label class="form-label">Critical Allergies ⚠️</label>
+                    <input type="text" id="allergiesInput" class="form-input" placeholder="Type allergy and press Enter (e.g., Penicillin, Shellfish, Latex, Morphine)">
+                    <div id="allergiesPills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        <strong>Important:</strong> Include all drug allergies, food allergies, and environmental allergies that could cause severe reactions.
+                    </div>
                 </div>
                 
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Medical Conditions</label>
-                    <input type="text" id="conditionsInput" class="w-full" placeholder="Type condition and press Enter (e.g., Diabetes, Hypertension)">
-                    <div id="conditionsPills" class="flex flex-wrap gap-2 mt-2"></div>
+                <div class="md:col-span-2 lg:col-span-3">
+                    <label class="form-label">Medical Conditions</label>
+                    <input type="text" id="conditionsInput" class="form-input" placeholder="Type condition and press Enter (e.g., Diabetes, Hypertension, Asthma, Epilepsy)">
+                    <div id="conditionsPills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        Include chronic conditions, mental health conditions, and any ongoing medical issues.
+                    </div>
                 </div>
                 
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Current Medications</label>
-                    <input type="text" id="medicationsInput" class="w-full" placeholder="Type medication and press Enter (e.g., Insulin, Aspirin)">
-                    <div id="medicationsPills" class="flex flex-wrap gap-2 mt-2"></div>
+                <div class="md:col-span-2 lg:col-span-3">
+                    <label class="form-label">Current Medications</label>
+                    <input type="text" id="medicationsInput" class="form-input" placeholder="Type medication and press Enter (e.g., Insulin, Metformin, Lisinopril)">
+                    <div id="medicationsPills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        Include prescription medications, over-the-counter medications, and supplements you take regularly.
+                    </div>
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Life Support Preference</label>
-                    <select id="lifeSupportPref" class="w-full">
-                        <option value="Full">Full Life Support</option>
-                        <option value="Comfort">Comfort Care Only</option>
-                        <option value="DNR">Do Not Resuscitate</option>
+                    <label class="form-label">Life Support Preference</label>
+                    <select id="lifeSupportPref" class="form-select">
+                        <option value="Full">Full Life Support - Use all measures</option>
+                        <option value="Limited">Limited Life Support - Basic care only</option>
+                        <option value="Comfort">Comfort Care Only - Pain management</option>
+                        <option value="DNR">Do Not Resuscitate (DNR)</option>
                     </select>
+                    <div class="text-xs text-gray-500 mt-1">Your preference for end-of-life care</div>
+                </div>
+                
+                <div>
+                    <label class="form-label">Primary Care Doctor</label>
+                    <input type="text" id="primaryDoctor" class="form-input" placeholder="Dr. Smith, City Medical Center">
+                    <div class="text-xs text-gray-500 mt-1">Optional - for medical history reference</div>
+                </div>
+                
+                <div>
+                    <label class="form-label">Insurance Provider</label>
+                    <input type="text" id="insurance" class="form-input" placeholder="Blue Cross Blue Shield">
+                    <div class="text-xs text-gray-500 mt-1">Optional - for billing purposes</div>
+                </div>
+            </div>
+            
+            <div class="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-start space-x-3">
+                    <svg class="w-5 h-5 text-red-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div>
+                        <div class="font-semibold text-red-800 text-sm">Critical Information Notice</div>
+                        <div class="text-red-700 text-sm mt-1">
+                            This information will be visible to emergency responders. Only include information that is medically necessary for emergency treatment. Do not include sensitive personal information unrelated to medical care.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ICE Contacts Card -->
-        <div class="glass-card p-6 mb-6">
+        <div class="glass-card p-8 mb-8 animate-fade-in-up">
             <div class="card-ribbon ribbon-ice"></div>
-            <h2 class="text-xl font-bold text-slate-900 mb-2">Emergency Contacts (ICE)</h2>
-            <p class="text-sm text-gray-600 mb-6">Add up to 3 trusted contacts.</p>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Emergency Contacts (ICE)</h2>
+                    <p class="text-gray-600">In Case of Emergency contacts. Add up to 5 trusted people who can be reached in an emergency.</p>
+                </div>
+                <div class="hidden md:block">
+                    <svg class="w-12 h-12 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path>
+                    </svg>
+                </div>
+            </div>
             
-            <div id="iceContacts" class="space-y-4">
+            <div id="iceContacts" class="space-y-6">
                 <!-- ICE contacts will be populated here -->
             </div>
-            <button id="addIceContact" class="btn-secondary mt-4">Add Contact (0/3)</button>
+            
+            <div class="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                <div class="text-sm text-gray-500">
+                    <span id="contactCount">0</span> of 5 contacts added
+                </div>
+                <button id="addIceContact" class="btn-secondary">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Add Emergency Contact
+                </button>
+            </div>
         </div>
 
         <!-- Three Column Grid Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             <!-- Automated Triage Card -->
-            <div class="glass-card p-6">
+            <div class="glass-card p-6 animate-fade-in-up">
                 <div class="card-ribbon ribbon-triage"></div>
-                <h2 class="text-xl font-bold text-slate-900 mb-2">Automated Triage</h2>
-                <p class="text-sm text-gray-600 mb-4">Auto-computed from your health profile.</p>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Automated Triage</h2>
+                    <svg class="w-8 h-8 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                    </svg>
+                </div>
+                <p class="text-sm text-gray-600 mb-6">Auto-computed priority level based on your health profile.</p>
                 
-                <div class="text-center mb-4">
+                <div class="text-center mb-6">
                     <div id="triageStatus" class="triage-status triage-green">
                         GREEN - Standard
                     </div>
                 </div>
                 
-                <div class="mb-4">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Manual Override</label>
-                    <select id="triageOverride" class="w-full">
-                        <option value="">Auto (Recommended)</option>
-                        <option value="Green">Green - Standard</option>
-                        <option value="Amber">Amber - Urgent</option>
-                        <option value="Red">Red - Immediate</option>
-                        <option value="Black">Black - Comfort</option>
+                <div class="mb-6">
+                    <label class="form-label">Manual Override</label>
+                    <select id="triageOverride" class="form-select">
+                        <option value="">🤖 Auto (Recommended)</option>
+                        <option value="Green">🟢 Green - Standard Priority</option>
+                        <option value="Amber">🟡 Amber - Urgent Priority</option>
+                        <option value="Red">🔴 Red - Immediate Priority</option>
+                        <option value="Black">⚫ Black - Comfort Care</option>
                     </select>
+                    <div class="text-xs text-gray-500 mt-1">Override only if you have specific medical directives</div>
                 </div>
                 
-                <p class="text-xs text-gray-500 mb-4">You control what responders see first.</p>
-                
-                <div class="space-y-2">
-                    <button id="speakSummaryBtn" class="btn-secondary w-full text-sm">🔊 Speak Summary</button>
-                    <button id="stopSpeakingBtn" class="btn-secondary w-full text-sm" style="display: none;">⏹️ Stop Speaking</button>
+                <div class="space-y-3">
+                    <button id="speakSummaryBtn" class="btn-secondary w-full">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M5 7h4l1 1v8l-1 1H5a2 2 0 01-2-2V9a2 2 0 012-2z"></path>
+                        </svg>
+                        🔊 Speak Medical Summary
+                    </button>
+                    <button id="stopSpeakingBtn" class="btn-secondary w-full" style="display: none;">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                        </svg>
+                        ⏹️ Stop Speaking
+                    </button>
                 </div>
             </div>
 
             <!-- Emergency Card & QR -->
-            <div class="glass-card p-6">
+            <div class="glass-card p-6 animate-fade-in-up">
                 <div class="card-ribbon ribbon-qr"></div>
-                <h2 class="text-xl font-bold text-slate-900 mb-2">Emergency Card & QR</h2>
-                <p class="text-sm text-gray-600 mb-4">Scan to view your emergency information.</p>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Emergency QR Card</h2>
+                    <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-sm text-gray-600 mb-6">Scan to view your emergency information instantly.</p>
                 
-                <div class="text-center mb-4">
-                    <div class="mb-3">
-                        <div class="text-lg font-bold text-slate-900">
-                            MYQ<span class="brand-red">ER</span>™
+                <div class="text-center mb-6">
+                    <div class="mb-4">
+                        <div class="text-2xl font-bold text-slate-900 mb-1">
+                            MYQ<span class="brand-red">ER</span><span class="text-lg">™</span>
                         </div>
-                        <div class="text-xs text-gray-500">Emergency QR Card</div>
+                        <div class="text-xs text-gray-500">Emergency Information Card</div>
                     </div>
                     
                     <div id="qrContainer" class="qr-container">
                         <div class="offline-badge">WORKS OFFLINE</div>
-                        <canvas id="qrCanvas" width="128" height="128" style="display: none;"></canvas>
+                        <canvas id="qrCanvas" width="160" height="160" style="display: none;"></canvas>
                         <div id="qrPlaceholder" class="qr-placeholder">
-                            Complete profile to generate QR
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                            </svg>
+                            Complete your profile to generate QR code
                         </div>
                     </div>
                     
-                    <div class="mt-2">
-                        <input type="text" id="cardLink" class="w-full text-xs text-center border border-gray-300 rounded px-2 py-1" readonly placeholder="Card link will appear here">
-                        <button id="copyLinkBtn" class="text-xs text-blue-600 hover:text-blue-800 mt-1">Copy Link</button>
+                    <div class="mt-4">
+                        <input type="text" id="cardLink" class="w-full text-xs text-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-50" readonly placeholder="Emergency card link will appear here">
+                        <button id="copyLinkBtn" class="text-xs text-blue-600 hover:text-blue-800 mt-2 font-medium">
+                            📋 Copy Shareable Link
+                        </button>
                     </div>
                 </div>
                 
-                <div class="space-y-2">
-                    <button id="viewCardBtn" class="btn-primary w-full">View Emergency Card</button>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="exportPngBtn" class="btn-secondary text-sm">Export PNG</button>
-                        <button id="printCardBtn" class="btn-secondary text-sm">Print Card</button>
+                <div class="space-y-3">
+                    <button id="viewCardBtn" class="btn-primary w-full">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        View Emergency Card
+                    </button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="exportPngBtn" class="btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export PNG
+                        </button>
+                        <button id="printCardBtn" class="btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                            Print Card
+                        </button>
                     </div>
                 </div>
             </div>
 
+            <!-- Data Vault & Security -->
+            <div class="glass-card p-6 animate-fade-in-up">
+                <div class="card-ribbon ribbon-vault"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Data Vault</h2>
+                    <svg class="w-8 h-8 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <p class="text-sm text-gray-600 mb-6">Your data is encrypted and stored securely. You control who sees what.</p>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span class="text-sm font-medium text-green-800">End-to-End Encrypted</span>
+                        </div>
+                        <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span class="text-sm font-medium text-blue-800">GDPR Compliant</span>
+                        </div>
+                        <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <span class="text-sm font-medium text-purple-800">Works Offline</span>
+                        </div>
+                        <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="space-y-3">
+                    <button id="exportDataBtn" class="btn-secondary w-full">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export My Data
+                    </button>
+                    <button id="importDataBtn" class="btn-secondary w-full">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                        </svg>
+                        Import Data
+                    </button>
+                </div>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            </div>
+        </div>
+
+        <!-- Additional Features Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Family Sharing -->
+            <div class="glass-card p-6 animate-fade-in-up">
+                <div class="card-ribbon ribbon-family"></div>
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-pink-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
+                    </svg>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Family Sharing</h3>
+                    <p class="text-sm text-gray-600 mb-4">Share emergency cards with family members</p>
+                    <button class="btn-secondary w-full text-sm">Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- Premium Features -->
+            <div class="glass-card p-6 animate-fade-in-up">
+                <div class="card-ribbon ribbon-premium"></div>
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                    </svg>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Premium</h3>
+                    <p class="text-sm text-gray-600 mb-4">Advanced features and priority support</p>
+                    <button class="btn-secondary w-full text-sm">Upgrade</button>
+                </div>
+            </div>
+
+            <!-- Analytics -->
+            <div class="glass-card p-6 animate-fade-in-up">
+                <div class="card-ribbon ribbon-analytics"></div>
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Analytics</h3>
+                    <p class="text-sm text-gray-600 mb-4">Track QR code scans and access</p>
+                    <button class="btn-secondary w-full text-sm">View Stats</button>
+                </div>
+            </div>
+
             <!-- Danger Zone -->
-            <div class="glass-card p-6 border-red-200">
+            <div class="glass-card p-6 border-red-200 animate-fade-in-up">
                 <div class="card-ribbon ribbon-danger"></div>
-                <h2 class="text-xl font-bold text-red-600 mb-2">Danger Zone</h2>
-                <p class="text-sm text-gray-600 mb-4">
-                    This permanently deletes your account and all data.
-                </p>
-                <button id="deleteAccountBtn" class="w-full bg-transparent border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg font-semibold transition-all">
-                    Delete My Account
-                </button>
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <h3 class="text-lg font-bold text-red-600 mb-2">Danger Zone</h3>
+                    <p class="text-sm text-gray-600 mb-4">Permanently delete your account</p>
+                    <button id="deleteAccountBtn" class="w-full bg-transparent border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm">
+                        Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help & Support Section -->
+        <div class="glass-card p-8 mb-8 animate-fade-in-up">
+            <div class="card-ribbon ribbon-silver"></div>
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-slate-900 mb-4">Need Help?</h2>
+                <p class="text-gray-600 mb-6">Our support team is here to help you get the most out of MYQER™</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="font-semibold text-slate-900 mb-2">FAQ</h3>
+                        <p class="text-sm text-gray-600 mb-3">Find answers to common questions</p>
+                        <button class="btn-tertiary">View FAQ</button>
+                    </div>
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                        <h3 class="font-semibold text-slate-900 mb-2">Live Chat</h3>
+                        <p class="text-sm text-gray-600 mb-3">Chat with our support team</p>
+                        <button class="btn-tertiary">Start Chat</button>
+                    </div>
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                        <h3 class="font-semibold text-slate-900 mb-2">Email Support</h3>
+                        <p class="text-sm text-gray-600 mb-3">Send us a detailed message</p>
+                        <button class="btn-tertiary">Contact Us</button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-100 mt-16">
-        <div class="max-w-6xl mx-auto px-4 py-8">
-            <div class="flex flex-col md:flex-row items-center justify-between">
-                <div class="text-sm text-gray-600 mb-4 md:mb-0">
-                    © 2025 MYQER — Emergency Response QR · GDPR/HIPAA-minded.
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div class="md:col-span-2">
+                    <div class="text-3xl font-black text-slate-900 mb-4">
+                        MYQ<span class="brand-red">ER</span><span class="text-lg">™</span>
+                    </div>
+                    <p class="text-gray-600 mb-4 max-w-md">
+                        Privacy-first emergency response QR system. Your medical information, secure and accessible when it matters most.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                            </svg>
+                        </a>
+                    </div>
                 </div>
-                <div class="flex gap-6 text-sm">
-                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Privacy</a>
-                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Terms</a>
-                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">About</a>
-                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Support</a>
-                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Contact</a>
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-4">Product</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Features</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Pricing</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Security</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">API</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-4">Support</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Help Center</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Contact Us</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Privacy Policy</a></li>
+                        <li><a href="#" class="text-gray-600 hover:text-gray-900 transition-colors">Terms of Service</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 mt-8 pt-8 flex flex-col md:flex-row items-center justify-between">
+                <div class="text-sm text-gray-600 mb-4 md:mb-0">
+                    © 2025 MYQER™ — Emergency Response QR System · GDPR/HIPAA-minded · Made with ❤️ for first responders
+                </div>
+                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>🔒 Encrypted</span>
+                    <span>🌍 Global</span>
+                    <span>📱 Offline Ready</span>
                 </div>
             </div>
         </div>
@@ -500,14 +1328,21 @@
             medications: []
         };
         let currentSpeech = null;
+        let saveTimeout = null;
 
         // ========== INITIALIZATION ==========
         document.addEventListener('DOMContentLoaded', async () => {
-            await checkSession();
-            setupEventListeners();
-            setupPillInputs();
-            await loadUserData();
-            updateTriageStatus();
+            try {
+                await checkSession();
+                setupEventListeners();
+                setupPillInputs();
+                await loadUserData();
+                updateTriageStatus();
+                updateProfileProgress();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showToast('Failed to initialize dashboard', 'error');
+            }
         });
 
         // ========== SESSION MANAGEMENT ==========
@@ -540,8 +1375,13 @@
             // Logout button
             document.getElementById('logoutBtn').addEventListener('click', async () => {
                 if (confirm('Are you sure you want to logout?')) {
-                    await window.sb.auth.signOut();
-                    location.replace('/');
+                    try {
+                        await window.sb.auth.signOut();
+                        location.replace('/');
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        showToast('Logout failed', 'error');
+                    }
                 }
             });
             
@@ -554,7 +1394,7 @@
             // Triage override
             document.getElementById('triageOverride').addEventListener('change', updateTriageStatus);
             
-            // Speak summary
+            // Speech controls
             document.getElementById('speakSummaryBtn').addEventListener('click', speakSummary);
             document.getElementById('stopSpeakingBtn').addEventListener('click', stopSpeaking);
             
@@ -564,16 +1404,37 @@
             document.getElementById('exportPngBtn').addEventListener('click', () => exportQR('png'));
             document.getElementById('printCardBtn').addEventListener('click', printEmergencyCard);
             
+            // Data management
+            document.getElementById('exportDataBtn').addEventListener('click', exportUserData);
+            document.getElementById('importDataBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
+            document.getElementById('importFileInput').addEventListener('change', importUserData);
+            
             // Delete account
             document.getElementById('deleteAccountBtn').addEventListener('click', deleteAccount);
             
             // Auto-save on input with debouncing
-            const autoSaveFields = ['fullName', 'dateOfBirth', 'country', 'bloodType', 'organDonor', 'lifeSupportPref'];
+            const autoSaveFields = [
+                'fullName', 'dateOfBirth', 'country', 'preferredLanguage', 'heightFeet', 'heightInches',
+                'bloodType', 'organDonor', 'weight', 'lifeSupportPref', 'primaryDoctor', 'insurance'
+            ];
+            
             autoSaveFields.forEach(fieldId => {
                 const element = document.getElementById(fieldId);
                 if (element) {
-                    element.addEventListener('input', debounce(saveProfile, 1000));
-                    element.addEventListener('change', debounce(saveProfile, 1000));
+                    element.addEventListener('input', () => {
+                        clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(() => {
+                            saveProfile();
+                            saveHealthProfile();
+                        }, 1000);
+                    });
+                    element.addEventListener('change', () => {
+                        clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(() => {
+                            saveProfile();
+                            saveHealthProfile();
+                        }, 500);
+                    });
                 }
             });
         }
@@ -608,7 +1469,10 @@
             pillData[type].push(value);
             renderPills(type);
             updateTriageStatus();
-            debounce(saveHealthProfile, 1000)();
+            updateProfileProgress();
+            
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveHealthProfile, 1000);
         }
 
         function removePill(type, index) {
@@ -616,7 +1480,10 @@
             pillData[type].splice(index, 1);
             renderPills(type);
             updateTriageStatus();
-            debounce(saveHealthProfile, 1000)();
+            updateProfileProgress();
+            
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveHealthProfile, 1000);
             showToast(`Removed ${removed}`, 'success');
         }
 
@@ -634,8 +1501,8 @@
 
         // ========== ICE CONTACT MANAGEMENT ==========
         function addIceContact() {
-            if (iceContactCount >= 3) {
-                showToast('Maximum 3 contacts allowed', 'warning');
+            if (iceContactCount >= 5) {
+                showToast('Maximum 5 contacts allowed', 'warning');
                 return;
             }
             
@@ -643,27 +1510,52 @@
             const contactId = `ice_${Date.now()}`;
             
             const contactDiv = document.createElement('div');
-            contactDiv.className = 'border border-gray-200 rounded-lg p-4';
+            contactDiv.className = 'ice-contact-card';
             contactDiv.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Name</label>
-                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded contact-name" placeholder="Full name" required>
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" class="form-input contact-name" placeholder="Enter full name" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Relationship</label>
-                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded contact-relation" placeholder="Spouse, Parent, etc.">
+                        <label class="form-label">Relationship</label>
+                        <select class="form-select contact-relation">
+                            <option value="">Select relationship</option>
+                            <option value="Spouse">Spouse</option>
+                            <option value="Partner">Partner</option>
+                            <option value="Parent">Parent</option>
+                            <option value="Child">Child</option>
+                            <option value="Sibling">Sibling</option>
+                            <option value="Friend">Friend</option>
+                            <option value="Colleague">Colleague</option>
+                            <option value="Doctor">Doctor</option>
+                            <option value="Lawyer">Lawyer</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
-                        <input type="tel" class="w-full px-2 py-1 border border-gray-300 rounded contact-phone" placeholder="+1234567890" required>
+                        <label class="form-label">Phone Number *</label>
+                        <input type="tel" class="form-input contact-phone" placeholder="+1 (555) 123-4567" required>
                     </div>
                 </div>
-                <div class="flex justify-between items-center mt-3">
-                    <button class="text-red-600 text-sm hover:text-red-800" onclick="removeIceContact('${contactId}')">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="form-label">Email (Optional)</label>
+                        <input type="email" class="form-input contact-email" placeholder="contact@example.com">
+                    </div>
+                    <div>
+                        <label class="form-label">Notes (Optional)</label>
+                        <input type="text" class="form-input contact-notes" placeholder="Additional information">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+                    <button class="text-red-600 text-sm hover:text-red-800 font-medium" onclick="removeIceContact('${contactId}')">
+                        <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
                         Remove Contact
                     </button>
-                    <div class="text-xs text-gray-500">Auto-saves on blur</div>
+                    <div class="text-xs text-gray-500">Auto-saves on change</div>
                 </div>
             `;
             
@@ -672,11 +1564,19 @@
             iceContactCount++;
             
             // Add event listeners for auto-save
-            contactDiv.querySelectorAll('input').forEach(input => {
-                input.addEventListener('blur', debounce(saveIceContacts, 1000));
+            contactDiv.querySelectorAll('input, select').forEach(input => {
+                input.addEventListener('blur', () => {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveIceContacts, 1000);
+                });
+                input.addEventListener('change', () => {
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveIceContacts, 500);
+                });
             });
             
-            updateAddButtonState();
+            updateContactCount();
+            updateProfileProgress();
             showToast('Contact added', 'success');
         }
 
@@ -685,31 +1585,111 @@
             if (contactDiv) {
                 contactDiv.remove();
                 iceContactCount--;
-                updateAddButtonState();
-                debounce(saveIceContacts, 1000)();
+                updateContactCount();
+                updateProfileProgress();
+                
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(saveIceContacts, 1000);
                 showToast('Contact removed', 'success');
             }
         }
 
-        function updateAddButtonState() {
+        function updateContactCount() {
+            const countElement = document.getElementById('contactCount');
+            if (countElement) {
+                countElement.textContent = iceContactCount;
+            }
+            
             const addBtn = document.getElementById('addIceContact');
-            addBtn.disabled = iceContactCount >= 3;
-            addBtn.textContent = iceContactCount >= 3 ? 'Maximum reached (3/3)' : `Add Contact (${iceContactCount}/3)`;
+            if (addBtn) {
+                addBtn.disabled = iceContactCount >= 5;
+                if (iceContactCount >= 5) {
+                    addBtn.innerHTML = `
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
+                        </svg>
+                        Maximum Reached (5/5)
+                    `;
+                } else {
+                    addBtn.innerHTML = `
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add Emergency Contact
+                    `;
+                }
+            }
+        }
+
+        // ========== PROFILE PROGRESS ==========
+        function updateProfileProgress() {
+            const checks = {
+                identity: checkIdentityComplete(),
+                health: checkHealthComplete(),
+                contacts: iceContactCount > 0,
+                code: currentProfile?.code ? true : false
+            };
+            
+            const completedCount = Object.values(checks).filter(Boolean).length;
+            const percentage = Math.round((completedCount / 4) * 100);
+            
+            // Update progress circle
+            const progressCircle = document.getElementById('progressCircle');
+            const progressPercent = document.getElementById('progressPercent');
+            
+            if (progressCircle && progressPercent) {
+                const circumference = 2 * Math.PI * 28; // radius = 28
+                const strokeDasharray = (percentage / 100) * circumference;
+                progressCircle.style.strokeDasharray = `${strokeDasharray} ${circumference}`;
+                progressPercent.textContent = `${percentage}%`;
+            }
+            
+            // Update check indicators
+            updateCheckIndicator('checkIdentity', checks.identity);
+            updateCheckIndicator('checkHealth', checks.health);
+            updateCheckIndicator('checkContacts', checks.contacts);
+            updateCheckIndicator('checkCode', checks.code);
+        }
+
+        function updateCheckIndicator(elementId, isComplete) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                const circle = element.querySelector('div');
+                const text = element.querySelector('span');
+                
+                if (isComplete) {
+                    circle.className = 'w-4 h-4 rounded-full bg-green-500';
+                    text.className = 'text-green-700 font-medium';
+                } else {
+                    circle.className = 'w-4 h-4 rounded-full bg-gray-300';
+                    text.className = 'text-gray-600';
+                }
+            }
+        }
+
+        function checkIdentityComplete() {
+            const fullName = document.getElementById('fullName')?.value?.trim();
+            const dateOfBirth = document.getElementById('dateOfBirth')?.value;
+            const country = document.getElementById('country')?.value;
+            return fullName && dateOfBirth && country;
+        }
+
+        function checkHealthComplete() {
+            const bloodType = document.getElementById('bloodType')?.value;
+            const hasAllergies = pillData.allergies.length > 0;
+            const hasConditions = pillData.conditions.length > 0;
+            return bloodType || hasAllergies || hasConditions;
         }
 
         // ========== EMERGENCY CODE & QR ==========
         async function generateEmergencyCode() {
             try {
-                const fullName = document.getElementById('fullName').value.trim();
-                const dateOfBirth = document.getElementById('dateOfBirth').value;
-                const country = document.getElementById('country').value;
-                
-                if (!fullName || !dateOfBirth || !country) {
-                    showToast('Please complete your profile first (Name, Date of Birth, Country)', 'warning');
+                if (!checkIdentityComplete()) {
+                    showToast('Please complete your identity information first (Name, Date of Birth, Country)', 'warning');
                     return;
                 }
                 
-                const code = 'MYQER-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                const code = 'MYQER-' + Math.random().toString(36).substr(2, 8).toUpperCase();
                 
                 // Save to database
                 const { error } = await window.sb
@@ -717,9 +1697,9 @@
                     .upsert({
                         id: currentUser.id,
                         email: currentUser.email,
-                        full_name: fullName,
-                        country: country,
-                        date_of_birth: dateOfBirth,
+                        full_name: document.getElementById('fullName').value.trim(),
+                        country: document.getElementById('country').value,
+                        date_of_birth: document.getElementById('dateOfBirth').value,
                         code: code
                     });
                 
@@ -736,6 +1716,7 @@
                 
                 updateCardLink(code);
                 generateQRCode();
+                updateProfileProgress();
                 
                 showToast('Emergency code generated successfully!', 'success');
                 
@@ -758,9 +1739,9 @@
             const cardUrl = `${ORIGIN}/card.html?code=${currentProfile.code}`;
             
             QRCode.toCanvas(canvas, cardUrl, {
-                width: 128,
-                height: 128,
-                margin: 2,
+                width: 160,
+                height: 160,
+                margin: 3,
                 color: {
                     dark: '#000000',
                     light: '#FFFFFF'
@@ -786,10 +1767,10 @@
             
             if (override) {
                 const statusMap = {
-                    'Green': { class: 'triage-green', text: 'GREEN - Standard' },
-                    'Amber': { class: 'triage-amber', text: 'AMBER - Urgent' },
-                    'Red': { class: 'triage-red', text: 'RED - Immediate' },
-                    'Black': { class: 'triage-black', text: 'BLACK - Comfort' }
+                    'Green': { class: 'triage-green', text: 'GREEN - Standard Priority' },
+                    'Amber': { class: 'triage-amber', text: 'AMBER - Urgent Priority' },
+                    'Red': { class: 'triage-red', text: 'RED - Immediate Priority' },
+                    'Black': { class: 'triage-black', text: 'BLACK - Comfort Care' }
                 };
                 
                 const status = statusMap[override];
@@ -798,18 +1779,35 @@
             } else {
                 let calculatedStatus = 'Green';
                 
-                const lifeSupportPref = document.getElementById('lifeSupportPref').value;
+                const lifeSupportPref = document.getElementById('lifeSupportPref')?.value;
                 
-                const criticalAllergies = ['midazolam', 'codeine', 'penicillin', 'morphine', 'fentanyl', 'aspirin'];
+                // Critical allergies that require immediate attention
+                const criticalAllergies = [
+                    'penicillin', 'morphine', 'codeine', 'fentanyl', 'midazolam', 'propofol',
+                    'aspirin', 'ibuprofen', 'latex', 'shellfish', 'nuts', 'peanuts'
+                ];
+                
                 const hasCriticalAllergy = pillData.allergies.some(allergy => 
                     criticalAllergies.some(critical => 
                         allergy.toLowerCase().includes(critical.toLowerCase())
                     )
                 );
                 
+                // High-risk conditions
+                const highRiskConditions = [
+                    'diabetes', 'heart', 'cardiac', 'stroke', 'seizure', 'epilepsy',
+                    'asthma', 'copd', 'kidney', 'liver', 'cancer'
+                ];
+                
+                const hasHighRiskCondition = pillData.conditions.some(condition =>
+                    highRiskConditions.some(risk =>
+                        condition.toLowerCase().includes(risk.toLowerCase())
+                    )
+                );
+                
                 if (lifeSupportPref === 'DNR') {
                     calculatedStatus = 'Black';
-                } else if (hasCriticalAllergy || pillData.conditions.length > 3) {
+                } else if (hasCriticalAllergy || hasHighRiskCondition || pillData.conditions.length > 3) {
                     calculatedStatus = 'Red';
                 } else if (pillData.allergies.length > 0 || pillData.conditions.length > 0 || pillData.medications.length > 2) {
                     calculatedStatus = 'Amber';
@@ -834,16 +1832,21 @@
                 speechSynthesis.cancel();
             }
             
-            const fullName = document.getElementById('fullName').value || 'Unknown';
-            const bloodType = document.getElementById('bloodType').value || 'Unknown';
-            const allergies = pillData.allergies.length > 0 ? pillData.allergies.join(', ') : 'None';
-            const conditions = pillData.conditions.length > 0 ? pillData.conditions.join(', ') : 'None';
+            const fullName = document.getElementById('fullName').value || 'Unknown patient';
+            const bloodType = document.getElementById('bloodType').value || 'Unknown blood type';
+            const allergies = pillData.allergies.length > 0 ? pillData.allergies.join(', ') : 'No known allergies';
+            const conditions = pillData.conditions.length > 0 ? pillData.conditions.join(', ') : 'No known medical conditions';
+            const medications = pillData.medications.length > 0 ? pillData.medications.join(', ') : 'No current medications';
+            const lifeSupportPref = document.getElementById('lifeSupportPref').value || 'Full life support';
             
-            const summary = `Emergency summary for ${fullName}. Blood type: ${bloodType}. Allergies: ${allergies}. Medical conditions: ${conditions}.`;
+            const summary = `Emergency medical summary for ${fullName}. Blood type: ${bloodType}. Allergies: ${allergies}. Medical conditions: ${conditions}. Current medications: ${medications}. Life support preference: ${lifeSupportPref}.`;
             
             if ('speechSynthesis' in window) {
                 currentSpeech = new SpeechSynthesisUtterance(summary);
                 currentSpeech.lang = 'en-US';
+                currentSpeech.rate = 0.9;
+                currentSpeech.pitch = 1.0;
+                currentSpeech.volume = 1.0;
                 
                 currentSpeech.onstart = () => {
                     document.getElementById('speakSummaryBtn').style.display = 'none';
@@ -856,10 +1859,17 @@
                     currentSpeech = null;
                 };
                 
+                currentSpeech.onerror = () => {
+                    document.getElementById('speakSummaryBtn').style.display = 'block';
+                    document.getElementById('stopSpeakingBtn').style.display = 'none';
+                    currentSpeech = null;
+                    showToast('Speech synthesis failed', 'error');
+                };
+                
                 speechSynthesis.speak(currentSpeech);
-                showToast('Speaking summary...', 'info');
+                showToast('Speaking medical summary...', 'info');
             } else {
-                showToast('Speech synthesis not supported', 'error');
+                showToast('Speech synthesis not supported in this browser', 'error');
             }
         }
 
@@ -887,6 +1897,8 @@
                     console.error('Profile load error:', profileError);
                 } else if (profile) {
                     currentProfile = profile;
+                    
+                    // Populate identity fields
                     document.getElementById('fullName').value = profile.full_name || '';
                     document.getElementById('dateOfBirth').value = profile.date_of_birth || '';
                     document.getElementById('country').value = profile.country || '';
@@ -937,396 +1949,23 @@
                 if (contactsError) {
                     console.error('Contacts load error:', contactsError);
                 } else if (contacts && contacts.length > 0) {
-                    contacts.forEach((contact, index) => {
+                    contacts.forEach((contact) => {
                         const container = document.getElementById('iceContacts');
                         const contactId = `ice_${contact.id}`;
                         
                         const contactDiv = document.createElement('div');
-                        contactDiv.className = 'border border-gray-200 rounded-lg p-4';
+                        contactDiv.className = 'ice-contact-card';
                         contactDiv.innerHTML = `
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Name</label>
-                                    <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded contact-name" value="${contact.name || ''}" required>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Relationship</label>
-                                    <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded contact-relation" value="${contact.relation || ''}">
+                                    <label class="form-label">Full Name *</label>
+                                    <input type="text" class="form-input contact-name" value="${contact.name || ''}" required>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
-                                    <input type="tel" class="w-full px-2 py-1 border border-gray-300 rounded contact-phone" value="${contact.phone || ''}" required>
-                                </div>
-                            </div>
-                            <div class="flex justify-between items-center mt-3">
-                                <button class="text-red-600 text-sm hover:text-red-800" onclick="removeIceContact('${contactId}')">
-                                    Remove Contact
-                                </button>
-                                <div class="text-xs text-gray-500">Auto-saves on blur</div>
-                            </div>
-                        `;
-                        
-                        contactDiv.dataset.contactId = contactId;
-                        contactDiv.dataset.dbId = contact.id;
-                        container.appendChild(contactDiv);
-                        iceContactCount++;
-                        
-                        contactDiv.querySelectorAll('input').forEach(input => {
-                            input.addEventListener('blur', debounce(saveIceContacts, 1000));
-                        });
-                    });
-                    
-                    updateAddButtonState();
-                }
-                
-                updateTriageStatus();
-                
-            } catch (error) {
-                console.error('Error loading user data:', error);
-                showToast('Error loading data', 'error');
-            }
-        }
-
-        // ========== SAVE FUNCTIONS ==========
-        async function saveProfile() {
-            try {
-                const fullName = document.getElementById('fullName').value.trim();
-                const dateOfBirth = document.getElementById('dateOfBirth').value;
-                const country = document.getElementById('country').value;
-                
-                const { error } = await window.sb
-                    .from('profiles')
-                    .upsert({
-                        id: currentUser.id,
-                        email: currentUser.email,
-                        full_name: fullName,
-                        country: country,
-                        date_of_birth: dateOfBirth || null,
-                        code: currentProfile?.code || null
-                    });
-                
-                if (error) {
-                    console.error('Save profile error:', error);
-                    showToast('Failed to save profile', 'error');
-                    return;
-                }
-                
-                showToast('Profile saved', 'success');
-                
-            } catch (error) {
-                console.error('Save profile error:', error);
-                showToast('Failed to save profile', 'error');
-            }
-        }
-
-        async function saveHealthProfile() {
-            try {
-                const bloodType = document.getElementById('bloodType').value;
-                const organDonor = document.getElementById('organDonor').value;
-                const lifeSupportPref = document.getElementById('lifeSupportPref').value;
-                
-                const { error } = await window.sb
-                    .from('health_profiles')
-                    .upsert({
-                        user_id: currentUser.id,
-                        blood_type: bloodType || null,
-                        organ_donor: organDonor ? organDonor === 'true' : null,
-                        allergies: pillData.allergies.join(', ') || null,
-                        conditions: pillData.conditions.join(', ') || null,
-                        meds: pillData.medications.join(', ') || null,
-                        life_support_pref: lifeSupportPref
-                    });
-                
-                if (error) {
-                    console.error('Save health error:', error);
-                    showToast('Failed to save health profile', 'error');
-                    return;
-                }
-                
-                updateTriageStatus();
-                showToast('Health profile saved', 'success');
-                
-            } catch (error) {
-                console.error('Save health error:', error);
-                showToast('Failed to save health profile', 'error');
-            }
-        }
-
-        async function saveIceContacts() {
-            try {
-                // First, delete all existing contacts
-                await window.sb
-                    .from('ice_contacts')
-                    .delete()
-                    .eq('user_id', currentUser.id);
-                
-                // Then insert current contacts
-                const contacts = [];
-                document.querySelectorAll('#iceContacts > div').forEach(contactDiv => {
-                    const nameInput = contactDiv.querySelector('.contact-name');
-                    const relationInput = contactDiv.querySelector('.contact-relation');
-                    const phoneInput = contactDiv.querySelector('.contact-phone');
-                    
-                    if (nameInput && nameInput.value.trim()) {
-                        contacts.push({
-                            user_id: currentUser.id,
-                            name: nameInput.value.trim(),
-                            relation: relationInput.value.trim() || null,
-                            phone: phoneInput.value.trim() || null
-                        });
-                    }
-                });
-                
-                if (contacts.length > 0) {
-                    const { error } = await window.sb
-                        .from('ice_contacts')
-                        .insert(contacts);
-                    
-                    if (error) {
-                        console.error('Save contacts error:', error);
-                        showToast('Failed to save contacts', 'error');
-                        return;
-                    }
-                }
-                
-                showToast('Contacts saved', 'success');
-                
-            } catch (error) {
-                console.error('Save contacts error:', error);
-                showToast('Failed to save contacts', 'error');
-            }
-        }
-
-        // ========== UTILITY FUNCTIONS ==========
-        function copyCardLink() {
-            const link = document.getElementById('cardLink').value;
-            if (link) {
-                navigator.clipboard.writeText(link).then(() => {
-                    showToast('Link copied to clipboard', 'success');
-                }).catch(() => {
-                    showToast('Failed to copy link', 'error');
-                });
-            } else {
-                showToast('Generate a code first', 'warning');
-            }
-        }
-
-        function viewEmergencyCard() {
-            const link = document.getElementById('cardLink').value;
-            if (link) {
-                window.open(link, '_blank');
-            } else {
-                showToast('Generate a code first', 'warning');
-            }
-        }
-
-        function exportQR(format) {
-            const canvas = document.getElementById('qrCanvas');
-            if (canvas.style.display === 'none') {
-                showToast('Generate QR code first', 'warning');
-                return;
-            }
-            
-            try {
-                const link = document.createElement('a');
-                link.download = `myqer-qr-${currentProfile?.code || 'emergency'}.png`;
-                link.href = canvas.toDataURL('image/png');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('QR code exported', 'success');
-            } catch (error) {
-                console.error('Export failed:', error);
-                showToast('Export failed', 'error');
-            }
-        }
-
-        function printEmergencyCard() {
-            if (!currentProfile?.code) {
-                showToast('Generate emergency code first', 'warning');
-                return;
-            }
-            
-            try {
-                const fullName = document.getElementById('fullName').value || 'Unknown';
-                const bloodType = document.getElementById('bloodType').value || 'Unknown';
-                const allergies = pillData.allergies.join(', ') || 'None';
-                const conditions = pillData.conditions.join(', ') || 'None';
-                const medications = pillData.medications.join(', ') || 'None';
-                
-                const printWindow = window.open('', '_blank');
-                
-                const printContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>MYQER™ Emergency Card - ${fullName}</title>
-                        <style>
-                            body { 
-                                font-family: Arial, sans-serif; 
-                                margin: 20px; 
-                                background: white;
-                            }
-                            .card { 
-                                border: 3px solid #dc2626; 
-                                border-radius: 12px; 
-                                padding: 20px; 
-                                max-width: 400px; 
-                                margin: 0 auto;
-                                background: white;
-                            }
-                            .header { 
-                                text-align: center; 
-                                margin-bottom: 20px; 
-                                border-bottom: 2px solid #dc2626;
-                                padding-bottom: 15px;
-                            }
-                            .brand { 
-                                font-size: 28px; 
-                                font-weight: bold; 
-                                color: #000;
-                                margin-bottom: 5px;
-                            }
-                            .brand .red { color: #dc2626; }
-                            .subtitle {
-                                font-size: 14px;
-                                color: #666;
-                                margin-bottom: 10px;
-                            }
-                            .qr-section { 
-                                text-align: center; 
-                                margin: 20px 0; 
-                                padding: 15px;
-                                background: #f8f9fa;
-                                border-radius: 8px;
-                            }
-                            .info { 
-                                margin: 12px 0; 
-                                padding: 8px 0;
-                                border-bottom: 1px solid #eee;
-                            }
-                            .label { 
-                                font-weight: bold; 
-                                color: #dc2626;
-                                display: inline-block;
-                                width: 120px;
-                            }
-                            .value {
-                                color: #333;
-                            }
-                            .code {
-                                font-family: 'Courier New', monospace;
-                                font-size: 16px;
-                                font-weight: bold;
-                                color: #dc2626;
-                                letter-spacing: 1px;
-                            }
-                            @media print { 
-                                body { margin: 0; }
-                                .card { max-width: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="card">
-                            <div class="header">
-                                <div class="brand">MYQ<span class="red">ER</span>™</div>
-                                <div class="subtitle">Emergency Information Card</div>
-                                <div class="code">${currentProfile.code}</div>
-                            </div>
-                            <div class="qr-section">
-                                <canvas id="printQR" width="200" height="200"></canvas>
-                                <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                                    Scan for emergency information
-                                </div>
-                            </div>
-                            <div class="info">
-                                <span class="label">Name:</span>
-                                <span class="value">${fullName}</span>
-                            </div>
-                            <div class="info">
-                                <span class="label">Blood Type:</span>
-                                <span class="value">${bloodType}</span>
-                            </div>
-                            <div class="info">
-                                <span class="label">Allergies:</span>
-                                <span class="value">${allergies}</span>
-                            </div>
-                            <div class="info">
-                                <span class="label">Conditions:</span>
-                                <span class="value">${conditions}</span>
-                            </div>
-                            <div class="info">
-                                <span class="label">Medications:</span>
-                                <span class="value">${medications}</span>
-                            </div>
-                        </div>
-                        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-                        <script>
-                            const cardUrl = '${ORIGIN}/card.html?code=${currentProfile.code}';
-                            const canvas = document.getElementById('printQR');
-                            QRCode.toCanvas(canvas, cardUrl, {
-                                width: 200,
-                                height: 200,
-                                margin: 3,
-                                color: {
-                                    dark: '#000000',
-                                    light: '#FFFFFF'
-                                }
-                            }, function(error) {
-                                if (!error) {
-                                    setTimeout(() => window.print(), 500);
-                                }
-                            });
-                        </script>
-                    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9777d46070ee78f2',t:'MTc1NjU5NDA0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
-                    </html>
-                `;
-                
-                printWindow.document.write(printContent);
-                printWindow.document.close();
-                showToast('Opening print dialog...', 'info');
-                
-            } catch (error) {
-                console.error('Print failed:', error);
-                showToast('Print failed', 'error');
-            }
-        }
-
-        async function deleteAccount() {
-            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                if (confirm('This will permanently delete all your data. Are you absolutely sure?')) {
-                    showToast('Account deletion requires secure verification. Please contact support to complete this action.', 'warning');
-                }
-            }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = `toast ${type}`;
-            toast.classList.add('show');
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-
-        // Make functions globally available for onclick handlers
-        window.removePill = removePill;
-        window.removeIceContact = removeIceContact;
-    </script>
-</body>
-</html>
+                                    <label class="form-label">Relationship</label>
+                                    <select class="form-select contact-relation">
+                                        <option value="">Select relationship</option>
+                                        <option value="Spouse" ${contact.relation === 'Spouse' ? 'selected' : ''}>Spouse</option>
+                                        <option value="Partner" ${contact.relation === 'Partner' ? 'selected' : ''}>Partner</option>
+                                        <option value="Parent" ${contact.relation === 'Parent' ? 'selected' : ''}>Parent</option>
+                                        <option value="Child" ${contact.relation === <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9777e136b568db7c',t:'MTc1NjU5NDU2OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
