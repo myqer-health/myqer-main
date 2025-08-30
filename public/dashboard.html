@@ -1,23 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MYQER™ Dashboard - Privacy-first Emergency Care</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --brand-red: #C62828;
-            --ink-black: #0F172A;
-            --soft-gray: #F5F7FB;
-        }
-        
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: linear-gradient(135deg, #F5F7FB 0%, #E2E8F0 100%);
             min-height: 100vh;
+        }
+        
+        [dir="rtl"] {
+            text-align: right;
+        }
+        
+        [dir="rtl"] .card-ribbon {
+            left: auto;
+            right: 0;
+            border-radius: 0 16px 16px 0;
         }
         
         .glass-card {
@@ -48,64 +52,16 @@
         .ribbon-health { background: #C62828; }
         .ribbon-ice { background: #F59E0B; }
         .ribbon-qr { background: #3B82F6; }
-        .ribbon-reference { background: #6B7280; }
-        .ribbon-coming { background: #8B5CF6; }
-        .ribbon-family { background: #EC4899; }
-        .ribbon-danger { background: #EF4444; }
         .ribbon-triage { background: #EAB308; }
+        .ribbon-danger { background: #EF4444; }
+        .ribbon-vault { background: #8B5CF6; }
+        .ribbon-family { background: linear-gradient(135deg, #FF6B9D, #C084FC); }
+        .ribbon-coming { background: #6B7280; }
+        .ribbon-silver { background: linear-gradient(135deg, #94A3B8, #64748B); }
         
-        .brand-red { color: var(--brand-red); }
-        .bg-brand-red { background-color: var(--brand-red); }
-        .ink-black { color: var(--ink-black); }
-        .bg-ink-black { background-color: var(--ink-black); }
-        
-        .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-        
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-        
-        .toast.success { background: #10B981; color: white; }
-        .toast.warning { background: #F59E0B; color: white; }
-        .toast.error { background: #EF4444; color: white; }
-        
-        .grid-dashboard {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 24px;
-        }
-        
-        @media (min-width: 768px) {
-            .grid-dashboard {
-                grid-template-columns: 2fr 1fr;
-            }
-        }
-        
-        @media (min-width: 1024px) {
-            .grid-dashboard {
-                grid-template-columns: repeat(8, 1fr);
-            }
-            
-            .main-content {
-                grid-column: span 5;
-            }
-            
-            .sidebar-content {
-                grid-column: span 3;
-            }
-        }
+        .brand-red { color: #C62828; }
+        .bg-brand-red { background-color: #C62828; }
+        .ink-black { color: #0F172A; }
         
         .triage-status {
             display: inline-flex;
@@ -121,143 +77,8 @@
         .triage-red { background: #FEE2E2; color: #991B1B; }
         .triage-black { background: #F3F4F6; color: #374151; }
         
-        .qr-code {
-            width: 120px;
-            height: 120px;
-            background: #000;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-            text-align: center;
-            border-radius: 8px;
-        }
-        
-        input, textarea, select {
-            transition: all 0.2s ease;
-            min-height: 48px;
-            font-size: 16px;
-            border-radius: 8px;
-            border: 2px solid #E5E7EB;
-            padding: 12px 16px;
-        }
-        
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: var(--brand-red);
-            box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.1);
-        }
-        
-        .input-group {
-            position: relative;
-        }
-        
-        .input-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 8px;
-        }
-        
-        .required::after {
-            content: "*";
-            color: #EF4444;
-        }
-        
-        .save-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 12px;
-            margin-left: 8px;
-        }
-        
-        .saving-dot {
-            width: 6px;
-            height: 6px;
-            background: #F59E0B;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .saved-check {
-            color: #10B981;
-            animation: fadeOut 1.8s forwards;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        @keyframes fadeOut {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        
-        .pill-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        
-        .pill {
-            background: #F3F4F6;
-            color: #374151;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .pill-remove {
-            cursor: pointer;
-            color: #6B7280;
-            font-weight: bold;
-        }
-        
-        .pill-remove:hover {
-            color: #EF4444;
-        }
-        
-        .offline-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            color: #F59E0B;
-            font-size: 12px;
-        }
-        
-        .help-tooltip {
-            position: relative;
-            cursor: help;
-            color: #6B7280;
-        }
-        
-        .help-tooltip:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1F2937;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 1000;
-        }
-        
         .btn-primary {
-            background: var(--brand-red);
+            background: #C62828;
             color: white;
             padding: 12px 24px;
             border-radius: 8px;
@@ -274,7 +95,7 @@
         
         .btn-secondary {
             background: white;
-            color: var(--ink-black);
+            color: #0F172A;
             padding: 12px 24px;
             border-radius: 8px;
             font-weight: 600;
@@ -286,96 +107,6 @@
         .btn-secondary:hover {
             background: #F9FAFB;
             border-color: #D1D5DB;
-        }
-        
-        .btn-danger {
-            background: transparent;
-            color: #EF4444;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            border: 2px solid #EF4444;
-            cursor: pointer;
-        }
-        
-        .btn-danger:hover {
-            background: #EF4444;
-            color: white;
-        }
-        
-        .coming-soon-card {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-        
-        .coming-soon-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-        
-        .document-tile {
-            background: #F8FAFC;
-            border: 2px dashed #CBD5E1;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.2s ease;
-            cursor: not-allowed;
-        }
-        
-        .document-tile:hover {
-            border-color: #94A3B8;
-        }
-        
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        
-        .modal.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            padding: 32px;
-            max-width: 500px;
-            width: 90%;
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-        
-        .modal.show .modal-content {
-            transform: scale(1);
-        }
-        
-        .footer-links {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
         }
         
         .disclaimer {
@@ -398,92 +129,239 @@
             line-height: 1.5;
         }
         
-        @media (max-width: 640px) {
-            .footer-links {
-                flex-direction: column;
-                gap: 12px;
-            }
+        input, textarea, select {
+            transition: all 0.2s ease;
+            min-height: 48px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 2px solid #E5E7EB;
+            padding: 12px 16px;
         }
         
-        /* RTL Support */
-        [dir="rtl"] .card-ribbon {
-            left: auto;
-            right: 0;
-            border-radius: 0 16px 16px 0;
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #C62828;
+            box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.1);
         }
         
-        [dir="rtl"] .help-tooltip:hover::after {
-            left: auto;
-            right: 50%;
-            transform: translateX(50%);
+        .pill {
+            background: #F3F4F6;
+            color: #374151;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 2px;
+        }
+        
+        .pill-remove {
+            cursor: pointer;
+            color: #6B7280;
+            font-weight: bold;
+        }
+        
+        .pill-remove:hover {
+            color: #EF4444;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+            transform: translateX(100%);
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .toast.success { background: #10B981; color: white; }
+        .toast.warning { background: #F59E0B; color: white; }
+        .toast.error { background: #EF4444; color: white; }
+        
+        .qr-container {
+            width: 128px;
+            height: 128px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .family-member {
+            background: linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 100%);
+            border: 2px solid #FED7AA;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .family-member::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 182, 193, 0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+        
+        .family-member:hover {
+            border-color: #FB923C;
+            box-shadow: 0 8px 25px rgba(251, 146, 60, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .family-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FF6B9D, #C084FC);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        
+        .family-card {
+            background: white;
+            border: 2px dashed #E5E7EB;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .family-card:hover {
+            border-color: #FF6B9D;
+            background: #FDF2F8;
+            transform: translateY(-2px);
+        }
+        
+        .document-tile {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .document-tile:hover {
+            background: #F1F5F9;
+            border-color: #CBD5E1;
+            transform: translateY(-1px);
+        }
+        
+        .offline-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #EF4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .offline-indicator.show {
+            display: block;
+        }
+        
+        .help-tooltip {
+            position: relative;
+            cursor: help;
+            color: #6B7280;
+        }
+        
+        .help-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1F2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+        }
+        
+        .code-display {
+            background: #F8FAFC;
+            border: 2px dashed #CBD5E1;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #374151;
+            letter-spacing: 2px;
+        }
+        
+        .code-display.has-code {
+            background: #ECFDF5;
+            border-color: #10B981;
+            color: #065F46;
         }
     </style>
 </head>
 <body>
     <!-- Toast Notifications -->
     <div id="toast" class="toast"></div>
-
-    <!-- Delete Account Modal -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-xl font-bold text-red-600 mb-4" data-i18n="danger.title">Delete Account</h3>
-            <p class="text-gray-600 mb-6" data-i18n="danger.warning">
-                This will permanently delete your MYQER account and all associated data. This action cannot be undone.
-            </p>
-            <div class="mb-4">
-                <label class="block text-sm font-semibold text-gray-700 mb-2" data-i18n="danger.type_delete">
-                    Type "DELETE" to confirm:
-                </label>
-                <input type="text" id="deleteConfirmInput" class="w-full" placeholder="DELETE">
-            </div>
-            <div class="mb-6">
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" id="deleteUnderstand">
-                    <span class="text-sm" data-i18n="danger.understand">I understand this action cannot be undone</span>
-                </label>
-            </div>
-            <div class="flex gap-3">
-                <button id="cancelDeleteBtn" class="btn-secondary flex-1" data-i18n="common.cancel">Cancel</button>
-                <button id="confirmDeleteBtn" class="btn-danger flex-1" disabled data-i18n="danger.confirm">Delete Account</button>
-            </div>
-        </div>
+    
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator">
+        📡 Offline - Changes will sync when reconnected
     </div>
 
     <!-- Header -->
     <header class="bg-white shadow-sm border-b border-gray-100">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
-                <!-- Logo -->
                 <div class="flex items-center space-x-2">
-                    <div class="text-2xl font-bold ink-black">
+                    <div class="text-2xl font-bold text-slate-900">
                         MYQ<span class="brand-red">ER</span>™
                     </div>
-                    <div class="text-xs text-gray-500 hidden sm:block" data-i18n="app.tagline">
+                    <div class="text-xs text-gray-500 hidden sm:block" data-translate="tagline">
                         Privacy-first. Works offline.
                     </div>
                 </div>
                 
-                <!-- Center Link -->
                 <div class="hidden md:block">
                     <div class="flex items-center gap-4">
-                        <a href="about.html" class="text-sm text-gray-600 hover:text-gray-900 transition-colors" data-i18n="app.pronounce">
-                            MYQER (pronounced 'my care')
-                        </a>
-                        <div class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-                            DEMO MODE
-                        </div>
+                        <span class="text-sm text-gray-600" data-translate="pronunciation">MYQER (pronounced 'my care')</span>
                     </div>
                 </div>
                 
-                <!-- Right Controls -->
                 <div class="flex items-center space-x-4">
-                    <div id="offlineIndicator" class="offline-indicator" style="display: none;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72l-3.61.81.34 3.68L1 12l2.44 2.78-.34 3.68 3.61.82 1.89 3.18L12 21l3.4 1.46 1.89-3.18 3.61-.81-.34-3.68L23 12zM13 17h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                        </svg>
-                        <span data-i18n="status.offline">Offline</span>
-                        <span id="queueCount" class="bg-amber-500 text-white text-xs px-2 py-1 rounded-full" style="display: none;">0</span>
-                    </div>
                     <select id="languageSelect" class="text-sm border border-gray-300 rounded px-2 py-1">
                         <option value="en">English</option>
                         <option value="es">Español</option>
@@ -491,19 +369,12 @@
                         <option value="de">Deutsch</option>
                         <option value="it">Italiano</option>
                         <option value="pt">Português</option>
-                        <option value="nl">Nederlands</option>
-                        <option value="sv">Svenska</option>
-                        <option value="no">Norsk</option>
-                        <option value="da">Dansk</option>
-                        <option value="fi">Suomi</option>
-                        <option value="pl">Polski</option>
-                        <option value="cs">Čeština</option>
-                        <option value="hu">Magyar</option>
+                        <option value="hi">हिन्दी</option>
+                        <option value="zh">中文</option>
                         <option value="ro">Română</option>
+                        <option value="hu">Magyar</option>
                     </select>
-                    <button id="logoutBtn" class="btn-secondary text-sm" data-i18n="nav.logout">
-                        Logout
-                    </button>
+                    <button id="logoutBtn" class="btn-secondary text-sm" data-translate="logout">Logout</button>
                 </div>
             </div>
         </div>
@@ -512,8 +383,8 @@
     <!-- Medical Disclaimer -->
     <div class="max-w-6xl mx-auto px-4 pt-6">
         <div class="disclaimer">
-            <div class="disclaimer-title" data-i18n="disclaimer.title">Medical Disclaimer</div>
-            <div class="disclaimer-text" data-i18n="disclaimer.text">
+            <div class="disclaimer-title" data-translate="disclaimer_title">Medical Disclaimer</div>
+            <div class="disclaimer-text" data-translate="disclaimer_text">
                 This information is for emergency reference only and does not constitute medical advice. Healthcare professionals must independently verify all medical information and make their own clinical assessments. MYQER™ is not responsible for medical decisions made based on this data.
             </div>
         </div>
@@ -521,41 +392,28 @@
 
     <!-- Main Dashboard -->
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <div class="grid-dashboard">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Main Content -->
-            <div class="main-content space-y-6">
+            <div class="lg:col-span-2 space-y-6">
                 <!-- Identity Card -->
                 <div class="glass-card p-6">
                     <div class="card-ribbon ribbon-identity"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="identity.title">Identity</h2>
-                        <div class="help-tooltip" data-tooltip="These details help responders confirm who you are">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-6" data-i18n="identity.subtitle">These details help responders confirm who you are.</p>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="identity_title">Identity</h2>
+                    <p class="text-sm text-gray-600 mb-6" data-translate="identity_desc">These details help responders confirm who you are.</p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="input-group">
-                            <label class="input-label required" data-i18n="identity.name">Full Name
-                                <span id="fullNameIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="fullName" class="w-full" data-i18n-placeholder="identity.name_placeholder" placeholder="Enter your full name" aria-required="true">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="full_name">Full Name *</label>
+                            <input type="text" id="fullName" class="w-full" data-translate-placeholder="enter_full_name" placeholder="Enter your full name">
                         </div>
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="identity.dob">Date of Birth
-                                <span id="dobIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="date_of_birth">Date of Birth</label>
                             <input type="date" id="dob" class="w-full">
                         </div>
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="identity.country">Country
-                                <span id="countryIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="country">Country</label>
                             <select id="country" class="w-full">
-                                <option value="" data-i18n="identity.select_country">Select country</option>
+                                <option value="" data-translate="select_country">Select country</option>
                                 <option value="US">United States</option>
                                 <option value="GB">United Kingdom</option>
                                 <option value="CA">Canada</option>
@@ -565,224 +423,36 @@
                                 <option value="ES">Spain</option>
                                 <option value="IT">Italy</option>
                                 <option value="NL">Netherlands</option>
-                                <option value="BE">Belgium</option>
-                                <option value="CH">Switzerland</option>
-                                <option value="AT">Austria</option>
                                 <option value="SE">Sweden</option>
                                 <option value="NO">Norway</option>
                                 <option value="DK">Denmark</option>
                                 <option value="FI">Finland</option>
-                                <option value="IE">Ireland</option>
-                                <option value="PT">Portugal</option>
-                                <option value="PL">Poland</option>
-                                <option value="CZ">Czech Republic</option>
-                                <option value="HU">Hungary</option>
-                                <option value="RO">Romania</option>
-                                <option value="BG">Bulgaria</option>
-                                <option value="HR">Croatia</option>
-                                <option value="SI">Slovenia</option>
-                                <option value="SK">Slovakia</option>
-                                <option value="LT">Lithuania</option>
-                                <option value="LV">Latvia</option>
-                                <option value="EE">Estonia</option>
-                                <option value="GR">Greece</option>
-                                <option value="CY">Cyprus</option>
-                                <option value="MT">Malta</option>
-                                <option value="LU">Luxembourg</option>
-                                <option value="IS">Iceland</option>
-                                <option value="LI">Liechtenstein</option>
-                                <option value="MC">Monaco</option>
-                                <option value="SM">San Marino</option>
-                                <option value="VA">Vatican City</option>
-                                <option value="AD">Andorra</option>
-                                <option value="JP">Japan</option>
-                                <option value="KR">South Korea</option>
-                                <option value="SG">Singapore</option>
-                                <option value="HK">Hong Kong</option>
-                                <option value="TW">Taiwan</option>
-                                <option value="NZ">New Zealand</option>
-                                <option value="IL">Israel</option>
-                                <option value="AE">United Arab Emirates</option>
-                                <option value="SA">Saudi Arabia</option>
-                                <option value="QA">Qatar</option>
-                                <option value="KW">Kuwait</option>
-                                <option value="BH">Bahrain</option>
-                                <option value="OM">Oman</option>
-                                <option value="JO">Jordan</option>
-                                <option value="LB">Lebanon</option>
-                                <option value="TR">Turkey</option>
-                                <option value="RU">Russia</option>
-                                <option value="UA">Ukraine</option>
-                                <option value="BY">Belarus</option>
-                                <option value="MD">Moldova</option>
-                                <option value="GE">Georgia</option>
-                                <option value="AM">Armenia</option>
-                                <option value="AZ">Azerbaijan</option>
-                                <option value="KZ">Kazakhstan</option>
-                                <option value="UZ">Uzbekistan</option>
-                                <option value="KG">Kyrgyzstan</option>
-                                <option value="TJ">Tajikistan</option>
-                                <option value="TM">Turkmenistan</option>
-                                <option value="MN">Mongolia</option>
-                                <option value="CN">China</option>
-                                <option value="IN">India</option>
-                                <option value="PK">Pakistan</option>
-                                <option value="BD">Bangladesh</option>
-                                <option value="LK">Sri Lanka</option>
-                                <option value="MV">Maldives</option>
-                                <option value="NP">Nepal</option>
-                                <option value="BT">Bhutan</option>
-                                <option value="MM">Myanmar</option>
-                                <option value="TH">Thailand</option>
-                                <option value="LA">Laos</option>
-                                <option value="KH">Cambodia</option>
-                                <option value="VN">Vietnam</option>
-                                <option value="MY">Malaysia</option>
-                                <option value="BN">Brunei</option>
-                                <option value="ID">Indonesia</option>
-                                <option value="TL">East Timor</option>
-                                <option value="PH">Philippines</option>
-                                <option value="MX">Mexico</option>
-                                <option value="GT">Guatemala</option>
-                                <option value="BZ">Belize</option>
-                                <option value="SV">El Salvador</option>
-                                <option value="HN">Honduras</option>
-                                <option value="NI">Nicaragua</option>
-                                <option value="CR">Costa Rica</option>
-                                <option value="PA">Panama</option>
-                                <option value="CU">Cuba</option>
-                                <option value="JM">Jamaica</option>
-                                <option value="HT">Haiti</option>
-                                <option value="DO">Dominican Republic</option>
-                                <option value="PR">Puerto Rico</option>
-                                <option value="TT">Trinidad and Tobago</option>
-                                <option value="BB">Barbados</option>
-                                <option value="GD">Grenada</option>
-                                <option value="LC">Saint Lucia</option>
-                                <option value="VC">Saint Vincent and the Grenadines</option>
-                                <option value="AG">Antigua and Barbuda</option>
-                                <option value="KN">Saint Kitts and Nevis</option>
-                                <option value="DM">Dominica</option>
-                                <option value="BS">Bahamas</option>
-                                <option value="CO">Colombia</option>
-                                <option value="VE">Venezuela</option>
-                                <option value="GY">Guyana</option>
-                                <option value="SR">Suriname</option>
-                                <option value="GF">French Guiana</option>
-                                <option value="BR">Brazil</option>
-                                <option value="EC">Ecuador</option>
-                                <option value="PE">Peru</option>
-                                <option value="BO">Bolivia</option>
-                                <option value="PY">Paraguay</option>
-                                <option value="UY">Uruguay</option>
-                                <option value="AR">Argentina</option>
-                                <option value="CL">Chile</option>
-                                <option value="FK">Falkland Islands</option>
-                                <option value="ZA">South Africa</option>
-                                <option value="NA">Namibia</option>
-                                <option value="BW">Botswana</option>
-                                <option value="ZW">Zimbabwe</option>
-                                <option value="ZM">Zambia</option>
-                                <option value="MW">Malawi</option>
-                                <option value="MZ">Mozambique</option>
-                                <option value="SZ">Eswatini</option>
-                                <option value="LS">Lesotho</option>
-                                <option value="MG">Madagascar</option>
-                                <option value="MU">Mauritius</option>
-                                <option value="SC">Seychelles</option>
-                                <option value="KM">Comoros</option>
-                                <option value="YT">Mayotte</option>
-                                <option value="RE">Réunion</option>
-                                <option value="TZ">Tanzania</option>
-                                <option value="KE">Kenya</option>
-                                <option value="UG">Uganda</option>
-                                <option value="RW">Rwanda</option>
-                                <option value="BI">Burundi</option>
-                                <option value="DJ">Djibouti</option>
-                                <option value="SO">Somalia</option>
-                                <option value="ET">Ethiopia</option>
-                                <option value="ER">Eritrea</option>
-                                <option value="SD">Sudan</option>
-                                <option value="SS">South Sudan</option>
-                                <option value="CF">Central African Republic</option>
-                                <option value="TD">Chad</option>
-                                <option value="CM">Cameroon</option>
-                                <option value="GQ">Equatorial Guinea</option>
-                                <option value="GA">Gabon</option>
-                                <option value="CG">Republic of the Congo</option>
-                                <option value="CD">Democratic Republic of the Congo</option>
-                                <option value="AO">Angola</option>
-                                <option value="ST">São Tomé and Príncipe</option>
-                                <option value="GH">Ghana</option>
-                                <option value="TG">Togo</option>
-                                <option value="BJ">Benin</option>
-                                <option value="NG">Nigeria</option>
-                                <option value="NE">Niger</option>
-                                <option value="BF">Burkina Faso</option>
-                                <option value="ML">Mali</option>
-                                <option value="SN">Senegal</option>
-                                <option value="GM">Gambia</option>
-                                <option value="GW">Guinea-Bissau</option>
-                                <option value="GN">Guinea</option>
-                                <option value="SL">Sierra Leone</option>
-                                <option value="LR">Liberia</option>
-                                <option value="CI">Côte d'Ivoire</option>
-                                <option value="EG">Egypt</option>
-                                <option value="LY">Libya</option>
-                                <option value="TN">Tunisia</option>
-                                <option value="DZ">Algeria</option>
-                                <option value="MA">Morocco</option>
-                                <option value="EH">Western Sahara</option>
-                                <option value="MR">Mauritania</option>
-                                <option value="CV">Cape Verde</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="identity.health_id">Health ID (NHS, etc.)
-                                <span id="healthIdIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="healthId" class="w-full" data-i18n-placeholder="identity.health_id_placeholder" placeholder="Optional - never shown publicly">
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="identity.health_id_note">Health ID is optional and never shown on your public card.</p>
-                        </div>
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="identity.code">Your Card Code
-                                <span id="cardCodeIndicator" class="save-indicator"></span>
-                            </label>
-                            <div class="flex gap-2">
-                                <input type="text" id="cardCode" class="flex-1" readonly data-i18n-placeholder="identity.code_placeholder" placeholder="Will be generated automatically">
-                                <button id="generateCodeBtn" class="btn-secondary" data-i18n="identity.generate">Generate Code</button>
-                            </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="health_id">Health ID (Optional)</label>
+                            <input type="text" id="healthId" class="w-full" data-translate-placeholder="nhs_number" placeholder="NHS number, etc.">
+                            <p class="text-xs text-gray-500 mt-1" data-translate="never_shown_publicly">Never shown publicly</p>
                         </div>
                     </div>
                     
                     <div class="flex items-center justify-between mt-6">
-                        <div class="text-xs text-gray-500" data-i18n="common.autosave">
-                            Auto-saves as you type
-                        </div>
-                        <button id="saveProfileBtn" class="btn-primary" data-i18n="identity.save">Save Profile</button>
+                        <div class="text-xs text-gray-500" data-translate="auto_saves">Auto-saves as you type</div>
+                        <button id="saveProfileBtn" class="btn-primary" data-translate="save_profile">Save Profile</button>
                     </div>
                 </div>
 
                 <!-- Health Profile Card -->
                 <div class="glass-card p-6">
                     <div class="card-ribbon ribbon-health"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="health.title">Health Profile</h2>
-                        <div class="help-tooltip" data-tooltip="Keep this current. It appears on your emergency card">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-6" data-i18n="health.subtitle">Keep this current. It appears on your emergency card.</p>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="health_profile">Health Profile</h2>
+                    <p class="text-sm text-gray-600 mb-6" data-translate="health_desc">Keep this current. It appears on your emergency card.</p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="health.blood">Blood Type
-                                <span id="bloodTypeIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="blood_type">Blood Type</label>
                             <select id="bloodType" class="w-full">
-                                <option value="—" data-i18n="health.unknown">Unknown</option>
+                                <option value="—" data-translate="unknown">Unknown</option>
                                 <option value="A+">A+</option>
                                 <option value="A-">A-</option>
                                 <option value="B+">B+</option>
@@ -793,155 +463,111 @@
                                 <option value="O-">O-</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="health.donor">Organ Donor
-                                <span id="organDonorIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="organ_donor">Organ Donor</label>
                             <select id="organDonor" class="w-full">
-                                <option value="—" data-i18n="health.not_specified">Not specified</option>
-                                <option value="Yes" data-i18n="common.yes">Yes</option>
-                                <option value="No" data-i18n="common.no">No</option>
+                                <option value="—" data-translate="not_specified">Not specified</option>
+                                <option value="Yes" data-translate="yes">Yes</option>
+                                <option value="No" data-translate="no">No</option>
                             </select>
                         </div>
                         
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="health.allergies">Critical Allergies
-                                <span id="allergiesIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="allergiesInput" class="w-full" data-i18n-placeholder="health.allergies_placeholder" placeholder="Type allergy and press Enter (e.g., Penicillin, Nuts)">
-                            <div id="allergiesPills" class="pill-container"></div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="critical_allergies">Critical Allergies</label>
+                            <input type="text" id="allergiesInput" class="w-full" data-translate-placeholder="allergy_example" placeholder="Type allergy and press Enter (e.g., Penicillin, Nuts)">
+                            <div id="allergiesPills" class="flex flex-wrap gap-2 mt-2"></div>
                         </div>
                         
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="health.conditions">Medical Conditions
-                                <span id="conditionsIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="conditionsInput" class="w-full" data-i18n-placeholder="health.conditions_placeholder" placeholder="Type condition and press Enter (e.g., Diabetes, Hypertension)">
-                            <div id="conditionsPills" class="pill-container"></div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="medical_conditions">Medical Conditions</label>
+                            <input type="text" id="conditionsInput" class="w-full" data-translate-placeholder="condition_example" placeholder="Type condition and press Enter (e.g., Diabetes, Hypertension)">
+                            <div id="conditionsPills" class="flex flex-wrap gap-2 mt-2"></div>
                         </div>
                         
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="health.meds">Current Medications
-                                <span id="medicationsIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="medicationsInput" class="w-full" data-i18n-placeholder="health.meds_placeholder" placeholder="Type medication and press Enter (e.g., Insulin, Aspirin)">
-                            <div id="medicationsPills" class="pill-container"></div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="current_medications">Current Medications</label>
+                            <input type="text" id="medicationsInput" class="w-full" data-translate-placeholder="medication_example" placeholder="Type medication and press Enter (e.g., Insulin, Aspirin)">
+                            <div id="medicationsPills" class="flex flex-wrap gap-2 mt-2"></div>
                         </div>
                         
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="health.implants">Implants & Devices
-                                <span id="implantsIndicator" class="save-indicator"></span>
-                            </label>
-                            <input type="text" id="implantsInput" class="w-full" data-i18n-placeholder="health.implants_placeholder" placeholder="Include model/MRI info (e.g., Pacemaker MRI-unsafe, Hip replacement)">
-                            <div id="implantsPills" class="pill-container"></div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="health.life_support">Life Support Preference
-                                <span id="lifeSupportIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="life_support">Life Support Preference</label>
                             <select id="lifeSupportPref" class="w-full">
-                                <option value="Full" data-i18n="health.full_support">Full Life Support</option>
-                                <option value="Comfort" data-i18n="health.comfort_care">Comfort Care Only</option>
-                                <option value="DNR" data-i18n="health.dnr">Do Not Resuscitate</option>
+                                <option value="Full" data-translate="full_support">Full Life Support</option>
+                                <option value="Comfort" data-translate="comfort_care">Comfort Care Only</option>
+                                <option value="DNR" data-translate="dnr">Do Not Resuscitate</option>
                             </select>
                         </div>
                         
-                        <div class="input-group">
-                            <label class="input-label" data-i18n="health.burial">Burial Preference
-                                <span id="burialIndicator" class="save-indicator"></span>
-                            </label>
-                            <select id="burialPref" class="w-full">
-                                <option value="Burial" data-i18n="health.burial_option">Burial</option>
-                                <option value="Cremation" data-i18n="health.cremation">Cremation</option>
-                                <option value="Other" data-i18n="health.other">Other</option>
-                            </select>
-                        </div>
-                        
-                        <div class="input-group md:col-span-2">
-                            <label class="input-label" data-i18n="health.religion">Religious/Cultural Preference
-                                <span id="religionIndicator" class="save-indicator"></span>
-                            </label>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="religious_pref">Religious Preference</label>
                             <select id="religionPref" class="w-full">
-                                <option value="None" data-i18n="health.none">None</option>
-                                <option value="Catholic">Catholic</option>
-                                <option value="Protestant">Protestant</option>
-                                <option value="Orthodox">Orthodox</option>
-                                <option value="Muslim">Muslim</option>
-                                <option value="Jewish">Jewish</option>
-                                <option value="Hindu">Hindu</option>
-                                <option value="Buddhist">Buddhist</option>
-                                <option value="Sikh">Sikh</option>
-                                <option value="Other" data-i18n="health.other">Other</option>
+                                <option value="None" data-translate="none">None</option>
+                                <option value="Catholic" data-translate="catholic">Catholic</option>
+                                <option value="Protestant" data-translate="protestant">Protestant</option>
+                                <option value="Muslim" data-translate="muslim">Muslim</option>
+                                <option value="Jewish" data-translate="jewish">Jewish</option>
+                                <option value="Hindu" data-translate="hindu">Hindu</option>
+                                <option value="Buddhist" data-translate="buddhist">Buddhist</option>
+                                <option value="Other" data-translate="other">Other</option>
                             </select>
                         </div>
                     </div>
                     
                     <div class="flex items-center justify-between mt-6">
-                        <div class="text-xs text-gray-500" data-i18n="common.autosave">
-                            Auto-saves as you type
-                        </div>
-                        <button id="saveHealthBtn" class="btn-primary" data-i18n="health.save">Save Health Profile</button>
+                        <div class="text-xs text-gray-500" data-translate="auto_saves">Auto-saves as you type</div>
+                        <button id="saveHealthBtn" class="btn-primary" data-translate="save_health">Save Health Profile</button>
                     </div>
                 </div>
 
                 <!-- ICE Contacts Card -->
                 <div class="glass-card p-6">
                     <div class="card-ribbon ribbon-ice"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="ice.title">Emergency Contacts (ICE)</h2>
-                        <div class="help-tooltip" data-tooltip="In Case of Emergency - who should we call?">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-6" data-i18n="ice.subtitle">Add up to 3 trusted contacts.</p>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="ice_contacts">Emergency Contacts (ICE)</h2>
+                    <p class="text-sm text-gray-600 mb-6" data-translate="ice_desc">Add up to 3 trusted contacts.</p>
                     
                     <div id="iceContacts" class="space-y-4">
                         <!-- ICE contacts will be populated here -->
                     </div>
-                    <button id="addIceContact" class="btn-secondary mt-4" data-i18n="ice.add">
-                        Add Contact (Max 3)
-                    </button>
+                    <button id="addIceContact" class="btn-secondary mt-4" data-translate="add_contact">Add Contact (Max 3)</button>
                 </div>
 
                 <!-- Document Vault Card -->
                 <div class="glass-card p-6">
-                    <div class="card-ribbon ribbon-coming"></div>
+                    <div class="card-ribbon ribbon-vault"></div>
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-3">
-                            <h2 class="text-xl font-bold ink-black" data-i18n="docs.title">Document Vault</h2>
-                            <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-semibold" data-i18n="docs.coming">Coming Soon</span>
+                            <h2 class="text-xl font-bold ink-black" data-translate="vault_title">Document Vault</h2>
+                            <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-semibold" data-translate="coming_soon">Coming Soon</span>
                         </div>
-                        <div class="help-tooltip" data-tooltip="Launching after clinical review and security audit">
+                        <div class="help-tooltip" data-tooltip="Coming soon">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                             </svg>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-600 mb-6" data-i18n="docs.subtitle">Secure, client-side encrypted storage for critical documents.</p>
+                    <p class="text-sm text-gray-600 mb-6" data-translate="vault_desc">Secure, client-side encrypted storage for critical documents.</p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="document-tile">
                             <div class="text-2xl mb-2">📋</div>
-                            <h3 class="font-semibold text-gray-700" data-i18n="docs.dnr">DNR Orders</h3>
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="docs.dnr_desc">Do Not Resuscitate documents</p>
+                            <h3 class="font-semibold text-gray-700" data-translate="dnr_orders">DNR Orders</h3>
+                            <p class="text-xs text-gray-500 mt-1" data-translate="dnr_desc">Do Not Resuscitate documents</p>
                         </div>
                         <div class="document-tile">
                             <div class="text-2xl mb-2">📜</div>
-                            <h3 class="font-semibold text-gray-700" data-i18n="docs.living_will">Living Will</h3>
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="docs.living_will_desc">End-of-life care preferences</p>
+                            <h3 class="font-semibold text-gray-700" data-translate="living_will">Living Will</h3>
+                            <p class="text-xs text-gray-500 mt-1" data-translate="living_will_desc">End-of-life care preferences</p>
                         </div>
                         <div class="document-tile">
                             <div class="text-2xl mb-2">⚖️</div>
-                            <h3 class="font-semibold text-gray-700" data-i18n="docs.power_attorney">Medical Power of Attorney</h3>
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="docs.power_attorney_desc">Healthcare decision authority</p>
+                            <h3 class="font-semibold text-gray-700" data-translate="power_attorney">Medical Power of Attorney</h3>
+                            <p class="text-xs text-gray-500 mt-1" data-translate="power_attorney_desc">Healthcare decision authority</p>
                         </div>
                         <div class="document-tile">
                             <div class="text-2xl mb-2">🏥</div>
-                            <h3 class="font-semibold text-gray-700" data-i18n="docs.insurance">Insurance Documents</h3>
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="docs.insurance_desc">Health insurance cards & info</p>
+                            <h3 class="font-semibold text-gray-700" data-translate="insurance_docs">Insurance Documents</h3>
+                            <p class="text-xs text-gray-500 mt-1" data-translate="insurance_desc">Health insurance cards & info</p>
                         </div>
                     </div>
                 </div>
@@ -951,159 +577,186 @@
                     <div class="card-ribbon ribbon-family"></div>
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-3">
-                            <h2 class="text-xl font-bold ink-black" data-i18n="family.title">Family Dashboard</h2>
-                            <span class="bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs font-semibold" data-i18n="family.coming">Coming Soon</span>
+                            <h2 class="text-xl font-bold ink-black" data-translate="family_title">👨‍👩‍👧‍👦 Family Care Hub</h2>
+                            <span class="bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs font-semibold" data-translate="coming_soon">Coming Soon</span>
                         </div>
                         <div class="help-tooltip" data-tooltip="Coming soon">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                             </svg>
                         </div>
                     </div>
-                    <p class="text-sm text-gray-600 mb-6" data-i18n="family.subtitle">Manage dependents and household emergency info in one place.</p>
+                    <p class="text-sm text-gray-600 mb-6" data-translate="family_desc">💝 Manage emergency information for your loved ones with care and security.</p>
                     
-                    <div class="text-center py-8">
-                        <div class="text-4xl mb-4">👨‍👩‍👧‍👦</div>
-                        <button class="btn-secondary" disabled data-i18n="family.invite">
-                            Invite Family Members
-                        </button>
-                        <p class="text-sm text-gray-500 mt-2" data-i18n="family.invite_desc">Create and manage emergency profiles for your loved ones</p>
+                    <div id="familyMembers" class="space-y-4">
+                        <div class="family-member">
+                            <div class="flex items-start gap-4">
+                                <div class="family-avatar">👩</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-bold text-gray-800 text-lg">Sarah Johnson</h3>
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">✓ Complete</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                                        <div>💕 <strong>Spouse</strong></div>
+                                        <div>🩸 <strong>Blood Type:</strong> A+</div>
+                                        <div>⚠️ <strong>Allergies:</strong> 2 items</div>
+                                        <div>💊 <strong>Medications:</strong> 1 item</div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold hover:bg-blue-200 transition-colors">👁️ View Profile</button>
+                                        <button class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold hover:bg-orange-200 transition-colors">✏️ Edit</button>
+                                        <button class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-semibold hover:bg-purple-200 transition-colors">📱 Share QR</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="family-member">
+                            <div class="flex items-start gap-4">
+                                <div class="family-avatar">👦</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h3 class="font-bold text-gray-800 text-lg">Alex Johnson</h3>
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold">⚠️ Incomplete</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
+                                        <div>👶 <strong>Child (12 years)</strong></div>
+                                        <div>🩸 <strong>Blood Type:</strong> Not set</div>
+                                        <div>⚠️ <strong>Allergies:</strong> Peanuts</div>
+                                        <div>💊 <strong>Medications:</strong> None</div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold hover:bg-blue-200 transition-colors">👁️ View Profile</button>
+                                        <button class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold hover:bg-orange-200 transition-colors">✏️ Complete Setup</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="family-card mt-6">
+                        <div class="text-4xl mb-3">👨‍👩‍👧‍👦</div>
+                        <h3 class="font-bold text-gray-700 mb-2">Add Family Member</h3>
+                        <p class="text-sm text-gray-500 mb-4">Create emergency profiles for your loved ones</p>
+                        <button id="addFamilyMember" class="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-6 py-2 rounded-full font-semibold hover:from-pink-600 hover:to-purple-600 transition-all transform hover:scale-105" data-translate="add_family_member">✨ Add New Member</button>
                     </div>
                 </div>
             </div>
 
             <!-- Sidebar Content -->
-            <div class="sidebar-content space-y-6">
+            <div class="space-y-6">
                 <!-- Automated Triage Card -->
                 <div class="glass-card p-6">
                     <div class="card-ribbon ribbon-triage"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="triage.title">Automated Triage</h2>
-                        <div class="help-tooltip" data-tooltip="AI-powered emergency priority assessment">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-2" data-i18n="triage.auto">Auto-computed from your health profile.</p>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="auto_triage">Automated Triage</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-translate="triage_desc">Auto-computed from your health profile.</p>
                     
                     <div class="text-center mb-4">
                         <div id="triageStatus" class="triage-status triage-green">
                             GREEN - Standard
                         </div>
                     </div>
+                    
                     <div class="mb-4">
-                        <label class="input-label" data-i18n="triage.override">Manual Override</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="manual_override">Manual Override</label>
                         <select id="triageOverride" class="w-full">
-                            <option value="" data-i18n="triage.auto_recommended">Auto (Recommended)</option>
-                            <option value="Green" data-i18n="triage.green">Green - Standard</option>
-                            <option value="Amber" data-i18n="triage.amber">Amber - Urgent</option>
-                            <option value="Red" data-i18n="triage.red">Red - Immediate</option>
-                            <option value="Black" data-i18n="triage.black">Black - Comfort</option>
+                            <option value="" data-translate="auto_recommended">Auto (Recommended)</option>
+                            <option value="Green" data-translate="green_standard">Green - Standard</option>
+                            <option value="Amber" data-translate="amber_urgent">Amber - Urgent</option>
+                            <option value="Red" data-translate="red_immediate">Red - Immediate</option>
+                            <option value="Black" data-translate="black_comfort">Black - Comfort</option>
                         </select>
                     </div>
-                    <p class="text-xs text-gray-500 mb-4" data-i18n="triage.control">You control what responders see first.</p>
+                    
+                    <p class="text-xs text-gray-500 mb-4" data-translate="triage_control">You control what responders see first.</p>
+                    
                     <div class="space-y-2">
-                        <button id="speakTriageBtn" class="btn-secondary w-full text-sm" data-i18n="triage.speak">
-                            Speak Summary
-                        </button>
-                        <button id="stopSpeechBtn" class="btn-secondary w-full text-sm" style="display: none;" data-i18n="triage.stop">
-                            Stop
-                        </button>
+                        <button id="speakSummaryBtn" class="btn-secondary w-full text-sm" data-translate="speak_summary">Speak Summary</button>
+                    </div>
+                </div>
+
+                <!-- Emergency Code Card -->
+                <div class="glass-card p-6">
+                    <div class="card-ribbon ribbon-silver"></div>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="emergency_code">🔐 Emergency Code</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-translate="code_desc">Your unique identifier for emergency access.</p>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" data-translate="your_code">Your Emergency Code</label>
+                        <div id="codeDisplay" class="code-display">
+                            <span id="cardCodeDisplay">Click Generate to create</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <button id="generateCodeBtn" class="btn-primary w-full" data-translate="generate_new_code">🎲 Generate New Code</button>
+                        <button id="copyCodeBtn" class="btn-secondary w-full text-sm" data-translate="copy_code">📋 Copy Code</button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <p class="text-xs text-gray-500" data-translate="code_info">
+                            💡 This code links to your emergency information. Keep it safe and share with trusted contacts.
+                        </p>
                     </div>
                 </div>
 
                 <!-- Emergency Card & QR -->
                 <div class="glass-card p-6">
                     <div class="card-ribbon ribbon-qr"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="qr.title">Emergency Card & QR</h2>
-                        <div class="help-tooltip" data-tooltip="Your emergency information accessible via QR code">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-4" data-i18n="qr.subtitle">Scan to view your emergency information.</p>
+                    <h2 class="text-xl font-bold text-slate-900 mb-2" data-translate="emergency_card_qr">Emergency Card & QR</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-translate="qr_desc">Scan to view your emergency information.</p>
                     
                     <div class="text-center mb-4">
-                        <div class="relative">
-                            <canvas id="qrCanvas" width="120" height="120" class="mx-auto border-2 border-gray-200 rounded-lg"></canvas>
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <div class="bg-white rounded-full p-2 shadow-sm">
-                                    <div class="text-xs font-bold ink-black">MYQ<span class="brand-red">ER</span></div>
-                                </div>
-                            </div>
+                        <div id="qrContainer" class="qr-container">
+                            <canvas id="qrCanvas" width="128" height="128"></canvas>
                         </div>
                         <div class="mt-2">
-                            <input type="text" id="cardLink" class="w-full text-xs text-center border border-gray-300 rounded px-2 py-1" readonly>
-                            <button id="copyLinkBtn" class="text-xs text-blue-600 hover:text-blue-800 mt-1" data-i18n="qr.copy">Copy Link</button>
+                            <input type="text" id="cardLink" class="w-full text-xs text-center border border-gray-300 rounded px-2 py-1" readonly data-translate-placeholder="card_link_placeholder" placeholder="Card link will appear here">
+                            <button id="copyLinkBtn" class="text-xs text-blue-600 hover:text-blue-800 mt-1" data-translate="copy_link">Copy Link</button>
                         </div>
                     </div>
                     
                     <div class="space-y-2">
-                        <button id="viewCardBtn" class="btn-primary w-full" data-i18n="qr.view">
-                            View Emergency Card
-                        </button>
+                        <button id="viewCardBtn" class="btn-primary w-full" data-translate="view_emergency_card">View Emergency Card</button>
                         <div class="grid grid-cols-2 gap-2">
-                            <button id="exportPngBtn" class="btn-secondary text-sm" data-i18n="qr.png">PNG</button>
-                            <button id="exportSvgBtn" class="btn-secondary text-sm" data-i18n="qr.svg">SVG</button>
+                            <button id="exportPngBtn" class="btn-secondary text-sm" data-translate="export_png">Export PNG</button>
+                            <button id="exportSvgBtn" class="btn-secondary text-sm" data-translate="export_svg">Export SVG</button>
                         </div>
-                        <button id="printCardBtn" class="btn-secondary w-full" data-i18n="qr.print">
-                            Print Card
-                        </button>
-                        <button id="shareQrBtn" class="btn-secondary w-full" data-i18n="qr.share">
-                            Share QR Code
-                        </button>
-                        <button id="speakCardBtn" class="btn-secondary w-full text-sm" data-i18n="qr.speak">
-                            Speak Summary
-                        </button>
-                    </div>
-                    
-                    <div class="mt-4 pt-4 border-t border-gray-200">
-                        <p class="text-xs text-gray-500" id="qrStatus" data-i18n="qr.status">
-                            QR library loaded
-                        </p>
+                        <button id="printCardBtn" class="btn-secondary w-full" data-translate="print_card">Print Card</button>
+                        <button id="shareQrBtn" class="btn-secondary w-full" data-translate="share_qr">Share QR Code</button>
                     </div>
                 </div>
 
                 <!-- Triage Reference -->
                 <div class="glass-card p-6">
-                    <div class="card-ribbon ribbon-reference"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold ink-black" data-i18n="triage.legend.title">Triage Reference</h2>
-                        <div class="help-tooltip" data-tooltip="Emergency priority color coding system">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-4" data-i18n="triage.legend.subtitle">Emergency priority color coding system.</p>
+                    <h2 class="text-lg font-bold text-slate-900 mb-2" data-translate="triage_reference">Triage Reference</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-translate="triage_ref_desc">Emergency priority color coding system.</p>
                     
                     <div class="space-y-3">
                         <div class="flex items-center space-x-3">
                             <div class="triage-status triage-green text-xs">GREEN</div>
-                            <span class="text-sm" data-i18n="triage.legend.green">Mild allergies, no major conditions</span>
+                            <span class="text-sm" data-translate="green_desc">Mild allergies, no major conditions</span>
                         </div>
                         <div class="flex items-center space-x-3">
                             <div class="triage-status triage-amber text-xs">AMBER</div>
-                            <span class="text-sm" data-i18n="triage.legend.amber">Stable chronic conditions</span>
+                            <span class="text-sm" data-translate="amber_desc">Stable chronic conditions</span>
                         </div>
                         <div class="flex items-center space-x-3">
                             <div class="triage-status triage-red text-xs">RED</div>
-                            <span class="text-sm" data-i18n="triage.legend.red">Severe allergies / life-threatening conditions</span>
+                            <span class="text-sm" data-translate="red_desc">Severe allergies / life-threatening conditions</span>
                         </div>
                         <div class="flex items-center space-x-3">
                             <div class="triage-status triage-black text-xs">BLACK</div>
-                            <span class="text-sm" data-i18n="triage.legend.black">DNR / Comfort care set</span>
+                            <span class="text-sm" data-translate="black_desc">DNR / Comfort care set</span>
                         </div>
                     </div>
                     
                     <div class="mt-4 pt-4 border-t border-gray-200">
-                        <p class="text-xs text-gray-500 mb-2" data-i18n="qr.persistent">
+                        <p class="text-xs text-gray-500 mb-2" data-translate="qr_stays_same">
                             Your QR code stays the same — it always opens your latest information.
                         </p>
-                        <p class="text-xs text-gray-500" data-i18n="qr.privacy">
+                        <p class="text-xs text-gray-500" data-translate="works_offline">
                             Works offline; your data stays private until you choose to share.
                         </p>
                     </div>
@@ -1112,18 +765,11 @@
                 <!-- Danger Zone -->
                 <div class="glass-card p-6 border-red-200">
                     <div class="card-ribbon ribbon-danger"></div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold text-red-600" data-i18n="danger.title">Danger Zone</h2>
-                        <div class="help-tooltip" data-tooltip="Permanently delete your account and all data">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-4" data-i18n="danger.subtitle">
+                    <h2 class="text-xl font-bold text-red-600 mb-2" data-translate="danger_zone">Danger Zone</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-translate="danger_desc">
                         This permanently deletes your account and all data.
                     </p>
-                    <button id="deleteAccountBtn" class="btn-danger w-full" data-i18n="danger.delete">
+                    <button id="deleteAccountBtn" class="w-full bg-transparent border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white px-4 py-2 rounded-lg font-semibold transition-all" data-translate="delete_account">
                         Delete My Account
                     </button>
                 </div>
@@ -1135,662 +781,264 @@
     <footer class="bg-white border-t border-gray-100 mt-16">
         <div class="max-w-6xl mx-auto px-4 py-8">
             <div class="flex flex-col md:flex-row items-center justify-between">
-                <div class="text-sm text-gray-600 mb-4 md:mb-0" data-i18n="footer.copyright">
+                <div class="text-sm text-gray-600 mb-4 md:mb-0" data-translate="footer_text">
                     © 2025 MYQER — Emergency Response QR · GDPR/HIPAA-minded.
                 </div>
-                <div class="footer-links text-sm">
-                    <a href="/privacy.html" class="text-gray-600 hover:text-gray-900 transition-colors" data-i18n="footer.privacy">Privacy</a>
-                    <a href="/terms.html" class="text-gray-600 hover:text-gray-900 transition-colors" data-i18n="footer.terms">Terms</a>
-                    <a href="/about.html" class="text-gray-600 hover:text-gray-900 transition-colors" data-i18n="footer.about">About</a>
-                    <a href="/support.html" class="text-gray-600 hover:text-gray-900 transition-colors" data-i18n="footer.support">Support</a>
-                    <a href="mailto:support@myqer.com" class="text-gray-600 hover:text-gray-900 transition-colors" data-i18n="footer.contact">Contact</a>
+                <div class="flex gap-6 text-sm">
+                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors" data-translate="privacy">Privacy</a>
+                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors" data-translate="terms">Terms</a>
+                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors" data-translate="about">About</a>
+                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors" data-translate="support">Support</a>
+                    <a href="#" class="text-gray-600 hover:text-gray-900 transition-colors" data-translate="contact">Contact</a>
                 </div>
             </div>
         </div>
     </footer>
 
     <script>
-        // Internationalization (i18n) System
-        const T = {
-            en: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (pronounced 'my care')",
-                    tagline: "Privacy-first. Works offline."
-                },
-                nav: {
-                    logout: "Logout"
-                },
-                disclaimer: {
-                    title: "Medical Disclaimer",
-                    text: "This information is for emergency reference only and does not constitute medical advice. Healthcare professionals must independently verify all medical information and make their own clinical assessments. MYQER™ is not responsible for medical decisions made based on this data."
-                },
-                identity: {
-                    title: "Identity",
-                    subtitle: "These details help responders confirm who you are.",
-                    name: "Full Name",
-                    name_placeholder: "Enter your full name",
-                    dob: "Date of Birth",
-                    country: "Country",
-                    select_country: "Select country",
-                    health_id: "Health ID (NHS, etc.)",
-                    health_id_placeholder: "Optional - never shown publicly",
-                    health_id_note: "Health ID is optional and never shown on your public card.",
-                    code: "Your Card Code",
-                    code_placeholder: "Will be generated automatically",
-                    generate: "Generate Code",
-                    save: "Save Profile"
-                },
-                health: {
-                    title: "Health Profile",
-                    subtitle: "Keep this current. It appears on your emergency card.",
-                    blood: "Blood Type",
-                    unknown: "Unknown",
-                    donor: "Organ Donor",
-                    not_specified: "Not specified",
-                    allergies: "Critical Allergies",
-                    allergies_placeholder: "Type allergy and press Enter (e.g., Penicillin, Nuts)",
-                    conditions: "Medical Conditions",
-                    conditions_placeholder: "Type condition and press Enter (e.g., Diabetes, Hypertension)",
-                    meds: "Current Medications",
-                    meds_placeholder: "Type medication and press Enter (e.g., Insulin, Aspirin)",
-                    implants: "Implants & Devices",
-                    implants_placeholder: "Include model/MRI info (e.g., Pacemaker MRI-unsafe, Hip replacement)",
-                    life_support: "Life Support Preference",
-                    full_support: "Full Life Support",
-                    comfort_care: "Comfort Care Only",
-                    dnr: "Do Not Resuscitate",
-                    burial: "Burial Preference",
-                    burial_option: "Burial",
-                    cremation: "Cremation",
-                    other: "Other",
-                    religion: "Religious/Cultural Preference",
-                    none: "None",
-                    save: "Save Health Profile"
-                },
-                ice: {
-                    title: "Emergency Contacts (ICE)",
-                    subtitle: "Add up to 3 trusted contacts.",
-                    add: "Add Contact (Max 3)",
-                    name: "Name",
-                    rel: "Relationship",
-                    phone: "Phone",
-                    delete: "Remove Contact",
-                    limit: "Maximum 3 emergency contacts allowed"
-                },
-                triage: {
-                    title: "Automated Triage",
-                    auto: "Auto-computed from your health profile.",
-                    override: "Manual Override",
-                    auto_recommended: "Auto (Recommended)",
-                    green: "Green - Standard",
-                    amber: "Amber - Urgent",
-                    red: "Red - Immediate",
-                    black: "Black - Comfort",
-                    control: "You control what responders see first.",
-                    speak: "Speak Summary",
-                    stop: "Stop",
-                    legend: {
-                        title: "Triage Reference",
-                        subtitle: "Emergency priority color coding system.",
-                        green: "Mild allergies, no major conditions",
-                        amber: "Stable chronic conditions",
-                        red: "Severe allergies / life-threatening conditions",
-                        black: "DNR / Comfort care set"
-                    }
-                },
-                qr: {
-                    title: "Emergency Card & QR",
-                    subtitle: "Scan to view your emergency information.",
-                    copy: "Copy Link",
-                    copied: "Card link copied!",
-                    view: "View Emergency Card",
-                    png: "PNG",
-                    svg: "SVG",
-                    print: "Print Card",
-                    share: "Share QR Code",
-                    speak: "Speak Summary",
-                    status: "QR library loaded",
-                    persistent: "Your QR code stays the same — it always opens your latest information.",
-                    privacy: "Works offline; your data stays private until you choose to share."
-                },
-                docs: {
-                    title: "Document Vault",
-                    subtitle: "Secure, client-side encrypted storage for critical documents.",
-                    coming: "Coming Soon",
-                    dnr: "DNR Orders",
-                    dnr_desc: "Do Not Resuscitate documents",
-                    living_will: "Living Will",
-                    living_will_desc: "End-of-life care preferences",
-                    power_attorney: "Medical Power of Attorney",
-                    power_attorney_desc: "Healthcare decision authority",
-                    insurance: "Insurance Documents",
-                    insurance_desc: "Health insurance cards & info"
-                },
-                family: {
-                    title: "Family Dashboard",
-                    subtitle: "Manage dependents and household emergency info in one place.",
-                    coming: "Coming Soon",
-                    invite: "Invite Family Members",
-                    invite_desc: "Create and manage emergency profiles for your loved ones"
-                },
-                danger: {
-                    title: "Danger Zone",
-                    subtitle: "This permanently deletes your account and all data.",
-                    delete: "Delete My Account",
-                    warning: "This will permanently delete your MYQER account and all associated data. This action cannot be undone.",
-                    type_delete: "Type \"DELETE\" to confirm:",
-                    understand: "I understand this action cannot be undone",
-                    confirm: "Delete Account"
-                },
-                common: {
-                    autosave: "Auto-saves as you type",
-                    yes: "Yes",
-                    no: "No",
-                    cancel: "Cancel",
-                    save: "Save",
-                    delete: "Delete"
-                },
-                status: {
-                    offline: "Offline"
-                },
-                toasts: {
-                    saving: "Saving...",
-                    saved: "Saved",
-                    offline: "No network - queued for sync",
-                    network_restored: "Back online - syncing data",
-                    sync_complete: "All changes synced successfully"
-                },
-                errors: {
-                    network: "Network error",
-                    save: "Couldn't save",
-                    not_found: "Not found",
-                    duplicate_contact: "You already added this person"
-                },
-                footer: {
-                    copyright: "© 2025 MYQER — Emergency Response QR · GDPR/HIPAA-minded.",
-                    privacy: "Privacy",
-                    terms: "Terms",
-                    about: "About",
-                    support: "Support",
-                    contact: "Contact"
-                }
-            },
-            es: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (se pronuncia 'mi cuidado')",
-                    tagline: "Privacidad primero. Funciona sin conexión."
-                },
-                nav: {
-                    logout: "Cerrar sesión"
-                },
-                disclaimer: {
-                    title: "Descargo de responsabilidad médica",
-                    text: "Esta información es solo para referencia de emergencia y no constituye consejo médico. Los profesionales de la salud deben verificar independientemente toda la información médica y hacer sus propias evaluaciones clínicas. MYQER™ no es responsable de las decisiones médicas tomadas basándose en estos datos."
-                },
-                identity: {
-                    title: "Identidad",
-                    subtitle: "Estos detalles ayudan a los socorristas a confirmar quién eres.",
-                    name: "Nombre completo",
-                    name_placeholder: "Ingresa tu nombre completo",
-                    dob: "Fecha de nacimiento",
-                    country: "País",
-                    select_country: "Seleccionar país",
-                    health_id: "ID de salud (NHS, etc.)",
-                    health_id_placeholder: "Opcional - nunca se muestra públicamente",
-                    health_id_note: "El ID de salud es opcional y nunca se muestra en tu tarjeta pública.",
-                    code: "Tu código de tarjeta",
-                    code_placeholder: "Se generará automáticamente",
-                    generate: "Generar código",
-                    save: "Guardar perfil"
-                },
-                health: {
-                    title: "Perfil de salud",
-                    subtitle: "Mantén esto actualizado. Aparece en tu tarjeta de emergencia.",
-                    blood: "Tipo de sangre",
-                    unknown: "Desconocido",
-                    donor: "Donante de órganos",
-                    not_specified: "No especificado",
-                    allergies: "Alergias críticas",
-                    allergies_placeholder: "Escribe alergia y presiona Enter (ej., Penicilina, Nueces)",
-                    conditions: "Condiciones médicas",
-                    conditions_placeholder: "Escribe condición y presiona Enter (ej., Diabetes, Hipertensión)",
-                    meds: "Medicamentos actuales",
-                    meds_placeholder: "Escribe medicamento y presiona Enter (ej., Insulina, Aspirina)",
-                    implants: "Implantes y dispositivos",
-                    implants_placeholder: "Incluye info de modelo/MRI (ej., Marcapasos no compatible con MRI)",
-                    life_support: "Preferencia de soporte vital",
-                    full_support: "Soporte vital completo",
-                    comfort_care: "Solo cuidados paliativos",
-                    dnr: "No resucitar",
-                    burial: "Preferencia de entierro",
-                    burial_option: "Entierro",
-                    cremation: "Cremación",
-                    other: "Otro",
-                    religion: "Preferencia religiosa/cultural",
-                    none: "Ninguna",
-                    save: "Guardar perfil de salud"
-                },
-                common: {
-                    autosave: "Se guarda automáticamente mientras escribes",
-                    yes: "Sí",
-                    no: "No",
-                    cancel: "Cancelar",
-                    save: "Guardar",
-                    delete: "Eliminar"
-                }
-            },
-            fr: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (se prononce 'mes soins')",
-                    tagline: "Confidentialité d'abord. Fonctionne hors ligne."
-                },
-                nav: {
-                    logout: "Se déconnecter"
-                },
-                disclaimer: {
-                    title: "Avertissement médical",
-                    text: "Ces informations sont uniquement à des fins de référence d'urgence et ne constituent pas un conseil médical. Les professionnels de la santé doivent vérifier indépendamment toutes les informations médicales et faire leurs propres évaluations cliniques. MYQER™ n'est pas responsable des décisions médicales prises sur la base de ces données."
-                },
-                identity: {
-                    title: "Identité",
-                    subtitle: "Ces détails aident les secouristes à confirmer qui vous êtes.",
-                    name: "Nom complet",
-                    name_placeholder: "Entrez votre nom complet",
-                    dob: "Date de naissance",
-                    country: "Pays",
-                    select_country: "Sélectionner le pays",
-                    health_id: "ID santé (NHS, etc.)",
-                    health_id_placeholder: "Optionnel - jamais affiché publiquement",
-                    health_id_note: "L'ID santé est optionnel et n'est jamais affiché sur votre carte publique.",
-                    code: "Votre code de carte",
-                    code_placeholder: "Sera généré automatiquement",
-                    generate: "Générer le code",
-                    save: "Sauvegarder le profil"
-                },
-                common: {
-                    autosave: "Sauvegarde automatique pendant que vous tapez",
-                    yes: "Oui",
-                    no: "Non",
-                    cancel: "Annuler",
-                    save: "Sauvegarder",
-                    delete: "Supprimer"
-                }
-            },
-            de: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (ausgesprochen 'meine Pflege')",
-                    tagline: "Datenschutz zuerst. Funktioniert offline."
-                },
-                nav: {
-                    logout: "Abmelden"
-                },
-                disclaimer: {
-                    title: "Medizinischer Haftungsausschluss",
-                    text: "Diese Informationen dienen nur als Notfallreferenz und stellen keine medizinische Beratung dar. Medizinische Fachkräfte müssen alle medizinischen Informationen unabhängig überprüfen und ihre eigenen klinischen Bewertungen vornehmen. MYQER™ ist nicht verantwortlich für medizinische Entscheidungen, die auf diesen Daten basieren."
-                },
-                identity: {
-                    title: "Identität",
-                    subtitle: "Diese Details helfen Rettungskräften zu bestätigen, wer Sie sind.",
-                    name: "Vollständiger Name",
-                    name_placeholder: "Geben Sie Ihren vollständigen Namen ein",
-                    dob: "Geburtsdatum",
-                    country: "Land",
-                    select_country: "Land auswählen",
-                    health_id: "Gesundheits-ID (NHS, etc.)",
-                    health_id_placeholder: "Optional - wird nie öffentlich angezeigt",
-                    health_id_note: "Die Gesundheits-ID ist optional und wird nie auf Ihrer öffentlichen Karte angezeigt.",
-                    code: "Ihr Kartencode",
-                    code_placeholder: "Wird automatisch generiert",
-                    generate: "Code generieren",
-                    save: "Profil speichern"
-                },
-                common: {
-                    autosave: "Speichert automatisch während der Eingabe",
-                    yes: "Ja",
-                    no: "Nein",
-                    cancel: "Abbrechen",
-                    save: "Speichern",
-                    delete: "Löschen"
-                }
-            },
-            it: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (pronunciato 'le mie cure')",
-                    tagline: "Privacy prima di tutto. Funziona offline."
-                },
-                nav: {
-                    logout: "Disconnetti"
-                },
-                disclaimer: {
-                    title: "Disclaimer medico",
-                    text: "Queste informazioni sono solo per riferimento di emergenza e non costituiscono consigli medici. I professionisti sanitari devono verificare indipendentemente tutte le informazioni mediche e fare le proprie valutazioni cliniche. MYQER™ non è responsabile per le decisioni mediche prese sulla base di questi dati."
-                },
-                identity: {
-                    title: "Identità",
-                    subtitle: "Questi dettagli aiutano i soccorritori a confermare chi sei.",
-                    name: "Nome completo",
-                    name_placeholder: "Inserisci il tuo nome completo",
-                    dob: "Data di nascita",
-                    country: "Paese",
-                    select_country: "Seleziona paese",
-                    health_id: "ID sanitario (NHS, ecc.)",
-                    health_id_placeholder: "Opzionale - mai mostrato pubblicamente",
-                    health_id_note: "L'ID sanitario è opzionale e non viene mai mostrato sulla tua carta pubblica.",
-                    code: "Il tuo codice carta",
-                    code_placeholder: "Sarà generato automaticamente",
-                    generate: "Genera codice",
-                    save: "Salva profilo"
-                },
-                common: {
-                    autosave: "Salva automaticamente mentre digiti",
-                    yes: "Sì",
-                    no: "No",
-                    cancel: "Annulla",
-                    save: "Salva",
-                    delete: "Elimina"
-                }
-            },
-            pt: {
-                app: {
-                    brand: "MYQER™",
-                    pronounce: "MYQER (pronuncia-se 'meus cuidados')",
-                    tagline: "Privacidade em primeiro lugar. Funciona offline."
-                },
-                nav: {
-                    logout: "Sair"
-                },
-                disclaimer: {
-                    title: "Aviso médico",
-                    text: "Esta informação é apenas para referência de emergência e não constitui aconselhamento médico. Os profissionais de saúde devem verificar independentemente todas as informações médicas e fazer suas próprias avaliações clínicas. MYQER™ não é responsável por decisões médicas tomadas com base nestes dados."
-                },
-                identity: {
-                    title: "Identidade",
-                    subtitle: "Estes detalhes ajudam os socorristas a confirmar quem você é.",
-                    name: "Nome completo",
-                    name_placeholder: "Digite seu nome completo",
-                    dob: "Data de nascimento",
-                    country: "País",
-                    select_country: "Selecionar país",
-                    health_id: "ID de saúde (NHS, etc.)",
-                    health_id_placeholder: "Opcional - nunca mostrado publicamente",
-                    health_id_note: "O ID de saúde é opcional e nunca é mostrado no seu cartão público.",
-                    code: "Seu código do cartão",
-                    code_placeholder: "Será gerado automaticamente",
-                    generate: "Gerar código",
-                    save: "Salvar perfil"
-                },
-                common: {
-                    autosave: "Salva automaticamente enquanto você digita",
-                    yes: "Sim",
-                    no: "Não",
-                    cancel: "Cancelar",
-                    save: "Salvar",
-                    delete: "Excluir"
-                }
-            }
-        };
-        
-        // i18n Functions
-        function getCurrentLanguage() {
-            return localStorage.getItem('myqer_lang') || navigator.language.split('-')[0] || 'en';
-        }
-        
-        function t(key) {
-            const lang = getCurrentLanguage();
-            const keys = key.split('.');
-            let value = T[lang] || T.en;
-            
-            for (const k of keys) {
-                value = value?.[k];
-                if (!value) break;
-            }
-            
-            // Fallback to English if translation not found
-            if (!value && lang !== 'en') {
-                value = T.en;
-                for (const k of keys) {
-                    value = value?.[k];
-                    if (!value) break;
-                }
-            }
-            
-            return value || key;
-        }
-        
-        function updateLanguage() {
-            const lang = getCurrentLanguage();
-            
-            // Update document direction for RTL languages
-            if (['ar', 'he'].includes(lang)) {
-                document.dir = 'rtl';
-            } else {
-                document.dir = 'ltr';
-            }
-            
-            // Update all elements with data-i18n attributes
-            document.querySelectorAll('[data-i18n]').forEach(element => {
-                const key = element.getAttribute('data-i18n');
-                element.textContent = t(key);
-            });
-            
-            // Update placeholders
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-                const key = element.getAttribute('data-i18n-placeholder');
-                element.placeholder = t(key);
-            });
-            
-            // Update language selector
-            document.getElementById('languageSelect').value = lang;
-        }
-        
-        // Supabase Configuration (Demo mode - replace with your actual values)
-        const SUPABASE_URL = "https://demo.supabase.co";
-        const SUPABASE_ANON_KEY = "demo-key";
-        
-        // Initialize Supabase client (with error handling for demo)
-        let sb;
-        try {
-            sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        } catch (error) {
-            console.log('Supabase not configured, running in demo mode');
-            // Mock Supabase client for demo
-            sb = {
-                auth: {
-                    getSession: () => Promise.resolve({ data: { session: null } }),
-                    signOut: () => Promise.resolve()
-                },
-                from: () => ({
-                    select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }),
-                    insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'demo-id' } }) }) }),
-                    upsert: () => Promise.resolve({ data: null }),
-                    delete: () => ({ eq: () => Promise.resolve() })
-                }),
-                functions: {
-                    invoke: () => Promise.resolve({ data: null })
-                }
-            };
-        }
-        
         // Global state
-        let currentUser = null;
         let iceContactCount = 0;
-        let saveTimeouts = {};
-        let offlineQueue = [];
+        let familyMemberCount = 0;
         let pillData = {
             allergies: [],
             conditions: [],
-            medications: [],
-            implants: []
+            medications: []
         };
-        let currentSpeech = null;
-        
+        let currentLanguage = 'en';
+        let isOffline = false;
+        let pendingChanges = [];
+
+        // Translations
+        const translations = {
+            en: {
+                tagline: "Privacy-first. Works offline.",
+                pronunciation: "MYQER (pronounced 'my care')",
+                logout: "Logout",
+                disclaimer_title: "Medical Disclaimer",
+                disclaimer_text: "This information is for emergency reference only and does not constitute medical advice. Healthcare professionals must independently verify all medical information and make their own clinical assessments. MYQER™ is not responsible for medical decisions made based on this data.",
+                identity_title: "Identity",
+                identity_desc: "These details help responders confirm who you are.",
+                full_name: "Full Name *",
+                enter_full_name: "Enter your full name",
+                date_of_birth: "Date of Birth",
+                country: "Country",
+                select_country: "Select country",
+                health_id: "Health ID (Optional)",
+                nhs_number: "NHS number, etc.",
+                never_shown_publicly: "Never shown publicly",
+                auto_saves: "Auto-saves as you type",
+                save_profile: "Save Profile",
+                health_profile: "Health Profile",
+                health_desc: "Keep this current. It appears on your emergency card.",
+                blood_type: "Blood Type",
+                unknown: "Unknown",
+                organ_donor: "Organ Donor",
+                not_specified: "Not specified",
+                yes: "Yes",
+                no: "No",
+                critical_allergies: "Critical Allergies",
+                allergy_example: "Type allergy and press Enter (e.g., Penicillin, Nuts)",
+                medical_conditions: "Medical Conditions",
+                condition_example: "Type condition and press Enter (e.g., Diabetes, Hypertension)",
+                current_medications: "Current Medications",
+                medication_example: "Type medication and press Enter (e.g., Insulin, Aspirin)",
+                life_support: "Life Support Preference",
+                full_support: "Full Life Support",
+                comfort_care: "Comfort Care Only",
+                dnr: "Do Not Resuscitate",
+                religious_pref: "Religious Preference",
+                none: "None",
+                catholic: "Catholic",
+                protestant: "Protestant",
+                muslim: "Muslim",
+                jewish: "Jewish",
+                hindu: "Hindu",
+                buddhist: "Buddhist",
+                other: "Other",
+                save_health: "Save Health Profile",
+                ice_contacts: "Emergency Contacts (ICE)",
+                ice_desc: "Add up to 3 trusted contacts.",
+                add_contact: "Add Contact (Max 3)",
+                auto_triage: "Automated Triage",
+                triage_desc: "Auto-computed from your health profile.",
+                manual_override: "Manual Override",
+                auto_recommended: "Auto (Recommended)",
+                green_standard: "Green - Standard",
+                amber_urgent: "Amber - Urgent",
+                red_immediate: "Red - Immediate",
+                black_comfort: "Black - Comfort",
+                triage_control: "You control what responders see first.",
+                speak_summary: "Speak Summary",
+                emergency_code: "Emergency Code",
+                code_desc: "Your unique identifier for emergency access.",
+                your_code: "Your Emergency Code",
+                generate_new_code: "Generate New Code",
+                copy_code: "Copy Code",
+                code_info: "This code links to your emergency information. Keep it safe and share with trusted contacts.",
+                emergency_card_qr: "Emergency Card & QR",
+                qr_desc: "Scan to view your emergency information.",
+                card_link_placeholder: "Card link will appear here",
+                copy_link: "Copy Link",
+                view_emergency_card: "View Emergency Card",
+                export_png: "Export PNG",
+                export_svg: "Export SVG",
+                print_card: "Print Card",
+                share_qr: "Share QR Code",
+                triage_reference: "Triage Reference",
+                triage_ref_desc: "Emergency priority color coding system.",
+                green_desc: "Mild allergies, no major conditions",
+                amber_desc: "Stable chronic conditions",
+                red_desc: "Severe allergies / life-threatening conditions",
+                black_desc: "DNR / Comfort care set",
+                qr_stays_same: "Your QR code stays the same — it always opens your latest information.",
+                works_offline: "Works offline; your data stays private until you choose to share.",
+                danger_zone: "Danger Zone",
+                danger_desc: "This permanently deletes your account and all data.",
+                delete_account: "Delete My Account",
+                vault_title: "Document Vault",
+                vault_desc: "Secure, client-side encrypted storage for critical documents.",
+                coming_soon: "Coming Soon",
+                dnr_orders: "DNR Orders",
+                dnr_desc: "Do Not Resuscitate documents",
+                living_will: "Living Will",
+                living_will_desc: "End-of-life care preferences",
+                power_attorney: "Medical Power of Attorney",
+                power_attorney_desc: "Healthcare decision authority",
+                insurance_docs: "Insurance Documents",
+                insurance_desc: "Health insurance cards & info",
+                family_title: "Family Care Hub",
+                family_desc: "Manage emergency information for your loved ones with care and security.",
+                add_family_member: "Add New Member",
+                footer_text: "© 2025 MYQER — Emergency Response QR · GDPR/HIPAA-minded.",
+                privacy: "Privacy",
+                terms: "Terms",
+                about: "About",
+                support: "Support",
+                contact: "Contact"
+            }
+        };
+
         // Initialize app
-        document.addEventListener('DOMContentLoaded', async () => {
-            updateLanguage();
-            await checkAuth();
+        document.addEventListener('DOMContentLoaded', () => {
             setupEventListeners();
             setupPillInputs();
-            loadUserData();
-            registerServiceWorker();
-            updateOfflineStatus();
-            checkSpeechSupport();
+            generateEmergencyCode();
+            updateTriageStatus();
+            loadSavedData();
+            checkOnlineStatus();
+            
+            // Initialize language
+            const savedLanguage = localStorage.getItem('myqer_language') || 'en';
+            document.getElementById('languageSelect').value = savedLanguage;
+            changeLanguage(savedLanguage);
         });
-        
-        // Check speech synthesis support
-        function checkSpeechSupport() {
-            if (!('speechSynthesis' in window)) {
-                document.getElementById('speakTriageBtn').style.display = 'none';
-                document.getElementById('speakCardBtn').style.display = 'none';
-                document.getElementById('stopSpeechBtn').style.display = 'none';
-            }
-        }
-        
-        // Authentication check
-        async function checkAuth() {
-            try {
-                const { data: { session } } = await sb.auth.getSession();
-                if (!session) {
-                    // For demo purposes, create a mock user session
-                    console.log('No session found, creating demo session');
-                    currentUser = {
-                        id: 'demo-user-' + Math.random().toString(36).substr(2, 9),
-                        email: 'demo@myqer.com'
-                    };
-                    return;
-                }
-                currentUser = session.user;
-            } catch (error) {
-                console.log('Auth check failed, using demo mode:', error);
-                // Create demo user for testing
-                currentUser = {
-                    id: 'demo-user-' + Math.random().toString(36).substr(2, 9),
-                    email: 'demo@myqer.com'
-                };
-            }
-        }
-        
+
         // Event listeners
         function setupEventListeners() {
             // Language selector
             document.getElementById('languageSelect').addEventListener('change', (e) => {
-                localStorage.setItem('myqer_lang', e.target.value);
-                updateLanguage();
-                showToast('Language updated', 'success');
+                changeLanguage(e.target.value);
             });
             
-            // Logout
-            document.getElementById('logoutBtn').addEventListener('click', async () => {
-                try {
-                    await sb.auth.signOut();
-                } catch (error) {
-                    console.log('Demo logout');
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to logout?')) {
+                    localStorage.clear();
+                    showToast('Logged out successfully', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 }
-                showToast('Logged out successfully', 'success');
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1000);
             });
-            
-            // Auto-save inputs
-            setupAutoSave();
-            
-            // ICE contacts
-            document.getElementById('addIceContact').addEventListener('click', addIceContact);
-            
-            // Delete account modal
-            document.getElementById('deleteAccountBtn').addEventListener('click', showDeleteModal);
-            document.getElementById('cancelDeleteBtn').addEventListener('click', hideDeleteModal);
-            document.getElementById('confirmDeleteBtn').addEventListener('click', handleDeleteAccount);
-            document.getElementById('deleteConfirmInput').addEventListener('input', validateDeleteInput);
-            document.getElementById('deleteUnderstand').addEventListener('change', validateDeleteInput);
-            
-            // Triage override
-            document.getElementById('triageOverride').addEventListener('change', updateTriageStatus);
             
             // Generate code button
             document.getElementById('generateCodeBtn').addEventListener('click', generateEmergencyCode);
             
-            // Save buttons
-            document.getElementById('saveProfileBtn').addEventListener('click', () => saveUserData(true));
-            document.getElementById('saveHealthBtn').addEventListener('click', () => saveUserData(true));
+            // Copy code button
+            document.getElementById('copyCodeBtn').addEventListener('click', copyEmergencyCode);
             
-            // Speech buttons
-            document.getElementById('speakTriageBtn').addEventListener('click', speakTriage);
-            document.getElementById('speakCardBtn').addEventListener('click', speakEmergencyCard);
-            document.getElementById('stopSpeechBtn').addEventListener('click', stopSpeech);
+            // Save buttons
+            document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+            document.getElementById('saveHealthBtn').addEventListener('click', saveHealthProfile);
+            
+            // Add ICE contact
+            document.getElementById('addIceContact').addEventListener('click', addIceContact);
+            
+            // Triage override
+            document.getElementById('triageOverride').addEventListener('change', updateTriageStatus);
+            
+            // Speak summary
+            document.getElementById('speakSummaryBtn').addEventListener('click', speakSummary);
             
             // QR and card buttons
-            document.getElementById('viewCardBtn').addEventListener('click', viewEmergencyCard);
-            document.getElementById('printCardBtn').addEventListener('click', printEmergencyCard);
-            document.getElementById('shareQrBtn').addEventListener('click', shareQrCode);
             document.getElementById('copyLinkBtn').addEventListener('click', copyCardLink);
+            document.getElementById('viewCardBtn').addEventListener('click', viewEmergencyCard);
             document.getElementById('exportPngBtn').addEventListener('click', () => exportQR('png'));
             document.getElementById('exportSvgBtn').addEventListener('click', () => exportQR('svg'));
-        }
-        
-        // Delete account modal functions
-        function showDeleteModal() {
-            document.getElementById('deleteModal').classList.add('show');
-        }
-        
-        function hideDeleteModal() {
-            document.getElementById('deleteModal').classList.remove('show');
-            document.getElementById('deleteConfirmInput').value = '';
-            document.getElementById('deleteUnderstand').checked = false;
-            validateDeleteInput();
-        }
-        
-        function validateDeleteInput() {
-            const input = document.getElementById('deleteConfirmInput').value;
-            const checkbox = document.getElementById('deleteUnderstand').checked;
-            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            document.getElementById('printCardBtn').addEventListener('click', printEmergencyCard);
+            document.getElementById('shareQrBtn').addEventListener('click', shareQrCode);
             
-            confirmBtn.disabled = !(input === 'DELETE' && checkbox);
-        }
-        
-        // Enhanced delete account handling
-        async function handleDeleteAccount() {
-            try {
-                showToast('Deleting account...', 'warning');
-                
-                // Call secured Edge Function for account deletion
-                const { data, error } = await sb.functions.invoke('delete-account', {
-                    body: { userId: currentUser.id }
-                });
-                
-                if (error) {
-                    throw error;
+            // Family button
+            document.getElementById('addFamilyMember').addEventListener('click', () => {
+                showToast('Family management coming soon!', 'warning');
+            });
+            
+            // Delete account
+            document.getElementById('deleteAccountBtn').addEventListener('click', deleteAccount);
+            
+            // Auto-save on input
+            const autoSaveFields = ['fullName', 'dob', 'country', 'healthId', 'bloodType', 'organDonor', 'lifeSupportPref', 'religionPref'];
+            autoSaveFields.forEach(fieldId => {
+                const element = document.getElementById(fieldId);
+                if (element) {
+                    element.addEventListener('input', debounce(() => {
+                        saveToLocalStorage();
+                        showToast('Auto-saved', 'success');
+                    }, 1000));
                 }
-                
-                // Success - sign out and redirect
-                showToast('Account deleted successfully', 'success');
-                
-                setTimeout(async () => {
-                    await sb.auth.signOut();
-                    window.location.href = '/?deleted=true';
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Delete account error:', error);
-                
-                // Show guidance for manual deletion
-                showToast('Delete failed - please contact support', 'error');
-                setTimeout(() => {
-                    alert('Please contact support@myqer.com for manual account deletion');
-                }, 1000);
+            });
+        }
+
+        // Language management
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('myqer_language', lang);
+            
+            // Update document direction for RTL languages
+            if (lang === 'ar' || lang === 'he') {
+                document.documentElement.dir = 'rtl';
+            } else {
+                document.documentElement.dir = 'ltr';
             }
             
-            hideDeleteModal();
+            // Update all translatable elements
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.dataset.translate;
+                const translation = getTranslation(key);
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+            
+            // Update placeholders
+            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+                const key = element.dataset.translatePlaceholder;
+                const translation = getTranslation(key);
+                if (translation) {
+                    element.placeholder = translation;
+                }
+            });
+            
+            showToast(`Language changed to ${lang.toUpperCase()}`, 'success');
         }
-        
+
+        function getTranslation(key) {
+            return translations[currentLanguage]?.[key] || translations['en'][key] || key;
+        }
+
         // Pill input setup
         function setupPillInputs() {
-            const pillInputs = ['allergies', 'conditions', 'medications', 'implants'];
+            const pillInputs = ['allergies', 'conditions', 'medications'];
             
             pillInputs.forEach(type => {
                 const input = document.getElementById(`${type}Input`);
@@ -1800,37 +1048,32 @@
                             e.preventDefault();
                             addPill(type, input.value.trim());
                             input.value = '';
-                            debouncedSave(type);
-                        }
-                        if (e.key === 'Backspace' && !input.value && pillData[type].length > 0) {
-                            removePill(type, pillData[type].length - 1);
-                            debouncedSave(type);
                         }
                     });
                 }
             });
         }
-        
-        // Pill management with validation
+
+        // Pill management
         function addPill(type, value) {
-            // Trim and validate
-            value = value.trim();
             if (!value || pillData[type].includes(value)) return;
-            
-            // Validation warnings (non-blocking)
-            if (type === 'medications' && (value.toLowerCase().includes('many') || value.toLowerCase().includes('various'))) {
-                showToast('Please be specific with medication names', 'warning');
-            }
             
             pillData[type].push(value);
             renderPills(type);
+            updateTriageStatus();
+            saveToLocalStorage();
+            showToast(`Added ${value}`, 'success');
         }
-        
+
         function removePill(type, index) {
+            const removed = pillData[type][index];
             pillData[type].splice(index, 1);
             renderPills(type);
+            updateTriageStatus();
+            saveToLocalStorage();
+            showToast(`Removed ${removed}`, 'success');
         }
-        
+
         function renderPills(type) {
             const container = document.getElementById(`${type}Pills`);
             if (!container) return;
@@ -1838,205 +1081,20 @@
             container.innerHTML = pillData[type].map((pill, index) => `
                 <div class="pill">
                     ${pill}
-                    <span class="pill-remove" onclick="removePillByIndex('${type}', ${index})">×</span>
+                    <span class="pill-remove" onclick="removePill('${type}', ${index})">×</span>
                 </div>
             `).join('');
         }
-        
-        function removePillByIndex(type, index) {
-            removePill(type, index);
-            debouncedSave(type);
-        }
-        
-        // Auto-save functionality
-        function setupAutoSave() {
-            const autoSaveFields = [
-                'fullName', 'dob', 'country', 'healthId', 'cardCode',
-                'bloodType', 'organDonor', 'lifeSupportPref', 'burialPref', 'religionPref'
-            ];
-            
-            autoSaveFields.forEach(fieldId => {
-                const element = document.getElementById(fieldId);
-                if (element) {
-                    element.addEventListener('input', () => debouncedSave(fieldId));
-                    element.addEventListener('change', () => debouncedSave(fieldId));
-                    element.addEventListener('blur', () => saveUserData(false, fieldId));
-                }
-            });
-        }
-        
-        // Debounced save
-        function debouncedSave(fieldId) {
-            showSavingIndicator(fieldId);
-            clearTimeout(saveTimeouts[fieldId]);
-            saveTimeouts[fieldId] = setTimeout(() => {
-                saveUserData(false, fieldId);
-            }, 600);
-        }
-        
-        // Save indicators
-        function showSavingIndicator(fieldId) {
-            const indicator = document.getElementById(`${fieldId}Indicator`);
-            if (indicator) {
-                indicator.innerHTML = `<div class="saving-dot"></div><span>Saving...</span>`;
-            }
-        }
-        
-        function showSavedIndicator(fieldId) {
-            const indicator = document.getElementById(`${fieldId}Indicator`);
-            if (indicator) {
-                const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                indicator.innerHTML = `<span class="saved-check">✓ Saved ${timestamp}</span>`;
-            }
-        }
-        
-        // Save user data
-        async function saveUserData(immediate = false, specificField = null) {
-            if (!currentUser) return;
-            
-            try {
-                // Prepare profile data
-                const profileData = {
-                    id: currentUser.id,
-                    full_name: document.getElementById('fullName').value,
-                    dob: document.getElementById('dob').value || null,
-                    country: document.getElementById('country').value,
-                    health_id: maskHealthId(document.getElementById('healthId').value),
-                    code: document.getElementById('cardCode').value,
-                    updated_at: new Date().toISOString()
-                };
-                
-                // Prepare health profile data
-                const healthData = {
-                    user_id: currentUser.id,
-                    blood_type: document.getElementById('bloodType').value,
-                    organ_donor: document.getElementById('organDonor').value === 'Yes',
-                    allergies: pillData.allergies.join(', '),
-                    conditions: pillData.conditions.join(', '),
-                    meds: pillData.medications.join(', '),
-                    implants: pillData.implants.join(', '),
-                    life_support_pref: document.getElementById('lifeSupportPref').value,
-                    burial_pref: document.getElementById('burialPref').value,
-                    religion_pref: document.getElementById('religionPref').value,
-                    triage_override: document.getElementById('triageOverride').value || null,
-                    updated_at: new Date().toISOString()
-                };
-                
-                // Save to Supabase with idempotent upserts
-                await Promise.all([
-                    sb.from('profiles').upsert(profileData, { onConflict: 'id' }),
-                    sb.from('health_profiles').upsert(healthData, { onConflict: 'user_id' })
-                ]);
-                
-                if (immediate) {
-                    const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    showToast(`Saved ${timestamp}`, 'success');
-                } else if (specificField) {
-                    showSavedIndicator(specificField);
-                } else {
-                    showToast('Saved', 'success');
-                }
-                
-                updateTriageStatus();
-                
-            } catch (error) {
-                console.error('Save error:', error);
-                if (!navigator.onLine) {
-                    // Queue for offline
-                    offlineQueue.push({ profileData, healthData });
-                    updateOfflineQueue();
-                    showToast('No network - queued for sync', 'warning');
-                } else {
-                    showToast('Couldn\'t save', 'error');
-                }
-            }
-        }
-        
-        // Health ID masking
-        function maskHealthId(healthId) {
-            if (!healthId || healthId.length <= 3) return healthId;
-            return '*'.repeat(healthId.length - 3) + healthId.slice(-3);
-        }
-        
-        // Load user data
-        async function loadUserData() {
-            if (!currentUser) return;
-            
-            try {
-                const [profileResult, healthResult, iceResult] = await Promise.all([
-                    sb.from('profiles').select('*').eq('id', currentUser.id).single(),
-                    sb.from('health_profiles').select('*').eq('user_id', currentUser.id).single(),
-                    sb.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at')
-                ]);
-                
-                // Populate profile data
-                if (profileResult.data) {
-                    const profile = profileResult.data;
-                    document.getElementById('fullName').value = profile.full_name || '';
-                    document.getElementById('dob').value = profile.dob || '';
-                    document.getElementById('country').value = profile.country || '';
-                    document.getElementById('healthId').value = profile.health_id || '';
-                    document.getElementById('cardCode').value = profile.code || '';
-                }
-                
-                // Populate health data
-                if (healthResult.data) {
-                    const health = healthResult.data;
-                    document.getElementById('bloodType').value = health.blood_type || '—';
-                    document.getElementById('organDonor').value = health.organ_donor ? 'Yes' : (health.organ_donor === false ? 'No' : '—');
-                    
-                    // Load pill data
-                    pillData.allergies = health.allergies ? health.allergies.split(', ').filter(Boolean) : [];
-                    pillData.conditions = health.conditions ? health.conditions.split(', ').filter(Boolean) : [];
-                    pillData.medications = health.meds ? health.meds.split(', ').filter(Boolean) : [];
-                    pillData.implants = health.implants ? health.implants.split(', ').filter(Boolean) : [];
-                    
-                    // Render pills
-                    renderPills('allergies');
-                    renderPills('conditions');
-                    renderPills('medications');
-                    renderPills('implants');
-                    
-                    document.getElementById('lifeSupportPref').value = health.life_support_pref || 'Full';
-                    document.getElementById('burialPref').value = health.burial_pref || 'Burial';
-                    document.getElementById('religionPref').value = health.religion_pref || 'None';
-                    document.getElementById('triageOverride').value = health.triage_override || '';
-                }
-                
-                // Populate ICE contacts
-                if (iceResult.data) {
-                    iceResult.data.forEach(contact => {
-                        addIceContact(contact);
-                    });
-                }
-                
-                // Generate code if missing
-                if (!document.getElementById('cardCode').value) {
-                    generateEmergencyCode();
-                } else {
-                    // Update existing code display
-                    const code = document.getElementById('cardCode').value;
-                    updateCardLink(code);
-                    generateQRCode(code);
-                }
-                
-                updateTriageStatus();
-                
-            } catch (error) {
-                console.error('Load error:', error);
-                showToast('Error loading data', 'error');
-            }
-        }
-        
+
         // ICE Contact management
-        function addIceContact(existingContact = null) {
+        function addIceContact() {
             if (iceContactCount >= 3) {
-                showToast('Maximum 3 emergency contacts allowed', 'warning');
+                showToast('Maximum 3 contacts allowed', 'warning');
                 return;
             }
             
             const container = document.getElementById('iceContacts');
-            const contactId = existingContact?.id || `ice_${Date.now()}`;
+            const contactId = `ice_${Date.now()}`;
             
             const contactDiv = document.createElement('div');
             contactDiv.className = 'border border-gray-200 rounded-lg p-4';
@@ -2044,18 +1102,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Name</label>
-                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded" 
-                               value="${existingContact?.name || ''}" data-field="name" required>
+                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded" placeholder="Full name" required>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Relationship</label>
-                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded" 
-                               value="${existingContact?.relation || ''}" data-field="relation" placeholder="Spouse, Parent, etc.">
+                        <input type="text" class="w-full px-2 py-1 border border-gray-300 rounded" placeholder="Spouse, Parent, etc.">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
-                        <input type="tel" class="w-full px-2 py-1 border border-gray-300 rounded" 
-                               value="${existingContact?.phone || ''}" data-field="phone" placeholder="+1234567890" required>
+                        <input type="tel" class="w-full px-2 py-1 border border-gray-300 rounded" placeholder="+1234567890" required>
                     </div>
                 </div>
                 <div class="flex justify-between items-center mt-3">
@@ -2070,92 +1125,88 @@
             container.appendChild(contactDiv);
             iceContactCount++;
             
-            // Add auto-save listeners with blur trigger
-            contactDiv.querySelectorAll('input').forEach(input => {
-                input.addEventListener('blur', () => saveIceContact(contactId));
-                input.addEventListener('input', () => debouncedSaveIce(contactId));
-            });
-            
             updateAddButtonState();
+            saveToLocalStorage();
+            showToast('Contact added', 'success');
         }
-        
+
         function removeIceContact(contactId) {
-            if (!confirm('Remove this emergency contact?')) return;
-            
             const contactDiv = document.querySelector(`[data-contact-id="${contactId}"]`);
             if (contactDiv) {
                 contactDiv.remove();
                 iceContactCount--;
                 updateAddButtonState();
-                
-                // Delete from database if it exists
-                if (contactId.startsWith('ice_') === false) {
-                    sb.from('ice_contacts').delete().eq('id', contactId);
-                    showToast('Contact removed', 'success');
-                }
+                saveToLocalStorage();
+                showToast('Contact removed', 'success');
             }
         }
-        
-        // Debounced ICE save
-        function debouncedSaveIce(contactId) {
-            clearTimeout(saveTimeouts[`ice_${contactId}`]);
-            saveTimeouts[`ice_${contactId}`] = setTimeout(() => {
-                saveIceContact(contactId);
-            }, 600);
-        }
-        
+
         function updateAddButtonState() {
             const addBtn = document.getElementById('addIceContact');
             addBtn.disabled = iceContactCount >= 3;
             addBtn.textContent = iceContactCount >= 3 ? 'Maximum reached (3/3)' : `Add Contact (${iceContactCount}/3)`;
         }
-        
-        async function saveIceContact(contactId) {
-            const contactDiv = document.querySelector(`[data-contact-id="${contactId}"]`);
-            if (!contactDiv) return;
+
+        // Generate emergency code and QR
+        function generateEmergencyCode() {
+            const code = 'MYQ-' + Math.random().toString(36).substr(2, 8).toUpperCase();
             
-            const name = contactDiv.querySelector('[data-field="name"]').value.trim();
-            const relation = contactDiv.querySelector('[data-field="relation"]').value.trim();
-            const phone = contactDiv.querySelector('[data-field="phone"]').value.trim();
+            // Update both displays
+            document.getElementById('cardCodeDisplay').textContent = code;
+            document.getElementById('codeDisplay').classList.add('has-code');
             
-            if (!name || !phone) return;
-            
-            try {
-                // Normalize phone to E.164 format (basic)
-                const normalizedPhone = phone.replace(/[^\d+]/g, '');
-                
-                const contactData = {
-                    user_id: currentUser.id,
-                    name,
-                    relation,
-                    phone: normalizedPhone
-                };
-                
-                if (contactId.startsWith('ice_')) {
-                    // New contact
-                    const { data, error } = await sb.from('ice_contacts').insert(contactData).select().single();
-                    if (error) throw error;
-                    contactDiv.dataset.contactId = data.id;
-                } else {
-                    // Update existing
-                    const { error } = await sb.from('ice_contacts').update(contactData).eq('id', contactId);
-                    if (error) throw error;
-                }
-                
-                showToast('Contact saved', 'success');
-            } catch (error) {
-                console.error('ICE save error:', error);
-                
-                // Handle duplicate constraint error
-                if (error.message.includes('duplicate key value')) {
-                    showToast('You already added this person', 'warning');
-                } else {
-                    showToast('Error saving contact', 'error');
-                }
+            updateCardLink(code);
+            generateQRCode(code);
+            saveToLocalStorage();
+            showToast('New emergency code generated', 'success');
+        }
+
+        function copyEmergencyCode() {
+            const code = document.getElementById('cardCodeDisplay').textContent;
+            if (code && code !== 'Click Generate to create') {
+                navigator.clipboard.writeText(code).then(() => {
+                    showToast('Emergency code copied to clipboard', 'success');
+                }).catch(() => {
+                    showToast('Failed to copy code', 'error');
+                });
+            } else {
+                showToast('No code to copy. Generate one first.', 'warning');
             }
         }
-        
-        // Enhanced triage status calculation
+
+        function updateCardLink(code) {
+            const link = `https://myqer.com/card/${code}`;
+            document.getElementById('cardLink').value = link;
+        }
+
+        function generateQRCode(code) {
+            const canvas = document.getElementById('qrCanvas');
+            const link = `https://myqer.com/card/${code}`;
+            
+            // Use QRCode library to generate actual QR code
+            QRCode.toCanvas(canvas, link, {
+                width: 128,
+                height: 128,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, function (error) {
+                if (error) {
+                    console.error('QR Code generation failed:', error);
+                    // Fallback to simple pattern
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, 128, 128);
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = '12px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('QR', 64, 70);
+                }
+            });
+        }
+
+        // Triage status calculation
         function updateTriageStatus() {
             const override = document.getElementById('triageOverride').value;
             const statusElement = document.getElementById('triageStatus');
@@ -2172,36 +1223,16 @@
                 statusElement.className = `triage-status ${status.class}`;
                 statusElement.textContent = status.text;
             } else {
-                // Auto-calculate based on enhanced logic
+                // Auto-calculate based on health data
                 let calculatedStatus = 'Green';
                 
-                // Check life support preference first
                 const lifeSupportPref = document.getElementById('lifeSupportPref').value;
                 if (lifeSupportPref === 'DNR') {
                     calculatedStatus = 'Black';
-                } else {
-                    // Check for severe allergies
-                    const allergies = pillData.allergies.join(' ').toLowerCase();
-                    const severeAllergyKeywords = ['anaphylaxis', 'epipen', 'epinephrine', 'severe'];
-                    
-                    // Check conditions
-                    const conditions = pillData.conditions.join(' ').toLowerCase();
-                    const criticalConditions = ['cardiac', 'heart attack', 'stroke', 'epilepsy', 'seizure'];
-                    
-                    // Check medications
-                    const medications = pillData.medications.join(' ').toLowerCase();
-                    const criticalMeds = ['anticoagulant', 'warfarin', 'heparin', 'insulin'];
-                    
-                    // Determine status
-                    if (severeAllergyKeywords.some(keyword => allergies.includes(keyword)) ||
-                        criticalConditions.some(condition => conditions.includes(condition)) ||
-                        criticalMeds.some(med => medications.includes(med))) {
-                        calculatedStatus = 'Red';
-                    } else if (pillData.conditions.length > 2 || pillData.medications.length > 3 ||
-                               conditions.includes('diabetes') || conditions.includes('hypertension') ||
-                               conditions.includes('chronic')) {
-                        calculatedStatus = 'Amber';
-                    }
+                } else if (pillData.allergies.length > 0 || pillData.conditions.length > 2) {
+                    calculatedStatus = 'Red';
+                } else if (pillData.conditions.length > 0 || pillData.medications.length > 2) {
+                    calculatedStatus = 'Amber';
                 }
                 
                 const statusMap = {
@@ -2216,80 +1247,229 @@
                 statusElement.textContent = status.text;
             }
         }
-        
-        // Speech synthesis functionality
-        function getVoice() {
-            const voices = speechSynthesis.getVoices();
-            const lang = getCurrentLanguage();
+
+        // Save functions
+        function saveProfile() {
+            const profileData = {
+                fullName: document.getElementById('fullName').value,
+                dob: document.getElementById('dob').value,
+                country: document.getElementById('country').value,
+                healthId: document.getElementById('healthId').value,
+                cardCode: document.getElementById('cardCodeDisplay').textContent
+            };
             
-            // Try to find a female voice for the current language
-            let voice = voices.find(v => v.lang.startsWith(lang) && v.name.toLowerCase().includes('female'));
-            if (!voice) {
-                voice = voices.find(v => v.lang.startsWith(lang));
-            }
-            if (!voice) {
-                voice = voices.find(v => v.default);
-            }
-            
-            return voice;
+            localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+            showToast('Profile saved successfully', 'success');
         }
-        
-        function speakText(text) {
-            if (currentSpeech) {
-                speechSynthesis.cancel();
+
+        function saveHealthProfile() {
+            const healthData = {
+                bloodType: document.getElementById('bloodType').value,
+                organDonor: document.getElementById('organDonor').value,
+                lifeSupportPref: document.getElementById('lifeSupportPref').value,
+                religionPref: document.getElementById('religionPref').value,
+                pillData: pillData
+            };
+            
+            localStorage.setItem('myqer_health', JSON.stringify(healthData));
+            showToast('Health profile saved successfully', 'success');
+        }
+
+        function saveToLocalStorage() {
+            const allData = {
+                profile: {
+                    fullName: document.getElementById('fullName').value,
+                    dob: document.getElementById('dob').value,
+                    country: document.getElementById('country').value,
+                    healthId: document.getElementById('healthId').value,
+                    cardCode: document.getElementById('cardCodeDisplay').textContent
+                },
+                health: {
+                    bloodType: document.getElementById('bloodType').value,
+                    organDonor: document.getElementById('organDonor').value,
+                    lifeSupportPref: document.getElementById('lifeSupportPref').value,
+                    religionPref: document.getElementById('religionPref').value,
+                    pillData: pillData
+                },
+                iceContactCount: iceContactCount
+            };
+            
+            localStorage.setItem('myqer_data', JSON.stringify(allData));
+        }
+
+        function loadSavedData() {
+            const savedData = localStorage.getItem('myqer_data');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    
+                    // Load profile data
+                    if (data.profile) {
+                        Object.keys(data.profile).forEach(key => {
+                            if (key === 'cardCode') {
+                                const codeDisplay = document.getElementById('cardCodeDisplay');
+                                if (codeDisplay && data.profile[key] && data.profile[key] !== 'Click Generate to create') {
+                                    codeDisplay.textContent = data.profile[key];
+                                    document.getElementById('codeDisplay').classList.add('has-code');
+                                    updateCardLink(data.profile[key]);
+                                    generateQRCode(data.profile[key]);
+                                }
+                            } else {
+                                const element = document.getElementById(key);
+                                if (element && data.profile[key]) {
+                                    element.value = data.profile[key];
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Load health data
+                    if (data.health) {
+                        Object.keys(data.health).forEach(key => {
+                            if (key === 'pillData') {
+                                pillData = data.health[key] || { allergies: [], conditions: [], medications: [] };
+                                Object.keys(pillData).forEach(type => {
+                                    renderPills(type);
+                                });
+                            } else {
+                                const element = document.getElementById(key);
+                                if (element && data.health[key]) {
+                                    element.value = data.health[key];
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Load ICE contact count
+                    iceContactCount = data.iceContactCount || 0;
+                    updateAddButtonState();
+                    
+                    updateTriageStatus();
+                } catch (error) {
+                    console.error('Error loading saved data:', error);
+                }
             }
+        }
+
+        // Utility functions
+        function speakSummary() {
+            const fullName = document.getElementById('fullName').value || 'Unknown';
+            const bloodType = document.getElementById('bloodType').value || 'Unknown';
+            const allergies = pillData.allergies.length > 0 ? pillData.allergies.join(', ') : 'None';
+            const conditions = pillData.conditions.length > 0 ? pillData.conditions.join(', ') : 'None';
             
-            const utterance = new SpeechSynthesisUtterance(text);
-            const voice = getVoice();
+            const summary = `Emergency summary for ${fullName}. Blood type: ${bloodType}. Allergies: ${allergies}. Medical conditions: ${conditions}.`;
             
-            if (voice) {
-                utterance.voice = voice;
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(summary);
+                speechSynthesis.speak(utterance);
+                showToast('Speaking summary...', 'success');
+            } else {
+                showToast('Speech synthesis not supported', 'error');
             }
+        }
+
+        function copyCardLink() {
+            const link = document.getElementById('cardLink').value;
+            if (link) {
+                navigator.clipboard.writeText(link).then(() => {
+                    showToast('Link copied to clipboard', 'success');
+                }).catch(() => {
+                    showToast('Failed to copy link', 'error');
+                });
+            }
+        }
+
+        function viewEmergencyCard() {
+            showToast('Opening emergency card view...', 'success');
+            // In a real app, this would open a new window/modal with the emergency card
+        }
+
+        function exportQR(format) {
+            const canvas = document.getElementById('qrCanvas');
+            if (format === 'png') {
+                const link = document.createElement('a');
+                link.download = 'myqer-qr-code.png';
+                link.href = canvas.toDataURL();
+                link.click();
+                showToast('QR code exported as PNG', 'success');
+            } else if (format === 'svg') {
+                showToast('SVG export coming soon', 'warning');
+            }
+        }
+
+        function printEmergencyCard() {
+            showToast('Print functionality coming soon', 'warning');
+        }
+
+        function shareQrCode() {
+            if (navigator.share) {
+                const canvas = document.getElementById('qrCanvas');
+                canvas.toBlob(blob => {
+                    const file = new File([blob], 'myqer-qr.png', { type: 'image/png' });
+                    navigator.share({
+                        title: 'My Emergency QR Code',
+                        text: 'My MYQER emergency information',
+                        files: [file]
+                    });
+                });
+            } else {
+                copyCardLink();
+            }
+        }
+
+        function deleteAccount() {
+            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                if (confirm('This will permanently delete all your data. Are you absolutely sure?')) {
+                    localStorage.clear();
+                    showToast('Account deleted successfully', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            }
+        }
+
+        function checkOnlineStatus() {
+            const updateOnlineStatus = () => {
+                const indicator = document.getElementById('offlineIndicator');
+                if (navigator.onLine) {
+                    indicator.classList.remove('show');
+                    isOffline = false;
+                } else {
+                    indicator.classList.add('show');
+                    isOffline = true;
+                }
+            };
             
-            utterance.rate = 0.95;
-            utterance.pitch = 1.05;
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
             
-            currentSpeech = utterance;
-            speechSynthesis.speak(utterance);
-            
-            // Show/hide stop button
-            document.getElementById('stopSpeechBtn').style.display = 'block';
-            document.getElementById('speakTriageBtn').style.display = 'none';
-            document.getElementById('speakCardBtn').style.display = 'none';
-            
-            utterance.onend = () => {
-                currentSpeech = null;
-                document.getElementById('stopSpeechBtn').style.display = 'none';
-                document.getElementById('speakTriageBtn').style.display = 'block';
-                document.getElementById('speakCardBtn').style.display = 'block';
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
             };
         }
-        
-        function stopSpeech() {
-            if (currentSpeech) {
-                speechSynthesis.cancel();
-                currentSpeech = null;
-                document.getElementById('stopSpeechBtn').style.display = 'none';
-                document.getElementById('speakTriageBtn').style.display = 'block';
-                document.getElementById('speakCardBtn').style.display = 'block';
-            }
-        }
-        
-        function speakTriage() {
-            const name = document.getElementById('fullName').value || 'Patient';
-            const triageStatus = document.getElementById('triageStatus').textContent;
-            
-            const text = `Triage status for ${name}: ${triageStatus}`;
-            speakText(text);
-        }
-        
-        function speakEmergencyCard() {
-            const name = document.getElementById('fullName').value || 'Patient';
-            const dob = document.getElementById('dob').value;
-            const country = document.getElementById('country').value;
-            const bloodType = document.getElementById('bloodType').value;
-            const organDonor = document.getElementById('organDonor').value;
-            const topAllergies = pillData.allergies.slice(0, 2).join(', ');
-            const criticalMeds = pillData.medications.slice(0, 2).join(', ');
-            const implants = pillData.implants.length > 0 ? pillData.implants[0] : '';
-            const triageColor = document.getElementById('triageStatus').textContent.split(' ')[0];<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9776ac7384eabd98',t:'MTc1NjU4MTkyMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9776f3d42262ef15',t:'MTc1NjU4NDg0NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+
