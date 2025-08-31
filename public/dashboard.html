@@ -5251,6 +5251,68 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 })();
 </script>
+  <script>
+(function(){
+  document.addEventListener('DOMContentLoaded', () => {
+    // Helpers to locate sections regardless of exact markup
+    const byCardFromHeading = (textOrKey) => {
+      // 1) i18n: data-i18n="identityTitle"
+      let el = document.querySelector(`[data-i18n="${textOrKey}"]`);
+      if (el) return el.closest('.glass-card') || el.closest('section') || el;
+
+      // 2) Plain text heading fallback
+      const allH = Array.from(document.querySelectorAll('h2,h3'));
+      const hit = allH.find(h => (h.textContent||'').trim().toLowerCase().includes(textOrKey.toLowerCase()));
+      return hit ? (hit.closest('.glass-card') || hit.closest('section') || hit) : null;
+    };
+
+    const profileCard = byCardFromHeading('Profile Completion') || document.getElementById('profileCompletion');
+    const identityCard = document.getElementById('identityCard') || byCardFromHeading('identityTitle') || byCardFromHeading('Identity Information');
+    const healthCard   = document.getElementById('healthCard')   || byCardFromHeading('healthTitle')   || byCardFromHeading('Health Profile');
+    const iceCard      = document.getElementById('iceCard')      || byCardFromHeading('iceTitle')      || byCardFromHeading('Emergency Contacts');
+
+    // Unhide Identity if it accidentally has "hidden"
+    if (identityCard) {
+      identityCard.classList.remove('hidden');
+      identityCard.style.display = ''; // clear inline display:none if any
+      identityCard.removeAttribute('aria-hidden');
+    }
+
+    // Build the top flow container once (full-width stack)
+    let rowA = document.getElementById('rowA');
+    if (!rowA) {
+      rowA = document.createElement('div');
+      rowA.id = 'rowA';
+      rowA.className = 'space-y-8'; // nice gaps between full-width cards
+      // Place rowA right after the disclaimer (or at top of <main>)
+      const disclaimer = document.querySelector('.disclaimer')?.closest('.disclaimer') || document.querySelector('.disclaimer');
+      if (disclaimer && disclaimer.parentElement) {
+        disclaimer.parentElement.insertAdjacentElement('afterend', rowA);
+      } else {
+        const main = document.querySelector('main') || document.body;
+        main.insertAdjacentElement('afterbegin', rowA);
+      }
+    }
+
+    // Desired order in rowA
+    const order = [profileCard, identityCard, healthCard, iceCard].filter(Boolean);
+    order.forEach(card => {
+      if (!rowA.contains(card)) rowA.appendChild(card);
+    });
+
+    // If Identity truly cannot be found, surface a gentle hint (doesn't block anything)
+    if (!identityCard) {
+      console.warn('Identity section not found. Check that Chunk 2 Identity markup (h2[data-i18n="identityTitle"]) is present.');
+      // Optional: add a visible placeholder so you can spot where it belongs
+      const p = document.createElement('div');
+      p.className = 'glass-card p-6 border-2 border-dashed border-red-300';
+      p.innerHTML = `<h2 class="text-xl font-bold mb-2">Identity section missing</h2>
+                     <p>Add/restore the Identity card markup (Chunk 2) so users can enter name, DOB, country, and ID.</p>`;
+      rowA.insertAdjacentElement('afterbegin', p);
+    }
+  });
+})();
+</script>
 </body>
 </html>
   
