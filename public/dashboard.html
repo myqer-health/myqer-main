@@ -441,7 +441,48 @@
       </div>
     </div>
   </div>
+  
+<!-- === Identity Card === -->
+<div class="glass-card p-8 mb-8" id="cardIdentity">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-900" data-i18n="identityTitle">Identity Information</h2>
+      <p class="text-gray-600" data-i18n="identitySub">These details help first responders confirm who you are and contact your emergency contacts.</p>
+    </div>
+    <svg class="w-8 h-8 text-green-500" viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 18a8 8 0 100-16 8 8 0 000 16Z"/></svg>
+  </div>
 
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div>
+      <label class="form-label" data-i18n="fullNameLabel">Full Legal Name *</label>
+      <input id="fullName" type="text" class="form-input" data-i18n-placeholder="fullNamePh" placeholder="Enter your full legal name"/>
+      <div class="text-xs text-gray-500 mt-1" data-i18n="fullNameHelp">As it appears on your ID.</div>
+    </div>
+
+    <div>
+      <label class="form-label" data-i18n="dobLabel">Date of Birth *</label>
+      <input id="dateOfBirth" type="text" class="form-input" inputmode="numeric" pattern="\d{2}/\d{2}/\d{4}" data-i18n-placeholder="dobPh" placeholder="DD/MM/YYYY"/>
+      <div class="text-xs text-gray-500 mt-1" data-i18n="dobHelp">Format: DD/MM/YYYY</div>
+    </div>
+
+    <div>
+      <label class="form-label" data-i18n="countryLabel">Country of Residence *</label>
+      <select id="country" class="form-select" aria-label="Country"></select>
+    </div>
+
+    <div class="md:col-span-2 lg:col-span-3">
+      <label class="form-label" data-i18n="nhidLabel">National Health ID</label>
+      <input id="nationalHealthId" type="text" class="form-input" data-i18n-placeholder="nhidPh" placeholder="NHS Number, SSN, etc."/>
+      <div class="text-xs text-gray-500 mt-1" data-i18n="nhidHelp">NHS Number, Social Security, etc.</div>
+    </div>
+  </div>
+
+  <div class="flex justify-end mt-6">
+    <button id="saveIdentityBtn" class="btn-outline-danger">
+      <span class="mr-2">💾</span><span data-i18n="saveIdentity">Save Identity</span>
+    </button>
+  </div>
+</div>
   <script>
     // Attach language change & initialize
     document.addEventListener("DOMContentLoaded", () => {
@@ -5178,76 +5219,118 @@ document.addEventListener('DOMContentLoaded', () => {
   .btn-secondary{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;font-weight:600}
   .btn-secondary:hover{background:#f9fafb}
 </style>
-
-<script>
-(function(){
-  // 1) Remove FOOTER + "Need Help?" block (non-destructive)
+  <script>
+(function () {
   document.addEventListener('DOMContentLoaded', () => {
-    // Remove footer
+    /* 1) Remove FOOTER + "Need Help?" card */
     document.querySelector('footer')?.remove();
+    // Find a glass-card whose main heading contains "Need Help?"
+    const helpCard = Array.from(document.querySelectorAll('.glass-card'))
+      .find(el => /\bNeed Help\?\b/i.test(el.textContent||''));
+    helpCard?.remove();
 
-    // Remove the Help & Support card by its heading text
-    const cards = Array.from(document.querySelectorAll('.glass-card'));
-    const help = cards.find(el => /Need Help?\s*$/i.test(el.innerText.trim()));
-    help?.remove();
+    /* 2) TRIAGE + QR as one responsive 2-column row (after ICE) */
+    const triageCard = document.getElementById('triageCard')
+      || document.querySelector('[data-i18n="triageTitle"]')?.closest('.glass-card');
+    const qrCard = document.getElementById('qrCard')
+      || document.querySelector('[data-i18n="qr.title"]')?.closest('.glass-card');
+    const iceCard = document.getElementById('iceCard')
+      || document.querySelector('[data-i18n="iceTitle"]')?.closest('.glass-card');
 
-    // 2) Make TRIAGE + QR a desktop two-column row
-    const triage = document.getElementById('triageCard') || document.querySelector('[data-i18n="triageTitle"]')?.closest('.glass-card');
-    const qr     = document.getElementById('qrCard')     || document.querySelector('[data-i18n="qr.title"]')?.closest('.glass-card');
+    if (triageCard && qrCard && iceCard) {
+      // Make children stretch to same height
+      triageCard.classList.add('h-full','flex','flex-col');
+      qrCard.classList.add('h-full','flex','flex-col');
 
-    // Create #rowB after ICE card if both present
-    const iceCard = document.getElementById('iceCard') || document.querySelector('[data-i18n="iceTitle"]')?.closest('.glass-card');
-    if (triage && qr && iceCard) {
       let rowB = document.getElementById('rowB');
       if (!rowB) {
         rowB = document.createElement('div');
         rowB.id = 'rowB';
-        rowB.className = 'my-8';               // spacing like design
+        rowB.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6 my-8 items-stretch';
         iceCard.insertAdjacentElement('afterend', rowB);
       }
-      rowB.appendChild(triage);
-      rowB.appendChild(qr);
+      rowB.appendChild(triageCard);
+      rowB.appendChild(qrCard);
     }
 
-    // 3) Add "Save" buttons for Health + ICE (call existing functions)
-    const t = (window.i18n?.[localStorage.getItem('preferredLang')||'en']) || {};
+    /* 2a) Add "Play voice" button in the Triage header (if missing) */
+    (function addTriageVoice() {
+      if (!triageCard) return;
+      const header = triageCard.querySelector('.flex.items-center.justify-between') || triageCard.firstElementChild;
+      if (!header || header.querySelector('#speakBtn')) return;
+
+      const btn = document.createElement('button');
+      btn.id = 'speakBtn';
+      btn.className = 'btn-tertiary';
+      btn.type = 'button';
+      btn.title = 'Play voice';
+      btn.innerHTML = '🔊 <span class="ml-1" data-i18n="playVoice">Play</span>';
+      header?.appendChild(btn);
+
+      // Speech handler (safe fallback)
+      btn.addEventListener('click', () => {
+        try {
+          const lang = localStorage.getItem('preferredLang') || 'en';
+          const dict = (window.i18n?.[lang]) || window.i18n?.en || {};
+          const text = (dict.triageVoice || 'Your current triage level is {level}.')
+            .replace('{level}', (window.triageLevelText || 'GREEN'));
+          const msg = new SpeechSynthesisUtterance(text);
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(msg);
+        } catch (e) {}
+      });
+    })();
+
+    /* 3) Pretty outline “Save” buttons for Health + ICE */
+    const t = (window.i18n?.[localStorage.getItem('preferredLang') || 'en']) || {};
     const toastMsg = t.toastSaved || 'Saved';
 
-    // Health Profile save
-    const healthCard = document.getElementById('healthCard') || document.querySelector('[data-i18n="healthTitle"]')?.closest('.glass-card');
-    if (healthCard && !document.getElementById('saveHealthBtn')) {
+    // Health
+    (function wireHealthSave() {
+      const healthCard = document.getElementById('healthCard')
+        || document.querySelector('[data-i18n="healthTitle"]')?.closest('.glass-card');
+      if (!healthCard || healthCard.querySelector('#saveHealthBtn')) return;
+
       const bar = document.createElement('div');
       bar.className = 'mt-6 text-right';
       bar.innerHTML = `
-        <button id="saveHealthBtn" class="btn-secondary">
-          💾 <span>${t.saveHealth || 'Save Health Profile'}</span>
+        <button id="saveHealthBtn" type="button" class="btn-outline-danger">
+          <span class="mr-2">💾</span><span>${t.saveHealth || 'Save Health Profile'}</span>
         </button>`;
       healthCard.appendChild(bar);
 
       document.getElementById('saveHealthBtn')?.addEventListener('click', async () => {
-        try { await (window.saveHealthProfile ? saveHealthProfile() : window.saveProfileAndHealth()); }
-        catch(e){ /* ignore; your autosave covers errors */ }
+        try {
+          if (window.saveHealthProfile) { await window.saveHealthProfile(); }
+          else if (window.saveProfileAndHealth) { await window.saveProfileAndHealth(); }
+        } catch (e) {}
         window.showToast ? showToast(toastMsg, 'success') : alert(toastMsg);
       });
-    }
+    })();
 
-    // ICE save (bottom toolbar area or just append at end)
-    const iceFooter = iceCard?.querySelector('.flex.items-center.justify-between.mt-6') || iceCard;
-    if (iceCard && iceFooter && !document.getElementById('saveIceBtn')) {
+    // ICE
+    (function wireIceSave() {
+      if (!iceCard || iceCard.querySelector('#saveIceBtn')) return;
+      // Prefer the toolbar row if present; fallback to card end
+      const toolbar = iceCard.querySelector('.flex.items-center.justify-between')
+        || iceCard.querySelector('.flex.items-center.gap-3')
+        || iceCard;
+
       const btn = document.createElement('button');
       btn.id = 'saveIceBtn';
-      btn.className = 'btn-secondary';
+      btn.type = 'button';
+      btn.className = 'btn-outline-danger ml-3';
       btn.innerHTML = `💾 <span>${t.saveContacts || 'Save Contacts'}</span>`;
-      // put it to the right of "Add Emergency Contact" if such a bar exists
-      const rightBar = iceCard.querySelector('.flex.items-center.gap-3') || iceFooter;
-      rightBar.appendChild(btn);
+      toolbar.appendChild(btn);
 
       btn.addEventListener('click', async () => {
-        try { await (window.saveIceContacts ? saveIceContacts() : window.persistIceContacts?.()); }
-        catch(e){ /* ignore; autosave still running */ }
+        try {
+          if (window.saveIceContacts) { await window.saveIceContacts(); }
+          else if (window.persistIceContacts) { await window.persistIceContacts(); }
+        } catch (e) {}
         window.showToast ? showToast(toastMsg, 'success') : alert(toastMsg);
       });
-    }
+    })();
   });
 })();
 </script>
