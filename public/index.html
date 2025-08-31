@@ -1,582 +1,230 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- ===== META ===== -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MYQER - Emergency Medical Information</title>
+  <title>MYQER - Emergency QR Card</title>
 
-  <link rel="icon" type="image/png" href="/assets/logo-myqer.png" />
-  <link rel="apple-touch-icon" href="/assets/logo-myqer.png" />
-  <meta name="theme-color" content="#c62828" />
-
-  <!-- Social -->
-  <meta property="og:title" content="MYQER - Emergency Medical Information" />
-  <meta property="og:description" content="Your emergency triage, voiced for you. Scan a MYQER tag to show allergies, conditions, medications, ICE — on any phone, in any language, even with no signal." />
-  <meta property="og:image" content="https://www.myqer.com/assets/logo-myqer.png" />
-  <meta name="twitter:card" content="summary" />
-
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            brand: '#c62828',
-            'myqer-red': '#c62828',
-            'myqer-green': '#E9F7EF',
-            'myqer-green-text': '#0F5132',
-            'myqer-green-border': '#CBE7D9'
+            'myqer-red': '#dc2626',
+            'luxury-gold': '#d4af37',
+            'platinum': '#e5e4e2'
           },
-          boxShadow: {
-            phone: '0 25px 50px -12px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.05)'
+          fontFamily: {
+            'sans': ['Inter', 'system-ui', 'sans-serif']
           },
-          borderRadius: {
-            'phone-outer': '3rem',
-            'phone-inner': '2.5rem'
+          animation: {
+            'pulse-ring': 'pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite',
+            'float-slow': 'float-slow 4s ease-in-out infinite',
+            'rotate-slow': 'rotate-slow 20s linear infinite',
+            'qr-pulse': 'qr-pulse 3s ease-in-out infinite',
+            'shimmer': 'shimmer 2s linear infinite'
+          },
+          keyframes: {
+            'pulse-ring': {
+              '0%': { transform: 'scale(0.33)' },
+              '80%, 100%': { transform: 'scale(1)', opacity: '0' }
+            },
+            'float-slow': {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-15px)' }
+            },
+            'rotate-slow': {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' }
+            },
+            'qr-pulse': {
+              '0%, 100%': { transform: 'scale(1)', opacity: '0.8' },
+              '50%': { transform: 'scale(1.1)', opacity: '1' }
+            },
+            'shimmer': {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' }
+            }
           }
         }
       }
     }
   </script>
 
-  <!-- Supabase init (reads your anon key from /scripts/config.js) -->
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/scripts/config.js';
-    window._supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  </script>
-
   <style>
-    :root{
-      --brand:#c62828; --ink:#111318; --muted:#667085;
-      --stroke:rgba(17,24,39,.10); --shadow:0 18px 42px rgba(2,8,23,.12), 0 2px 6px rgba(2,8,23,.06);
-      --radius:18px;
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      height: 100vh;
+      overflow: hidden;
     }
-    html,body{height:100%; overflow-x:hidden;}
-    body{
-      font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-      color:var(--ink);
-      background:linear-gradient(135deg,#f8fafc 0%, #e6ecf5 100%);
-      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+
+    .dropdown:hover .dropdown-menu {
+      display: block;
     }
-    .glass-card{background:rgba(255,255,255,.7); backdrop-filter:blur(16px); border:1px solid var(--stroke); border-radius:var(--radius); box-shadow:var(--shadow)}
-    .btn-red{background:var(--brand); color:#fff} .btn-red:hover{filter:brightness(1.02)}
-    .pill{border-radius:999px; padding:.45rem .8rem; border:1px solid var(--stroke); background:rgba(255,255,255,.8); font-weight:600}
-    .pill-red{background:var(--brand); color:#fff; border-color:var(--brand)}
 
-    .dropdown{position:relative}
-    .dropdown-menu{display:none; position:absolute; top:100%; left:0; margin-top:8px; min-width:220px; z-index:50;
-      background:#dc2626; border:1px solid rgba(220,38,38,.35); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:6px;}
-    .dropdown:hover .dropdown-menu{display:block}
-    .dropdown-menu a{display:block; padding:12px 14px; margin:4px; border-radius:10px; color:#fff; text-decoration:none; font-size:.95rem}
-    .dropdown-menu a:hover{background:rgba(255,255,255,.2)}
+    .dropdown-menu {
+      display: none;
+    }
 
-    .modal-open{overflow:hidden}
+    .premium-gradient {
+      background: linear-gradient(135deg, #dc2626, #d4af37, #dc2626);
+      background-size: 200% 200%;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
   </style>
 </head>
-<body>
 
-  <!-- ===== NAV ===== -->
-  <header class="fixed inset-x-0 top-0 z-50 bg-white/70 backdrop-blur border-b border-white/50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="h-16 flex items-center justify-between">
-        <!-- Brand -->
-        <a href="/" class="flex items-center gap-2 font-extrabold tracking-tight text-xl" aria-label="MYQER">
-          <img src="/assets/logo.svg" alt="MYQER" class="h-6 w-auto" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">
-          <span style="display:none">MYQ<span class="text-brand">ER</span><sup class="ml-0.5 text-[10px] align-super">™</sup></span>
-        </a>
+<body class="bg-white h-screen flex flex-col">
+  
+  <!-- Animated Background Elements -->
+  <div class="fixed inset-0 pointer-events-none">
+    <!-- Medical Hearts -->
+    <div class="absolute top-20 left-20 text-6xl text-myqer-red opacity-20 animate-float-slow">💓</div>
+    <div class="absolute top-40 right-32 text-4xl text-black opacity-15 animate-float-slow" style="animation-delay: 1s;">🫀</div>
+    <div class="absolute bottom-32 left-40 text-5xl text-myqer-red opacity-10 animate-pulse" style="animation-delay: 2s;">❤️</div>
+    <div class="absolute bottom-20 right-20 text-3xl text-black opacity-20 animate-float-slow" style="animation-delay: 3s;">💗</div>
+    
+    <!-- Medical Icons -->
+    <div class="absolute top-1/3 left-10 text-4xl text-myqer-red opacity-25 animate-rotate-slow">🩺</div>
+    <div class="absolute top-1/4 right-10 text-3xl text-black opacity-20 animate-float-slow">💊</div>
+    <div class="absolute bottom-1/3 right-1/4 text-2xl text-myqer-red opacity-15 animate-pulse">🚑</div>
+    <div class="absolute top-2/3 left-1/4 text-3xl text-black opacity-10 animate-float-slow">⚕️</div>
+  </div>
 
-        <!-- Right -->
-        <nav class="hidden md:flex items-center gap-2">
-          <div class="dropdown">
-            <button class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600 flex items-center">
-              Pages
-              <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div class="dropdown-menu">
-              <a href="/privacy.html" data-i18n="navPrivacy">Privacy</a>
-              <a href="/terms.html" data-i18n="navTerms">Terms</a>
-              <a href="/clinician.html" data-i18n="navClinician">Clinician</a>
-              <a href="/how.html" data-i18n="navHow">How it works</a>
-            </div>
+  <!-- Navigation -->
+  <nav class="relative z-50 flex justify-between items-center p-6">
+    <!-- Logo -->
+    <div class="flex items-center space-x-2">
+      <span class="text-2xl font-bold text-gray-900">MYQ<span class="text-myqer-red">ER</span>™</span>
+    </div>
+    
+    <!-- Center Status Dot -->
+    <div class="flex items-center space-x-2">
+      <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+      <span class="text-sm font-medium text-gray-700">Online</span>
+    </div>
+    
+    <!-- Language Selector & Hamburger -->
+    <div class="flex items-center space-x-4">
+      <!-- Language Dropdown -->
+      <div class="dropdown relative">
+        <button class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
+          <span class="text-sm font-medium">🇺🇸 EN</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 10l5 5 5-5z"/>
+          </svg>
+        </button>
+        <div class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇺🇸 English</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇪🇸 Español</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇫🇷 Français</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇩🇪 Deutsch</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇹 Italiano</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇳 हिंदी</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇸🇦 العربية</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇨🇳 中文</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇭🇺 Magyar</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇷🇴 Română</a>
+        </div>
+      </div>
+      
+      <!-- Hamburger Menu -->
+      <button class="flex flex-col space-y-1 p-2">
+        <div class="w-6 h-0.5 bg-gray-900"></div>
+        <div class="w-6 h-0.5 bg-gray-900"></div>
+        <div class="w-6 h-0.5 bg-gray-900"></div>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <main class="flex-1 flex items-center justify-center px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <!-- Main Headline -->
+      <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6 text-gray-900">
+        Your <span class="text-myqer-red">FREE</span><br>
+        emergency <span class="text-myqer-red">QR</span> card.
+      </h1>
+      
+      <!-- Subheadlines -->
+      <div class="space-y-3 mb-6">
+        <p class="text-xl md:text-2xl font-semibold text-gray-800">
+          One scan, instant triage.
+        </p>
+        <p class="text-lg md:text-xl text-gray-700">
+          A <span class="text-myqer-red font-semibold">QR triage code</span> to guide responders— anywhere, anytime.
+        </p>
+      </div>
+      
+      <!-- Pronunciation Note -->
+      <p class="text-sm italic text-gray-500 mb-8">
+        (pronounced "My Care")
+      </p>
+
+      <!-- People — Essential Access -->
+      <div class="mb-8">
+        <h2 class="text-2xl md:text-3xl font-bold text-myqer-red mb-4">People — Essential Access</h2>
+        <p class="text-lg md:text-xl font-semibold text-gray-800 mb-6">Free to use<br>No cost · No trial · No ads</p>
+        
+        <!-- Benefits List -->
+        <div class="text-center max-w-md mx-auto space-y-2 text-gray-700">
+          <div class="flex items-start space-x-2">
+            <span class="text-myqer-red font-bold">•</span>
+            <span>Emergency card (allergies, meds, ICE)</span>
           </div>
-          <a href="/about.html" class="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:text-red-600" data-i18n="navAbout">About</a>
-
-          <select id="langSelect" class="px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white">
-            <option value="en">🇺🇸 EN</option><option value="es">🇪🇸 ES</option>
-            <option value="fr">🇫🇷 FR</option><option value="de">🇩🇪 DE</option>
-            <option value="it">🇮🇹 IT</option><option value="hi">🇮🇳 HI</option>
-            <option value="ar">🇸🇦 AR</option><option value="zh">🇨🇳 ZH</option>
-            <option value="hu">🇭🇺 HU</option><option value="ro">🇷🇴 RO</option>
-          </select>
-
-          <button id="btnOpenApp" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600 hover:bg-red-50">
-            Open App
-          </button>
-        </nav>
-
-        <!-- Mobile burger -->
-        <button id="burger" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-white/60" aria-label="Menu">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <div class="flex items-start space-x-2">
+            <span class="text-myqer-red font-bold">•</span>
+            <span>Works offline (no signal needed)</span>
+          </div>
+          <div class="flex items-start space-x-2">
+            <span class="text-myqer-red font-bold">•</span>
+            <span>DIY printable QR tags & stickers</span>
+          </div>
+          <div class="flex items-start space-x-2">
+            <span class="text-myqer-red font-bold">•</span>
+            <span>Multi-language</span>
+          </div>
+          <div class="flex items-start space-x-2">
+            <span class="text-myqer-red font-bold">•</span>
+            <span>Zero tracking & on-device privacy</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CTA Buttons -->
+      <div class="flex flex-col sm:flex-row gap-6 justify-center">
+        <button class="bg-myqer-red hover:bg-red-700 text-white font-bold py-5 px-10 rounded-xl text-lg shadow-lg transition-colors">
+          ➝ Create Yours
+        </button>
+        <button class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-5 px-10 rounded-xl text-lg transition-colors">
+          ➝ Sign Up
         </button>
       </div>
     </div>
-
-    <!-- Mobile sheet -->
-    <div id="mobileMenu" class="hidden md:hidden border-t border-white/40 bg-white/70 backdrop-blur">
-      <div class="px-4 py-3 space-y-1">
-        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/about.html" data-i18n="navAbout">About</a>
-        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/privacy.html" data-i18n="navPrivacy">Privacy</a>
-        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/terms.html" data-i18n="navTerms">Terms</a>
-        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/clinician.html" data-i18n="navClinician">Clinician</a>
-        <a class="block px-3 py-2 rounded-lg hover:bg-white text-sm" href="/how.html" data-i18n="navHow">How it works</a>
-        <div class="pt-2 flex gap-2">
-          <button id="mOpenApp" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border border-red-600 text-red-600">Open App</button>
-          <select id="mLangSelect" class="flex-1 px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white">
-            <option value="en">EN</option><option value="es">ES</option><option value="fr">FR</option><option value="de">DE</option>
-            <option value="it">IT</option><option value="hi">HI</option><option value="ar">AR</option><option value="zh">ZH</option>
-            <option value="hu">HU</option><option value="ro">RO</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- ===== MAIN (Hero + Plans) ===== -->
-  <main class="pt-24">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="lg:grid lg:grid-cols-2 lg:gap-8 min-h-[70vh] items-center">
-
-        <!-- LEFT: Phone (centered within its column) -->
-        <section class="flex justify-center items-center mb-10 lg:mb-0">
-          <div class="w-80 h-[640px] bg-black rounded-phone-outer p-2 shadow-phone relative">
-            <div class="w-full h-full bg-white rounded-phone-inner overflow-hidden relative">
-              <!-- Status Bar -->
-              <div class="flex justify-between items-center px-6 py-3 text-sm opacity-80">
-                <div class="text-gray-900 font-medium text-xs">MYQER</div>
-                <div class="text-gray-900 font-medium">09:41</div>
-              </div>
-
-              <!-- Screen Content (flex column + spacer) -->
-              <div class="px-6 pb-20 h-full flex flex-col">
-
-                <!-- Triage Pill -->
-                <div class="mb-4">
-                  <div class="inline-flex items-center px-2 py-1 rounded-full bg-myqer-green border border-myqer-green-border">
-                    <span class="text-myqer-green-text font-medium text-xs">GREEN — Standard</span>
-                  </div>
-                </div>
-
-                <!-- Headline Block -->
-                <div class="mb-4">
-                  <h2 id="pTitle" class="text-xl font-semibold text-gray-900 leading-tight mb-2">
-                    Your <span class="text-brand">emergency</span> card.<br />One scan, instant <span class="text-brand">triage</span>.
-                  </h2>
-                  <p id="pCopy" class="text-sm text-gray-600 opacity-80 mb-1">
-                    A QR triage code to guide <span class="text-brand font-medium">responders</span> — anywhere, anytime.
-                  </p>
-                  <p class="text-[11px] text-gray-500 opacity-70">(pronounced “<span class="text-brand font-medium">My Care</span>”)</p>
-                </div>
-
-                <!-- Vitals Grid Card -->
-                <div class="glass-card p-3 mb-3">
-                  <div class="grid grid-cols-2 gap-y-2 gap-x-3">
-                    <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="blood">BLOOD</div>
-                      <div class="font-bold text-brand text-sm">O+</div>
-                    </div>
-                    <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1">ICE</div>
-                      <div class="font-bold text-gray-900 text-sm">+44 7700…</div>
-                    </div>
-                    <div class="col-span-2">
-                      <div class="h-px bg-brand/30 my-1.5"></div>
-                    </div>
-                    <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="allergies">ALLERGIES</div>
-                      <div class="font-bold text-gray-900 text-xs">Penicillin, <span class="text-brand">Nuts</span></div>
-                    </div>
-                    <div>
-                      <div class="text-[10px] uppercase tracking-wide text-gray-600 mb-1" data-i18n="meds">MEDS</div>
-                      <div class="font-bold text-gray-900 text-xs">Metformin</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Tagline -->
-                <div class="glass-card p-3 mb-3">
-                  <p id="pTagline" class="text-center text-xs text-gray-800 font-medium">
-                    Simple for people. <span class="text-brand font-semibold">Precise</span> for responders.
-                  </p>
-                </div>
-
-                <!-- QR + Speaker row -->
-                <div class="flex items-center justify-center gap-4">
-                  <!-- Decorative QR -->
-                  <div class="bg-white rounded-lg p-2 shadow border border-gray-200" aria-hidden="true">
-                    <svg width="60" height="60" viewBox="0 0 60 60" role="img" aria-label="QR preview">
-                      <rect x="0" y="0" width="60" height="60" fill="white"/>
-                      <rect x="2" y="2" width="18" height="18" fill="black"/>
-                      <rect x="6" y="6" width="10" height="10" fill="white"/>
-                      <rect x="8" y="8" width="6" height="6" fill="black"/>
-                      <rect x="40" y="2" width="18" height="18" fill="black"/>
-                      <rect x="44" y="6" width="10" height="10" fill="white"/>
-                      <rect x="46" y="8" width="6" height="6" fill="black"/>
-                      <rect x="2" y="40" width="18" height="18" fill="black"/>
-                      <rect x="6" y="44" width="10" height="10" fill="white"/>
-                      <rect x="8" y="46" width="6" height="6" fill="black"/>
-                      <!-- simple dots -->
-                      <rect x="24" y="8" width="2" height="2" fill="black"/>
-                      <rect x="28" y="12" width="2" height="2" fill="black"/>
-                      <rect x="32" y="16" width="2" height="2" fill="black"/>
-                      <rect x="48" y="24" width="2" height="2" fill="black"/>
-                      <rect x="52" y="28" width="2" height="2" fill="black"/>
-                      <rect x="44" y="36" width="2" height="2" fill="black"/>
-                      <rect x="36" y="44" width="2" height="2" fill="black"/>
-                      <rect x="26" y="48" width="2" height="2" fill="black"/>
-                    </svg>
-                  </div>
-                  <!-- Speaker icon (non-functional on landing) -->
-                  <div class="bg-white rounded-full p-3 shadow border border-gray-200" aria-hidden="true">
-                    <svg width="24" height="24" viewBox="0 0 24 24" class="text-gray-700" fill="none">
-                      <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor"/>
-                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </div>
-                </div>
-
-                <!-- Spacer pushes buttons to bottom -->
-                <div class="flex-1"></div>
-              </div>
-
-              <!-- Phone Action Buttons (fixed inside phone) -->
-              <div class="absolute bottom-6 left-6 right-6">
-                <div class="flex gap-3">
-                  <button id="phoneSignInBtn" class="flex-1 bg-green-500 text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-green-600 active:scale-95 transition">
-                    <span data-i18n="signIn">Sign In</span>
-                  </button>
-                  <button id="phoneSignUpBtn" class="flex-1 bg-brand text-white py-3 rounded-full font-semibold text-sm shadow hover:bg-red-700 active:scale-95 transition">
-                    <span data-i18n="signUp">Sign Up</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- RIGHT: Two cards -->
-        <section class="space-y-6">
-          <article class="glass-card p-6">
-            <header class="flex items-center justify-between mb-2">
-              <h3 class="text-xl font-bold" id="card1Title">People — Essential Access</h3>
-              <span class="pill pill-red" id="freeBadge">Free to use</span>
-            </header>
-            <p class="text-gray-600 mb-4" id="card1Sub">No cost · No trial · No ads</p>
-            <ul class="space-y-2 text-gray-700" id="card1List">
-              <li>• Emergency card (allergies, meds, ICE)</li>
-              <li>• Works offline (no signal needed)</li>
-              <li>• DIY printable QR tags & stickers</li>
-              <li>• Multi-language text & voice*</li>
-              <li>• Zero tracking & on-device privacy</li>
-            </ul>
-            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold btn-red" id="planCreate" data-i18n="createFree">Create free account</button>
-            <p class="text-xs text-gray-500 mt-2" id="rolloutNote">* Voice & translations roll out progressively by language.</p>
-          </article>
-
-          <article class="glass-card p-6">
-            <header class="flex items-center justify-between mb-2">
-              <h3 class="text-xl font-bold" id="card2Title">MYQER+ — Professional</h3>
-              <span class="pill" id="comingSoon">Coming soon</span>
-            </header>
-            <p class="text-gray-600 mb-4" id="card2Sub">Pro tools for clinicians & institutions</p>
-            <ul class="space-y-2 text-gray-700" id="card2List">
-              <li>• Clinician dashboard & dispatch integration</li>
-              <li>• Hospital & EMS API support</li>
-              <li>• Premium tags & wearables (NFC, metal bands)</li>
-              <li>• Secure cloud backup & recovery</li>
-              <li>• Priority clinical support</li>
-            </ul>
-            <button class="mt-4 w-full px-4 py-3 rounded-lg font-semibold border border-slate-300 text-slate-500" id="notAvailable" disabled>Not yet available</button>
-          </article>
-        </section>
-
-      </div>
-    </div>
   </main>
-  <!-- ===== FOOTER ===== -->
-  <footer class="py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-gray-500">
-      © <span id="year"></span> MYQER — My QR for Emergency Response
+
+  <!-- Footer -->
+  <footer class="relative z-50 bg-white border-t border-gray-200 py-4 px-6">
+    <div class="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
+      <div>
+        © 2025 MYQER™ Emergency Response QR System.
+      </div>
+      <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+        <span>GDPR/HIPAA-minded</span>
+        <span>·</span>
+        <a href="#" class="hover:text-myqer-red transition-colors">Privacy</a>
+        <span>·</span>
+        <a href="#" class="hover:text-myqer-red transition-colors">Terms</a>
+      </div>
     </div>
   </footer>
-
-  <!-- ===== AUTH MODAL ===== -->
-  <div id="authModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="glass-card rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto relative">
-      <button id="authClose" class="absolute top-3 right-3 w-9 h-9 rounded-lg hover:bg-white/60 flex items-center justify-center" aria-label="Close">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-      <div id="authAlerts" class="mb-3"></div>
-
-      <!-- LOGIN -->
-      <div id="view-login" class="space-y-4">
-        <h2 class="text-xl font-bold" data-i18n="signinTitle">Sign in to MYQER</h2>
-        <label class="block text-sm font-medium" data-i18n="email">Email</label>
-        <input id="loginEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" placeholder="you@example.com" />
-        <label class="block text-sm font-medium" data-i18n="password">Password</label>
-        <div class="relative">
-          <input id="loginPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" placeholder="••••••••" />
-          <button id="toggleLoginPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
-        </div>
-        <div class="grid gap-2 mt-2">
-          <button id="doLogin" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="signIn">Sign In</button>
-          <button id="goRegister" class="py-2.5 rounded-lg font-semibold border border-red-600 text-red-600 hover:bg-red-50" data-i18n="createAccount">Create account</button>
-          <button id="goReset" class="text-sm text-red-600 hover:underline" data-i18n="forgotPassword">Forgot password?</button>
-        </div>
-      </div>
-
-      <!-- REGISTER -->
-      <div id="view-register" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="signupTitle">Create your MYQER account</h2>
-        <label class="block text-sm font-medium" data-i18n="fullName">Full name</label>
-        <input id="regName" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
-        <label class="block text-sm font-medium" data-i18n="email">Email</label>
-        <input id="regEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
-        <label class="block text-sm font-medium" data-i18n="password">Password</label>
-        <div class="relative">
-          <input id="regPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" />
-          <button id="toggleRegPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
-        </div>
-        <div class="grid gap-2 mt-2">
-          <button id="doRegister" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="createAccount">Create account</button>
-          <button id="backLogin1" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
-        </div>
-      </div>
-
-      <!-- RESET -->
-      <div id="view-reset" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="resetTitle">Reset your password</h2>
-        <label class="block text-sm font-medium" data-i18n="email">Email</label>
-        <input id="resetEmail" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
-        <div class="grid gap-2 mt-2">
-          <button id="doReset" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="sendReset">Send reset link</button>
-          <button id="backLogin2" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
-        </div>
-      </div>
-
-      <!-- UPDATE -->
-      <div id="view-update" class="space-y-4 hidden">
-        <h2 class="text-xl font-bold" data-i18n="updateTitle">Set a new password</h2>
-        <label class="block text-sm font-medium" data-i18n="newPassword">New password</label>
-        <div class="relative">
-          <input id="newPass" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90 pr-24" />
-          <button id="toggleNewPass" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg border text-sm bg-white/80">Show</button>
-        </div>
-        <label class="block text-sm font-medium" data-i18n="confirmPassword">Confirm password</label>
-        <input id="newPass2" type="password" class="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white/90" />
-        <div class="grid gap-2 mt-2">
-          <button id="doUpdate" class="btn-red py-2.5 rounded-lg font-semibold" data-i18n="updatePassword">Update password</button>
-          <button id="backLogin3" class="py-2.5 rounded-lg font-semibold border border-slate-300 hover:bg-white" data-i18n="backToSignIn">Back to sign in</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Scripts ===== -->
-  <script type="module">
-    const supabase = window._supabase;
-
-    // Elements
-    const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
-    const burger = document.getElementById('burger');
-    const mobileMenu = document.getElementById('mobileMenu');
-    const btnOpenApp = document.getElementById('btnOpenApp');
-    const mOpenApp = document.getElementById('mOpenApp');
-    // ✅ correct IDs from the phone UI
-    const phoneSignInBtn = document.getElementById('phoneSignInBtn');
-    const phoneSignUpBtn = document.getElementById('phoneSignUpBtn');
-    const planCreate = document.getElementById('planCreate');
-
-    // Modal bits
-    const authModal = document.getElementById('authModal');
-    const alerts = document.getElementById('authAlerts');
-    const views = {
-      login: document.getElementById('view-login'),
-      register: document.getElementById('view-register'),
-      reset: document.getElementById('view-reset'),
-      update: document.getElementById('view-update')
-    };
-    const authClose = document.getElementById('authClose');
-
-    const loginEmail = document.getElementById('loginEmail');
-    const loginPass  = document.getElementById('loginPass');
-    const regName    = document.getElementById('regName');
-    const regEmail   = document.getElementById('regEmail');
-    const regPass    = document.getElementById('regPass');
-    const resetEmail = document.getElementById('resetEmail');
-    const newPass    = document.getElementById('newPass');
-    const newPass2   = document.getElementById('newPass2');
-
-    const doLogin    = document.getElementById('doLogin');
-    const doRegister = document.getElementById('doRegister');
-    const doReset    = document.getElementById('doReset');
-    const doUpdate   = document.getElementById('doUpdate');
-
-    const toggleLoginPass = document.getElementById('toggleLoginPass');
-    const toggleRegPass   = document.getElementById('toggleRegPass');
-    const toggleNewPass   = document.getElementById('toggleNewPass');
-
-    const goRegister = document.getElementById('goRegister');
-    const goReset    = document.getElementById('goReset');
-    const backLogin1 = document.getElementById('backLogin1');
-    const backLogin2 = document.getElementById('backLogin2');
-    const backLogin3 = document.getElementById('backLogin3');
-
-    // Mobile menu
-    burger?.addEventListener('click', ()=> mobileMenu.classList.toggle('hidden'));
-
-    // Helper alerts
-    function showAlert(msg, type='error'){
-      alerts.innerHTML = `<div class="rounded-lg border px-3 py-2 text-sm ${type==='success'?'bg-green-50 border-green-200 text-green-700':'bg-red-50 border-red-200 text-red-700'}">${msg}</div>`;
-    }
-    function clearAlert(){ alerts.innerHTML=''; }
-
-    // Modal open/close
-    function openModal(which='login'){
-      document.body.classList.add('modal-open');
-      authModal.classList.remove('hidden');
-      Object.values(views).forEach(v=>v.classList.add('hidden'));
-      views[which]?.classList.remove('hidden');
-      clearAlert();
-    }
-    function closeModal(){
-      document.body.classList.remove('modal-open');
-      authModal.classList.add('hidden');
-      clearAlert();
-    }
-    authClose?.addEventListener('click', closeModal);
-    authModal?.addEventListener('click', (e)=>{ if(e.target===authModal) closeModal(); });
-
-    // Password toggle
-    const togg = (input, btn)=> btn?.addEventListener('click', (e)=>{ e.preventDefault(); input.type = input.type==='password'?'text':'password'; btn.textContent = input.type==='password'?'Show':'Hide';});
-    togg(loginPass, toggleLoginPass); togg(regPass, toggleRegPass); togg(newPass, toggleNewPass);
-
-    // CTA openings
-    phoneSignInBtn?.addEventListener('click', ()=>openModal('login'));
-    phoneSignUpBtn?.addEventListener('click', ()=>openModal('register'));
-    planCreate?.addEventListener('click', ()=>openModal('register'));
-
-    async function openAppSmart(){
-      const { data:{ session } } = await supabase.auth.getSession();
-      if(session) window.location.href='/dashboard.html'; else openModal('login');
-    }
-    btnOpenApp?.addEventListener('click', openAppSmart);
-    mOpenApp?.addEventListener('click', ()=>{ mobileMenu.classList.add('hidden'); openAppSmart(); });
-
-    // Auth actions
-    doLogin?.addEventListener('click', async ()=>{
-      clearAlert();
-      const email = loginEmail.value.trim(), password = loginPass.value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if(error) return showAlert(error.message);
-      window.location.replace('/dashboard.html');
-    });
-
-    doRegister?.addEventListener('click', async ()=>{
-      clearAlert();
-      const email = regEmail.value.trim(), password = regPass.value, full_name = regName.value.trim();
-      if(password.length<6) return showAlert('Password must be at least 6 characters.');
-      const { error } = await supabase.auth.signUp({ email, password, options:{ data:{ full_name } } });
-      if(error) return showAlert(error.message);
-      showAlert('Registration successful — check your email to confirm.', 'success');
-      setTimeout(()=>openModal('login'), 2000);
-    });
-
-    doReset?.addEventListener('click', async ()=>{
-      clearAlert();
-      const email = resetEmail.value.trim();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/?type=recovery` });
-      if(error) return showAlert(error.message);
-      showAlert('Password reset email sent — check your inbox.', 'success');
-    });
-
-    doUpdate?.addEventListener('click', async ()=>{
-      clearAlert();
-      const p1=newPass.value, p2=newPass2.value;
-      if(!p1||p1.length<6) return showAlert('New password must be at least 6 characters.');
-      if(p1!==p2) return showAlert('Passwords do not match.');
-      const { error } = await supabase.auth.updateUser({ password:p1 });
-      if(error) return showAlert(error.message);
-      showAlert('Password updated. Redirecting…','success');
-      setTimeout(()=>window.location.replace('/dashboard.html'), 1200);
-    });
-
-    // Handle deep links
-    const qs = new URLSearchParams(location.search);
-    if(qs.get('type')==='recovery') openModal('update');
-
-    // ===== i18n (10 languages) =====
-    const T = { /* … your 10-language object exactly as you pasted … */ };
-
-    const langSelect = document.getElementById('langSelect');
-    const mLangSelect = document.getElementById('mLangSelect');
-    const LS_KEY = 'myqer_lang';
-
-    function setLang(l){ localStorage.setItem(LS_KEY,l); applyLang(l); if(langSelect) langSelect.value=l; if(mLangSelect) mLangSelect.value=l; }
-    function setHTML(el, html){ if(el) el.innerHTML = html; }
-    function setTXT(el, txt){ if(el) el.textContent = txt; }
-
-    function applyLang(l){
-      const t = T[l]||T.en;
-      document.querySelectorAll('[data-i18n="navAbout"]').forEach(n=>n.textContent=t.navAbout);
-      document.querySelectorAll('[data-i18n="navPrivacy"]').forEach(n=>n.textContent=t.navPrivacy);
-      document.querySelectorAll('[data-i18n="navTerms"]').forEach(n=>n.textContent=t.navTerms);
-      document.querySelectorAll('[data-i18n="navClinician"]').forEach(n=>n.textContent=t.navClinician);
-      document.querySelectorAll('[data-i18n="navHow"]').forEach(n=>n.textContent=t.navHow);
-
-      // Guarded phone labels (only update if present on the page)
-      setHTML(document.getElementById('pTitle'), t.phoneTitle.replace('triage','<span class="text-[var(--brand)]">triage</span>').replace('emergency','<span class="text-[var(--brand)]">emergency</span>'));
-      setTXT(document.getElementById('pCopy'), t.phoneCopy);
-      setHTML(document.getElementById('pTagline'), t.tagline);
-      const blood = document.querySelector('[data-i18n="blood"]'); if(blood) blood.textContent=t.blood;
-      const allergies = document.querySelector('[data-i18n="allergies"]'); if(allergies) allergies.textContent=t.allergies;
-      const meds = document.querySelector('[data-i18n="meds"]'); if(meds) meds.textContent=t.meds;
-      document.querySelectorAll('[data-i18n="signIn"]').forEach(n=>n.textContent=t.signIn);
-      document.querySelectorAll('[data-i18n="signUp"]').forEach(n=>n.textContent=t.signUp);
-
-      const c1t = document.getElementById('card1Title'); if(c1t) c1t.textContent=t.card1Title;
-      const free = document.getElementById('freeBadge'); if(free) free.textContent=t.freeBadge;
-      const c1s = document.getElementById('card1Sub'); if(c1s) c1s.textContent=t.card1Sub;
-      const l1 = document.getElementById('card1List'); if(l1) l1.innerHTML = t.card1List.map(li=>`<li>${li}</li>`).join('');
-      const create = document.getElementById('planCreate'); if(create) create.textContent=t.createFree;
-      const rn = document.getElementById('rolloutNote'); if(rn) rn.textContent=t.rollout;
-
-      const c2t = document.getElementById('card2Title'); if(c2t) c2t.textContent=t.card2Title;
-      const cs = document.getElementById('comingSoon'); if(cs) cs.textContent=t.comingSoon;
-      const c2s = document.getElementById('card2Sub'); if(c2s) c2s.textContent=t.card2Sub;
-      const l2 = document.getElementById('card2List'); if(l2) l2.innerHTML = t.card2List.map(li=>`<li>${li}</li>`).join('');
-      const na = document.getElementById('notAvailable'); if(na) na.textContent=t.notAvailable;
-
-      // Modal labels/buttons
-      const map = [
-        'signinTitle','signupTitle','email','password','fullName','createAccount','forgotPassword','backToSignIn',
-        'resetTitle','sendReset','updateTitle','newPassword','confirmPassword','updatePassword'
-      ];
-      map.forEach(key=>document.querySelectorAll(`[data-i18n="${key}"]`).forEach(n=>n.textContent=t[key]));
-    }
-    langSelect?.addEventListener('change', e=>setLang(e.target.value));
-    mLangSelect?.addEventListener('change', e=>setLang(e.target.value));
-    applyLang(localStorage.getItem(LS_KEY)||'en');
-  </script>
-
-  <!-- Cloudflare anti-bot kept, at end (standalone script) -->
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'x',t:'x'};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-
-  <!-- Service worker (standalone script, no nested tags) -->
-  <script>
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.register('/myqer_service_worker.js').catch(()=>{});
-    }
-  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977f7ea34573bd8c',t:'MTc1NjY3NDQxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
