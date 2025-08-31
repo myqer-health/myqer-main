@@ -4,9 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MYQER - Emergency QR Card</title>
+  <title>MYQER - Emergency QR Card - Version 16</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -79,11 +81,70 @@
       backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
+    /* RTL Support for Arabic */
+    [dir="rtl"] {
+      direction: rtl;
+    }
+
+    [dir="rtl"] .flex {
+      flex-direction: row-reverse;
+    }
+
+    [dir="rtl"] .space-x-2 > * + * {
+      margin-left: 0;
+      margin-right: 0.5rem;
+    }
+
+    [dir="rtl"] .text-left {
+      text-align: right;
+    }
+
+    [dir="rtl"] .text-right {
+      text-align: left;
+    }
+
+    /* Toast Styles */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.success {
+      background-color: #10b981;
+    }
+
+    .toast.error {
+      background-color: #ef4444;
+    }
+
+    .toast.warning {
+      background-color: #f59e0b;
+    }
+
+    .toast.info {
+      background-color: #3b82f6;
+    }
   </style>
 </head>
 
 <body class="bg-white h-screen flex flex-col">
   
+  <!-- Toast Container -->
+  <div id="toastContainer"></div>
+
   <!-- Animated Background Elements -->
   <div class="fixed inset-0 pointer-events-none">
     <!-- Medical Hearts -->
@@ -109,30 +170,30 @@
     <!-- Center Status Dot -->
     <div class="flex items-center space-x-2">
       <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-      <span class="text-sm font-medium text-gray-700">Online</span>
+      <span class="text-sm font-medium text-gray-700" data-i18n="nav.online">Online</span>
     </div>
     
     <!-- Language Selector & Hamburger -->
     <div class="flex items-center space-x-4">
       <!-- Language Dropdown -->
       <div class="dropdown relative">
-        <button class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
-          <span class="text-sm font-medium">🇺🇸 EN</span>
+        <button id="languageBtn" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
+          <span class="text-sm font-medium" id="currentLang">🇺🇸 EN</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M7 10l5 5 5-5z"/>
           </svg>
         </button>
         <div class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇺🇸 English</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇪🇸 Español</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇫🇷 Français</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇩🇪 Deutsch</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇹 Italiano</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇳 हिंदी</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇸🇦 العربية</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇨🇳 中文</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇭🇺 Magyar</a>
-          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇷🇴 Română</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="en">🇺🇸 English</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="es">🇪🇸 Español</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="fr">🇫🇷 Français</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="de">🇩🇪 Deutsch</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="it">🇮🇹 Italiano</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hi">🇮🇳 हिंदी</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ar">🇸🇦 العربية</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="zh">🇨🇳 中文</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hu">🇭🇺 Magyar</a>
+          <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ro">🇷🇴 Română</a>
         </div>
       </div>
       
@@ -149,7 +210,7 @@
   <div id="menuPanel" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50">
     <div class="p-6">
       <div class="flex justify-between items-center mb-8">
-        <span class="text-xl font-bold text-gray-900">Menu</span>
+        <span class="text-xl font-bold text-gray-900" data-i18n="menu.title">Menu</span>
         <button id="closeMenuBtn" class="text-gray-500 hover:text-gray-700">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -157,11 +218,11 @@
         </button>
       </div>
       <nav class="space-y-4">
-        <a href="/about" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors">About</a>
-        <a href="/clinician" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors">Clinician</a>
-        <a href="/privacy" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors">Privacy</a>
-        <a href="/terms" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors">Terms</a>
-        <a href="/login" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors">Login</a>
+        <a href="/about" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.about">About</a>
+        <a href="/clinician" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.clinician">Clinician</a>
+        <a href="/privacy" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.privacy">Privacy</a>
+        <a href="/terms" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.terms">Terms</a>
+        <a href="/login" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.login">Login</a>
       </nav>
     </div>
   </div>
@@ -174,61 +235,64 @@
     <div class="max-w-4xl mx-auto text-center">
       <!-- Main Headline -->
       <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6 text-gray-900">
-        Your <span class="text-myqer-red">FREE</span><br>
-        emergency <span class="text-myqer-red">QR</span> card.
+        <span data-i18n="hero.your">Your</span> <span class="text-myqer-red" data-i18n="hero.free">FREE</span><br>
+        <span data-i18n="hero.emergency">emergency</span> <span class="text-myqer-red" data-i18n="hero.qr">QR</span> <span data-i18n="hero.card">card.</span>
       </h1>
       
       <!-- Subheadlines -->
       <div class="space-y-3 mb-6">
-        <p class="text-xl md:text-2xl font-semibold text-gray-800">
+        <p class="text-xl md:text-2xl font-semibold text-gray-800" data-i18n="hero.tagline">
           One scan, instant triage.
         </p>
         <p class="text-lg md:text-xl text-gray-700">
-          A <span class="text-myqer-red font-semibold">QR triage code</span> to guide responders— anywhere, anytime.
+          <span data-i18n="hero.description1">A</span> <span class="text-myqer-red font-semibold" data-i18n="hero.qr_triage">QR triage code</span> <span data-i18n="hero.description2">to guide responders— anywhere, anytime.</span>
         </p>
       </div>
       
       <!-- Pronunciation Note -->
-      <p class="text-sm italic text-gray-500 mb-8">
+      <p class="text-sm italic text-gray-500 mb-8" data-i18n="hero.pronunciation">
         (pronounced "My Care")
       </p>
 
       <!-- People — Essential Access -->
       <div class="mb-8">
-        <h2 class="text-2xl md:text-3xl font-bold text-myqer-red mb-4">People — Essential Access</h2>
-        <p class="text-lg md:text-xl font-semibold text-gray-800 mb-6">Free to use<br>No cost · No trial · No ads</p>
+        <h2 class="text-2xl md:text-3xl font-bold text-myqer-red mb-4" data-i18n="hero.people_access">People — Essential Access</h2>
+        <p class="text-lg md:text-xl font-semibold text-gray-800 mb-6">
+          <span data-i18n="hero.free_to_use">Free to use</span><br>
+          <span data-i18n="hero.no_cost">No cost · No trial · No ads</span>
+        </p>
         
         <!-- Benefits List -->
         <div class="max-w-md mx-auto space-y-2 text-gray-700">
           <div class="flex items-start justify-center space-x-2">
             <span class="text-myqer-red font-bold">•</span>
-            <span>Emergency card (allergies, meds, ICE)</span>
+            <span data-i18n="hero.benefit1">Emergency card (allergies, meds, ICE)</span>
           </div>
           <div class="flex items-start justify-center space-x-2">
             <span class="text-myqer-red font-bold">•</span>
-            <span>Works offline (no signal needed)</span>
+            <span data-i18n="hero.benefit2">Works offline (no signal needed)</span>
           </div>
           <div class="flex items-start justify-center space-x-2">
             <span class="text-myqer-red font-bold">•</span>
-            <span>DIY printable QR tags & stickers</span>
+            <span data-i18n="hero.benefit3">DIY printable QR tags & stickers</span>
           </div>
           <div class="flex items-start justify-center space-x-2">
             <span class="text-myqer-red font-bold">•</span>
-            <span>Multi-language</span>
+            <span data-i18n="hero.benefit4">Multi-language</span>
           </div>
           <div class="flex items-start justify-center space-x-2">
             <span class="text-myqer-red font-bold">•</span>
-            <span>Zero tracking & on-device privacy</span>
+            <span data-i18n="hero.benefit5">Zero tracking & on-device privacy</span>
           </div>
         </div>
       </div>
       
       <!-- CTA Buttons -->
       <div class="flex flex-col sm:flex-row gap-6 justify-center">
-        <button id="createYoursBtn" class="bg-myqer-red hover:bg-red-700 text-white font-bold py-5 px-10 rounded-xl text-lg shadow-lg transition-colors">
+        <button id="createYoursBtn" class="bg-myqer-red hover:bg-red-700 text-white font-bold py-5 px-10 rounded-xl text-lg shadow-lg transition-colors" data-i18n="hero.create_yours">
           ➝ Create Yours
         </button>
-        <button id="signInBtn" class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-5 px-10 rounded-xl text-lg transition-colors">
+        <button id="signInBtn" class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-5 px-10 rounded-xl text-lg transition-colors" data-i18n="hero.sign_in">
           ➝ Sign In
         </button>
       </div>
@@ -238,18 +302,101 @@
   <!-- Footer -->
   <footer class="relative z-50 bg-white border-t border-gray-200 py-4 px-6">
     <div class="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
-      <div>
+      <div data-i18n="footer.copyright">
         © 2025 MYQER™ Emergency Response QR System.
       </div>
       <div class="flex items-center space-x-2 mt-2 sm:mt-0">
-        <span>GDPR/HIPAA-minded</span>
+        <span data-i18n="footer.gdpr">GDPR/HIPAA-minded</span>
         <span>·</span>
-        <a href="#" class="hover:text-myqer-red transition-colors">Privacy</a>
+        <a href="#" class="hover:text-myqer-red transition-colors" data-i18n="footer.privacy">Privacy</a>
         <span>·</span>
-        <a href="#" class="hover:text-myqer-red transition-colors">Terms</a>
+        <a href="#" class="hover:text-myqer-red transition-colors" data-i18n="footer.terms">Terms</a>
       </div>
     </div>
   </footer>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-70 hidden">
+    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
+      <div class="flex justify-between items-center mb-6">
+        <h2 id="authModalTitle" class="text-2xl font-bold text-gray-900" data-i18n="auth.sign_up">Sign Up</h2>
+        <button id="closeAuthModal" class="text-gray-500 hover:text-gray-700">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <form id="authForm" class="space-y-4">
+        <div id="nameField">
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="auth.full_name">Full Name</label>
+          <input type="text" id="authFullName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="auth.full_name_placeholder" placeholder="Enter your full name" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="auth.email">Email</label>
+          <input type="email" id="authEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="auth.email_placeholder" placeholder="Enter your email" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="auth.password">Password</label>
+          <input type="password" id="authPassword" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="auth.password_placeholder" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" id="authSubmitBtn" class="w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors" data-i18n="auth.sign_up">
+          Sign Up
+        </button>
+      </form>
+      
+      <div class="mt-4 text-center">
+        <button id="toggleAuthMode" class="text-myqer-red hover:text-red-700 font-medium" data-i18n="auth.have_account">
+          Already have an account? Sign In
+        </button>
+      </div>
+      
+      <div id="forgotPasswordSection" class="mt-2 text-center hidden">
+        <button id="forgotPasswordBtn" class="text-gray-600 hover:text-gray-800 text-sm" data-i18n="auth.forgot_password">
+          Forgot Password?
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-80 hidden">
+    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-red-600" data-i18n="danger.confirm_title">Confirm Account Deletion</h2>
+        <button id="closeDeleteModal" class="text-gray-500 hover:text-gray-700">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="mb-6">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div class="flex items-start space-x-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-red-500 mt-0.5">
+              <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+            </svg>
+            <div>
+              <h4 class="font-semibold text-red-800 mb-1" data-i18n="danger.confirm_warning">This permanently deletes your profile, health, contacts, and disables your QR.</h4>
+              <p class="text-sm text-red-700" data-i18n="danger.confirm_details">This action cannot be undone. All your emergency information will be lost forever.</p>
+            </div>
+          </div>
+        </div>
+        
+        <p class="text-gray-700 mb-4" data-i18n="danger.confirm_question">Are you absolutely sure you want to delete your account?</p>
+      </div>
+      
+      <div class="flex space-x-4">
+        <button id="cancelDeleteBtn" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors" data-i18n="danger.cancel">
+          Cancel
+        </button>
+        <button id="confirmDeleteBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors" data-i18n="danger.confirm_delete">
+          Delete Account
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Dashboard Page (Hidden by default) -->
   <div id="dashboardPage" class="hidden fixed inset-0 bg-white z-60">
@@ -263,7 +410,7 @@
       <!-- Center Status Dot -->
       <div class="flex items-center space-x-2">
         <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-        <span class="text-sm font-medium text-gray-700">Online</span>
+        <span class="text-sm font-medium text-gray-700" data-i18n="nav.online">Online</span>
       </div>
       
       <!-- Language Selector & Logout -->
@@ -271,27 +418,27 @@
         <!-- Language Dropdown -->
         <div class="dropdown relative">
           <button class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
-            <span class="text-sm font-medium">🇺🇸 EN</span>
+            <span class="text-sm font-medium" id="dashboardCurrentLang">🇺🇸 EN</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7 10l5 5 5-5z"/>
             </svg>
           </button>
           <div class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇺🇸 English</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇪🇸 Español</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇫🇷 Français</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇩🇪 Deutsch</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇹 Italiano</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇮🇳 हिंदी</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇸🇦 العربية</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇨🇳 中文</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇭🇺 Magyar</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50">🇷🇴 Română</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="en">🇺🇸 English</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="es">🇪🇸 Español</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="fr">🇫🇷 Français</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="de">🇩🇪 Deutsch</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="it">🇮🇹 Italiano</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hi">🇮🇳 हिंदी</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ar">🇸🇦 العربية</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="zh">🇨🇳 中文</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hu">🇭🇺 Magyar</a>
+            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ro">🇷🇴 Română</a>
           </div>
         </div>
         
         <!-- Logout Button -->
-        <button id="logoutBtn" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-myqer-red transition-colors">
+        <button id="logoutBtn" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-myqer-red transition-colors" data-i18n="nav.logout">
           Logout
         </button>
       </div>
@@ -305,37 +452,37 @@
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-blue-500">
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Profile Completion</h2>
-                <p class="text-gray-600">Complete your emergency profile</p>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2" data-i18n="dashboard.profile_completion">Profile Completion</h2>
+                <p class="text-gray-600" data-i18n="dashboard.complete_profile">Complete your emergency profile</p>
               </div>
               <div class="flex items-center space-x-4">
                 <div class="relative w-20 h-20">
                   <svg class="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
                     <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
                           fill="none" stroke="#e5e7eb" stroke-width="3"/>
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                          fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="60, 100"/>
+                    <path id="progressCircle" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                          fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="0, 100"/>
                   </svg>
                   <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-xl font-bold text-gray-900">60%</span>
+                    <span id="progressPercent" class="text-xl font-bold text-gray-900">0%</span>
                   </div>
                 </div>
                 <div class="space-y-1 text-sm">
                   <div class="flex items-center space-x-2">
-                    <span class="text-green-500">✓</span>
-                    <span>Identity Complete</span>
+                    <span id="identityStatus" class="text-amber-500">○</span>
+                    <span data-i18n="dashboard.identity_complete">Identity Complete</span>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <span class="text-green-500">✓</span>
-                    <span>Health Profile</span>
+                    <span id="healthStatus" class="text-amber-500">○</span>
+                    <span data-i18n="dashboard.health_profile">Health Profile</span>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <span class="text-amber-500">○</span>
-                    <span>ICE Contacts</span>
+                    <span id="contactsStatus" class="text-amber-500">○</span>
+                    <span data-i18n="dashboard.ice_contacts">ICE Contacts</span>
                   </div>
                   <div class="flex items-center space-x-2">
-                    <span class="text-green-500">✓</span>
-                    <span>QR Code Ready</span>
+                    <span id="qrStatus" class="text-amber-500">○</span>
+                    <span data-i18n="dashboard.qr_ready">QR Code Ready</span>
                   </div>
                 </div>
               </div>
@@ -343,232 +490,1290 @@
           </div>
         </div>
 
-        <!-- Row 2: Identity, Health, ICE (Three Cards) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <!-- Row 2: Identity and Health Profile (Two Big Vertical Cards) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <!-- Identity Card -->
-          <div class="glass-effect rounded-3xl p-6 border-l-4 border-green-500">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Identity</h3>
-            <div class="space-y-4">
+          <div class="glass-effect rounded-3xl p-8 border-l-4 border-green-500 relative min-h-[600px]">
+            <div class="flex justify-between items-start mb-6">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="John Doe">
+                <h3 class="text-2xl font-bold text-gray-900" data-i18n="dashboard.identity_info">Identity Information</h3>
+                <p class="text-sm text-gray-600 mt-2" data-i18n="dashboard.identity_help">These details help first responders confirm who you are</p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-gray-400">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <div id="identityCheckmark" class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                  <span class="text-white text-lg">○</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.full_name">Full Legal Name *</label>
+                <input type="text" id="fullName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.full_name_placeholder" placeholder="Enter your full legal name" required>
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.full_name_help">As it appears on your ID</p>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.date_of_birth">Date of Birth *</label>
+                <input type="text" id="dateOfBirth" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.date_placeholder" placeholder="DD/MM/YYYY" required>
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.date_format">Format: DD/MM/YYYY</p>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
-                  <option>United States</option>
-                  <option>Canada</option>
-                  <option>United Kingdom</option>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.country">Country of Residence *</label>
+                <select id="country" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" required>
+                  <option value="" data-i18n="dashboard.select_country">Select your country</option>
+                  <option value="US">🇺🇸 United States</option>
+                  <option value="CA">🇨🇦 Canada</option>
+                  <option value="GB">🇬🇧 United Kingdom</option>
+                  <option value="AU">🇦🇺 Australia</option>
+                  <option value="DE">🇩🇪 Germany</option>
+                  <option value="FR">🇫🇷 France</option>
+                  <option value="ES">🇪🇸 Spain</option>
+                  <option value="IT">🇮🇹 Italy</option>
+                  <option value="JP">🇯🇵 Japan</option>
+                  <option value="CN">🇨🇳 China</option>
+                  <option value="IN">🇮🇳 India</option>
+                  <option value="BR">🇧🇷 Brazil</option>
+                  <option value="MX">🇲🇽 Mexico</option>
+                  <option value="SA">🇸🇦 Saudi Arabia</option>
                 </select>
               </div>
-              <button class="w-full border-2 border-myqer-red text-myqer-red hover:bg-myqer-red hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Save
-              </button>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.health_id">National Health ID</label>
+                <input type="text" id="healthId" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.health_id_placeholder" placeholder="NHS Number, SSN, or similar">
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.health_id_help">NHS Number, SSN, or similar national health identifier</p>
+              </div>
             </div>
           </div>
 
           <!-- Health Profile Card -->
-          <div class="glass-effect rounded-3xl p-6 border-l-4 border-red-500">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Health Profile</h3>
-            <div class="space-y-4">
+          <div class="glass-effect rounded-3xl p-8 border-l-4 border-red-500 relative min-h-[600px]">
+            <div class="flex justify-between items-start mb-6">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
-                <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" rows="2" placeholder="Penicillin, Nuts..."></textarea>
+                <h3 class="text-2xl font-bold text-gray-900" data-i18n="dashboard.health_profile_title">Health Profile</h3>
+                <p class="text-sm text-gray-600 mt-2" data-i18n="dashboard.health_profile_help">Critical medical information that appears on your emergency card. Keep this current and accurate.</p>
               </div>
+              <div class="flex items-center space-x-2">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-gray-400">
+                  <path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/>
+                </svg>
+                <div id="healthCheckmark" class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                  <span class="text-white text-lg">○</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-6">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
-                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
-                  <option>A+</option>
-                  <option>A-</option>
-                  <option>B+</option>
-                  <option>B-</option>
-                  <option>AB+</option>
-                  <option>AB-</option>
-                  <option>O+</option>
-                  <option>O-</option>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.blood_type">Blood Type</label>
+                <select id="bloodType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
+                  <option value="" data-i18n="dashboard.select_blood_type">Select blood type</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="Unknown" data-i18n="dashboard.unknown">Unknown</option>
                 </select>
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.blood_type_help">Critical for blood transfusions</p>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Medications</label>
-                <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" rows="2" placeholder="Current medications..."></textarea>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.organ_donor">Organ Donor Status</label>
+                <select id="organDonor" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
+                  <option value="" data-i18n="dashboard.select_status">Select status</option>
+                  <option value="yes" data-i18n="dashboard.donor_yes">Yes (Registered)</option>
+                  <option value="no" data-i18n="dashboard.donor_no">No (Not a donor)</option>
+                  <option value="unspecified" data-i18n="dashboard.donor_unspecified">Not specified</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.organ_donor_help">Check your driver's license or ID</p>
               </div>
-              <button class="w-full border-2 border-myqer-red text-myqer-red hover:bg-myqer-red hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Save
-              </button>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.life_support">Life Support Preference</label>
+                <select id="lifeSupport" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
+                  <option value="" data-i18n="dashboard.select_preference">Select preference</option>
+                  <option value="full" data-i18n="dashboard.life_support_full">Full Life Support</option>
+                  <option value="limited" data-i18n="dashboard.life_support_limited">Limited</option>
+                  <option value="comfort" data-i18n="dashboard.life_support_comfort">Comfort Care Only</option>
+                  <option value="dnr" data-i18n="dashboard.life_support_dnr">DNR</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.life_support_help">Your preference for end-of-life care</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.allergies">Critical Allergies ⚠️</label>
+                <div class="flex flex-wrap gap-2 mb-2" id="allergiesPills"></div>
+                <input type="text" id="allergiesInput" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.allergies_placeholder" placeholder="Type allergy and press Enter">
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.allergies_help">Include drug, food, and environmental allergies</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.conditions">Medical Conditions</label>
+                <div class="flex flex-wrap gap-2 mb-2" id="conditionsPills"></div>
+                <input type="text" id="conditionsInput" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.conditions_placeholder" placeholder="Type condition and press Enter">
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.conditions_help">Include chronic and ongoing conditions</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.medications">Current Medications</label>
+                <div class="flex flex-wrap gap-2 mb-2" id="medicationsPills"></div>
+                <input type="text" id="medicationsInput" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" data-i18n-placeholder="dashboard.medications_placeholder" placeholder="Type medication and press Enter">
+                <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.medications_help">Include prescriptions, OTC, and supplements</p>
+              </div>
             </div>
           </div>
+        </div>
 
+        <!-- Row 3: ICE Contacts and QR Code (Two Horizontal Rectangle Cards) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <!-- ICE Contacts Card -->
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-amber-500">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-xl font-bold text-gray-900">ICE Contacts</h3>
-              <span class="text-sm text-gray-500">0 of 3 added</span>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900" data-i18n="dashboard.ice_contacts">Emergency Contacts (ICE)</h3>
+                <p class="text-sm text-gray-600 mt-1" data-i18n="dashboard.ice_contacts_help">In Case of Emergency contacts. Add up to 5 trusted people who can be reached quickly.</p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="text-gray-400">
+                  <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                </svg>
+                <span id="contactsCounter" class="text-sm text-gray-500">0 of 5 added</span>
+              </div>
             </div>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Contact Name</label>
-                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="Emergency contact">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
-                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="Spouse, Parent...">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                <input type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="+1 (555) 123-4567">
-              </div>
-              <button class="w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Add Contact
+            
+            <!-- Add Contact Button -->
+            <div class="mb-4">
+              <button id="addContactBtn" class="w-full border-2 border-dashed border-gray-300 text-gray-600 hover:border-myqer-red hover:text-myqer-red font-medium py-3 px-4 rounded-lg transition-colors" data-i18n="dashboard.add_contact">
+                + Add Emergency Contact
               </button>
-              <button class="w-full border-2 border-myqer-red text-myqer-red hover:bg-myqer-red hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Save
-              </button>
+            </div>
+
+            <!-- Contacts List -->
+            <div id="contactsList" class="space-y-4">
+              <div id="emptyState" class="text-center py-8 text-gray-500">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" class="mx-auto mb-3 text-gray-300">
+                  <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                </svg>
+                <p class="text-sm" data-i18n="dashboard.no_contacts">No contacts yet. Add your first emergency contact.</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Row 3: QR Code (Full Width) -->
-        <div class="mb-6">
+          <!-- QR Code Card -->
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-blue-500">
-            <div class="flex flex-col md:flex-row items-center justify-between">
-              <div class="mb-4 md:mb-0">
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">Your QR Code</h3>
-                <p class="text-gray-600 mb-2">Scan to access your emergency information</p>
-                <div class="flex items-center space-x-2">
-                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Works Offline
-                  </span>
-                  <span class="text-sm text-gray-500">myqer.com/c/abc123</span>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900" data-i18n="dashboard.qr_code">Emergency QR Code</h3>
+                <p class="text-sm text-gray-600 mt-1" data-i18n="dashboard.qr_code_help">Your unique QR code that links to your emergency profile</p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" data-i18n="dashboard.works_offline">
+                  Works Offline
+                </span>
+              </div>
+            </div>
+
+            <!-- QR Code Preview -->
+            <div class="flex flex-col items-center mb-6">
+              <div id="qrPreview" class="w-48 h-48 bg-white border-2 border-myqer-red rounded-lg flex items-center justify-center mb-4">
+                <div class="text-center text-gray-500">
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" class="mx-auto mb-2 text-gray-300">
+                    <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4z"/>
+                    <path d="M18 13h-2v2h2v-2zM20 15h-2v2h2v-2zM16 15h-2v2h2v-2zM18 17h-2v2h2v-2zM20 19h-2v2h2v-2z"/>
+                  </svg>
+                  <p class="text-sm" data-i18n="dashboard.complete_profile_qr">Complete your profile to generate QR</p>
                 </div>
               </div>
-              <div class="flex items-center space-x-6">
-                <!-- QR Code Preview -->
-                <div class="w-32 h-32 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
-                  <svg width="120" height="120" viewBox="0 0 120 120">
-                    <!-- Simple QR Code Pattern -->
-                    <rect x="0" y="0" width="120" height="120" fill="white"/>
-                    <rect x="10" y="10" width="20" height="20" fill="black"/>
-                    <rect x="90" y="10" width="20" height="20" fill="black"/>
-                    <rect x="10" y="90" width="20" height="20" fill="black"/>
-                    <rect x="40" y="20" width="10" height="10" fill="black"/>
-                    <rect x="60" y="30" width="10" height="10" fill="black"/>
-                    <rect x="70" y="50" width="10" height="10" fill="black"/>
-                    <rect x="30" y="60" width="10" height="10" fill="black"/>
-                    <rect x="50" y="70" width="10" height="10" fill="black"/>
-                    <rect x="80" y="80" width="10" height="10" fill="black"/>
-                  </svg>
-                </div>
-                <div class="space-y-2">
-                  <button class="block w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    Export PNG
-                  </button>
-                  <button class="block w-full border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    Print
+              
+              <!-- Shareable Link -->
+              <div class="w-full mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="dashboard.shareable_link">Shareable Link</label>
+                <div class="flex">
+                  <input type="text" id="shareableLink" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg bg-gray-50" value="" readonly>
+                  <button id="copyLinkBtn" class="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg hover:bg-gray-200 transition-colors">
+                    📋
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="space-y-3">
+              <button id="generateQRBtn" class="w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors" data-i18n="dashboard.generate_qr">
+                Generate QR Code
+              </button>
+              <div class="grid grid-cols-2 gap-3">
+                <button id="exportPNGBtn" class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors" disabled data-i18n="dashboard.export_png">
+                  Export PNG
+                </button>
+                <button id="printCardBtn" class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors" disabled data-i18n="dashboard.print_card">
+                  Print Card
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Row 4: Bottom Cards (Family Hub, Documents Vault, Danger Zone) -->
+        <!-- Row 4: Automated Triage Card (Full Width) -->
+        <div class="mb-6">
+          <div class="glass-effect rounded-3xl p-6 border-l-4 border-amber-500">
+            <div class="flex justify-between items-start mb-6">
+              <div>
+                <h3 class="text-2xl font-bold text-gray-900" data-i18n="dashboard.automated_triage">Automated Triage</h3>
+                <p class="text-gray-600" data-i18n="dashboard.triage_help">Color-coded priority guide for first responders based on your health information</p>
+              </div>
+            </div>
+
+            <!-- Triage Badge (Centered) -->
+            <div class="flex justify-center mb-6">
+              <div id="triageBadge" class="inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold bg-green-500 text-white">
+                🟢 <span data-i18n="dashboard.triage_green">Green — Standard</span>
+              </div>
+            </div>
+
+            <!-- Manual Override -->
+            <div class="max-w-md mx-auto mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.manual_override">Manual Override</label>
+              <select id="triageOverride" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
+                <option value="auto" data-i18n="dashboard.auto_recommended">Auto (Recommended)</option>
+                <option value="green" data-i18n="dashboard.triage_green_option">🟢 Green — Standard</option>
+                <option value="amber" data-i18n="dashboard.triage_amber_option">🟡 Amber — Urgent</option>
+                <option value="red" data-i18n="dashboard.triage_red_option">🔴 Red — Immediate</option>
+                <option value="black" data-i18n="dashboard.triage_black_option">⚫ Black — Comfort Care</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.override_help">Override only if you have specific medical directives</p>
+            </div>
+
+            <!-- Rules Legend (Collapsible) -->
+            <div class="max-w-2xl mx-auto">
+              <button id="toggleRules" class="flex items-center justify-center w-full text-sm font-medium text-gray-700 hover:text-gray-900 mb-4">
+                <span data-i18n="dashboard.triage_rules">Triage Rules</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="ml-2 transform transition-transform" id="rulesChevron">
+                  <path d="M7 10l5 5 5-5z"/>
+                </svg>
+              </button>
+              <div id="rulesContent" class="hidden bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                <div class="flex items-start space-x-2">
+                  <span class="text-red-500 font-bold">🟥</span>
+                  <span data-i18n="dashboard.rule_red"><strong>Red:</strong> Severe allergy (anaphylaxis, penicillin, epipen) OR high-risk condition (heart, stroke, seizure, cancer, >3 conditions)</span>
+                </div>
+                <div class="flex items-start space-x-2">
+                  <span class="text-black font-bold">⚫</span>
+                  <span data-i18n="dashboard.rule_black"><strong>Black:</strong> Life Support = DNR</span>
+                </div>
+                <div class="flex items-start space-x-2">
+                  <span class="text-amber-500 font-bold">🟨</span>
+                  <span data-i18n="dashboard.rule_amber"><strong>Amber:</strong> Some allergies/conditions/medications but not critical</span>
+                </div>
+                <div class="flex items-start space-x-2">
+                  <span class="text-green-500 font-bold">🟩</span>
+                  <span data-i18n="dashboard.rule_green"><strong>Green:</strong> No reported risks</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="mt-6 text-center">
+              <p class="text-xs text-gray-400 italic" data-i18n="dashboard.triage_disclaimer">
+                Triage color is an aid chosen from patient-provided info. It is not a medical diagnosis. Always use clinical judgment.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 5: Bottom Cards (Family Hub, Documents Vault, Danger Zone) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <!-- Family Hub -->
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-pink-500 opacity-60">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Family Hub</h3>
-            <p class="text-gray-600 mb-4">Manage multiple family member profiles</p>
-            <button disabled class="w-full bg-gray-300 text-gray-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed">
+            <div class="flex justify-between items-start mb-4">
+              <h3 class="text-xl font-bold text-gray-900" data-i18n="dashboard.family_hub">Family Hub</h3>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="text-gray-400">
+                <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 7H16c-.8 0-1.54.37-2 1l-3.72 5.58L8.54 11.4A1.5 1.5 0 0 0 7.46 11H5.54c-.8 0-1.54.37-2 1L1 18h2.5v4h3v-4h2.5v4h3v-4h2.5v4h3z"/>
+              </svg>
+            </div>
+            <p class="text-gray-600 mb-6" data-i18n="dashboard.family_hub_help">Manage emergency cards for kids and family members</p>
+            <div class="flex justify-center mb-4">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" class="text-gray-300">
+                <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 7H16c-.8 0-1.54.37-2 1l-3.72 5.58L8.54 11.4A1.5 1.5 0 0 0 7.46 11H5.54c-.8 0-1.54.37-2 1L1 18h2.5v4h3v-4h2.5v4h3v-4h2.5v4h3z"/>
+              </svg>
+            </div>
+            <p class="text-center text-gray-500 mb-4" data-i18n="dashboard.coming_soon">Coming soon</p>
+            <button disabled class="w-full bg-gray-300 text-gray-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed" data-i18n="dashboard.coming_soon">
               Coming Soon
             </button>
           </div>
 
           <!-- Documents Vault -->
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-purple-500 opacity-60">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Documents Vault</h3>
-            <p class="text-gray-600 mb-4">Secure storage for medical documents</p>
-            <button disabled class="w-full bg-gray-300 text-gray-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed">
+            <div class="flex justify-between items-start mb-4">
+              <h3 class="text-xl font-bold text-gray-900" data-i18n="dashboard.documents_vault">Documents Vault</h3>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="text-gray-400">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+              </svg>
+            </div>
+            <p class="text-gray-600 mb-6" data-i18n="dashboard.documents_vault_help">Secure storage for medical documents and legal directives</p>
+            <div class="flex justify-center mb-4">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" class="text-gray-300">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+              </svg>
+            </div>
+            <p class="text-center text-gray-500 mb-4" data-i18n="dashboard.coming_soon">Coming soon</p>
+            <button disabled class="w-full bg-gray-300 text-gray-500 font-bold py-2 px-4 rounded-lg cursor-not-allowed" data-i18n="dashboard.coming_soon">
               Coming Soon
             </button>
           </div>
 
           <!-- Danger Zone -->
           <div class="glass-effect rounded-3xl p-6 border-l-4 border-red-500">
-            <h3 class="text-xl font-bold text-gray-900 mb-4">Danger Zone</h3>
-            <p class="text-gray-600 mb-4">Permanently delete your account and all data</p>
-            <button class="w-full border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
-              Delete Account
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900" data-i18n="danger.title">Danger Zone</h3>
+                <p class="text-sm text-gray-600 mt-1" data-i18n="danger.subtitle">Permanently delete your account and all data</p>
+              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="text-red-500">
+                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+              </svg>
+            </div>
+
+            <!-- Warning Box -->
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div class="flex items-start space-x-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-red-500 mt-0.5">
+                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+                <div>
+                  <h4 class="font-semibold text-red-800 mb-1" data-i18n="danger.warning.title">This action cannot be undone</h4>
+                  <p class="text-sm text-red-700" data-i18n="danger.warning.text">This will permanently delete your profile, health data, emergency contacts, QR code, and all associated information.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Re-auth Button -->
+            <button id="reAuthBtn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-lg transition-colors mb-4" data-i18n="danger.reauth">
+              Re-authenticate to Continue
             </button>
+
+            <!-- Confirmation Input (Hidden initially) -->
+            <div id="deleteConfirmSection" class="hidden">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="danger.confirm.label">
+                  Type <strong>DELETE</strong> to confirm:
+                </label>
+                <input 
+                  type="text" 
+                  id="deleteConfirmInput" 
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" 
+                  placeholder="DELETE"
+                  data-i18n-placeholder="danger.confirm.placeholder"
+                >
+              </div>
+
+              <!-- Delete Button -->
+              <button 
+                id="deleteAccountBtn" 
+                class="w-full bg-gray-300 text-gray-500 font-bold py-3 px-4 rounded-lg cursor-not-allowed transition-colors" 
+                disabled
+                data-i18n="danger.button"
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </main>
   </div>
 
+  <!-- Emergency Card Page -->
+  <div id="emergencyCardPage" class="hidden fixed inset-0 bg-white z-60">
+    <div class="min-h-screen bg-gradient-to-br from-red-50 to-red-100 p-4">
+      <div class="max-w-2xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <h1 class="text-4xl font-bold text-myqer-red mb-2" data-i18n="emergency.title">🚨 EMERGENCY CARD</h1>
+          <p class="text-lg text-gray-700" data-i18n="emergency.subtitle">Critical Medical Information</p>
+          <div class="mt-4 inline-flex items-center px-4 py-2 bg-white rounded-full shadow-sm">
+            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse mr-2"></div>
+            <span class="text-sm font-medium text-gray-700" data-i18n="emergency.updated">Last Updated: <span id="lastUpdated">--</span></span>
+          </div>
+        </div>
+
+        <!-- Emergency Card Content -->
+        <div id="emergencyCardContent" class="bg-white rounded-2xl shadow-xl p-8 border-4 border-myqer-red">
+          <!-- Loading State -->
+          <div class="text-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-myqer-red mx-auto mb-4"></div>
+            <p class="text-gray-600" data-i18n="emergency.loading">Loading emergency information...</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-sm text-gray-600">
+          <p data-i18n="emergency.footer">Powered by MYQER™ Emergency Response System</p>
+          <p class="mt-2">
+            <a href="/" class="text-myqer-red hover:text-red-700 font-medium" data-i18n="emergency.create_yours">Create Your Own Emergency Card</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Menu functionality
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const menuPanel = document.getElementById('menuPanel');
-    const menuOverlay = document.getElementById('menuOverlay');
-    const closeMenuBtn = document.getElementById('closeMenuBtn');
+    // Supabase Configuration
+    const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
 
-    function openMenu() {
-      menuPanel.classList.remove('translate-x-full');
-      menuOverlay.classList.remove('opacity-0', 'invisible');
-      menuOverlay.classList.add('opacity-100', 'visible');
-    }
-
-    function closeMenu() {
-      menuPanel.classList.add('translate-x-full');
-      menuOverlay.classList.remove('opacity-100', 'visible');
-      menuOverlay.classList.add('opacity-0', 'invisible');
-    }
-
-    hamburgerBtn.addEventListener('click', openMenu);
-    closeMenuBtn.addEventListener('click', closeMenu);
-    menuOverlay.addEventListener('click', closeMenu);
-
-    // Language switching functionality
-    const languageButtons = document.querySelectorAll('.dropdown-menu a');
-    const currentLangBtn = document.querySelector('.dropdown button span');
-
-    languageButtons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.preventDefault();
-        const selectedLang = button.textContent;
-        currentLangBtn.textContent = selectedLang;
+    // i18n Dictionary - Complete translations for 10 languages
+    const i18nDict = {
+      en: {
+        // Navigation
+        'nav.online': 'Online',
+        'nav.logout': 'Logout',
         
-        // Here you would implement actual translation logic
-        console.log('Language switched to:', selectedLang);
+        // Menu
+        'menu.title': 'Menu',
+        'menu.about': 'About',
+        'menu.clinician': 'Clinician',
+        'menu.privacy': 'Privacy',
+        'menu.terms': 'Terms',
+        'menu.login': 'Login',
+        
+        // Hero Section
+        'hero.your': 'Your',
+        'hero.free': 'FREE',
+        'hero.emergency': 'emergency',
+        'hero.qr': 'QR',
+        'hero.card': 'card.',
+        'hero.tagline': 'One scan, instant triage.',
+        'hero.description1': 'A',
+        'hero.qr_triage': 'QR triage code',
+        'hero.description2': 'to guide responders— anywhere, anytime.',
+        'hero.pronunciation': '(pronounced "My Care")',
+        'hero.people_access': 'People — Essential Access',
+        'hero.free_to_use': 'Free to use',
+        'hero.no_cost': 'No cost · No trial · No ads',
+        'hero.benefit1': 'Emergency card (allergies, meds, ICE)',
+        'hero.benefit2': 'Works offline (no signal needed)',
+        'hero.benefit3': 'DIY printable QR tags & stickers',
+        'hero.benefit4': 'Multi-language',
+        'hero.benefit5': 'Zero tracking & on-device privacy',
+        'hero.create_yours': '➝ Create Yours',
+        'hero.sign_in': '➝ Sign In',
+        
+        // Footer
+        'footer.copyright': '© 2025 MYQER™ Emergency Response QR System.',
+        'footer.gdpr': 'GDPR/HIPAA-minded',
+        'footer.privacy': 'Privacy',
+        'footer.terms': 'Terms',
+        
+        // Auth
+        'auth.sign_up': 'Sign Up',
+        'auth.sign_in': 'Sign In',
+        'auth.full_name': 'Full Name',
+        'auth.full_name_placeholder': 'Enter your full name',
+        'auth.email': 'Email',
+        'auth.email_placeholder': 'Enter your email',
+        'auth.password': 'Password',
+        'auth.password_placeholder': 'Enter your password',
+        'auth.have_account': 'Already have an account? Sign In',
+        'auth.no_account': 'Don\'t have an account? Sign Up',
+        'auth.forgot_password': 'Forgot Password?',
+        
+        // Dashboard
+        'dashboard.profile_completion': 'Profile Completion',
+        'dashboard.complete_profile': 'Complete your emergency profile',
+        'dashboard.identity_complete': 'Identity Complete',
+        'dashboard.health_profile': 'Health Profile',
+        'dashboard.ice_contacts': 'ICE Contacts',
+        'dashboard.qr_ready': 'QR Code Ready',
+        
+        // Identity
+        'dashboard.identity_info': 'Identity Information',
+        'dashboard.identity_help': 'These details help first responders confirm who you are',
+        'dashboard.full_name': 'Full Legal Name *',
+        'dashboard.full_name_placeholder': 'Enter your full legal name',
+        'dashboard.full_name_help': 'As it appears on your ID',
+        'dashboard.date_of_birth': 'Date of Birth *',
+        'dashboard.date_placeholder': 'DD/MM/YYYY',
+        'dashboard.date_format': 'Format: DD/MM/YYYY',
+        'dashboard.country': 'Country of Residence *',
+        'dashboard.select_country': 'Select your country',
+        'dashboard.health_id': 'National Health ID',
+        'dashboard.health_id_placeholder': 'NHS Number, SSN, or similar',
+        'dashboard.health_id_help': 'NHS Number, SSN, or similar national health identifier',
+        
+        // Health Profile
+        'dashboard.health_profile_title': 'Health Profile',
+        'dashboard.health_profile_help': 'Critical medical information that appears on your emergency card. Keep this current and accurate.',
+        'dashboard.blood_type': 'Blood Type',
+        'dashboard.select_blood_type': 'Select blood type',
+        'dashboard.unknown': 'Unknown',
+        'dashboard.blood_type_help': 'Critical for blood transfusions',
+        'dashboard.organ_donor': 'Organ Donor Status',
+        'dashboard.select_status': 'Select status',
+        'dashboard.donor_yes': 'Yes (Registered)',
+        'dashboard.donor_no': 'No (Not a donor)',
+        'dashboard.donor_unspecified': 'Not specified',
+        'dashboard.organ_donor_help': 'Check your driver\'s license or ID',
+        'dashboard.life_support': 'Life Support Preference',
+        'dashboard.select_preference': 'Select preference',
+        'dashboard.life_support_full': 'Full Life Support',
+        'dashboard.life_support_limited': 'Limited',
+        'dashboard.life_support_comfort': 'Comfort Care Only',
+        'dashboard.life_support_dnr': 'DNR',
+        'dashboard.life_support_help': 'Your preference for end-of-life care',
+        'dashboard.allergies': 'Critical Allergies ⚠️',
+        'dashboard.allergies_placeholder': 'Type allergy and press Enter',
+        'dashboard.allergies_help': 'Include drug, food, and environmental allergies',
+        'dashboard.conditions': 'Medical Conditions',
+        'dashboard.conditions_placeholder': 'Type condition and press Enter',
+        'dashboard.conditions_help': 'Include chronic and ongoing conditions',
+        'dashboard.medications': 'Current Medications',
+        'dashboard.medications_placeholder': 'Type medication and press Enter',
+        'dashboard.medications_help': 'Include prescriptions, OTC, and supplements',
+        
+        // ICE Contacts
+        'dashboard.ice_contacts': 'Emergency Contacts (ICE)',
+        'dashboard.ice_contacts_help': 'In Case of Emergency contacts. Add up to 5 trusted people who can be reached quickly.',
+        'dashboard.contact_name': 'Full Name *',
+        'dashboard.contact_name_placeholder': 'Emergency contact name',
+        'dashboard.relationship': 'Relationship',
+        'dashboard.select_relationship': 'Select relationship',
+        'dashboard.spouse': 'Spouse',
+        'dashboard.parent': 'Parent',
+        'dashboard.child': 'Child',
+        'dashboard.sibling': 'Sibling',
+        'dashboard.partner': 'Partner',
+        'dashboard.friend': 'Friend',
+        'dashboard.colleague': 'Colleague',
+        'dashboard.doctor': 'Doctor',
+        'dashboard.other': 'Other',
+        'dashboard.phone_number': 'Phone Number *',
+        'dashboard.phone_placeholder': '+1 (555) 123-4567',
+        'dashboard.email': 'Email',
+        'dashboard.email_placeholder': 'contact@email.com',
+        'dashboard.notes': 'Notes',
+        'dashboard.notes_placeholder': 'Additional notes (optional)',
+        'dashboard.add_contact': '+ Add Emergency Contact',
+        'dashboard.no_contacts': 'No contacts yet. Add your first emergency contact.',
+        
+        // QR Code
+        'dashboard.qr_code': 'Emergency QR Code',
+        'dashboard.qr_code_help': 'Your unique QR code that links to your emergency profile',
+        'dashboard.works_offline': 'Works Offline',
+        'dashboard.complete_profile_qr': 'Complete your profile to generate QR',
+        'dashboard.shareable_link': 'Shareable Link',
+        'dashboard.generate_qr': 'Generate QR Code',
+        'dashboard.export_png': 'Export PNG',
+        'dashboard.print_card': 'Print Card',
+        
+        // Triage
+        'dashboard.automated_triage': 'Automated Triage',
+        'dashboard.triage_help': 'Color-coded priority guide for first responders based on your health information',
+        'dashboard.triage_green': 'Green — Standard',
+        'dashboard.manual_override': 'Manual Override',
+        'dashboard.auto_recommended': 'Auto (Recommended)',
+        'dashboard.triage_green_option': '🟢 Green — Standard',
+        'dashboard.triage_amber_option': '🟡 Amber — Urgent',
+        'dashboard.triage_red_option': '🔴 Red — Immediate',
+        'dashboard.triage_black_option': '⚫ Black — Comfort Care',
+        'dashboard.override_help': 'Override only if you have specific medical directives',
+        'dashboard.triage_rules': 'Triage Rules',
+        'dashboard.rule_red': '<strong>Red:</strong> Severe allergy (anaphylaxis, penicillin, epipen) OR high-risk condition (heart, stroke, seizure, cancer, >3 conditions)',
+        'dashboard.rule_black': '<strong>Black:</strong> Life Support = DNR',
+        'dashboard.rule_amber': '<strong>Amber:</strong> Some allergies/conditions/medications but not critical',
+        'dashboard.rule_green': '<strong>Green:</strong> No reported risks',
+        'dashboard.triage_disclaimer': 'Triage color is an aid chosen from patient-provided info. It is not a medical diagnosis. Always use clinical judgment.',
+        
+        // Other Cards
+        'dashboard.family_hub': 'Family Hub',
+        'dashboard.family_hub_help': 'Manage emergency cards for kids and family members',
+        'dashboard.documents_vault': 'Documents Vault',
+        'dashboard.documents_vault_help': 'Secure storage for medical documents and legal directives',
+        'dashboard.coming_soon': 'Coming Soon',
+        
+        // Danger Zone
+        'danger.title': 'Danger Zone',
+        'danger.subtitle': 'Permanently delete your account and all data',
+        'danger.warning.title': 'This action cannot be undone',
+        'danger.warning.text': 'This will permanently delete your profile, health data, emergency contacts, QR code, and all associated information.',
+        'danger.reauth': 'Re-authenticate to Continue',
+        'danger.confirm.label': 'Type <strong>DELETE</strong> to confirm:',
+        'danger.confirm.placeholder': 'DELETE',
+        'danger.button': 'Delete Account',
+        'danger.confirm_title': 'Confirm Account Deletion',
+        'danger.confirm_warning': 'This permanently deletes your profile, health, contacts, and disables your QR.',
+        'danger.confirm_details': 'This action cannot be undone. All your emergency information will be lost forever.',
+        'danger.confirm_question': 'Are you absolutely sure you want to delete your account?',
+        'danger.cancel': 'Cancel',
+        'danger.confirm_delete': 'Delete Account',
+        
+        // Emergency Card
+        'emergency.title': '🚨 EMERGENCY CARD',
+        'emergency.subtitle': 'Critical Medical Information',
+        'emergency.updated': 'Last Updated:',
+        'emergency.loading': 'Loading emergency information...',
+        'emergency.footer': 'Powered by MYQER™ Emergency Response System',
+        'emergency.create_yours': 'Create Your Own Emergency Card',
+        'emergency.not_found': 'Emergency card not found',
+        'emergency.not_found_desc': 'This emergency card does not exist or has been deleted.',
+        
+        // Toast Messages
+        'toast.profile_saved': 'Profile saved successfully!',
+        'toast.health_saved': 'Health profile saved successfully!',
+        'toast.contact_saved': 'Contact saved successfully!',
+        'toast.contact_deleted': 'Contact deleted successfully!',
+        'toast.qr_generated': 'QR Code generated successfully!',
+        'toast.link_copied': 'Link copied to clipboard',
+        'toast.card_refreshed': 'Emergency card refreshed successfully!',
+        'toast.signed_in': 'Signed in successfully!',
+        'toast.signed_out': 'Signed out successfully!',
+        'toast.account_created': 'Account created successfully! Please check your email to verify.',
+        'toast.password_reset': 'Password reset email sent!',
+        'toast.account_deleted': 'Account deleted successfully',
+        'toast.max_contacts': 'Maximum 5 contacts allowed',
+        'toast.name_phone_required': 'Name and phone number are required',
+        'toast.triage_updated': 'Triage updated',
+        'toast.contacts_autosaved': 'Contacts are automatically saved',
+        'toast.code_already_assigned': 'Code already assigned',
+        'toast.network_error': 'Network error. Please check your connection and try again.',
+        'toast.reauth_required': 'Please re-authenticate to continue',
+        'toast.delete_type_delete': 'Please type DELETE to confirm'
+      },
+      
+      es: {
+        // Navigation
+        'nav.online': 'En línea',
+        'nav.logout': 'Cerrar sesión',
+        
+        // Menu
+        'menu.title': 'Menú',
+        'menu.about': 'Acerca de',
+        'menu.clinician': 'Médico',
+        'menu.privacy': 'Privacidad',
+        'menu.terms': 'Términos',
+        'menu.login': 'Iniciar sesión',
+        
+        // Hero Section
+        'hero.your': 'Tu',
+        'hero.free': 'GRATIS',
+        'hero.emergency': 'tarjeta de',
+        'hero.qr': 'QR',
+        'hero.card': 'emergencia.',
+        'hero.tagline': 'Un escaneo, triaje instantáneo.',
+        'hero.description1': 'Un',
+        'hero.qr_triage': 'código QR de triaje',
+        'hero.description2': 'para guiar a los socorristas, en cualquier lugar y momento.',
+        'hero.pronunciation': '(se pronuncia "My Care")',
+        'hero.people_access': 'Personas — Acceso Esencial',
+        'hero.free_to_use': 'Gratis para usar',
+        'hero.no_cost': 'Sin costo · Sin prueba · Sin anuncios',
+        'hero.benefit1': 'Tarjeta de emergencia (alergias, medicamentos, ICE)',
+        'hero.benefit2': 'Funciona sin conexión (no necesita señal)',
+        'hero.benefit3': 'Etiquetas QR imprimibles DIY',
+        'hero.benefit4': 'Multi-idioma',
+        'hero.benefit5': 'Privacidad completa sin seguimiento',
+        'hero.create_yours': '➝ Crear la tuya',
+        'hero.sign_in': '➝ Iniciar sesión',
+        
+        // Footer
+        'footer.copyright': '© 2025 Sistema de Respuesta de Emergencia MYQER™.',
+        'footer.gdpr': 'Compatible con GDPR/HIPAA',
+        'footer.privacy': 'Privacidad',
+        'footer.terms': 'Términos',
+        
+        // Auth
+        'auth.sign_up': 'Registrarse',
+        'auth.sign_in': 'Iniciar sesión',
+        'auth.full_name': 'Nombre completo',
+        'auth.full_name_placeholder': 'Ingresa tu nombre completo',
+        'auth.email': 'Correo electrónico',
+        'auth.email_placeholder': 'Ingresa tu correo electrónico',
+        'auth.password': 'Contraseña',
+        'auth.password_placeholder': 'Ingresa tu contraseña',
+        'auth.have_account': '¿Ya tienes una cuenta? Iniciar sesión',
+        'auth.no_account': '¿No tienes una cuenta? Registrarse',
+        'auth.forgot_password': '¿Olvidaste tu contraseña?',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Cuenta eliminada exitosamente'
+      },
+      
+      fr: {
+        // Navigation
+        'nav.online': 'En ligne',
+        'nav.logout': 'Se déconnecter',
+        
+        // Menu
+        'menu.title': 'Menu',
+        'menu.about': 'À propos',
+        'menu.clinician': 'Clinicien',
+        'menu.privacy': 'Confidentialité',
+        'menu.terms': 'Conditions',
+        'menu.login': 'Se connecter',
+        
+        // Hero Section
+        'hero.your': 'Votre',
+        'hero.free': 'GRATUITE',
+        'hero.emergency': 'carte d\'urgence',
+        'hero.qr': 'QR',
+        'hero.card': '.',
+        'hero.tagline': 'Un scan, triage instantané.',
+        'hero.description1': 'Un',
+        'hero.qr_triage': 'code QR de triage',
+        'hero.description2': 'pour guider les secouristes — partout, à tout moment.',
+        'hero.pronunciation': '(se prononce "My Care")',
+        'hero.people_access': 'Personnes — Accès Essentiel',
+        'hero.free_to_use': 'Gratuit à utiliser',
+        'hero.no_cost': 'Sans coût · Sans essai · Sans publicités',
+        'hero.benefit1': 'Carte d\'urgence (allergies, médicaments, ICE)',
+        'hero.benefit2': 'Fonctionne hors ligne (pas de signal nécessaire)',
+        'hero.benefit3': 'Étiquettes QR imprimables DIY',
+        'hero.benefit4': 'Multi-langues',
+        'hero.benefit5': 'Confidentialité complète sans suivi',
+        'hero.create_yours': '➝ Créer la vôtre',
+        'hero.sign_in': '➝ Se connecter',
+        
+        // Footer
+        'footer.copyright': '© 2025 Système de Réponse d\'Urgence MYQER™.',
+        'footer.gdpr': 'Conforme GDPR/HIPAA',
+        'footer.privacy': 'Confidentialité',
+        'footer.terms': 'Conditions',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Compte supprimé avec succès'
+      },
+      
+      de: {
+        // Navigation
+        'nav.online': 'Online',
+        'nav.logout': 'Abmelden',
+        
+        // Menu
+        'menu.title': 'Menü',
+        'menu.about': 'Über uns',
+        'menu.clinician': 'Kliniker',
+        'menu.privacy': 'Datenschutz',
+        'menu.terms': 'Bedingungen',
+        'menu.login': 'Anmelden',
+        
+        // Hero Section
+        'hero.your': 'Ihre',
+        'hero.free': 'KOSTENLOSE',
+        'hero.emergency': 'Notfall-',
+        'hero.qr': 'QR',
+        'hero.card': 'Karte.',
+        'hero.tagline': 'Ein Scan, sofortige Triage.',
+        'hero.description1': 'Ein',
+        'hero.qr_triage': 'QR-Triage-Code',
+        'hero.description2': 'zur Führung von Ersthelfern — überall, jederzeit.',
+        'hero.pronunciation': '(ausgesprochen "My Care")',
+        'hero.people_access': 'Menschen — Wesentlicher Zugang',
+        'hero.free_to_use': 'Kostenlos zu verwenden',
+        'hero.no_cost': 'Keine Kosten · Keine Testversion · Keine Werbung',
+        'hero.benefit1': 'Notfallkarte (Allergien, Medikamente, ICE)',
+        'hero.benefit2': 'Funktioniert offline (kein Signal erforderlich)',
+        'hero.benefit3': 'DIY druckbare QR-Etiketten',
+        'hero.benefit4': 'Mehrsprachig',
+        'hero.benefit5': 'Vollständige Privatsphäre ohne Tracking',
+        'hero.create_yours': '➝ Ihre erstellen',
+        'hero.sign_in': '➝ Anmelden',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Konto erfolgreich gelöscht'
+      },
+      
+      it: {
+        // Navigation
+        'nav.online': 'Online',
+        'nav.logout': 'Disconnetti',
+        
+        // Menu
+        'menu.title': 'Menu',
+        'menu.about': 'Chi siamo',
+        'menu.clinician': 'Clinico',
+        'menu.privacy': 'Privacy',
+        'menu.terms': 'Termini',
+        'menu.login': 'Accedi',
+        
+        // Hero Section
+        'hero.your': 'La tua',
+        'hero.free': 'GRATUITA',
+        'hero.emergency': 'carta di emergenza',
+        'hero.qr': 'QR',
+        'hero.card': '.',
+        'hero.tagline': 'Una scansione, triage istantaneo.',
+        'hero.description1': 'Un',
+        'hero.qr_triage': 'codice QR di triage',
+        'hero.description2': 'per guidare i soccorritori — ovunque, in qualsiasi momento.',
+        'hero.pronunciation': '(si pronuncia "My Care")',
+        'hero.people_access': 'Persone — Accesso Essenziale',
+        'hero.free_to_use': 'Gratuito da usare',
+        'hero.no_cost': 'Nessun costo · Nessuna prova · Nessuna pubblicità',
+        'hero.benefit1': 'Carta di emergenza (allergie, farmaci, ICE)',
+        'hero.benefit2': 'Funziona offline (nessun segnale necessario)',
+        'hero.benefit3': 'Etichette QR stampabili fai-da-te',
+        'hero.benefit4': 'Multi-lingua',
+        'hero.benefit5': 'Privacy completa senza tracciamento',
+        'hero.create_yours': '➝ Crea la tua',
+        'hero.sign_in': '➝ Accedi',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Account eliminato con successo'
+      },
+      
+      hi: {
+        // Navigation
+        'nav.online': 'ऑनलाइन',
+        'nav.logout': 'लॉग आउट',
+        
+        // Menu
+        'menu.title': 'मेनू',
+        'menu.about': 'के बारे में',
+        'menu.clinician': 'चिकित्सक',
+        'menu.privacy': 'गोपनीयता',
+        'menu.terms': 'नियम',
+        'menu.login': 'लॉग इन',
+        
+        // Hero Section
+        'hero.your': 'आपका',
+        'hero.free': 'मुफ्त',
+        'hero.emergency': 'आपातकालीन',
+        'hero.qr': 'QR',
+        'hero.card': 'कार्ड।',
+        'hero.tagline': 'एक स्कैन, तत्काल ट्राइएज।',
+        'hero.description1': 'एक',
+        'hero.qr_triage': 'QR ट्राइएज कोड',
+        'hero.description2': 'प्रतिक्रियाकर्ताओं का मार्गदर्शन करने के लिए — कहीं भी, कभी भी।',
+        'hero.pronunciation': '(उच्चारण "माई केयर")',
+        'hero.people_access': 'लोग — आवश्यक पहुंच',
+        'hero.free_to_use': 'उपयोग करने के लिए मुफ्त',
+        'hero.no_cost': 'कोई लागत नहीं · कोई परीक्षण नहीं · कोई विज्ञापन नहीं',
+        'hero.benefit1': 'आपातकालीन कार्ड (एलर्जी, दवाएं, ICE)',
+        'hero.benefit2': 'ऑफलाइन काम करता है (सिग्नल की आवश्यकता नहीं)',
+        'hero.benefit3': 'DIY प्रिंट करने योग्य QR टैग',
+        'hero.benefit4': 'बहु-भाषा',
+        'hero.benefit5': 'बिना ट्रैकिंग के पूर्ण गोपनीयता',
+        'hero.create_yours': '➝ अपना बनाएं',
+        'hero.sign_in': '➝ साइन इन करें',
+        
+        // Toast Messages
+        'toast.account_deleted': 'खाता सफलतापूर्वक हटा दिया गया'
+      },
+      
+      ar: {
+        // Navigation
+        'nav.online': 'متصل',
+        'nav.logout': 'تسجيل الخروج',
+        
+        // Menu
+        'menu.title': 'القائمة',
+        'menu.about': 'حول',
+        'menu.clinician': 'طبيب',
+        'menu.privacy': 'الخصوصية',
+        'menu.terms': 'الشروط',
+        'menu.login': 'تسجيل الدخول',
+        
+        // Hero Section
+        'hero.your': 'بطاقتك',
+        'hero.free': 'المجانية',
+        'hero.emergency': 'للطوارئ',
+        'hero.qr': 'QR',
+        'hero.card': '.',
+        'hero.tagline': 'مسح واحد، فرز فوري.',
+        'hero.description1': '',
+        'hero.qr_triage': 'رمز QR للفرز',
+        'hero.description2': 'لتوجيه المسعفين - في أي مكان وزمان.',
+        'hero.pronunciation': '(يُنطق "ماي كير")',
+        'hero.people_access': 'الناس — الوصول الأساسي',
+        'hero.free_to_use': 'مجاني الاستخدام',
+        'hero.no_cost': 'بلا تكلفة · بلا تجربة · بلا إعلانات',
+        'hero.benefit1': 'بطاقة طوارئ (حساسية، أدوية، جهات اتصال)',
+        'hero.benefit2': 'يعمل بدون إنترنت (لا حاجة لإشارة)',
+        'hero.benefit3': 'ملصقات QR قابلة للطباعة',
+        'hero.benefit4': 'متعدد اللغات',
+        'hero.benefit5': 'خصوصية كاملة بدون تتبع',
+        'hero.create_yours': '➝ أنشئ بطاقتك',
+        'hero.sign_in': '➝ تسجيل الدخول',
+        
+        // Toast Messages
+        'toast.account_deleted': 'تم حذف الحساب بنجاح'
+      },
+      
+      zh: {
+        // Navigation
+        'nav.online': '在线',
+        'nav.logout': '登出',
+        
+        // Menu
+        'menu.title': '菜单',
+        'menu.about': '关于',
+        'menu.clinician': '临床医生',
+        'menu.privacy': '隐私',
+        'menu.terms': '条款',
+        'menu.login': '登录',
+        
+        // Hero Section
+        'hero.your': '您的',
+        'hero.free': '免费',
+        'hero.emergency': '紧急',
+        'hero.qr': 'QR',
+        'hero.card': '卡片。',
+        'hero.tagline': '一次扫描，即时分诊。',
+        'hero.description1': '一个',
+        'hero.qr_triage': 'QR分诊代码',
+        'hero.description2': '指导急救人员 — 随时随地。',
+        'hero.pronunciation': '(发音为"My Care")',
+        'hero.people_access': '人们 — 基本访问',
+        'hero.free_to_use': '免费使用',
+        'hero.no_cost': '无费用 · 无试用 · 无广告',
+        'hero.benefit1': '紧急卡片（过敏、药物、ICE）',
+        'hero.benefit2': '离线工作（无需信号）',
+        'hero.benefit3': 'DIY可打印QR标签',
+        'hero.benefit4': '多语言',
+        'hero.benefit5': '零跟踪完全隐私',
+        'hero.create_yours': '➝ 创建您的',
+        'hero.sign_in': '➝ 登录',
+        
+        // Toast Messages
+        'toast.account_deleted': '账户删除成功'
+      },
+      
+      hu: {
+        // Navigation
+        'nav.online': 'Online',
+        'nav.logout': 'Kijelentkezés',
+        
+        // Menu
+        'menu.title': 'Menü',
+        'menu.about': 'Rólunk',
+        'menu.clinician': 'Klinikus',
+        'menu.privacy': 'Adatvédelem',
+        'menu.terms': 'Feltételek',
+        'menu.login': 'Bejelentkezés',
+        
+        // Hero Section
+        'hero.your': 'Az Ön',
+        'hero.free': 'INGYENES',
+        'hero.emergency': 'sürgősségi',
+        'hero.qr': 'QR',
+        'hero.card': 'kártyája.',
+        'hero.tagline': 'Egy szkennelés, azonnali triázs.',
+        'hero.description1': 'Egy',
+        'hero.qr_triage': 'QR triázs kód',
+        'hero.description2': 'a mentők irányításához — bárhol, bármikor.',
+        'hero.pronunciation': '(kiejtése "My Care")',
+        'hero.people_access': 'Emberek — Alapvető Hozzáférés',
+        'hero.free_to_use': 'Ingyenesen használható',
+        'hero.no_cost': 'Nincs költség · Nincs próbaverzió · Nincs reklám',
+        'hero.benefit1': 'Sürgősségi kártya (allergiák, gyógyszerek, ICE)',
+        'hero.benefit2': 'Offline működik (nincs szükség jelre)',
+        'hero.benefit3': 'DIY nyomtatható QR címkék',
+        'hero.benefit4': 'Többnyelvű',
+        'hero.benefit5': 'Teljes adatvédelem követés nélkül',
+        'hero.create_yours': '➝ Hozza létre az övét',
+        'hero.sign_in': '➝ Bejelentkezés',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Fiók sikeresen törölve'
+      },
+      
+      ro: {
+        // Navigation
+        'nav.online': 'Online',
+        'nav.logout': 'Deconectare',
+        
+        // Menu
+        'menu.title': 'Meniu',
+        'menu.about': 'Despre',
+        'menu.clinician': 'Clinician',
+        'menu.privacy': 'Confidențialitate',
+        'menu.terms': 'Termeni',
+        'menu.login': 'Conectare',
+        
+        // Hero Section
+        'hero.your': 'Cartea dvs.',
+        'hero.free': 'GRATUITĂ',
+        'hero.emergency': 'de urgență',
+        'hero.qr': 'QR',
+        'hero.card': '.',
+        'hero.tagline': 'O scanare, triaj instantaneu.',
+        'hero.description1': 'Un',
+        'hero.qr_triage': 'cod QR de triaj',
+        'hero.description2': 'pentru a ghida echipele de intervenție — oriunde, oricând.',
+        'hero.pronunciation': '(se pronunță "My Care")',
+        'hero.people_access': 'Oameni — Acces Esențial',
+        'hero.free_to_use': 'Gratuit de folosit',
+        'hero.no_cost': 'Fără cost · Fără încercare · Fără reclame',
+        'hero.benefit1': 'Carte de urgență (alergii, medicamente, ICE)',
+        'hero.benefit2': 'Funcționează offline (nu necesită semnal)',
+        'hero.benefit3': 'Etichete QR imprimabile DIY',
+        'hero.benefit4': 'Multi-limbă',
+        'hero.benefit5': 'Confidențialitate completă fără urmărire',
+        'hero.create_yours': '➝ Creați-vă pe a dvs.',
+        'hero.sign_in': '➝ Conectare',
+        
+        // Toast Messages
+        'toast.account_deleted': 'Cont șters cu succes'
+      }
+    };
+
+    // Global state
+    let currentUser = null;
+    let userProfile = null;
+    let userHealthProfile = null;
+    let userContacts = [];
+    let currentLanguage = localStorage.getItem('myqer_language') || 'en';
+    let isReAuthenticated = false;
+    let saveTimeouts = {};
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initializeApp();
+    });
+
+    // Initialize application
+    async function initializeApp() {
+      // Set initial language before any UI updates
+      setLanguage(currentLanguage);
+      
+      // Check for emergency card route
+      const path = window.location.pathname;
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (path.startsWith('/c/')) {
+        const code = path.substring(3);
+        const lang = urlParams.get('lang');
+        if (lang && i18nDict[lang]) {
+          setLanguage(lang);
+        }
+        await showEmergencyCard(code);
+        return;
+      }
+      
+      // Check auth state and routing
+      await checkAuthState();
+      
+      // Initialize event listeners
+      initializeEventListeners();
+    }
+
+    // i18n Functions
+    function setLanguage(lang) {
+      currentLanguage = lang;
+      localStorage.setItem('myqer_language', lang);
+      
+      // Set document direction for RTL languages
+      if (lang === 'ar') {
+        document.documentElement.setAttribute('dir', 'rtl');
+        document.body.classList.add('rtl');
+      } else {
+        document.documentElement.setAttribute('dir', 'ltr');
+        document.body.classList.remove('rtl');
+      }
+      
+      // Update all i18n elements
+      updateI18nElements();
+      
+      // Update language selectors
+      updateLanguageSelectors(lang);
+    }
+
+    function updateI18nElements() {
+      const dict = i18nDict[currentLanguage] || i18nDict.en;
+      
+      // Update elements with data-i18n attribute
+      document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (dict[key]) {
+          element.innerHTML = dict[key];
+        }
       });
-    });
-
-    // Dashboard functionality
-    const dashboardPage = document.getElementById('dashboardPage');
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    // Page navigation
-    document.getElementById('createYoursBtn').addEventListener('click', () => {
-      window.location.href = '/signup';
-    });
-
-    document.getElementById('signInBtn').addEventListener('click', () => {
-      // Show dashboard
-      document.body.style.overflow = 'auto';
-      dashboardPage.classList.remove('hidden');
-    });
-
-    // Logout functionality
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        // Hide dashboard and return to landing
-        dashboardPage.classList.add('hidden');
-        document.body.style.overflow = 'hidden';
+      
+      // Update placeholders
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+        const key = element.getAttribute('data-i18n-placeholder');
+        if (dict[key]) {
+          element.placeholder = dict[key];
+        }
       });
     }
-  </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977fab6b4114459b',t:'MTc1NjY3NjI1MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
-</html>
+
+    function updateLanguageSelectors(lang) {
+      const langMap = {
+        'en': '🇺🇸 EN',
+        'es': '🇪🇸 ES',
+        'fr': '🇫🇷 FR',
+        'de': '🇩🇪 DE',
+        'it': '🇮🇹 IT',
+        'hi': '🇮🇳 HI',
+        'ar': '🇸🇦 AR',
+        'zh': '🇨🇳 ZH',
+        'hu': '🇭🇺 HU',
+        'ro': '🇷🇴 RO'
+      };
+      
+      const currentLangElements = document.querySelectorAll('#currentLang, #dashboardCurrentLang');
+      currentLangElements.forEach(element => {
+        element.textContent = langMap[lang] || langMap.en;
+      });
+    }
+
+    function t(key) {
+      const dict = i18nDict[currentLanguage] || i18nDict.en;
+      return dict[key] || key;
+    }
+
+    // Auth state management with routing guards
+    async function checkAuthState() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const path = window.location.pathname;
+      
+      if (session) {
+        currentUser = session.user;
+        
+        // If on login page and authenticated, redirect to dashboard
+        if (path === '/login' || path === '/') {
+          window.history.replaceState({}, '', '/dashboard');
+          await loadUserData();
+          showDashboard();
+        } else if (path === '/dashboard') {
+          await loadUserData();
+          showDashboard();
+        } else {
+          await loadUserData();
+          showDashboard();
+        }
+      } else {
+        // If trying to access dashboard without auth, redirect to login
+        if (path === '/dashboard') {
+          window.history.replaceState({}, '', '/login');
+          showLanding();
+        } else {
+          showLanding();
+        }
+      }
+    }
+
+    // Load user data from database
+    async function loadUserData() {
+      try {
+        // Load profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+        
+        userProfile = profile;
+
+        // Load health profile
+        const { data: healthProfile } = await supabase
+          .from('health_profiles')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .single();
+        
+        userHealthProfile = healthProfile;
+
+        // Load ICE contacts
+        const { data: contacts } = await supabase
+          .from('ice_contacts')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: true });
+        
+        userContacts = contacts || [];
+
+        // Populate UI with loaded data
+        populateUI();
+        updateProgressIndicator();
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        showToast(t('toast.network_error'), 'error');
+      }
+    }
+
+    // Populate UI with user data
+    function populateUI() {
+      if (userProfile) {
+        document.getElementById('fullName').value = userProfile.full_name || '';
+        document.getElementById('dateOfBirth').value = userProfile.date_of_birth || '';
+        document.getElementById('country').value = userProfile.country || '';
+        document.getElementById('healthId').value = userProfile.national_health_id || '';
+      }
+
+      if (userHealthProfile) {
+        document.getElementById('bloodType').value = userHealthProfile.blood_type || '';
+        document.getElementById('organDonor').value = userHealthProfile.organ_donor ? 'yes' : 'no';
+        document.getElementById('lifeSupport').value = userHealthProfile.life_support_pref || '';
+        document.getElementById('triageOverride').value = userHealthProfile.triage_override || 'auto';
+        
+        // Populate pills
+        if (userHealthProfile.allergies) {
+          populatePills('allergiesPills', userHealthProfile.allergies.split(','));
+        }
+        if (userHealthProfile.conditions) {
+          populatePills('conditionsPills', userHealthProfile.conditions.split(','));
+        }
+        if (userHealthProfile.medications) {
+          populatePills('medicationsPills', userHealthProfile.medications.split(','));
+        }
+      }
+
+      // Populate contacts
+      renderContacts();
+      
+      // Update QR code status
+      updateQRStatus();
+      
+      // Update triage
+      updateTriageBadge();
+    }
+
+    // Update progress indicator
+    function updateProgressIndicator() {
+      let completedSections = 0;
+      let totalSections = 4;
+      
+      // Check identity completion
+      const identityComplete = userProfile && userProfile.full_name && userProfile.date_of_birth && userProfile.country;
+      document.getElementById('identityStatus').textContent = identityComplete ? '✓' : '○';
+      document.getElementById('identityStatus').className = identityComplete ? 'text-green-500' : 'text-amber-500';
+      
+      const identityCheckmark = document.getElementById('identityCheckmark');
+      if (identityComplete) {
+        identityCheckmark.className = 'w-8 h-8 bg-green-500 rounded-full flex items-center justify-center';
+        identityCheckmark.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+        completedSections++;
+      } else {
+        identityCheckmark.className = 'w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center';
+        identityCheckmark.innerHTML = '<span class="text-white text-lg">○</span>';
+      }
+      
+      // Check health profile completion
+      const healthComplete = userHealthProfile && (userHealthProfile.blood_type || userHealthProfile.allergies || userHealthProfile.conditions);
+      document.getElementById('healthStatus').textContent = healthComplete ? '✓' : '○';
+      document.getElementById('healthStatus').className = healthComplete ? 'text-green-500' : 'text-amber-500';
+      
+      const healthCheckmark = document.getElementById('healthCheckmark');
+      if (healthComplete) {
+        healthCheckmark.className = 'w-8 h-8 bg-green-500 rounded-full flex items-center justify-center';
+        healthCheckmark.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+        completedSections++;
+      } else {
+        healthCheckmark.className = 'w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center';
+        healthCheckmark.innerHTML = '<span class="text-white text-lg">○</span>';
+      }
+      
+      // Check contacts completion
+      const contactsComplete = userContacts && userContacts.length > 0;
+      document.getElementById('contactsStatus').textContent = contactsComplete ? '✓' : '○';
+      document.getElementById('contact<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97801ff883a7eeff',t:'MTc1NjY4MTAyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
