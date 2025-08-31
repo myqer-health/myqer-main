@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MYQER - Emergency QR Card - Version 16</title>
+  <title>MYQER - Emergency QR Card - Version 18</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -395,6 +395,57 @@
           Delete Account
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Contact Modal -->
+  <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-70 hidden">
+    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
+      <div class="flex justify-between items-center mb-6">
+        <h2 id="contactModalTitle" class="text-2xl font-bold text-gray-900" data-i18n="dashboard.add_contact">Add Emergency Contact</h2>
+        <button id="closeContactModal" class="text-gray-500 hover:text-gray-700">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <form id="contactForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.contact_name">Full Name *</label>
+          <input type="text" id="contactName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="dashboard.contact_name_placeholder" placeholder="Emergency contact name" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.relationship">Relationship</label>
+          <select id="contactRelationship" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
+            <option value="" data-i18n="dashboard.select_relationship">Select relationship</option>
+            <option value="spouse" data-i18n="dashboard.spouse">Spouse</option>
+            <option value="parent" data-i18n="dashboard.parent">Parent</option>
+            <option value="child" data-i18n="dashboard.child">Child</option>
+            <option value="sibling" data-i18n="dashboard.sibling">Sibling</option>
+            <option value="partner" data-i18n="dashboard.partner">Partner</option>
+            <option value="friend" data-i18n="dashboard.friend">Friend</option>
+            <option value="colleague" data-i18n="dashboard.colleague">Colleague</option>
+            <option value="doctor" data-i18n="dashboard.doctor">Doctor</option>
+            <option value="other" data-i18n="dashboard.other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.phone_number">Phone Number *</label>
+          <input type="tel" id="contactPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="dashboard.phone_placeholder" placeholder="+1 (555) 123-4567" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.email">Email</label>
+          <input type="email" id="contactEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="dashboard.email_placeholder" placeholder="contact@email.com">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dashboard.notes">Notes</label>
+          <textarea id="contactNotes" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="dashboard.notes_placeholder" placeholder="Additional notes (optional)"></textarea>
+        </div>
+        <button type="submit" id="saveContactBtn" class="w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors" data-i18n="dashboard.save_contact">
+          Save Contact
+        </button>
+      </form>
     </div>
   </div>
 
@@ -918,6 +969,80 @@
   </div>
 
   <script>
+    /*
+    ========================================
+    MYQER™ Version 18 - Database & Security Specification
+    ========================================
+    
+    Database Schema:
+    
+    1. profiles
+       - id (uuid, PK, = auth.user.id)
+       - email (text, unique)
+       - full_name (text)
+       - date_of_birth (text, "DD/MM/YYYY" string)
+       - country (text, ISO-2 preferred)
+       - national_health_id (text)
+       - code (text, 6 uppercase, unique, nullable until first generation)
+       - lang (text, default "en") - user's preferred language
+       - created_at, updated_at (timestamptz)
+    
+    2. health_profiles
+       - user_id (uuid, PK, FK → profiles.id)
+       - blood_type (text)
+       - organ_donor (boolean)
+       - life_support_pref (text: Full | Limited | Comfort | DNR)
+       - triage_override (text: Green | Amber | Red | Black | null)
+       - allergies (text) // comma-separated list
+       - conditions (text) // comma-separated list
+       - medications (text) // comma-separated list
+       - created_at, updated_at (timestamptz)
+    
+    3. ice_contacts
+       - id (uuid, PK)
+       - user_id (uuid, FK → profiles.id, indexed)
+       - name (text, required)
+       - relationship (text)
+       - phone (text, required)
+       - email (text)
+       - notes (text)
+       - created_at, updated_at (timestamptz)
+    
+    4. scan_events (for future analytics)
+       - id (uuid, PK)
+       - code (text, indexed)
+       - scanned_at (timestamptz)
+       - ua (text) // optional client info
+       - ip_hash (text) // salted hash, never raw
+    
+    Constraints:
+    - profiles.code: UNIQUE (enforces "one QR per user")
+    - profiles.id: PK, equals auth user
+    - ice_contacts: index on (user_id, created_at)
+    - Optional: partial unique on ice_contacts (user_id, phone)
+    
+    RLS (Row-Level Security):
+    - Users can read/update only their own records
+    - Public QR page /c/{code} uses public_card_view (read-only, safe data only)
+    - public_card_view exposes: code, full_name, country, blood_type, organ_donor, 
+      life_support_pref, allergies, conditions, medications, ICE contacts (name, relationship, phone)
+    - Does NOT expose: email, national_health_id, DOB
+    
+    QR Single-Issue Logic:
+    - UNIQUE constraint on profiles.code
+    - Generate checks if code exists; if yes → "Already assigned" toast
+    - If not set: generate 6-char code, retry on collision
+    
+    Data Lifecycles:
+    - Delete account: cascade delete health + ICE + scan_events, then profiles, then auth
+    - Updates: always write updated_at timestamps
+    
+    Privacy & PII:
+    - No raw IPs in scan_events (salted hashes only if needed)
+    - Never expose DOB/national_health_id on public view
+    - Zero tracking compliance: no analytics UI, minimal server counters
+    */
+
     // Supabase Configuration
     const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
@@ -1062,6 +1187,8 @@
         'dashboard.notes': 'Notes',
         'dashboard.notes_placeholder': 'Additional notes (optional)',
         'dashboard.add_contact': '+ Add Emergency Contact',
+        'dashboard.save_contact': 'Save Contact',
+        'dashboard.edit_contact': 'Edit Contact',
         'dashboard.no_contacts': 'No contacts yet. Add your first emergency contact.',
         
         // QR Code
@@ -1533,6 +1660,7 @@
     let currentLanguage = localStorage.getItem('myqer_language') || 'en';
     let isReAuthenticated = false;
     let saveTimeouts = {};
+    let editingContactId = null;
 
     // Initialize app
     document.addEventListener('DOMContentLoaded', async () => {
@@ -1584,196 +1712,5 @@
       
       // Update language selectors
       updateLanguageSelectors(lang);
-    }
-
-    function updateI18nElements() {
-      const dict = i18nDict[currentLanguage] || i18nDict.en;
       
-      // Update elements with data-i18n attribute
-      document.querySelectorAll('[data-i18n]').forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        if (dict[key]) {
-          element.innerHTML = dict[key];
-        }
-      });
-      
-      // Update placeholders
-      document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-        const key = element.getAttribute('data-i18n-placeholder');
-        if (dict[key]) {
-          element.placeholder = dict[key];
-        }
-      });
-    }
-
-    function updateLanguageSelectors(lang) {
-      const langMap = {
-        'en': '🇺🇸 EN',
-        'es': '🇪🇸 ES',
-        'fr': '🇫🇷 FR',
-        'de': '🇩🇪 DE',
-        'it': '🇮🇹 IT',
-        'hi': '🇮🇳 HI',
-        'ar': '🇸🇦 AR',
-        'zh': '🇨🇳 ZH',
-        'hu': '🇭🇺 HU',
-        'ro': '🇷🇴 RO'
-      };
-      
-      const currentLangElements = document.querySelectorAll('#currentLang, #dashboardCurrentLang');
-      currentLangElements.forEach(element => {
-        element.textContent = langMap[lang] || langMap.en;
-      });
-    }
-
-    function t(key) {
-      const dict = i18nDict[currentLanguage] || i18nDict.en;
-      return dict[key] || key;
-    }
-
-    // Auth state management with routing guards
-    async function checkAuthState() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const path = window.location.pathname;
-      
-      if (session) {
-        currentUser = session.user;
-        
-        // If on login page and authenticated, redirect to dashboard
-        if (path === '/login' || path === '/') {
-          window.history.replaceState({}, '', '/dashboard');
-          await loadUserData();
-          showDashboard();
-        } else if (path === '/dashboard') {
-          await loadUserData();
-          showDashboard();
-        } else {
-          await loadUserData();
-          showDashboard();
-        }
-      } else {
-        // If trying to access dashboard without auth, redirect to login
-        if (path === '/dashboard') {
-          window.history.replaceState({}, '', '/login');
-          showLanding();
-        } else {
-          showLanding();
-        }
-      }
-    }
-
-    // Load user data from database
-    async function loadUserData() {
-      try {
-        // Load profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-        
-        userProfile = profile;
-
-        // Load health profile
-        const { data: healthProfile } = await supabase
-          .from('health_profiles')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .single();
-        
-        userHealthProfile = healthProfile;
-
-        // Load ICE contacts
-        const { data: contacts } = await supabase
-          .from('ice_contacts')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('created_at', { ascending: true });
-        
-        userContacts = contacts || [];
-
-        // Populate UI with loaded data
-        populateUI();
-        updateProgressIndicator();
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        showToast(t('toast.network_error'), 'error');
-      }
-    }
-
-    // Populate UI with user data
-    function populateUI() {
-      if (userProfile) {
-        document.getElementById('fullName').value = userProfile.full_name || '';
-        document.getElementById('dateOfBirth').value = userProfile.date_of_birth || '';
-        document.getElementById('country').value = userProfile.country || '';
-        document.getElementById('healthId').value = userProfile.national_health_id || '';
-      }
-
-      if (userHealthProfile) {
-        document.getElementById('bloodType').value = userHealthProfile.blood_type || '';
-        document.getElementById('organDonor').value = userHealthProfile.organ_donor ? 'yes' : 'no';
-        document.getElementById('lifeSupport').value = userHealthProfile.life_support_pref || '';
-        document.getElementById('triageOverride').value = userHealthProfile.triage_override || 'auto';
-        
-        // Populate pills
-        if (userHealthProfile.allergies) {
-          populatePills('allergiesPills', userHealthProfile.allergies.split(','));
-        }
-        if (userHealthProfile.conditions) {
-          populatePills('conditionsPills', userHealthProfile.conditions.split(','));
-        }
-        if (userHealthProfile.medications) {
-          populatePills('medicationsPills', userHealthProfile.medications.split(','));
-        }
-      }
-
-      // Populate contacts
-      renderContacts();
-      
-      // Update QR code status
-      updateQRStatus();
-      
-      // Update triage
-      updateTriageBadge();
-    }
-
-    // Update progress indicator
-    function updateProgressIndicator() {
-      let completedSections = 0;
-      let totalSections = 4;
-      
-      // Check identity completion
-      const identityComplete = userProfile && userProfile.full_name && userProfile.date_of_birth && userProfile.country;
-      document.getElementById('identityStatus').textContent = identityComplete ? '✓' : '○';
-      document.getElementById('identityStatus').className = identityComplete ? 'text-green-500' : 'text-amber-500';
-      
-      const identityCheckmark = document.getElementById('identityCheckmark');
-      if (identityComplete) {
-        identityCheckmark.className = 'w-8 h-8 bg-green-500 rounded-full flex items-center justify-center';
-        identityCheckmark.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-        completedSections++;
-      } else {
-        identityCheckmark.className = 'w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center';
-        identityCheckmark.innerHTML = '<span class="text-white text-lg">○</span>';
-      }
-      
-      // Check health profile completion
-      const healthComplete = userHealthProfile && (userHealthProfile.blood_type || userHealthProfile.allergies || userHealthProfile.conditions);
-      document.getElementById('healthStatus').textContent = healthComplete ? '✓' : '○';
-      document.getElementById('healthStatus').className = healthComplete ? 'text-green-500' : 'text-amber-500';
-      
-      const healthCheckmark = document.getElementById('healthCheckmark');
-      if (healthComplete) {
-        healthCheckmark.className = 'w-8 h-8 bg-green-500 rounded-full flex items-center justify-center';
-        healthCheckmark.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-        completedSections++;
-      } else {
-        healthCheckmark.className = 'w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center';
-        healthCheckmark.innerHTML = '<span class="text-white text-lg">○</span>';
-      }
-      
-      // Check contacts completion
-      const contactsComplete = userContacts && userContacts.length > 0;
-      document.getElementById('contactsStatus').textContent = contactsComplete ? '✓' : '○';
-      document.getElementById('contact<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97801ff883a7eeff',t:'MTc1NjY4MTAyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+      // Sync to database if user is<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97802ffdd6eef52d',t:'MTc1NjY4MTY4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
