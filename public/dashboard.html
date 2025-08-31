@@ -5169,6 +5169,88 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 })();
 </script>
+<style>
+  /* Desktop two-column for triage + QR after we move them into #rowB */
+  @media (min-width:1024px){
+    #rowB{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+  }
+  /* Small visual nudge for the new save buttons */
+  .btn-secondary{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;font-weight:600}
+  .btn-secondary:hover{background:#f9fafb}
+</style>
+
+<script>
+(function(){
+  // 1) Remove FOOTER + "Need Help?" block (non-destructive)
+  document.addEventListener('DOMContentLoaded', () => {
+    // Remove footer
+    document.querySelector('footer')?.remove();
+
+    // Remove the Help & Support card by its heading text
+    const cards = Array.from(document.querySelectorAll('.glass-card'));
+    const help = cards.find(el => /Need Help?\s*$/i.test(el.innerText.trim()));
+    help?.remove();
+
+    // 2) Make TRIAGE + QR a desktop two-column row
+    const triage = document.getElementById('triageCard') || document.querySelector('[data-i18n="triageTitle"]')?.closest('.glass-card');
+    const qr     = document.getElementById('qrCard')     || document.querySelector('[data-i18n="qr.title"]')?.closest('.glass-card');
+
+    // Create #rowB after ICE card if both present
+    const iceCard = document.getElementById('iceCard') || document.querySelector('[data-i18n="iceTitle"]')?.closest('.glass-card');
+    if (triage && qr && iceCard) {
+      let rowB = document.getElementById('rowB');
+      if (!rowB) {
+        rowB = document.createElement('div');
+        rowB.id = 'rowB';
+        rowB.className = 'my-8';               // spacing like design
+        iceCard.insertAdjacentElement('afterend', rowB);
+      }
+      rowB.appendChild(triage);
+      rowB.appendChild(qr);
+    }
+
+    // 3) Add "Save" buttons for Health + ICE (call existing functions)
+    const t = (window.i18n?.[localStorage.getItem('preferredLang')||'en']) || {};
+    const toastMsg = t.toastSaved || 'Saved';
+
+    // Health Profile save
+    const healthCard = document.getElementById('healthCard') || document.querySelector('[data-i18n="healthTitle"]')?.closest('.glass-card');
+    if (healthCard && !document.getElementById('saveHealthBtn')) {
+      const bar = document.createElement('div');
+      bar.className = 'mt-6 text-right';
+      bar.innerHTML = `
+        <button id="saveHealthBtn" class="btn-secondary">
+          💾 <span>${t.saveHealth || 'Save Health Profile'}</span>
+        </button>`;
+      healthCard.appendChild(bar);
+
+      document.getElementById('saveHealthBtn')?.addEventListener('click', async () => {
+        try { await (window.saveHealthProfile ? saveHealthProfile() : window.saveProfileAndHealth()); }
+        catch(e){ /* ignore; your autosave covers errors */ }
+        window.showToast ? showToast(toastMsg, 'success') : alert(toastMsg);
+      });
+    }
+
+    // ICE save (bottom toolbar area or just append at end)
+    const iceFooter = iceCard?.querySelector('.flex.items-center.justify-between.mt-6') || iceCard;
+    if (iceCard && iceFooter && !document.getElementById('saveIceBtn')) {
+      const btn = document.createElement('button');
+      btn.id = 'saveIceBtn';
+      btn.className = 'btn-secondary';
+      btn.innerHTML = `💾 <span>${t.saveContacts || 'Save Contacts'}</span>`;
+      // put it to the right of "Add Emergency Contact" if such a bar exists
+      const rightBar = iceCard.querySelector('.flex.items-center.gap-3') || iceFooter;
+      rightBar.appendChild(btn);
+
+      btn.addEventListener('click', async () => {
+        try { await (window.saveIceContacts ? saveIceContacts() : window.persistIceContacts?.()); }
+        catch(e){ /* ignore; autosave still running */ }
+        window.showToast ? showToast(toastMsg, 'success') : alert(toastMsg);
+      });
+    }
+  });
+})();
+</script>
 </body>
 </html>
   
