@@ -556,6 +556,361 @@
       });
     }
   })();
-  </script>
+    <script>
+(()=>{
+  'use strict';
+
+  /* ====== change this if your login path is different ====== */
+  const LOGIN_PATH = '/index.html';
+
+  /* ====== Supabase ====== */
+  const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+
+  /* ====== state ====== */
+  let currentUser=null, profile=null, health=null, contacts=[];
+  const timers={identity:null, health:null};
+  const QR_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let qrBusy=false, booted=false;
+
+  /* ====== helpers ====== */
+  const $=(sel)=>document.querySelector(sel);
+  const on=(el,ev,fn)=>el&&el.addEventListener(ev,fn);
+  const toast=(msg)=>{const t=$('#toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); clearTimeout(t._tmr); t._tmr=setTimeout(()=>t.classList.remove('show'),1800); };
+  const escapeHtml=(s='')=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* ====== boot / guards ====== */
+  async function boot(){
+    if(booted) return; booted=true;
+
+    // online dot
+    const net=()=>{ $('#netDot').className='w-2.5 h-2.5 rounded-full '+(navigator.onLine?'bg-green-500 animate-pulse':'bg-gray-400'); $('#netLabel').textContent=navigator.onLine?'Online':'Offline'; };
+    addEventListener('online',net); addEventListener('offline',net); net();
+
+    const { data:{ session } } = await supabase.auth.getSession();
+    if(!session?.user){ location.replace(LOGIN_PATH); return; }
+    currentUser=session.user;
+
+    wire();
+    await loadAll();
+    await initQr();
+    renderTriage();
+    renderProgress();
+  }
+  document.addEventListener('DOMContentLoaded', boot);
+
+  // FIX: also redirect explicitly after signOut; keep listener as a safety net
+  supabase.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT'){ location.replace(LOGIN_PATH); } });
+
+  /* ====== loaders ====== */
+  async function loadAll(){
+    const [p,h,c] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle(),
+      supabase.from('health_profiles').select('*').eq('user_id', currentUser.id).maybeSingle(),
+      supabase.from('ice_contacts').select('id,user_id,name,relationship,phone').eq('user_id', currentUser.id).order('created_at',{ascending:true})
+    ]);
+
+    profile = p.error ? { id: currentUser.id } : (p.data || { id: currentUser.id });
+    health  = h.error ? { user_id: currentUser.id } : (h.data || { user_id: currentUser.id });
+    contacts= c.error ? [] : (c.data || []);
+
+    hydrateIdentity();
+    hydrateHealth();
+    renderContacts();
+  }
+
+  /* ====== identity ====== */
+  function hydrateIdentity(){
+    $('#full_name').value = profile.full_name || '';
+    $('#date_of_birth').value = profile.date_of_birth || '';
+    $('#country').value = profile.country || '';
+    $('#national_health_id').value = profile.national_health_id || '';
+  }
+  function debounced(key, fn, ms){ clearTimeout(timers[key]); timers[key]=setTimeout(fn,ms); }
+  async function saveIdentity(){
+    const patch = {
+      id: currentUser.id,
+      full_name: $('#full_name').value.trim() || null,
+      date_of_birth: $('#date_of_birth').value.trim() || null,
+      country: $('#country').value || null,
+      national_health_id: $('#national_health_id').value.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().maybeSingle();
+    if(error){ console.warn('profiles upsert', error); toast('Network error'); return; }
+    profile = data || patch; toast('Identity saved'); renderProgress();
+  }
+
+  /* ====== health & pills ====== */
+  function hydrateHealth(){
+    const hp = health || {};
+    $('#blood_type').value = hp.blood_type || '';
+    $('#organ_donor').value = (hp.organ_donor===true?'yes':hp.organ_donor===false?'no':'');
+    $('#life_support_pref').value = hp.life_support_pref || '';
+    hydratePills('allergiesPills', hp.allergies);
+    hydratePills('conditionsPills', hp.conditions);
+    hydratePills('medicationsPills', hp.medications);
+  }
+  function hydratePills(containerId, csv){
+    const box=document.getElementById(containerId); if(!box) return;
+    box.innerHTML='';
+    (csv?String(csv).split(','):[]).map(s=>s.trim()).filter(Boolean)
+      .forEach(val => box.appendChild(pill(val,containerId)));
+  }
+  function pill(text, containerId){
+    const el=document.createElement('span');
+    el.className='tag';
+    el.innerHTML=`<span>${escapeHtml(text)}</span><button aria-label="Remove">×</button>`;
+    el.querySelector('button').addEventListener('click', async ()=>{ el.remove(); await savePills(containerId); });
+    return el;
+  }
+  function pillKey(e, kind){ if(e.key!=='Enter') return; e.preventDefault(); addPillFrom((e.target.value||'').trim(), kind); e.target.value=''; }
+  function pillBlur(e, kind){ const v=(e.target.value||'').trim(); if(!v) return; addPillFrom(v, kind); e.target.value=''; }
+  function addPillFrom(raw, kind){
+    const map={allergies:'allergiesPills', conditions:'conditionsPills', medications:'medicationsPills'};
+    const cont=document.getElementById(map[kind]); if(!cont) return;
+    raw.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean).forEach(tok => cont.appendChild(pill(tok, cont.id)));
+    savePills(cont.id);
+  }
+  async function savePills(containerId){
+    const vals=[...document.getElementById(containerId).querySelectorAll('.tag span:first-child')].map(n=>n.textContent.trim()).filter(Boolean);
+    // keep original casing, just de-dupe by lowercasing the set
+    const lower=new Set(vals.map(v=>v.toLowerCase()));
+    const csv = vals.filter((v,i,self)=> self.findIndex(x=>x.toLowerCase()===v.toLowerCase())===i).join(', ') || null;
+
+    const patch={};
+    if(containerId==='allergiesPills')  patch.allergies  = csv;
+    if(containerId==='conditionsPills') patch.conditions = csv;
+    if(containerId==='medicationsPills')patch.medications= csv;
+
+    const ok = await upsertHealth(patch);
+    if(ok){ toast('Health saved'); renderTriage(); renderProgress(); }
+  }
+  async function saveHealthFields(){
+    const v=$('#organ_donor').value;
+    const ok = await upsertHealth({
+      blood_type: $('#blood_type').value || null,
+      organ_donor: v==='yes'?true:v==='no'?false:null,
+      life_support_pref: $('#life_support_pref').value || null
+    });
+    if(ok){ toast('Health saved'); renderTriage(); renderProgress(); }
+  }
+  async function upsertHealth(patch){
+    health = {...(health||{}), ...patch};
+    const payload = {
+      user_id: currentUser.id,                       // FIX: always include user_id
+      blood_type: health.blood_type ?? null,
+      organ_donor: (health.organ_donor ?? null),
+      life_support_pref: health.life_support_pref ?? null,
+      allergies: health.allergies ?? null,
+      conditions: health.conditions ?? null,
+      medications: health.medications ?? null,
+      triage_override: health.triage_override ?? null,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from('health_profiles').upsert(payload, { onConflict:'user_id' });
+    if(error){ console.warn('health_profiles upsert', error); toast('Save failed'); return false; }
+    return true;
+  }
+
+  /* ====== triage ====== */
+  function computeTriage(){
+    const hp=health||{};
+    if(hp.triage_override && hp.triage_override!=='auto') return hp.triage_override;
+    if((hp.life_support_pref||'').toUpperCase()==='DNR') return 'Black';
+    const a=(hp.allergies||'').toLowerCase(), c=(hp.conditions||'').toLowerCase(), m=(hp.medications||'').toLowerCase();
+    const redAllergy=['anaphylaxis','epipen','penicillin','amoxicillin','codeine','morphine','peanut','shellfish','bee sting'];
+    if(redAllergy.some(w=>a.includes(w))) return 'Red';
+    const redCond=['heart attack','myocard','mi ','stroke','seizure','status epilepticus','cancer','copd severe','oxygen dependent','dialysis'];
+    if(redCond.some(w=>c.includes(w))) return 'Red';
+    const hasAny=[a,c,m].some(s=>s.trim());
+    const meds=(m?m.split(',').map(s=>s.trim()).filter(Boolean).length:0);
+    if(hasAny || meds>=3) return 'Amber';
+    return 'Green';
+  }
+  function renderTriage(){
+    const color=computeTriage(), badge=$('#triageBadge');
+    const map={Green:['bg-green-600','Green — Stable','🟢'], Amber:['bg-amber-500','Amber — Urgent','🟡'], Red:['bg-red-600','Red — Immediate','🔴'], Black:['bg-gray-900','Black — Comfort Care','⚫']};
+    const [bg,label,icon]=map[color]||map.Green;
+    badge.className=`inline-flex items-center px-6 py-3 rounded-full text-white text-lg font-bold ${bg}`;
+    badge.innerHTML=`${icon} <span class="ml-2">${label}</span>`;
+    $('#triage_override').value = health?.triage_override ? health.triage_override : 'auto';
+  }
+
+  /* ====== ICE (max 3, only name/relationship/phone) ====== */
+  function renderContacts(){
+    const list=$('#contactsList'); list.innerHTML='';
+    if(!contacts.length) $('#noContacts').classList.remove('hidden'); else $('#noContacts').classList.add('hidden');
+    contacts.forEach(c=>{
+      const row=document.createElement('div');
+      row.className='border rounded-xl p-4';
+      row.innerHTML=`
+        <div class="grid grid-cols-12 gap-3 items-center">
+          <input class="col-span-5 border rounded-lg px-3 py-2" data-field="name" data-id="${c.id}" placeholder="Name*" value="${escapeHtml(c.name||'')}">
+          <input class="col-span-3 border rounded-lg px-3 py-2" data-field="relationship" data-id="${c.id}" placeholder="Relationship" value="${escapeHtml(c.relationship||'')}">
+          <input class="col-span-3 border rounded-lg px-3 py-2" data-field="phone" data-id="${c.id}" placeholder="Phone*" value="${escapeHtml(c.phone||'')}">
+          <button class="col-span-1 text-red-600 border rounded-lg px-3 py-2" data-del="${c.id}">Delete</button>
+        </div>`;
+      list.appendChild(row);
+    });
+    $('#contactsCounter').textContent = `${contacts.length} of 3 added`;
+  }
+  async function addContact(){
+    if(contacts.length>=3){ toast('Max 3 contacts'); return; }      // FIX: 3 instead of 5
+    const { data, error } = await supabase.from('ice_contacts').insert({
+      user_id: currentUser.id, name:'', relationship:'', phone:''
+    }).select('id,user_id,name,relationship,phone').single();
+    if(error){ console.warn('contacts insert', error); toast('Network error'); return; }
+    contacts.push(data); renderContacts(); renderProgress();
+  }
+  let iceTimer=null;
+  async function onContactsEvent(e){
+    const del=e.target.closest('[data-del]');
+    if(del){
+      const id=Number(del.getAttribute('data-del')); del.disabled=true;
+      try{
+        await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
+        contacts=contacts.filter(x=>x.id!==id);
+        renderContacts(); renderProgress(); toast('Contact deleted');
+      } finally { del.disabled=false; }
+      return;
+    }
+    const id=Number(e.target.getAttribute('data-id')), field=e.target.getAttribute('data-field');
+    if(!id||!field) return;
+    const row=contacts.find(c=>c.id===id);
+    row[field]=e.target.value;
+    clearTimeout(iceTimer);
+    iceTimer=setTimeout(async ()=>{
+      if(!row.name?.trim()||!row.phone?.trim()){ toast('Name and phone are required'); return; }
+      const { error } = await supabase.from('ice_contacts').update({
+        name:row.name, relationship:row.relationship||'', phone:row.phone
+      }).eq('id', id).eq('user_id', currentUser.id);
+      if(error){ console.warn('contacts update', error); toast('Save failed'); return; }
+      toast('Contact saved');
+    }, 400);
+  }
+
+  /* ====== QR (single, permanent) ====== */
+  async function initQr(){
+    if(profile?.code){
+      drawQR(profile.code);
+      enableQrButtons(true);
+      $('#shareLink').value = `${location.origin}/c/${profile.code}`;
+    }else{
+      enableQrButtons(false); $('#qrBox').innerHTML=''; $('#shareLink').value='';
+    }
+  }
+  async function generateQR(){
+    if(qrBusy) return;
+    if(profile?.code){ toast('Code already assigned'); return; }
+    qrBusy=true; $('#generateQR').disabled=true;
+    try{
+      const code=await uniqueCode(6);
+      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
+      if(error){ console.warn('profiles update code', error); throw error; }
+      profile = data || { ...(profile||{}), code };
+      drawQR(code); enableQrButtons(true);
+      $('#shareLink').value = `${location.origin}/c/${code}`;
+      toast('QR generated'); renderProgress();
+    }catch(e){ toast('Network error'); }
+    finally{ qrBusy=false; $('#generateQR').disabled=false; }
+  }
+  async function uniqueCode(len=6, tries=10){
+    for(let i=0;i<tries;i++){
+      const c=Array.from({length:len},()=>QR_ALPHABET[Math.floor(Math.random()*QR_ALPHABET.length)]).join('');
+      const { data } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
+      if(!data) return c;
+    }
+    return crypto.randomUUID().slice(0,len).toUpperCase().replace(/[^A-Z0-9]/g,'X');
+  }
+  function drawQR(code){
+    const box=$('#qrBox'); if(!box) return;
+    box.innerHTML='';
+    const canvas=document.createElement('canvas'); canvas.id='qrCanvas'; box.appendChild(canvas);
+    const url=`${location.origin}/c/${code}`;
+    window.QRCode.toCanvas(canvas, url, { width: Math.max(220, box.clientWidth-8), margin:1, color:{dark:'#111', light:'#fff'} });
+  }
+  function enableQrButtons(on){ ['#copyLink','#exportPNG','#printQR'].forEach(sel=>{ const b=$(sel); if(b) b.disabled=!on; }); }
+  function copyLink(){ const v=$('#shareLink').value; if(!v) return; (navigator.clipboard?.writeText?v=>navigator.clipboard.writeText(v):v=>{const i=document.createElement('input');i.value=v;document.body.appendChild(i);i.select();document.execCommand('copy');i.remove();})(v); toast('Link copied'); }
+  function exportPng(){ const cv=$('#qrCanvas'); if(!cv) return; const a=document.createElement('a'); a.href=cv.toDataURL('image/png'); a.download=(profile?.code||'myqer')+'.png'; a.click(); }
+  function printQR(){ const v=$('#shareLink').value; if(v) window.open(v,'_blank'); }
+
+  /* ====== progress ====== */
+  function renderProgress(){
+    const iOK = !!(profile?.full_name && profile?.date_of_birth && profile?.country);
+    const hp = health||{};
+    const hOK = !!(hp.blood_type || hp.life_support_pref || (hp.allergies||'').trim() || (hp.conditions||'').trim() || (hp.medications||'').trim());
+    const cOK = contacts.length>0;
+    const qOK = !!profile?.code;
+
+    $('#chkIdentity').className = iOK?'font-bold text-green-600':'font-bold text-amber-600';
+    $('#chkHealth').className   = hOK?'font-bold text-green-600':'font-bold text-amber-600';
+    $('#chkContacts').className = cOK?'font-bold text-green-600':'font-bold text-amber-600';
+    $('#chkQR').className       = qOK?'font-bold text-green-600':'font-bold text-amber-600';
+
+    const pct=Math.round([iOK,hOK,cOK,qOK].filter(Boolean).length/4*100);
+    $('#progressPct').textContent=pct+'%';
+    $('#progressArc').setAttribute('stroke-dasharray',`${pct},100`);
+    $('#iconIdentity').className='w-8 h-8 rounded-full grid place-items-center '+(iOK?'bg-green-600 text-white':'bg-amber-500 text-white');
+    $('#iconHealth').className  ='w-8 h-8 rounded-full grid place-items-center '+(hOK?'bg-green-600 text-white':'bg-amber-500 text-white');
+  }
+
+  /* ====== wire UI ====== */
+  function wire(){
+    // FIX: explicitly redirect after sign out
+    on($('#logoutBtn'),'click', async ()=>{
+      try{ await supabase.auth.signOut(); }catch(e){ console.warn(e); }
+      location.replace(LOGIN_PATH);
+    });
+
+    ['#full_name','#date_of_birth','#national_health_id'].forEach(sel=>{
+      on($(sel),'input', ()=>debounced('identity', saveIdentity, 650));
+      on($(sel),'blur',  ()=>debounced('identity', saveIdentity, 50));
+    });
+    on($('#country'),'change', saveIdentity);
+
+    ['#blood_type','#organ_donor','#life_support_pref'].forEach(sel=> on($(sel),'change', saveHealthFields));
+
+    on($('#allergiesInput'),'keydown', e=>pillKey(e,'allergies'));
+    on($('#conditionsInput'),'keydown', e=>pillKey(e,'conditions'));
+    on($('#medicationsInput'),'keydown', e=>pillKey(e,'medications'));
+    on($('#allergiesInput'),'blur', e=>pillBlur(e,'allergies'));
+    on($('#conditionsInput'),'blur', e=>pillBlur(e,'conditions'));
+    on($('#medicationsInput'),'blur', e=>pillBlur(e,'medications'));
+
+    on($('#triage_override'),'change', async ()=>{
+      const v=$('#triage_override').value; health=health||{user_id:currentUser.id};
+      health.triage_override=(v==='auto'?null:v);
+      const ok = await upsertHealth({ triage_override: health.triage_override });
+      if(ok) renderTriage();
+    });
+
+    on($('#addContact'),'click', addContact);
+    on($('#contactsList'),'input', onContactsEvent);
+    on($('#contactsList'),'change', onContactsEvent);
+    on($('#contactsList'),'click', onContactsEvent);
+
+    on($('#generateQR'),'click', generateQR);
+    on($('#copyLink'),'click', copyLink);
+    on($('#exportPNG'),'click', exportPng);
+    on($('#printQR'),'click', printQR);
+
+    on($('#confirmDelete'),'input', ()=>{ $('#deleteAccount').disabled = ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE'); });
+    on($('#deleteAccount'),'click', async ()=>{
+      if($('#confirmDelete').value.trim().toUpperCase()!=='DELETE') return;
+      try{
+        $('#deleteAccount').disabled=true;
+        await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
+        await supabase.from('health_profiles').delete().eq('user_id', currentUser.id);
+        await supabase.from('profiles').delete().eq('id', currentUser.id);
+        await supabase.auth.signOut();
+      } finally { location.replace(LOGIN_PATH); }
+    });
+  }
+})();
+</script>
 </body>
 </html>
