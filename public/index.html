@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MYQER - Emergency QR Card - Version 18</title>
 
+  <!-- Tailwind & deps -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -17,9 +19,7 @@
             'luxury-gold': '#d4af37',
             'platinum': '#e5e4e2'
           },
-          fontFamily: {
-            'sans': ['Inter', 'system-ui', 'sans-serif']
-          },
+          fontFamily: { 'sans': ['Inter', 'system-ui', 'sans-serif'] },
           animation: {
             'pulse-ring': 'pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite',
             'float-slow': 'float-slow 4s ease-in-out infinite',
@@ -28,11 +28,11 @@
             'shimmer': 'shimmer 2s linear infinite'
           },
           keyframes: {
-            'pulse-ring': { '0%': { transform: 'scale(0.33)' }, '80%, 100%': { transform: 'scale(1)', opacity: '0' } },
-            'float-slow': { '0%, 100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-15px)' } },
-            'rotate-slow': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
-            'qr-pulse': { '0%, 100%': { transform: 'scale(1)', opacity: '0.8' }, '50%': { transform: 'scale(1.1)', opacity: '1' } },
-            'shimmer': { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } }
+            'pulse-ring': {'0%': {transform:'scale(0.33)'}, '80%,100%': {transform:'scale(1)', opacity:'0'}},
+            'float-slow': {'0%,100%': {transform:'translateY(0px)'}, '50%': {transform:'translateY(-15px)'}},
+            'rotate-slow': {'0%': {transform:'rotate(0deg)'}, '100%': {transform:'rotate(360deg)'}},
+            'qr-pulse': {'0%,100%': {transform:'scale(1)', opacity:'0.8'}, '50%': {transform:'scale(1.1)', opacity:'1'}},
+            'shimmer': {'0%': {backgroundPosition:'-200% 0'}, '100%': {backgroundPosition:'200% 0'}}
           }
         }
       }
@@ -43,21 +43,28 @@
     body { font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; }
     .dropdown:hover .dropdown-menu { display: block; }
     .dropdown-menu { display: none; }
+
     .premium-gradient { background: linear-gradient(135deg, #dc2626, #d4af37, #dc2626); background-size: 200% 200%; animation: shimmer 3s ease-in-out infinite; }
     .glass-effect { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.3); }
+
     /* RTL Support for Arabic */
     [dir="rtl"] { direction: rtl; }
     [dir="rtl"] .flex { flex-direction: row-reverse; }
     [dir="rtl"] .space-x-2 > * + * { margin-left: 0; margin-right: 0.5rem; }
     [dir="rtl"] .text-left { text-align: right; }
     [dir="rtl"] .text-right { text-align: left; }
-    /* Toast Styles */
+
+    /* Toasts */
     .toast { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500; transform: translateX(100%); transition: transform 0.3s ease-in-out; }
     .toast.show { transform: translateX(0); }
     .toast.success { background-color: #10b981; }
     .toast.error { background-color: #ef4444; }
     .toast.warning { background-color: #f59e0b; }
     .toast.info { background-color: #3b82f6; }
+
+    /* Modal small tweak for transitions (optional) */
+    #authModal.open .modal-panel { transform: scale(1); opacity: 1; }
+    #authModal .modal-panel { transform: scale(0.98); opacity: 0.98; transition: transform .15s ease, opacity .15s ease; }
   </style>
 </head>
 
@@ -90,7 +97,7 @@
     <div class="flex items-center space-x-4">
       <!-- Language Dropdown -->
       <div class="dropdown relative">
-        <button id="languageBtn" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
+        <button id="languageBtn" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors" aria-haspopup="true" aria-expanded="false">
           <span class="text-sm font-medium" id="currentLang">🇺🇸 EN</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
         </button>
@@ -126,10 +133,11 @@
         </button>
       </div>
       <nav class="space-y-4">
-        <a href="/about" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.about">About</a>
-        <a href="/clinician" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.clinician">Clinician</a>
-        <a href="/privacy" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.privacy">Privacy</a>
-        <a href="/terms" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.terms">Terms</a>
+        <a href="/about.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.about">About</a>
+        <a href="/clinician.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.clinician">Clinician</a>
+        <a href="/privacy.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.privacy">Privacy</a>
+        <a href="/terms.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.terms">Terms</a>
+        <a href="/contact.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.contact">Contact</a>
         <a href="/login" id="menuLoginLink" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.login">Login</a>
       </nav>
     </div>
@@ -181,22 +189,22 @@
       <div data-i18n="footer.copyright">© 2025 MYQER™ Emergency Response QR System.</div>
       <div class="flex items-center space-x-2 mt-2 sm:mt-0">
         <span data-i18n="footer.gdpr">GDPR/HIPAA-minded</span><span>·</span>
-        <a href="/privacy" class="hover:text-myqer-red transition-colors" data-i18n="footer.privacy">Privacy</a><span>·</span>
-        <a href="/terms" class="hover:text-myqer-red transition-colors" data-i18n="footer.terms">Terms</a>
+        <a href="/privacy.html" class="hover:text-myqer-red transition-colors" data-i18n="footer.privacy">Privacy</a><span>·</span>
+        <a href="/terms.html" class="hover:text-myqer-red transition-colors" data-i18n="footer.terms">Terms</a>
       </div>
     </div>
   </footer>
 
   <!-- Auth Modal -->
   <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-70 hidden">
-    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
+    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full modal-panel">
       <div class="flex justify-between items-center mb-6">
         <h2 id="authModalTitle" class="text-2xl font-bold text-gray-900" data-i18n="auth.sign_up">Sign Up</h2>
         <button id="closeAuthModal" class="text-gray-500 hover:text-gray-700" aria-label="Close">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <form id="authForm" class="space-y-4">
+      <form id="authForm" class="space-y-4" novalidate>
         <div id="nameField">
           <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="auth.full_name">Full Name</label>
           <input type="text" id="authFullName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" data-i18n-placeholder="auth.full_name_placeholder" placeholder="Enter your full name" required>
@@ -236,11 +244,11 @@
       }
     });
 
-    // ---------- Mini i18n (keys used on index only) ----------
+    // ---------- i18n dictionary (index keys only) ----------
     const i18nDict = {
       en: {
-        'nav.online': 'Online',
-        'menu.title':'Menu','menu.about':'About','menu.clinician':'Clinician','menu.privacy':'Privacy','menu.terms':'Terms','menu.login':'Login',
+        'nav.online':'Online',
+        'menu.title':'Menu','menu.about':'About','menu.clinician':'Clinician','menu.privacy':'Privacy','menu.terms':'Terms','menu.contact':'Contact','menu.login':'Login',
         'hero.your':'Your','hero.free':'FREE','hero.emergency':'emergency','hero.qr':'QR','hero.card':'card.','hero.tagline':'One scan, instant triage.',
         'hero.description1':'A','hero.qr_triage':'QR triage code','hero.description2':'to guide responders— anywhere, anytime.','hero.pronunciation':'(pronounced "My Care")',
         'hero.people_access':'People — Essential Access','hero.free_to_use':'Free to use','hero.no_cost':'No cost · No trial · No ads',
@@ -253,8 +261,10 @@
         'toast.signed_in':'Signed in successfully!','toast.account_created':'Account created successfully! Please check your email to verify.',
         'toast.password_reset':'Password reset email sent!','toast.network_error':'Network error. Please try again.'
       },
+
       es: {
-        'nav.online':'En línea','menu.title':'Menú','menu.about':'Acerca de','menu.clinician':'Médico','menu.privacy':'Privacidad','menu.terms':'Términos','menu.login':'Iniciar sesión',
+        'nav.online':'En línea',
+        'menu.title':'Menú','menu.about':'Acerca de','menu.clinician':'Médico','menu.privacy':'Privacidad','menu.terms':'Términos','menu.contact':'Contacto','menu.login':'Iniciar sesión',
         'hero.your':'Tu','hero.free':'GRATIS','hero.emergency':'emergencia','hero.qr':'QR','hero.card':'tarjeta.','hero.tagline':'Un escaneo, triaje instantáneo.',
         'hero.description1':'Un','hero.qr_triage':'código QR de triaje','hero.description2':'para guiar a los socorristas — en cualquier lugar y momento.','hero.pronunciation':'(se pronuncia "My Care")',
         'hero.people_access':'Personas — Acceso Esencial','hero.free_to_use':'Gratis para usar','hero.no_cost':'Sin costo · Sin prueba · Sin anuncios',
@@ -264,16 +274,144 @@
         'auth.sign_up':'Registrarse','auth.sign_in':'Iniciar sesión','auth.full_name':'Nombre completo','auth.full_name_placeholder':'Ingresa tu nombre completo',
         'auth.email':'Correo electrónico','auth.email_placeholder':'Ingresa tu correo electrónico','auth.password':'Contraseña','auth.password_placeholder':'Ingresa tu contraseña',
         'auth.have_account':'¿Ya tienes una cuenta? Iniciar sesión','auth.no_account':'¿No tienes una cuenta? Registrarse','auth.forgot_password':'¿Olvidaste tu contraseña?',
-        'toast.signed_in':'¡Inicio de sesión exitoso!','toast.account_created':'¡Cuenta creada! Revisa tu correo.','toast.password_reset':'Correo de restablecimiento enviado.',
+        'toast.signed_in':'Inicio de sesión correcto.','toast.account_created':'¡Cuenta creada! Revisa tu correo para verificar.','toast.password_reset':'Correo de restablecimiento enviado.',
         'toast.network_error':'Error de red. Inténtalo de nuevo.'
+      },
+
+      fr: {
+        'nav.online':'En ligne',
+        'menu.title':'Menu','menu.about':'À propos','menu.clinician':'Clinicien','menu.privacy':'Confidentialité','menu.terms':'Conditions','menu.contact':'Contact','menu.login':'Connexion',
+        'hero.your':'Votre','hero.free':'GRATUITE','hero.emergency':'carte d’urgence','hero.qr':'QR','hero.card':'.','hero.tagline':'Un scan, triage instantané.',
+        'hero.description1':'Un','hero.qr_triage':'code QR de triage','hero.description2':'pour guider les secouristes — partout, à tout moment.','hero.pronunciation':'(se prononce « My Care »)',
+        'hero.people_access':'Personnes — Accès essentiel','hero.free_to_use':'Gratuit à utiliser','hero.no_cost':'Sans coût · Sans essai · Sans pub',
+        'hero.benefit1':'Carte d’urgence (allergies, médicaments, ICE)','hero.benefit2':'Fonctionne hors ligne (pas de signal)','hero.benefit3':'Étiquettes QR imprimables DIY',
+        'hero.benefit4':'Multilingue','hero.benefit5':'Aucune traçabilité, confidentialité locale','hero.create_yours':'➝ Créer la vôtre','hero.sign_in':'➝ Se connecter',
+        'footer.copyright':'© 2025 Système de réponse d’urgence MYQER™.','footer.gdpr':'Conforme RGPD/HIPAA','footer.privacy':'Confidentialité','footer.terms':'Conditions',
+        'auth.sign_up':'Créer un compte','auth.sign_in':'Se connecter','auth.full_name':'Nom complet','auth.full_name_placeholder':'Entrez votre nom complet',
+        'auth.email':'E-mail','auth.email_placeholder':'Entrez votre e-mail','auth.password':'Mot de passe','auth.password_placeholder':'Entrez votre mot de passe',
+        'auth.have_account':'Vous avez déjà un compte ? Connexion','auth.no_account':'Pas de compte ? Inscription','auth.forgot_password':'Mot de passe oublié ?',
+        'toast.signed_in':'Connexion réussie.','toast.account_created':'Compte créé ! Vérifiez votre e-mail.','toast.password_reset':'E-mail de réinitialisation envoyé.',
+        'toast.network_error':'Erreur réseau. Réessayez.'
+      },
+
+      de: {
+        'nav.online':'Online',
+        'menu.title':'Menü','menu.about':'Über uns','menu.clinician':'Kliniker','menu.privacy':'Datenschutz','menu.terms':'Bedingungen','menu.contact':'Kontakt','menu.login':'Anmelden',
+        'hero.your':'Ihre','hero.free':'KOSTENLOSE','hero.emergency':'Notfall-','hero.qr':'QR','hero.card':'Karte.','hero.tagline':'Ein Scan, sofortige Triage.',
+        'hero.description1':'Ein','hero.qr_triage':'QR-Triage-Code','hero.description2':'für Ersthelfer — überall, jederzeit.','hero.pronunciation':'(ausgesprochen „My Care“)',
+        'hero.people_access':'Menschen — Wesentlicher Zugang','hero.free_to_use':'Kostenlos zu verwenden','hero.no_cost':'Keine Kosten · Keine Testversion · Keine Werbung',
+        'hero.benefit1':'Notfallkarte (Allergien, Medikamente, ICE)','hero.benefit2':'Funktioniert offline (kein Signal)','hero.benefit3':'DIY-QR-Etiketten zum Drucken',
+        'hero.benefit4':'Mehrsprachig','hero.benefit5':'Keine Nachverfolgung, lokale Privatsphäre','hero.create_yours':'➝ Jetzt erstellen','hero.sign_in':'➝ Anmelden',
+        'footer.copyright':'© 2025 MYQER™ Notfall-QR-System.','footer.gdpr':'DSGVO/HIPAA-konform','footer.privacy':'Datenschutz','footer.terms':'Bedingungen',
+        'auth.sign_up':'Registrieren','auth.sign_in':'Anmelden','auth.full_name':'Vollständiger Name','auth.full_name_placeholder':'Vollständigen Namen eingeben',
+        'auth.email':'E-Mail','auth.email_placeholder':'E-Mail eingeben','auth.password':'Passwort','auth.password_placeholder':'Passwort eingeben',
+        'auth.have_account':'Schon ein Konto? Anmelden','auth.no_account':'Kein Konto? Registrieren','auth.forgot_password':'Passwort vergessen?',
+        'toast.signed_in':'Erfolgreich angemeldet.','toast.account_created':'Konto erstellt! Bitte E-Mail prüfen.','toast.password_reset':'E-Mail zum Zurücksetzen gesendet.',
+        'toast.network_error':'Netzwerkfehler. Bitte erneut versuchen.'
+      },
+
+      it: {
+        'nav.online':'Online',
+        'menu.title':'Menu','menu.about':'Chi siamo','menu.clinician':'Clinico','menu.privacy':'Privacy','menu.terms':'Termini','menu.contact':'Contatto','menu.login':'Accedi',
+        'hero.your':'La tua','hero.free':'GRATUITA','hero.emergency':'carta di emergenza','hero.qr':'QR','hero.card':'.','hero.tagline':'Una scansione, triage istantaneo.',
+        'hero.description1':'Un','hero.qr_triage':'codice QR di triage','hero.description2':'per guidare i soccorritori — ovunque, in qualsiasi momento.','hero.pronunciation':'(si pronuncia “My Care”)',
+        'hero.people_access':'Persone — Accesso essenziale','hero.free_to_use':'Gratis da usare','hero.no_cost':'Nessun costo · Nessuna prova · Niente pubblicità',
+        'hero.benefit1':'Carta di emergenza (allergie, farmaci, ICE)','hero.benefit2':'Funziona offline (nessun segnale)','hero.benefit3':'Etichette QR stampabili fai-da-te',
+        'hero.benefit4':'Multi-lingua','hero.benefit5':'Nessun tracciamento, privacy locale','hero.create_yours':'➝ Crea la tua','hero.sign_in':'➝ Accedi',
+        'footer.copyright':'© 2025 Sistema QR di emergenza MYQER™.','footer.gdpr':'Conforme GDPR/HIPAA','footer.privacy':'Privacy','footer.terms':'Termini',
+        'auth.sign_up':'Registrati','auth.sign_in':'Accedi','auth.full_name':'Nome completo','auth.full_name_placeholder':'Inserisci il nome completo',
+        'auth.email':'Email','auth.email_placeholder':'Inserisci l’email','auth.password':'Password','auth.password_placeholder':'Inserisci la password',
+        'auth.have_account':'Hai già un account? Accedi','auth.no_account':'Non hai un account? Registrati','auth.forgot_password':'Password dimenticata?',
+        'toast.signed_in':'Accesso effettuato.','toast.account_created':'Account creato! Controlla l’email.','toast.password_reset':'Email di reimpostazione inviata.',
+        'toast.network_error':'Errore di rete. Riprova.'
+      },
+
+      hi: {
+        'nav.online':'ऑनलाइन',
+        'menu.title':'मेनू','menu.about':'के बारे में','menu.clinician':'चिकित्सक','menu.privacy':'गोपनीयता','menu.terms':'नियम','menu.contact':'संपर्क','menu.login':'लॉग इन',
+        'hero.your':'आपका','hero.free':'मुफ़्त','hero.emergency':'आपातकालीन','hero.qr':'QR','hero.card':'कार्ड।','hero.tagline':'एक स्कैन, त्वरित ट्राइएज।',
+        'hero.description1':'एक','hero.qr_triage':'QR ट्राइएज कोड','hero.description2':'प्रतिकारकों का मार्गदर्शन करने के लिए — कहीं भी, कभी भी।','hero.pronunciation':'(उच्चारण “माय केयर”)',
+        'hero.people_access':'लोग — आवश्यक पहुँच','hero.free_to_use':'उपयोग करने के लिए मुफ़्त','hero.no_cost':'कोई लागत नहीं · कोई ट्रायल नहीं · कोई विज्ञापन नहीं',
+        'hero.benefit1':'आपातकालीन कार्ड (एलर्जी, दवाएं, ICE)','hero.benefit2':'ऑफ़लाइन काम करता है (सिग्नल नहीं चाहिए)','hero.benefit3':'DIY प्रिंट करने योग्य QR टैग',
+        'hero.benefit4':'बहु-भाषा','hero.benefit5':'बिना ट्रैकिंग, डिवाइस-पर गोपनीयता','hero.create_yours':'➝ अपना बनाएं','hero.sign_in':'➝ साइन इन',
+        'footer.copyright':'© 2025 MYQER™ आपातकालीन QR सिस्टम।','footer.gdpr':'GDPR/HIPAA-अनुरूप','footer.privacy':'गोपनीयता','footer.terms':'नियम',
+        'auth.sign_up':'साइन अप','auth.sign_in':'साइन इन','auth.full_name':'पूरा नाम','auth.full_name_placeholder':'अपना पूरा नाम दर्ज करें',
+        'auth.email':'ई-मेल','auth.email_placeholder':'अपना ई-मेल दर्ज करें','auth.password':'पासवर्ड','auth.password_placeholder':'अपना पासवर्ड दर्ज करें',
+        'auth.have_account':'पहले से खाता है? साइन इन','auth.no_account':'खाता नहीं है? साइन अप','auth.forgot_password':'पासवर्ड भूल गए?',
+        'toast.signed_in':'सफलतापूर्वक साइन इन हुआ।','toast.account_created':'खाता बन गया! कृपया ई-मेल देखें।','toast.password_reset':'रीसेट ई-मेल भेजा गया।',
+        'toast.network_error':'नेटवर्क त्रुटि। बाद में पुनः प्रयास करें।'
+      },
+
+      ar: {
+        'nav.online':'متصل',
+        'menu.title':'القائمة','menu.about':'حول','menu.clinician':'الطبيب','menu.privacy':'الخصوصية','menu.terms':'الشروط','menu.contact':'اتصال','menu.login':'تسجيل الدخول',
+        'hero.your':'بطاقتك','hero.free':'المجانية','hero.emergency':'للطوارئ','hero.qr':'QR','hero.card':'.','hero.tagline':'مسح واحد، فرز فوري.',
+        'hero.description1':'','hero.qr_triage':'رمز QR للفرز','hero.description2':'لتوجيه المسعفين — في أي مكان وزمان.','hero.pronunciation':'(تُنطق "ماي كير")',
+        'hero.people_access':'الناس — وصول أساسي','hero.free_to_use':'مجاني الاستخدام','hero.no_cost':'بدون تكلفة · بدون تجربة · بدون إعلانات',
+        'hero.benefit1':'بطاقة طوارئ (حساسيات، أدوية، جهات اتصال)','hero.benefit2':'تعمل دون اتصال','hero.benefit3':'ملصقات QR قابلة للطباعة',
+        'hero.benefit4':'متعددة اللغات','hero.benefit5':'خصوصية على الجهاز بدون تتبع','hero.create_yours':'➝ أنشئ بطاقتك','hero.sign_in':'➝ تسجيل الدخول',
+        'footer.copyright':'© 2025 نظام MYQER™ لبطاقة الطوارئ.','footer.gdpr':'متوافق مع GDPR/HIPAA','footer.privacy':'الخصوصية','footer.terms':'الشروط',
+        'auth.sign_up':'إنشاء حساب','auth.sign_in':'تسجيل الدخول','auth.full_name':'الاسم الكامل','auth.full_name_placeholder':'أدخل اسمك الكامل',
+        'auth.email':'البريد الإلكتروني','auth.email_placeholder':'أدخل بريدك الإلكتروني','auth.password':'كلمة المرور','auth.password_placeholder':'أدخل كلمة المرور',
+        'auth.have_account':'لديك حساب؟ سجّل الدخول','auth.no_account':'لا تملك حسابًا؟ أنشئ واحدًا','auth.forgot_password':'نسيت كلمة المرور؟',
+        'toast.signed_in':'تم تسجيل الدخول بنجاح.','toast.account_created':'تم إنشاء الحساب! راجع بريدك الإلكتروني.','toast.password_reset':'أُرسل بريد لإعادة التعيين.',
+        'toast.network_error':'خطأ في الشبكة. حاول مرة أخرى.'
+      },
+
+      zh: {
+        'nav.online':'在线',
+        'menu.title':'菜单','menu.about':'关于','menu.clinician':'临床医生','menu.privacy':'隐私','menu.terms':'条款','menu.contact':'联系','menu.login':'登录',
+        'hero.your':'您的','hero.free':'免费','hero.emergency':'紧急','hero.qr':'QR','hero.card':'卡片。','hero.tagline':'一次扫描，即时分诊。',
+        'hero.description1':'一个','hero.qr_triage':'QR 分诊码','hero.description2':'为急救人员提供指引——随时随地。','hero.pronunciation':'（发音 “My Care”）',
+        'hero.people_access':'人群 — 基本获取','hero.free_to_use':'免费使用','hero.no_cost':'无费用 · 无试用 · 无广告',
+        'hero.benefit1':'紧急卡片（过敏、用药、ICE）','hero.benefit2':'离线可用（无需信号）','hero.benefit3':'可打印 QR 标签',
+        'hero.benefit4':'多语言','hero.benefit5':'零跟踪，本地隐私','hero.create_yours':'➝ 创建你的','hero.sign_in':'➝ 登录',
+        'footer.copyright':'© 2025 MYQER™ 紧急 QR 系统。','footer.gdpr':'符合 GDPR/HIPAA','footer.privacy':'隐私','footer.terms':'条款',
+        'auth.sign_up':'注册','auth.sign_in':'登录','auth.full_name':'全名','auth.full_name_placeholder':'输入你的全名',
+        'auth.email':'邮箱','auth.email_placeholder':'输入你的邮箱','auth.password':'密码','auth.password_placeholder':'输入你的密码',
+        'auth.have_account':'已有账号？登录','auth.no_account':'没有账号？注册','auth.forgot_password':'忘记密码？',
+        'toast.signed_in':'登录成功。','toast.account_created':'账户已创建！请查收邮箱。','toast.password_reset':'重置邮件已发送。',
+        'toast.network_error':'网络错误，请重试。'
+      },
+
+      hu: {
+        'nav.online':'Online',
+        'menu.title':'Menü','menu.about':'Rólunk','menu.clinician':'Klinikus','menu.privacy':'Adatvédelem','menu.terms':'Feltételek','menu.contact':'Kapcsolat','menu.login':'Bejelentkezés',
+        'hero.your':'Az Ön','hero.free':'INGYENES','hero.emergency':'sürgősségi','hero.qr':'QR','hero.card':'kártyája.','hero.tagline':'Egy szkennelés, azonnali triázs.',
+        'hero.description1':'Egy','hero.qr_triage':'QR triázs kód','hero.description2':'a mentők irányításához — bárhol, bármikor.','hero.pronunciation':'(kiejtése „My Care”)',
+        'hero.people_access':'Emberek — Alapvető hozzáférés','hero.free_to_use':'Ingyenesen használható','hero.no_cost':'Nincs költség · Nincs próba · Nincs reklám',
+        'hero.benefit1':'Sürgősségi kártya (allergiák, gyógyszerek, ICE)','hero.benefit2':'Offline is működik','hero.benefit3':'Nyomtatható QR címkék',
+        'hero.benefit4':'Többnyelvű','hero.benefit5':'Nincs követés, helyi adatvédelem','hero.create_yours':'➝ Hozza létre','hero.sign_in':'➝ Bejelentkezés',
+        'footer.copyright':'© 2025 MYQER™ Sürgősségi QR rendszer.','footer.gdpr':'GDPR/HIPAA kompatibilis','footer.privacy':'Adatvédelem','footer.terms':'Feltételek',
+        'auth.sign_up':'Regisztráció','auth.sign_in':'Bejelentkezés','auth.full_name':'Teljes név','auth.full_name_placeholder':'Adja meg a teljes nevét',
+        'auth.email':'E-mail','auth.email_placeholder':'Adja meg az e-mailt','auth.password':'Jelszó','auth.password_placeholder':'Adja meg a jelszót',
+        'auth.have_account':'Már van fiókja? Jelentkezzen be','auth.no_account':'Nincs fiók? Regisztráljon','auth.forgot_password':'Elfelejtette a jelszót?',
+        'toast.signed_in':'Sikeres bejelentkezés.','toast.account_created':'Fiók létrehozva! Ellenőrizze az e-mailt.','toast.password_reset':'Jelszó-visszaállító e-mail elküldve.',
+        'toast.network_error':'Hálózati hiba. Próbálja újra.'
+      },
+
+      ro: {
+        'nav.online':'Online',
+        'menu.title':'Meniu','menu.about':'Despre','menu.clinician':'Clinician','menu.privacy':'Confidențialitate','menu.terms':'Termeni','menu.contact':'Contact','menu.login':'Autentificare',
+        'hero.your':'Cartea ta','hero.free':'GRATUITĂ','hero.emergency':'de urgență','hero.qr':'QR','hero.card':'.','hero.tagline':'O scanare, triaj instantaneu.',
+        'hero.description1':'Un','hero.qr_triage':'cod QR de triaj','hero.description2':'pentru a ghida echipele — oriunde, oricând.','hero.pronunciation':'(se pronunță „My Care”)',
+        'hero.people_access':'Oameni — Acces esențial','hero.free_to_use':'Gratuit de folosit','hero.no_cost':'Fără cost · Fără probă · Fără reclame',
+        'hero.benefit1':'Card de urgență (alergii, medicații, ICE)','hero.benefit2':'Funcționează offline','hero.benefit3':'Etichete QR imprimabile',
+        'hero.benefit4':'Multilingv','hero.benefit5':'Fără tracking, confidențialitate locală','hero.create_yours':'➝ Creează-l','hero.sign_in':'➝ Autentificare',
+        'footer.copyright':'© 2025 Sistemul MYQER™.','footer.gdpr':'Conform GDPR/HIPAA','footer.privacy':'Confidențialitate','footer.terms':'Termeni',
+        'auth.sign_up':'Înregistrare','auth.sign_in':'Autentificare','auth.full_name':'Nume complet','auth.full_name_placeholder':'Introdu numele complet',
+        'auth.email':'Email','auth.email_placeholder':'Introdu emailul','auth.password':'Parolă','auth.password_placeholder':'Introdu parola',
+        'auth.have_account':'Ai deja cont? Autentificare','auth.no_account':'Nu ai cont? Înregistrare','auth.forgot_password':'Ai uitat parola?',
+        'toast.signed_in':'Autentificare reușită.','toast.account_created':'Cont creat! Verifică emailul.','toast.password_reset':'Email pentru resetare trimis.',
+        'toast.network_error':'Eroare de rețea. Încearcă din nou.'
       }
-      // (You already have full dictionaries on dashboard; index only needs these keys)
-    };
+    }; // end i18nDict
 
     // ---------- Utilities ----------
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
     const t = (k) => (i18nDict[currentLanguage] && i18nDict[currentLanguage][k]) || (i18nDict.en && i18nDict.en[k]) || k;
+
     function showToast(msg, type='info', ms=3000) {
       const el = document.createElement('div');
       el.className = `toast ${type}`;
@@ -282,28 +420,33 @@
       requestAnimationFrame(() => el.classList.add('show'));
       setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(), 200); }, ms);
     }
+
+    function langLabel(lang) {
+      const map = { en:'🇺🇸 EN', es:'🇪🇸 ES', fr:'🇫🇷 FR', de:'🇩🇪 DE', it:'🇮🇹 IT', hi:'🇮🇳 HI', ar:'🇸🇦 AR', zh:'🇨🇳 ZH', hu:'🇭🇺 HU', ro:'🇷🇴 RO' };
+      return map[lang] || 'EN';
+    }
+
     function updateI18nElements() {
       $$('[data-i18n]').forEach(node => node.innerHTML = t(node.getAttribute('data-i18n')));
       $$('[data-i18n-placeholder]').forEach(node => node.setAttribute('placeholder', t(node.getAttribute('data-i18n-placeholder'))));
       $('#currentLang').textContent = langLabel(currentLanguage);
     }
+
     function setLanguage(lang) {
       currentLanguage = i18nDict[lang] ? lang : 'en';
       localStorage.setItem('myqer_language', currentLanguage);
+      // RTL for Arabic
       if (currentLanguage === 'ar') document.documentElement.setAttribute('dir', 'rtl');
       else document.documentElement.setAttribute('dir', 'ltr');
       updateI18nElements();
     }
-    function langLabel(lang) {
-      const map = { en:'🇺🇸 EN', es:'🇪🇸 ES', fr:'🇫🇷 FR', de:'🇩🇪 DE', it:'🇮🇹 IT', hi:'🇮🇳 HI', ar:'🇸🇦 AR', zh:'🇨🇳 ZH', hu:'🇭🇺 HU', ro:'🇷🇴 RO' };
-      return map[lang] || 'EN';
-    }
+
     function goDashboard() {
       // prefer explicit .html for static hosts; fallback to /dashboard
       window.location.replace('/dashboard.html');
       setTimeout(() => {
-        if (!/dashboard/.test(location.pathname)) window.location.replace('/dashboard');
-      }, 400);
+        if (!/dashboard/i.test(location.pathname)) window.location.replace('/dashboard');
+      }, 350);
     }
 
     // ---------- State ----------
@@ -312,9 +455,10 @@
 
     // ---------- Init ----------
     document.addEventListener('DOMContentLoaded', async () => {
+      // Apply saved language before any UI updates
       setLanguage(currentLanguage);
 
-      // If already logged in, hop straight to dashboard
+      // If already logged in, go straight to dashboard
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) return goDashboard();
 
@@ -338,7 +482,7 @@
       $('#menuOverlay').addEventListener('click', closeMenu);
       $('#menuLoginLink').addEventListener('click', (e)=>{ e.preventDefault(); closeMenu(); openAuth('signin'); });
 
-      // CTAs
+      // CTA buttons
       $('#createYoursBtn').addEventListener('click', () => openAuth('signup'));
       $('#signInBtn').addEventListener('click', () => openAuth('signin'));
 
@@ -347,6 +491,16 @@
       $('#toggleAuthMode').addEventListener('click', (e)=>{ e.preventDefault(); toggleAuthMode(); });
       $('#authForm').addEventListener('submit', handleAuthSubmit);
       $('#forgotPasswordBtn').addEventListener('click', handleForgotPassword);
+
+      // ESC to close modal or menu
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (!$('#authModal').classList.contains('hidden')) closeAuth();
+          if (!$('#menuPanel').classList.contains('translate-x-full')) {
+            $('#menuOverlay').click();
+          }
+        }
+      });
     });
 
     // ---------- Auth modal helpers ----------
@@ -354,14 +508,23 @@
       authMode = mode;
       const modal = $('#authModal');
       modal.classList.remove('hidden');
-      window.setTimeout(()=> modal.classList.add('open'), 0);
+      modal.classList.add('open');
       applyAuthMode();
+      // focus first field
+      setTimeout(() => (authMode==='signup' ? $('#authFullName') : $('#authEmail')).focus(), 30);
     }
+
     function closeAuth() {
       const modal = $('#authModal');
+      modal.classList.remove('open');
       modal.classList.add('hidden');
     }
-    function toggleAuthMode() { authMode = (authMode === 'signup') ? 'signin' : 'signup'; applyAuthMode(); }
+
+    function toggleAuthMode() {
+      authMode = (authMode === 'signup') ? 'signin' : 'signup';
+      applyAuthMode();
+    }
+
     function applyAuthMode() {
       const isSignUp = authMode === 'signup';
       $('#authModalTitle').textContent = isSignUp ? t('auth.sign_up') : t('auth.sign_in');
@@ -372,38 +535,44 @@
       $('#forgotPasswordSection').classList.toggle('hidden', isSignUp);
     }
 
-    // ---------- The function you were missing ----------
+    // ---------- Auth handlers ----------
     async function handleAuthSubmit(e) {
       e.preventDefault();
       const email = $('#authEmail').value.trim();
       const password = $('#authPassword').value;
       const fullName = $('#authFullName').value.trim();
+
+      if (!email || !password || (authMode==='signup' && !fullName)) {
+        return showToast(t('toast.network_error'), 'warning');
+      }
+
       try {
         if (authMode === 'signup') {
-          // Sign up
+          // 1) create auth user
           const { data, error } = await supabase.auth.signUp({
             email, password,
             options: { data: { full_name: fullName } }
           });
           if (error) throw error;
 
-          // Upsert profile row
+          // 2) seed minimal profile row (non-blocking)
           if (data.user) {
             await supabase.from('profiles').upsert({
               id: data.user.id, email, full_name: fullName, lang: currentLanguage, updated_at: new Date().toISOString()
             });
           }
+
           showToast(t('toast.account_created'), 'success');
-          // If email confirmations are disabled, session will exist and onAuthStateChange will redirect.
+          // If email confirmations are disabled, session will exist -> redirect
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) goDashboard();
 
         } else {
-          // Sign in
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          // sign in
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
           showToast(t('toast.signed_in'), 'success');
-          goDashboard(); // immediate; onAuthStateChange also catches
+          goDashboard();
         }
       } catch (err) {
         console.error(err);
