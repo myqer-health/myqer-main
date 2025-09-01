@@ -186,7 +186,7 @@
         <div>
           <h3 class="text-xl font-bold">Triage</h3>
           <p class="text-gray-600 text-sm">Auto-computed from your data. You can override.</p>
-          <p class="text-xs text-gray-500 mt-1">Disclaimer: MYQER does not diagnose or provide medical advice. This triage label is user-provided and assistive only for responders.</p>
+          <p class="text-xs text-gray-500 mt-1">MYQER does not diagnose or provide medical advice. This triage label is user-provided and assistive only for responders.</p>
         </div>
         <div id="triageBadge" class="inline-flex items-center px-6 py-3 rounded-full text-white text-lg font-bold bg-green-600">
           🟢 <span class="ml-2">Green — Stable</span>
@@ -265,68 +265,64 @@
     let profile = null;     // profiles row
     let health = null;      // health_profiles row
     let contacts = [];      // ice_contacts rows
-
+    let saveTimers = { identity:null, health:null };
     const $ = (sel) => document.querySelector(sel);
 
     // ---------- Boot / guard ----------
     document.addEventListener('DOMContentLoaded', async () => {
-      // simple online indicator
+      // online indicator
       const setNet = () => {
         $('#netDot').className = 'w-2.5 h-2.5 rounded-full ' + (navigator.onLine ? 'bg-green-500 animate-pulse':'bg-gray-400');
         $('#netLabel').textContent = navigator.onLine ? 'Online' : 'Offline';
       };
       window.addEventListener('online', setNet); window.addEventListener('offline', setNet); setNet();
 
-      // route guard
+      // session gate
       const { data: { session } } = await supabase.auth.getSession();
       currentUser = session?.user || null;
-      if (!currentUser) {
-        location.replace('/index.html'); return;
-      }
+      if (!currentUser) { location.replace('/login'); return; }
 
-      // wire events
       wireEvents();
-
-      // load all
       await loadAll();
-
-      // QR on load
-      await ensureQrRendered();
+      await initQrCard();   // show QR immediately if code exists
+      updateTriage();
+      updateProgress();
     });
 
-    supabase.auth.onAuthStateChange((ev) => {
-      if (ev === 'SIGNED_OUT') location.replace('/index.html');
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') location.replace('/login');
+      if (event === 'SIGNED_IN')  location.replace('/dashboard');
     });
 
     // ---------- Events ----------
     function wireEvents(){
       // logout
-      $('#logoutBtn').addEventListener('click', async () => {
-        await supabase.auth.signOut();
+      $('#logoutBtn')?.addEventListener('click', async ()=>{
+        try { await supabase.auth.signOut(); } catch(e){} // redirect happens via onAuthStateChange
       });
 
       // identity autosave (debounced)
       ['#full_name','#date_of_birth','#national_health_id'].forEach(id=>{
-        $(id).addEventListener('input', ()=>debouncedSave(identitySave, 650));
-        $(id).addEventListener('blur',  ()=>debouncedSave(identitySave, 50));
+        $(id)?.addEventListener('input', ()=>debounced('identity', identitySave, 700));
+        $(id)?.addEventListener('blur',  ()=>debounced('identity', identitySave, 50));
       });
-      $('#country').addEventListener('change', ()=>identitySave());
+      $('#country')?.addEventListener('change', ()=>identitySave());
 
       // health dropdown autosave
       ['#blood_type','#organ_donor','#life_support_pref'].forEach(id=>{
-        $(id).addEventListener('change', ()=>saveHealthFields());
+        $(id)?.addEventListener('change', ()=>saveHealthFields());
       });
 
       // pills: Enter adds, blur also adds & saves
-      $('#allergiesInput').addEventListener('keydown', e=>pillKey(e,'allergies'));
-      $('#conditionsInput').addEventListener('keydown', e=>pillKey(e,'conditions'));
-      $('#medicationsInput').addEventListener('keydown', e=>pillKey(e,'medications'));
-      $('#allergiesInput').addEventListener('blur', e=>addBlurToPills(e,'allergies'));
-      $('#conditionsInput').addEventListener('blur', e=>addBlurToPills(e,'conditions'));
-      $('#medicationsInput').addEventListener('blur', e=>addBlurToPills(e,'medications'));
+      $('#allergiesInput')?.addEventListener('keydown', e=>pillKey(e,'allergies'));
+      $('#conditionsInput')?.addEventListener('keydown', e=>pillKey(e,'conditions'));
+      $('#medicationsInput')?.addEventListener('keydown', e=>pillKey(e,'medications'));
+      $('#allergiesInput')?.addEventListener('blur', e=>addBlurToPills(e,'allergies'));
+      $('#conditionsInput')?.addEventListener('blur', e=>addBlurToPills(e,'conditions'));
+      $('#medicationsInput')?.addEventListener('blur', e=>addBlurToPills(e,'medications'));
 
       // triage override
-      $('#triage_override').addEventListener('change', async ()=>{
+      $('#triage_override')?.addEventListener('change', async ()=>{
         const v = $('#triage_override').value;
         health = health || {};
         health.triage_override = (v==='auto'?null:v);
@@ -335,31 +331,38 @@
       });
 
       // ICE CRUD
-      $('#addContact').addEventListener('click', createBlankContact);
-      $('#contactsList').addEventListener('input', iceAutosaveHandler);
-      $('#contactsList').addEventListener('change', iceAutosaveHandler);
-      $('#contactsList').addEventListener('click', async (e)=>{
+      $('#addContact')?.addEventListener('click', createBlankContact);
+      $('#contactsList')?.addEventListener('input', iceAutosaveHandler);
+      $('#contactsList')?.addEventListener('change', iceAutosaveHandler);
+      $('#contactsList')?.addEventListener('click', async (e)=>{
         const btn = e.target.closest('[data-del]');
         if (!btn) return;
-        const id = Number(btn.getAttribute('data-del')); // ensure number
-        await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
-        contacts = contacts.filter(c=>c.id!==id);
-        renderContacts();
-        showToast('Contact deleted');
-        updateProgress();
+        const id = Number(btn.getAttribute('data-del'));
+        btn.disabled = true;
+        try{
+          await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
+          contacts = contacts.filter(c=>c.id!==id);
+          renderContacts();
+          showToast('Contact deleted');
+          updateProgress();
+        } finally { btn.disabled = false; }
       });
 
       // QR actions
-      $('#generateQR').addEventListener('click', onGenerateQR);
-      $('#copyLink').addEventListener('click', copyShareLink);
-      $('#exportPNG').addEventListener('click', exportQrPng);
-      $('#printQR').addEventListener('click', ()=>{ const u=$('#shareLink').value; if(u) window.open(u,'_blank'); });
+      $('#generateQR')?.addEventListener('click', onGenerateQR);
+      $('#copyLink')?.addEventListener('click', copyShareLink);
+      $('#exportPNG')?.addEventListener('click', exportQrPng);
+      $('#printQR')?.addEventListener('click', ()=>{ const u=$('#shareLink')?.value; if(u) window.open(u,'_blank'); });
 
       // Danger zone
-      $('#confirmDelete').addEventListener('input', ()=>{
+      $('#confirmDelete')?.addEventListener('input', ()=>{
         $('#deleteAccount').disabled = ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE');
       });
-      $('#deleteAccount').addEventListener('click', doDeleteAccount);
+      $('#deleteAccount')?.addEventListener('click', doDeleteAccount);
+    }
+
+    function debounced(key, fn, ms){
+      clearTimeout(saveTimers[key]); saveTimers[key] = setTimeout(fn, ms);
     }
 
     // ---------- Loaders ----------
@@ -369,15 +372,13 @@
         supabase.from('health_profiles').select('*').eq('user_id', currentUser.id).maybeSingle(),
         supabase.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at',{ascending:true})
       ]);
-      if (!pRes.error) profile = pRes.data || null;
-      if (!hRes.error) health  = hRes.data  || null;
+      if (!pRes.error) profile = pRes.data || { id: currentUser.id };
+      if (!hRes.error) health  = hRes.data  || { user_id: currentUser.id };
       if (!cRes.error) contacts = cRes.data || [];
 
       hydrateIdentity();
       hydrateHealth();
       renderContacts();
-      updateTriage();
-      updateProgress();
     }
 
     // ---------- Identity ----------
@@ -388,24 +389,25 @@
       $('#national_health_id').value = profile?.national_health_id || '';
     }
 
-    let identTimer=null;
-    function debouncedSave(fn,ms){ clearTimeout(identTimer); identTimer=setTimeout(fn,ms); }
-
     async function identitySave(){
+      const btns = []; // future: disable save buttons if you add any
+      btns.forEach(b=>b.disabled=true);
       const patch = {
-        id: currentUser.id, // include PK for upsert
-        full_name: $('#full_name').value.trim(),
-        date_of_birth: $('#date_of_birth').value.trim(),
-        country: $('#country').value,
-        national_health_id: $('#national_health_id').value.trim(),
+        id: currentUser.id,
+        full_name: $('#full_name').value.trim() || null,
+        date_of_birth: $('#date_of_birth').value.trim() || null,
+        country: $('#country').value || null,
+        national_health_id: $('#national_health_id').value.trim() || null,
         updated_at: new Date().toISOString()
       };
-      const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().maybeSingle();
-      if (!error) {
+      try{
+        const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().maybeSingle();
+        if (error) throw error;
         profile = data || patch;
         showToast('Identity saved');
         updateProgress();
-      }
+      } catch(e){ console.warn(e); showToast('Network error'); }
+      finally { btns.forEach(b=>b.disabled=false); }
     }
 
     // ---------- Health ----------
@@ -422,6 +424,7 @@
 
     function hydratePills(containerId, csv){
       const box = document.getElementById(containerId);
+      if (!box) return;
       box.innerHTML='';
       (csv?String(csv).split(','):[]).map(s=>s.trim()).filter(Boolean)
         .forEach(val=> box.appendChild(makePill(val, containerId)));
@@ -462,11 +465,11 @@
     async function saveHealthPills(containerId){
       const vals = Array.from(document.getElementById(containerId).querySelectorAll('.tag span:first-child'))
         .map(n=>n.textContent.trim()).filter(Boolean);
-      const csv = Array.from(new Set(vals.map(v=>v.toLowerCase()))).map(v=>v).join(', ');
+      const csv = Array.from(new Set(vals.map(v=>v.toLowerCase()))).map(v=>v).join(', ') || null;
       const patch = {};
-      if (containerId==='allergiesPills') patch.allergies = csv || null;
-      if (containerId==='conditionsPills') patch.conditions = csv || null;
-      if (containerId==='medicationsPills') patch.medications = csv || null;
+      if (containerId==='allergiesPills') patch.allergies = csv;
+      if (containerId==='conditionsPills') patch.conditions = csv;
+      if (containerId==='medicationsPills') patch.medications = csv;
       await upsertHealth(patch);
       showToast('Health saved');
       updateTriage();
@@ -520,28 +523,18 @@
 
     function computeTriage(){
       const hp = health||{};
-      // Override
       if (hp.triage_override && hp.triage_override!=='auto') return hp.triage_override;
-
-      // Black: DNR
       if ((hp.life_support_pref||'').toUpperCase()==='DNR') return 'Black';
-
       const allergies = (hp.allergies||'').toLowerCase();
       const conditions = (hp.conditions||'').toLowerCase();
       const medications = (hp.medications||'').toLowerCase();
-
-      // Red triggers (common criticals)
       const redAllergy = ['anaphylaxis','epipen','penicillin','amoxicillin','codeine','morphine','peanut','shellfish','bee sting'];
       if (redAllergy.some(w=>allergies.includes(w))) return 'Red';
       const redCond = ['heart attack','myocard','mi ','stroke','seizure','status epilepticus','cancer','copd severe','oxygen dependent','dialysis'];
       if (redCond.some(w=>conditions.includes(w))) return 'Red';
-
-      // Amber: any info at all, or ≥3 meds
       const anyInfo = [allergies,conditions,medications].some(s=>s.trim());
       const medsCount = medications ? medications.split(',').map(s=>s.trim()).filter(Boolean).length : 0;
       if (anyInfo || medsCount>=3) return 'Amber';
-
-      // Default
       return 'Green';
     }
 
@@ -569,10 +562,13 @@
 
     async function createBlankContact(){
       if (contacts.length>=5){ showToast('Max 5 contacts'); return; }
-      const { data, error } = await supabase.from('ice_contacts').insert({ user_id: currentUser.id, name:'', phone:'' }).select().single();
-      if (error) return;
+      const { data, error } = await supabase.from('ice_contacts').insert({
+        user_id: currentUser.id, name:'', relationship:'', phone:'', email:'', notes:''
+      }).select().single();
+      if (error) { showToast('Network error'); return; }
       contacts.push(data);
       renderContacts();
+      updateProgress();
     }
 
     let iceDebounce=null;
@@ -598,148 +594,89 @@
       }, 500);
     }
 
-  <script>
-// ====================== QR: single, permanent, short code ======================
-const QR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I, etc.
-let __qr_isGenerating = false;
+    // ---------- QR (single, permanent) ----------
+    const QR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let qrBusy = false;
 
-// -- DOM bridge: supports both your old and new ids
-const QR_DOM = {
-  box:        document.getElementById('qrPreview') || document.getElementById('qrBox'),
-  link:       document.getElementById('shareableLink') || document.getElementById('shareLink'),
-  genBtn:     document.getElementById('generateQRBtn') || document.getElementById('generateQR'),
-  exportBtn:  document.getElementById('exportPNGBtn')  || document.getElementById('exportPNG'),
-  printBtn:   document.getElementById('printCardBtn')  || document.getElementById('printQR'),
-  copyBtn:    document.getElementById('copyLinkBtn')   || document.getElementById('copyLink'),
-};
+    async function initQrCard(){
+      if (profile?.code){
+        renderQR(profile.code);
+        enableQrButtons(true);
+        $('#shareLink').value = `${location.origin}/c/${profile.code}`;
+      } else {
+        enableQrButtons(false);
+        $('#shareLink').value = '';
+        $('#qrBox').innerHTML = '';
+      }
+    }
 
-// Call this after you’ve loaded userProfile/currentLanguage
-async function initQrCard() {
-  if (!QR_DOM.box) return; // no container on this page
-  if (userProfile?.code) {
-    renderQr(userProfile.code);
-    updateQrUi(true);
-  } else {
-    updateQrUi(false);
-  }
-  wireQrButtons(); // idempotent
-}
+    async function onGenerateQR(){
+      if (qrBusy) return;
+      if (profile?.code){ showToast('Code already assigned'); return; }
+      qrBusy = true; $('#generateQR').disabled = true;
+      try {
+        const code = await makeUniqueCode(6);
+        const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
+        if (error) throw error;
+        profile = data || { ...(profile||{}), code };
+        renderQR(code);
+        $('#shareLink').value = `${location.origin}/c/${code}`;
+        enableQrButtons(true);
+        showToast('QR generated');
+        updateProgress();
+      } catch(e){ console.warn(e); showToast('Network error'); }
+      finally { qrBusy=false; $('#generateQR').disabled=false; }
+    }
 
-// Generate once; keep forever
-async function onGenerateQR() {
-  if (__qr_isGenerating) return;
-  if (userProfile?.code) { showToast?.('Code already assigned'); return; }
-  try {
-    __qr_isGenerating = true;
-    const code = await generateUniqueCode(6);
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ code })
-      .eq('id', currentUser.id)
-      .select()
-      .single();
-    if (error) throw error;
-    userProfile = data || { ...(userProfile || {}), code };
-    renderQr(code);
-    updateQrUi(true);
-    showToast?.('QR generated');
-  } catch (e) {
-    console.warn('onGenerateQR', e);
-    showToast?.('Network error');
-  } finally {
-    __qr_isGenerating = false;
-  }
-}
+    async function makeUniqueCode(len=6, tries=10){
+      for (let i=0;i<tries;i++){
+        const code = Array.from({length:len},()=>QR_ALPHABET[Math.floor(Math.random()*QR_ALPHABET.length)]).join('');
+        const { data, error } = await supabase.from('profiles').select('id').eq('code', code).maybeSingle();
+        if (error) throw error;
+        if (!data) return code;
+      }
+      return crypto.randomUUID().slice(0,len).toUpperCase().replace(/[^A-Z0-9]/g,'X');
+    }
 
-// Keep the same code; just redraw URL (e.g., if lang changed or box resized)
-function rerenderQrIfExists() {
-  if (userProfile?.code) renderQr(userProfile.code);
-}
+    function renderQR(code){
+      const box = $('#qrBox'); if (!box) return;
+      box.innerHTML='';
+      const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
+      box.appendChild(canvas);
+      const url = `${location.origin}/c/${code}`;
+      QRCode.toCanvas(canvas, url, { width: Math.max(220, box.clientWidth-8), margin:1, color:{dark:'#111', light:'#fff'} });
+    }
 
-// --- helpers ---
-async function generateUniqueCode(len = 6, maxTries = 10) {
-  for (let i = 0; i < maxTries; i++) {
-    const c = Array.from({length: len}, () => QR_ALPHABET[Math.floor(Math.random() * QR_ALPHABET.length)]).join('');
-    const { data, error } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
-    if (error) throw error;        // surface network/permission errors
-    if (!data) return c;           // free code
-  }
-  // extremely unlikely fallback
-  return crypto.randomUUID().replace(/-/g,'').slice(0, len).toUpperCase().replace(/[^A-Z0-9]/g,'X');
-}
+    function enableQrButtons(on){
+      $('#exportPNG').disabled = !on;
+      $('#printQR').disabled = !on;
+      $('#copyLink').disabled = !on;
+    }
 
-function publicCardUrl(code, lang = currentLanguage || 'en') {
-  const base = `${location.origin}/c/${encodeURIComponent(code)}`;
-  return `${base}?lang=${encodeURIComponent(lang)}`;
-}
+    function copyShareLink(){
+      const v = $('#shareLink')?.value; if (!v) return;
+      if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(v).then(()=>showToast('Link copied')); }
+      else { const t=document.createElement('input'); t.value=v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast('Link copied'); }
+    }
 
-function renderQr(code) {
-  if (!QR_DOM.box) return;
-  QR_DOM.box.innerHTML = '';
-  const canvas = document.createElement('canvas'); canvas.id = 'qrCanvas';
-  QR_DOM.box.appendChild(canvas);
-  const url = publicCardUrl(code);
-  QRCode.toCanvas(canvas, url, {
-    width: Math.max(200, (QR_DOM.box.clientWidth || 260) - 8),
-    margin: 1,
-    color: { dark: '#111', light: '#fff' }
-  });
-  if (QR_DOM.link) QR_DOM.link.value = url;
-}
+    function exportQrPng(){
+      const canvas = document.getElementById('qrCanvas'); if (!canvas) return;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png'); a.download = (profile?.code || 'myqer') + '.png'; a.click();
+    }
 
-function updateQrUi(enabled) {
-  [QR_DOM.exportBtn, QR_DOM.printBtn, QR_DOM.copyBtn].forEach(b => b && (b.disabled = !enabled));
-  if (QR_DOM.link && !enabled) QR_DOM.link.value = '';
-  if (!enabled && QR_DOM.box) QR_DOM.box.innerHTML = ''; // keep clean if no code yet
-}
-
-function wireQrButtons() {
-  // idempotent: remove previous listeners by cloning (cheap & safe)
-  if (QR_DOM.genBtn)   { const n = QR_DOM.genBtn.cloneNode(true);   QR_DOM.genBtn.parentNode.replaceChild(n, QR_DOM.genBtn);   QR_DOM.genBtn = n;   QR_DOM.genBtn.addEventListener('click', onGenerateQR); }
-  if (QR_DOM.exportBtn){ const n = QR_DOM.exportBtn.cloneNode(true);QR_DOM.exportBtn.parentNode.replaceChild(n, QR_DOM.exportBtn);QR_DOM.exportBtn = n;QR_DOM.exportBtn.addEventListener('click', exportQrPng); }
-  if (QR_DOM.printBtn) { const n = QR_DOM.printBtn.cloneNode(true); QR_DOM.printBtn.parentNode.replaceChild(n, QR_DOM.printBtn); QR_DOM.printBtn = n; QR_DOM.printBtn.addEventListener('click', printEmergencyCard); }
-  if (QR_DOM.copyBtn)  { const n = QR_DOM.copyBtn.cloneNode(true);  QR_DOM.copyBtn.parentNode.replaceChild(n, QR_DOM.copyBtn);  QR_DOM.copyBtn = n;  QR_DOM.copyBtn.addEventListener('click', copyShareLink); }
-}
-
-function exportQrPng() {
-  const canvas = document.getElementById('qrCanvas'); if (!canvas) return;
-  const a = document.createElement('a');
-  a.download = (userProfile?.code || 'myqer') + '.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
-}
-function printEmergencyCard() {
-  if (!userProfile?.code) return;
-  window.open(publicCardUrl(userProfile.code), '_blank');
-}
-function copyShareLink() {
-  const v = QR_DOM.link?.value;
-  if (!v) return;
-  (navigator.clipboard?.writeText(v) || Promise.reject()).then(()=>showToast?.('Link copied')).catch(()=>{
-    // fallback
-    const t = document.createElement('input'); t.value = v; document.body.appendChild(t); t.select();
-    document.execCommand('copy'); t.remove(); showToast?.('Link copied');
-  });
-}
-
-// ====================== hook: call redraw on data/lang changes ======================
-// Call this after any successful save that could affect the public view.
-// Example: inside your saveIdentity/saveHealth success branches:
-///   rerenderQrIfExists();
-
-// Also call after language change:
-///   currentLanguage = newLang; rerenderQrIfExists();
-</script>
     // ---------- Danger Zone ----------
     async function doDeleteAccount(){
       if ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE') return;
       try {
+        $('#deleteAccount').disabled = true;
         await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
         await supabase.from('health_profiles').delete().eq('user_id', currentUser.id);
         await supabase.from('profiles').delete().eq('id', currentUser.id);
         await supabase.auth.signOut();
-        showToast('Account deleted'); setTimeout(()=>location.replace('/index.html'), 800);
+        showToast('Account deleted');
       } catch(e){ console.error(e); showToast('Network error'); }
+      finally { location.replace('/login'); }
     }
 
     // ---------- Helpers ----------
