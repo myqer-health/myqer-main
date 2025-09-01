@@ -1,58 +1,59 @@
-<!doctype html>
+<<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>MYQER - Emergency QR Card - Version 18</title>
 
-  <!-- Tailwind + Supabase + QR (QR used elsewhere but kept) -->
+  <!-- Tailwind + Supabase -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: { 'myqer-red': '#dc2626', 'luxury-gold': '#d4af37', 'platinum': '#e5e4e2' },
-          fontFamily: { 'sans': ['Inter', 'system-ui', 'sans-serif'] },
+          colors: { 'myqer-red':'#dc2626', 'luxury-gold':'#d4af37', 'platinum':'#e5e4e2' },
+          fontFamily: { 'sans':['Inter','system-ui','sans-serif'] },
           animation: {
-            'pulse-ring': 'pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite',
-            'float-slow': 'float-slow 4s ease-in-out infinite',
-            'rotate-slow': 'rotate-slow 20s linear infinite',
-            'qr-pulse': 'qr-pulse 3s ease-in-out infinite',
-            'shimmer': 'shimmer 2s linear infinite'
+            'pulse-ring':'pulse-ring 2s cubic-bezier(0.455,0.03,0.515,0.955) infinite',
+            'float-slow':'float-slow 4s ease-in-out infinite',
+            'rotate-slow':'rotate-slow 20s linear infinite',
+            'qr-pulse':'qr-pulse 3s ease-in-out infinite',
+            'shimmer':'shimmer 2s linear infinite'
           },
           keyframes: {
-            'pulse-ring': { '0%': { transform: 'scale(0.33)' }, '80%,100%': { transform: 'scale(1)', opacity: '0' } },
-            'float-slow': { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-15px)' } },
-            'rotate-slow': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
-            'qr-pulse': { '0%,100%': { transform: 'scale(1)', opacity: '0.8' }, '50%': { transform: 'scale(1.1)', opacity: '1' } },
-            'shimmer': { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } }
+            'pulse-ring':{ '0%':{transform:'scale(0.33)'}, '80%,100%':{transform:'scale(1)',opacity:'0'} },
+            'float-slow':{ '0%,100%':{transform:'translateY(0px)'}, '50%':{transform:'translateY(-15px)'} },
+            'rotate-slow':{ '0%':{transform:'rotate(0deg)'}, '100%':{transform:'rotate(360deg)'} },
+            'qr-pulse':{ '0%,100%':{transform:'scale(1)',opacity:'0.8'}, '50%':{transform:'scale(1.1)',opacity:'1'} },
+            'shimmer':{ '0%':{backgroundPosition:'-200% 0'}, '100%':{backgroundPosition:'200% 0'} }
           }
         }
       }
-    };
+    }
   </script>
 
   <style>
-    body{font-family:'Inter',system-ui,sans-serif;height:100vh;overflow:hidden}
-    .dropdown:hover .dropdown-menu{display:block}
-    .dropdown-menu{display:none}
-    .premium-gradient{background:linear-gradient(135deg,#dc2626,#d4af37,#dc2626);background-size:200% 200%;animation:shimmer 3s ease-in-out infinite}
-    .glass-effect{background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.3)}
+    /* Layout */
+    body{ font-family:'Inter',system-ui,sans-serif; min-height:100vh; overflow-x:hidden; }
+    .premium-gradient{ background:linear-gradient(135deg,#dc2626,#d4af37,#dc2626); background-size:200% 200%; animation:shimmer 3s ease-in-out infinite; }
+    .glass-effect{ background:rgba(255,255,255,.95); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.3); }
 
-    /* RTL Support */
-    [dir="rtl"]{direction:rtl}
-    [dir="rtl"] .flex{flex-direction:row-reverse}
-    [dir="rtl"] .space-x-2>*+*{margin-left:0;margin-right:.5rem}
-    [dir="rtl"] .text-left{text-align:right}
-    [dir="rtl"] .text-right{text-align:left}
+    /* Dropdown */
+    .dropdown-menu{ display:none; }
+    .dropdown.open .dropdown-menu{ display:block; }
+
+    /* RTL support */
+    [dir="rtl"]{ direction:rtl; }
+    [dir="rtl"] .flex-rtl{ flex-direction:row-reverse; }
+    [dir="rtl"] .space-x-2>*+*{ margin-left:0; margin-right:.5rem; }
 
     /* Toasts */
-    .toast{position:fixed;top:20px;right:20px;z-index:1000;padding:12px 24px;border-radius:8px;color:#fff;font-weight:500;transform:translateX(100%);transition:transform .3s}
-    .toast.show{transform:translateX(0)}
-    .toast.success{background:#10b981}.toast.error{background:#ef4444}.toast.warning{background:#f59e0b}.toast.info{background:#3b82f6}
+    .toast{ position:fixed; top:20px; right:20px; z-index:1000; padding:12px 24px; border-radius:8px; color:#fff; font-weight:600;
+            transform:translateX(120%); transition:transform .28s ease; box-shadow:0 8px 24px rgba(0,0,0,.18) }
+    .toast.show{ transform:translateX(0) }
+    .toast.success{ background:#10b981 } .toast.error{ background:#ef4444 } .toast.warning{ background:#f59e0b } .toast.info{ background:#3b82f6 }
   </style>
 </head>
 
@@ -60,16 +61,16 @@
   <!-- Toasts -->
   <div id="toastContainer"></div>
 
-  <!-- Ambient bg emojis -->
+  <!-- Background emojis -->
   <div class="fixed inset-0 pointer-events-none">
     <div class="absolute top-20 left-20 text-6xl text-myqer-red opacity-20 animate-float-slow">💓</div>
-    <div class="absolute top-40 right-32 text-4xl text-black opacity-15 animate-float-slow" style="animation-delay:1s">🫀</div>
-    <div class="absolute bottom-32 left-40 text-5xl text-myqer-red opacity-10 animate-pulse" style="animation-delay:2s">❤️</div>
-    <div class="absolute bottom-20 right-20 text-3xl text-black opacity-20 animate-float-slow" style="animation-delay:3s">💗</div>
+    <div class="absolute top-40 right-32 text-4xl opacity-15 animate-float-slow" style="animation-delay:1s;">🫀</div>
+    <div class="absolute bottom-32 left-40 text-5xl text-myqer-red opacity-10 animate-pulse" style="animation-delay:2s;">❤️</div>
+    <div class="absolute bottom-20 right-20 text-3xl opacity-20 animate-float-slow" style="animation-delay:3s;">💗</div>
     <div class="absolute top-1/3 left-10 text-4xl text-myqer-red opacity-25 animate-rotate-slow">🩺</div>
-    <div class="absolute top-1/4 right-10 text-3xl text-black opacity-20 animate-float-slow">💊</div>
+    <div class="absolute top-1/4 right-10 text-3xl opacity-20 animate-float-slow">💊</div>
     <div class="absolute bottom-1/3 right-1/4 text-2xl text-myqer-red opacity-15 animate-pulse">🚑</div>
-    <div class="absolute top-2/3 left-1/4 text-3xl text-black opacity-10 animate-float-slow">⚕️</div>
+    <div class="absolute top-2/3 left-1/4 text-3xl opacity-10 animate-float-slow">⚕️</div>
   </div>
 
   <!-- Nav -->
@@ -81,10 +82,10 @@
       <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
       <span class="text-sm font-medium text-gray-700" data-i18n="nav.online">Online</span>
     </div>
-    <div class="flex items-center space-x-4">
+    <div class="flex items-center space-x-4 flex-rtl">
       <!-- Language -->
-      <div class="dropdown relative">
-        <button id="languageBtn" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors">
+      <div class="dropdown relative" id="langDropdown">
+        <button id="languageBtn" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400 transition-colors" aria-haspopup="true" aria-expanded="false">
           <span class="text-sm font-medium" id="currentLang">🇺🇸 EN</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
         </button>
@@ -110,7 +111,7 @@
     </div>
   </nav>
 
-  <!-- Slide-out Menu -->
+  <!-- Slide-out menu -->
   <div id="menuPanel" class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50" aria-hidden="true">
     <div class="p-6">
       <div class="flex justify-between items-center mb-8">
@@ -120,11 +121,11 @@
         </button>
       </div>
       <nav class="space-y-4">
-        <a href="/about.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.about">About</a>
-        <a href="/clinician.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.clinician">Clinician</a>
-        <a href="/privacy.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.privacy">Privacy</a>
-        <a href="/terms.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.terms">Terms</a>
-        <a href="/contact.html" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.contact">Contact</a>
+        <a href="/about.html" class="navlink block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.about">About</a>
+        <a href="/clinician.html" class="navlink block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.clinician">Clinician</a>
+        <a href="/contact.html" class="navlink block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.contact">Contact</a>
+        <a href="/privacy.html" class="navlink block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.privacy">Privacy</a>
+        <a href="/terms.html" class="navlink block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.terms">Terms</a>
         <a href="#" id="menuLoginLink" class="block text-lg text-gray-700 hover:text-myqer-red transition-colors" data-i18n="menu.login">Login</a>
       </nav>
     </div>
@@ -161,6 +162,7 @@
         </div>
       </div>
 
+      <!-- CTAs -->
       <div class="flex flex-col sm:flex-row gap-6 justify-center">
         <button id="createYoursBtn" class="bg-myqer-red hover:bg-red-700 text-white font-bold py-5 px-10 rounded-xl text-lg shadow-lg transition-colors" data-i18n="hero.create_yours">➝ Create Yours</button>
         <button id="signInBtn" class="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-bold py-5 px-10 rounded-xl text-lg transition-colors" data-i18n="hero.sign_in">➝ Sign In</button>
@@ -174,8 +176,8 @@
       <div data-i18n="footer.copyright">© 2025 MYQER™ Emergency Response QR System.</div>
       <div class="flex items-center space-x-2 mt-2 sm:mt-0">
         <span data-i18n="footer.gdpr">GDPR/HIPAA-minded</span><span>·</span>
-        <a href="/privacy.html" class="hover:text-myqer-red transition-colors" data-i18n="footer.privacy">Privacy</a><span>·</span>
-        <a href="/terms.html" class="hover:text-myqer-red transition-colors" data-i18n="footer.terms">Terms</a>
+        <a href="/privacy.html" class="navlink hover:text-myqer-red transition-colors" data-i18n="footer.privacy">Privacy</a><span>·</span>
+        <a href="/terms.html" class="navlink hover:text-myqer-red transition-colors" data-i18n="footer.terms">Terms</a>
       </div>
     </div>
   </footer>
@@ -215,16 +217,11 @@
 
   <!-- Scripts -->
   <script>
-    // ---------- Supabase ----------
+    /* ================= Supabase ================= */
     const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-    });
-
-    // Redirect on auth success (belt & suspenders)
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) goDashboard();
+      auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
     });
 
     // ---------- i18n (index-only keys; 10 languages) ----------
