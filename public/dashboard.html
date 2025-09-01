@@ -217,8 +217,8 @@
 
     <!-- Main Content -->
     <main class="max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-12">
-        <!-- Vertical Stacked Cards Layout -->
-        <div class="space-y-8">
+        <!-- 2x2 Grid Cards Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             <!-- Identity & ICE Card - Enhanced -->
             <div class="premium-card rounded-3xl p-8 card-hover">
@@ -540,6 +540,12 @@
         
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
+        // Global Supabase client and profile cache
+        const sb = window.sb || supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Cache of profile/health
+        let profile = null, health = null;
+        
         let currentUser = null;
         let debounceTimers = {};
         let contacts = [];
@@ -548,6 +554,113 @@
         let medications = [];
         let currentLanguage = 'en';
         let isOffline = false;
+
+        // Load both records once at startup (and anytime after save)
+        async function loadAll() {
+            try {
+                const { data: p } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+                const { data: h } = await sb.from('health_profiles').select('*').eq('user_id', currentUser.id).single();
+                profile = p || {};
+                health = h || {};
+            } catch (error) {
+                console.error('Error loading profile data:', error);
+                profile = {};
+                health = {};
+            }
+        }
+
+        // Generate or reuse a code, then save & render QR
+        async function ensureCode() {
+            if (profile?.code && profile.code.length > 10) return profile.code;
+            const code = (crypto.randomUUID().replace(/-/g,'') + crypto.randomUUID().replace(/-/g,'')).slice(0,32);
+            const { data, error } = await sb.from('profiles').upsert({ 
+                id: currentUser.id, 
+                email: currentUser.email,
+                code,
+                updated_at: new Date().toISOString()
+            }).select().single();
+            if (error) throw error;
+            profile = data;
+            return code;
+        }
+
+        async function renderQR() {
+            const cardBox = document.getElementById('qr-canvas');
+            const linkEl = document.getElementById('share-link');
+            if (!cardBox || !linkEl) return;
+
+            // Guard against library not ready
+            if (typeof QRCode === 'undefined' || !QRCode.toCanvas) {
+                cardBox.innerHTML = '<div style="opacity:.6">QR library not loaded</div>';
+                return;
+            }
+
+            const code = await ensureCode();
+            const cardUrl = `https://www.myqer.com/c/${code}`;
+            linkEl.value = cardUrl;
+
+            // Clear previous canvas and create new one
+            cardBox.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            canvas.id = 'qr-canvas';
+            canvas.width = 200;
+            canvas.height = 200;
+            cardBox.appendChild(canvas);
+
+            // Generate branded QR
+            await QRCode.toCanvas(canvas, cardUrl, {
+                margin: 1,
+                width: 200,
+                color: {
+                    dark: '#C62828',    // MYQER red modules
+                    light: '#FFFFFF00', // transparent background
+                },
+                errorCorrectionLevel: 'H'
+            });
+
+            // Draw tiny center badge
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff'; 
+            ctx.strokeStyle = '#C62828';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); 
+            ctx.roundRect(85, 85, 30, 30, 8); 
+            ctx.fill(); 
+            ctx.stroke();
+            ctx.fillStyle = '#C62828';
+            ctx.font = '700 8px system-ui, -apple-system, Segoe UI';
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ER', 100, 100);
+
+            // Cache QR code for offline use
+            localStorage.setItem('myqer_qr_cache', canvas.toDataURL());
+            localStorage.setItem('myqer_qr_code', code);
+            localStorage.setItem('myqer_qr_url', cardUrl);
+            
+            // Update UI state
+            document.getElementById('qr-placeholder').classList.add('hidden');
+            document.getElementById('qr-display-area').classList.remove('hidden');
+            document.getElementById('generate-qr-btn').classList.add('hidden');
+            document.getElementById('code-permanent').classList.remove('hidden');
+            document.getElementById('qr-info').classList.remove('hidden');
+            document.getElementById('action-buttons').classList.remove('hidden');
+            document.getElementById('voice-summary').classList.remove('hidden');
+            
+            // Add gentle pulse animation
+            document.getElementById('qr-display-area').classList.add('qr-glow');
+            setTimeout(() => {
+                document.getElementById('qr-display-area').classList.remove('qr-glow');
+            }, 6000);
+            
+            // Update status badge
+            const badge = document.getElementById('qr-status-badge');
+            badge.className = 'px-3 py-1 rounded-lg text-xs font-semibold bg-green-100 text-green-700';
+            badge.innerHTML = '<span>Active</span>';
+            
+            // Update info
+            document.getElementById('short-code').textContent = `MYQER-${code.slice(0,8)}`;
+        }
 
         // Enhanced Translations with QR-specific terms
         const translations = {
@@ -1291,11 +1404,65 @@
             }
             currentUser = session.user;
             await loadUserData();
+            await loadAll();
         }
 
         async function signOut() {
-            await supabase.auth.signOut();
-            location.href = '/index.html';
+            try { 
+                await sb.auth.signOut(); 
+                location.replace('/'); 
+            } catch(_) {
+                location.href = '/index.html';
+            }
+        }
+
+        // Enhanced ICE Contact Management
+        function debounce(func, wait = 500) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Auto-save ICE on blur with debouncing
+        function setupICEAutoSave() {
+            const iceWrap = document.getElementById('contacts-list');
+            if (!iceWrap) return;
+
+            iceWrap.addEventListener('focusout', debounce(async () => {
+                const rows = [...iceWrap.querySelectorAll('.ice-contact-card')].map(card => {
+                    const inputs = card.querySelectorAll('input');
+                    return {
+                        name: inputs[0]?.value?.trim() || '',
+                        relationship: inputs[1]?.value?.trim() || '',
+                        phone: inputs[2]?.value?.trim() || ''
+                    };
+                }).filter(contact => contact.name || contact.phone);
+
+                try {
+                    // Clear existing contacts
+                    await sb.from('ice_contacts').delete().eq('user_id', currentUser.id);
+                    
+                    // Insert new contacts
+                    if (rows.length > 0) {
+                        const contactsToInsert = rows.map(contact => ({
+                            user_id: currentUser.id,
+                            ...contact
+                        }));
+                        await sb.from('ice_contacts').insert(contactsToInsert);
+                    }
+                    
+                    showToast('ICE contacts saved', 'success');
+                } catch (error) {
+                    showToast('Failed to save ICE contacts', 'error');
+                    console.error('ICE save error:', error);
+                }
+            }, 1000));
         }
 
         // Debounced Save
@@ -1643,50 +1810,13 @@
         // Enhanced QR Code Generation with Full Functionality
         async function generateQRCode() {
             try {
-                // Check if user already has a code
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('code')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (profile && profile.code) {
-                    showToast('Code already exists - displaying existing QR', 'info');
-                    showQRCode(profile.code);
-                    return;
-                }
-
-                // Generate unique 6-character code
-                let code;
-                let isUnique = false;
-                
-                while (!isUnique) {
-                    code = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    const { data } = await supabase
-                        .from('profiles')
-                        .select('id')
-                        .eq('code', code)
-                        .single();
-                    
-                    isUnique = !data;
-                }
-
-                // Save code to profile
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({ 
-                        code,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', currentUser.id);
-
-                if (error) throw error;
-
-                showQRCode(code);
+                await loadAll();
+                await renderQR();
                 updateCompletion();
                 showToast('Emergency QR Code generated successfully!', 'success');
             } catch (error) {
                 showToast('Failed to generate QR code: ' + error.message, 'error');
+                console.error('QR Generation Error:', error);
             }
         }
 
@@ -2091,7 +2221,32 @@
                     }
                 });
             });
+
+            // Enhanced QR Generation Button
+            document.getElementById('generate-qr-btn')?.addEventListener('click', async () => {
+                try { 
+                    await renderQR(); 
+                    showToast('Emergency code ready.', 'success'); 
+                } catch(e) { 
+                    showToast('Failed to generate QR code.', 'error'); 
+                    console.error(e); 
+                }
+            });
+
+            // Enhanced Logout Button
+            document.getElementById('btnLogout')?.addEventListener('click', async () => {
+                try { 
+                    await sb.auth.signOut(); 
+                    location.replace('/'); 
+                } catch(_) {
+                    location.href = '/index.html';
+                }
+            });
+
+            // Setup ICE auto-save functionality
+            setupICEAutoSave();
         });
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'978881d4c7ac9491',t:'MTc1Njc2ODkxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9788688265edbeaa',t:'MTc1Njc2Nzg4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
