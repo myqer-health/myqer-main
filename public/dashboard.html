@@ -1,651 +1,626 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>MYQER™ Dashboard</title>
 
-  <!-- CDNs -->
+  <!-- CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 
   <style>
     :root{--myqer-red:#dc2626}
-    html,body{font-family:'Inter',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fff;color:#0f172a}
-    .glass-effect{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(0,0,0,.06);box-shadow:0 10px 30px rgba(0,0,0,.06)}
-    .bg-myqer-red{background:var(--myqer-red)} .text-myqer-red{color:var(--myqer-red)}
-    .dropdown .dropdown-menu{display:none} .dropdown.open .dropdown-menu{display:block}
-    .toast{position:fixed;top:20px;right:20px;z-index:1000;padding:12px 16px;border-radius:10px;color:#fff;font-weight:600;opacity:.98;transform:translateY(-8px);transition:.2s}
-    .toast.show{transform:translateY(0)}
-    .toast.success{background:#10b981}.toast.error{background:#ef4444}.toast.warning{background:#f59e0b}.toast.info{background:#3b82f6}
+    html,body{font-family:'Inter',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fff}
+    .glass{background:rgba(255,255,255,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(0,0,0,.06);box-shadow:0 10px 30px rgba(0,0,0,.06)}
+    .btn-primary{background:var(--myqer-red);color:#fff;font-weight:700;border-radius:.75rem;padding:.75rem 1rem}
+    .btn-primary[disabled]{opacity:.5;cursor:not-allowed}
+    .tag{display:inline-flex;align-items:center;gap:.25rem;background:#e5e7eb;color:#111;padding:.25rem .5rem;border-radius:999px;font-size:.825rem}
+    .tag button{color:#6b7280}
+    .toast{position:fixed;top:20px;right:20px;z-index:1000;background:#111;color:#fff;padding:.75rem 1rem;border-radius:.5rem;opacity:0;transform:translateY(-8px);transition:.25s}
+    .toast.show{opacity:1;transform:none}
   </style>
 </head>
-<body class="bg-white">
+<body class="min-h-screen">
 
-  <!-- Delete Confirmation Modal -->
-  <div id="deleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-red-600">Confirm Account Deletion</h2>
-        <button id="closeDeleteModal" class="text-gray-500 hover:text-gray-700" aria-label="Close">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59z"/></svg>
-        </button>
-      </div>
-
-      <div class="mb-5">
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <div class="flex items-start space-x-2">
-            <svg width="20" height="20" viewBox="0 0 24 24" class="text-red-600" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2V8h2v6z"/></svg>
-            <p class="text-sm text-red-700">This permanently deletes your profile, health, contacts, and disables your QR.</p>
-          </div>
-        </div>
-        <p class="text-gray-700 mb-3">Type <b>DELETE</b> to confirm:</p>
-        <input id="deleteConfirmInput" class="w-full px-4 py-3 border rounded-lg" placeholder="DELETE"/>
-      </div>
-
-      <div class="flex gap-3">
-        <button id="cancelDeleteBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg">Cancel</button>
-        <button id="deleteAccountBtn" class="flex-1 bg-gray-300 text-gray-500 cursor-not-allowed font-semibold py-3 rounded-lg" disabled>Delete Account</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Contact Modal -->
-  <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
-    <div class="bg-white rounded-lg p-8 max-w-md mx-4 w-full">
-      <div class="flex justify-between items-center mb-6">
-        <h2 id="contactModalTitle" class="text-2xl font-bold text-gray-900">Add Emergency Contact</h2>
-        <button id="closeContactModal" class="text-gray-500 hover:text-gray-700" aria-label="Close">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59z"/></svg>
-        </button>
-      </div>
-
-      <form id="contactForm" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-          <input type="text" id="contactName" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="Emergency contact name" required>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
-          <select id="contactRelationship" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent">
-            <option value="">Select relationship</option>
-            <option value="spouse">Spouse</option><option value="parent">Parent</option>
-            <option value="child">Child</option><option value="sibling">Sibling</option>
-            <option value="partner">Partner</option><option value="friend">Friend</option>
-            <option value="colleague">Colleague</option><option value="doctor">Doctor</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
-          <input type="tel" id="contactPhone" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="+1 (555) 123-4567" required>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input type="email" id="contactEmail" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="contact@email.com">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-          <textarea id="contactNotes" rows="3" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent" placeholder="Additional notes (optional)"></textarea>
-        </div>
-        <button type="submit" id="saveContactBtn" class="w-full bg-myqer-red hover:bg-red-700 text-white font-bold py-3 rounded-lg">Save Contact</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Dashboard -->
-  <div id="dashboardPage" class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <nav class="flex justify-between items-center p-6 border-b border-gray-200">
-      <div class="flex items-center space-x-2">
-        <span class="text-2xl font-bold text-gray-900">MYQ<span class="text-myqer-red">ER</span>™</span>
-      </div>
-      <div class="flex items-center space-x-2">
-        <div id="netDot" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-        <span id="netText" class="text-sm font-medium text-gray-700">Online</span>
-      </div>
-      <div class="flex items-center space-x-4">
-        <div class="dropdown relative">
-          <button id="langToggle" class="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:border-gray-400">
-            <span class="text-sm font-medium" id="dashboardCurrentLang">🇺🇸 EN</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-          </button>
-          <div class="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="en">🇺🇸 English</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="es">🇪🇸 Español</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="fr">🇫🇷 Français</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="de">🇩🇪 Deutsch</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="it">🇮🇹 Italiano</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hi">🇮🇳 हिंदी</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ar">🇸🇦 العربية</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="zh">🇨🇳 中文</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="hu">🇭🇺 Magyar</a>
-            <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-50" data-lang="ro">🇷🇴 Română</a>
-          </div>
-        </div>
-        <button id="logoutBtn" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-myqer-red">Logout</button>
-      </div>
-    </nav>
-
-    <!-- Content -->
-    <main class="p-6 grow">
-      <div class="max-w-7xl mx-auto">
-
-        <!-- Profile completion -->
-        <div class="mb-6">
-          <div class="glass-effect rounded-3xl p-6 border-l-4 border-blue-500">
-            <div class="flex items-center justify-between">
-              <div>
-                <h2 class="text-2xl font-bold text-gray-900">Profile Completion</h2>
-                <p class="text-gray-600">Complete your emergency profile</p>
-              </div>
-              <div class="flex items-center space-x-4">
-                <div class="relative w-20 h-20">
-                  <svg class="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" stroke-width="3"/>
-                    <path id="progressCircle" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="0, 100"/>
-                  </svg>
-                  <div class="absolute inset-0 flex items-center justify-center">
-                    <span id="progressPercent" class="text-xl font-bold text-gray-900">0%</span>
-                  </div>
-                </div>
-                <div class="space-y-1 text-sm">
-                  <div class="flex items-center space-x-2"><span id="identityStatus" class="text-amber-500">○</span><span>Identity Complete</span></div>
-                  <div class="flex items-center space-x-2"><span id="healthStatus" class="text-amber-500">○</span><span>Health Profile</span></div>
-                  <div class="flex items-center space-x-2"><span id="contactsStatus" class="text-amber-500">○</span><span>ICE Contacts</span></div>
-                  <div class="flex items-center space-x-2"><span id="qrStatus" class="text-amber-500">○</span><span>QR Code Ready</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Identity + Health -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-          <!-- Identity -->
-          <div class="glass-effect rounded-3xl p-8 border-l-4 border-green-500">
-            <div class="flex justify-between items-start mb-6">
-              <div>
-                <h3 class="text-2xl font-bold text-gray-900">Identity Information</h3>
-                <p class="text-sm text-gray-600 mt-2">These details help first responders confirm who you are</p>
-              </div>
-              <div id="identityCheckmark" class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center"><span class="text-white text-lg">○</span></div>
-            </div>
-
-            <div class="space-y-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Full Legal Name *</label>
-                <input type="text" id="fullName" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="Enter your full legal name" required>
-                <p class="text-xs text-gray-500 mt-2">As it appears on your ID</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
-                <input type="text" id="dateOfBirth" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="DD/MM/YYYY" required>
-                <p class="text-xs text-gray-500 mt-2">Format: DD/MM/YYYY</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Country of Residence *</label>
-                <select id="country" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" required>
-                  <option value="">Select your country</option>
-                  <option value="US">🇺🇸 United States</option>
-                  <option value="CA">🇨🇦 Canada</option>
-                  <option value="GB">🇬🇧 United Kingdom</option>
-                  <option value="AU">🇦🇺 Australia</option>
-                  <option value="DE">🇩🇪 Germany</option>
-                  <option value="FR">🇫🇷 France</option>
-                  <option value="ES">🇪🇸 Spain</option>
-                  <option value="IT">🇮🇹 Italy</option>
-                  <option value="JP">🇯🇵 Japan</option>
-                  <option value="CN">🇨🇳 China</option>
-                  <option value="IN">🇮🇳 India</option>
-                  <option value="BR">🇧🇷 Brazil</option>
-                  <option value="MX">🇲🇽 Mexico</option>
-                  <option value="SA">🇸🇦 Saudi Arabia</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">National Health ID</label>
-                <input type="text" id="healthId" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="NHS Number, SSN, or similar">
-                <p class="text-xs text-gray-500 mt-2">NHS Number, SSN, or similar national health identifier</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Health -->
-          <div class="glass-effect rounded-3xl p-8 border-l-4 border-red-500">
-            <div class="flex justify-between items-start mb-6">
-              <div>
-                <h3 class="text-2xl font-bold text-gray-900">Health Profile</h3>
-                <p class="text-sm text-gray-600 mt-2">Critical medical information that appears on your emergency card.</p>
-              </div>
-              <div id="healthCheckmark" class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center"><span class="text-white text-lg">○</span></div>
-            </div>
-
-            <div class="space-y-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
-                <select id="bloodType" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
-                  <option value="">Select blood type</option>
-                  <option value="A+">A+</option><option value="A-">A-</option>
-                  <option value="B+">B+</option><option value="B-">B-</option>
-                  <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                  <option value="O+">O+</option><option value="O-">O-</option>
-                  <option value="Unknown">Unknown</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-2">Critical for blood transfusions</p>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Organ Donor Status</label>
-                <select id="organDonor" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
-                  <option value="">Select status</option>
-                  <option value="yes">Yes (Registered)</option>
-                  <option value="no">No (Not a donor)</option>
-                  <option value="unspecified">Not specified</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-2">Check your driver's license or ID</p>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Life Support Preference</label>
-                <select id="lifeSupport" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg">
-                  <option value="">Select preference</option>
-                  <option value="full">Full Life Support</option>
-                  <option value="limited">Limited</option>
-                  <option value="comfort">Comfort Care Only</option>
-                  <option value="dnr">DNR</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-2">Your preference for end-of-life care</p>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Critical Allergies ⚠️</label>
-                <div class="flex flex-wrap gap-2 mb-2" id="allergiesPills"></div>
-                <input type="text" id="allergiesInput" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="Type allergy and press Enter">
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
-                <div class="flex flex-wrap gap-2 mb-2" id="conditionsPills"></div>
-                <input type="text" id="conditionsInput" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="Type condition and press Enter">
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Medications</label>
-                <div class="flex flex-wrap gap-2 mb-2" id="medicationsPills"></div>
-                <input type="text" id="medicationsInput" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red focus:border-transparent text-lg" placeholder="Type medication and press Enter">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Triage -->
-        <div class="glass-effect rounded-3xl p-8 border-l-4 border-amber-500 mb-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-2xl font-bold text-gray-900 mb-2">Triage</h3>
-              <p class="text-gray-600">Auto-computed from your data; you can override.</p>
-            </div>
-            <div id="triageBadge" class="inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white bg-amber-500">🟡 <span class="ml-2">Amber — Urgent</span></div>
-          </div>
-          <div class="mt-5 max-w-sm">
-            <label class="block text-sm text-gray-700 mb-2">Override</label>
-            <select id="triageOverride" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-myqer-red">
-              <option value="auto">Auto (recommended)</option>
-              <option value="green">Green — Stable</option>
-              <option value="amber">Amber — Urgent</option>
-              <option value="red">Red — Immediate</option>
-              <option value="black">Black — Comfort</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Contacts + QR -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-          <!-- ICE Contacts -->
-          <div class="glass-effect rounded-3xl p-8 border-l-4 border-purple-500">
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <h3 class="text-2xl font-bold text-gray-900">ICE Contacts</h3>
-                <p class="text-gray-600">Add up to 5 trusted contacts.</p>
-                <p id="contactsCounter" class="text-sm text-gray-500 mt-1">0 of 5 added</p>
-              </div>
-              <button id="addContactBtn" class="px-4 py-2 bg-myqer-red text-white rounded-lg hover:bg-red-700">Add Contact</button>
-            </div>
-            <div id="emptyState" class="text-gray-500">No contacts yet.</div>
-            <div id="contactsList" class="space-y-3 mt-4"></div>
-          </div>
-
-          <!-- QR -->
-          <div class="glass-effect rounded-3xl p-8 border-l-4 border-gray-800">
-            <div class="flex items-start justify-between mb-4">
-              <div>
-                <h3 class="text-2xl font-bold text-gray-900">Your QR Code</h3>
-                <p class="text-gray-600">Single code for your public emergency card.</p>
-              </div>
-              <button id="generateQRBtn" class="px-4 py-2 bg-myqer-red text-white rounded-lg hover:bg-red-700">Generate</button>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-6 items-center">
-              <div id="qrPreview" class="border rounded-xl aspect-square flex items-center justify-center bg-white">
-                <span class="text-gray-400">No code yet</span>
-              </div>
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-sm text-gray-700 mb-1">Share link</label>
-                  <div class="flex gap-2">
-                    <input id="shareableLink" readonly class="flex-1 px-3 py-2 border rounded-lg" value="">
-                    <button id="copyLinkBtn" class="px-3 py-2 border rounded-lg hover:bg-gray-50">Copy</button>
-                  </div>
-                </div>
-                <div class="flex gap-2">
-                  <button id="exportPNGBtn" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50" disabled>Export PNG</button>
-                  <button id="printCardBtn" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50" disabled>Print</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Danger Zone -->
-        <div class="glass-effect rounded-3xl p-8 border-l-4 border-red-600">
-          <h3 class="text-2xl font-bold text-gray-900 mb-4">Danger Zone</h3>
-          <p class="text-gray-600 mb-4">This will delete your profile, health data, contacts, and disable your QR.</p>
-          <div class="flex gap-3">
-            <button id="openDeleteModal" class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg">Delete Account</button>
-          </div>
-        </div>
-
-      </div>
-    </main>
-  </div>
-
+  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <!-- Header -->
+  <header class="w-full border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="text-2xl font-extrabold">MYQ<span class="text-red-600">ER</span>™</div>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 text-sm text-gray-700">
+          <span id="netDot" class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+          <span id="netLabel">Online</span>
+        </div>
+        <button id="logoutBtn" class="text-sm font-semibold hover:text-red-600">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+    <!-- Profile Completion -->
+    <section class="glass rounded-2xl p-6 flex items-center justify-between">
+      <div>
+        <h2 class="text-2xl font-bold">Profile Completion</h2>
+        <p class="text-gray-600">Complete your emergency profile.</p>
+      </div>
+      <div class="flex items-center gap-6">
+        <div class="relative w-20 h-20">
+          <svg class="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+            <path id="progressArc" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="0,100"/>
+          </svg>
+          <div class="absolute inset-0 grid place-items-center">
+            <span id="progressPct" class="text-xl font-bold">0%</span>
+          </div>
+        </div>
+        <ul class="text-sm space-y-1">
+          <li><span id="chkIdentity" class="font-bold text-amber-600">○</span> Identity</li>
+          <li><span id="chkHealth" class="font-bold text-amber-600">○</span> Health</li>
+          <li><span id="chkContacts" class="font-bold text-amber-600">○</span> ICE</li>
+          <li><span id="chkQR" class="font-bold text-amber-600">○</span> QR</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Identity + Health -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Identity -->
+      <div class="glass rounded-2xl p-6 border-l-4 border-green-500">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h3 class="text-xl font-bold">Identity Information</h3>
+            <p class="text-gray-600 text-sm">Helps first responders confirm who you are.</p>
+          </div>
+          <div id="iconIdentity" class="w-8 h-8 rounded-full grid place-items-center bg-amber-500 text-white">○</div>
+        </div>
+
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium mb-1">Full Legal Name *</label>
+            <input id="full_name" type="text" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="Jane Doe" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Date of Birth *</label>
+            <input id="date_of_birth" type="text" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="DD/MM/YYYY" required>
+            <p class="text-xs text-gray-500 mt-1">Format: DD/MM/YYYY</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Country of Residence *</label>
+            <select id="country" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" required>
+              <option value="">Select your country</option>
+              <option value="GB">🇬🇧 United Kingdom</option>
+              <option value="US">🇺🇸 United States</option>
+              <option value="CA">🇨🇦 Canada</option>
+              <option value="DE">🇩🇪 Germany</option>
+              <option value="FR">🇫🇷 France</option>
+              <option value="ES">🇪🇸 Spain</option>
+              <option value="IT">🇮🇹 Italy</option>
+              <option value="IN">🇮🇳 India</option>
+              <option value="CN">🇨🇳 China</option>
+              <option value="AU">🇦🇺 Australia</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">National Health ID</label>
+            <input id="national_health_id" type="text" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="NHS Number, SSN, etc."/>
+            <p class="text-xs text-gray-500 mt-1">Stored privately. Not shown on your public card.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health -->
+      <div class="glass rounded-2xl p-6 border-l-4 border-red-500">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h3 class="text-xl font-bold">Health Profile</h3>
+            <p class="text-gray-600 text-sm">Appears on your emergency card. Keep accurate.</p>
+          </div>
+          <div id="iconHealth" class="w-8 h-8 rounded-full grid place-items-center bg-amber-500 text-white">○</div>
+        </div>
+
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium mb-1">Blood Type</label>
+            <select id="blood_type" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600">
+              <option value="">Select blood type</option>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Organ Donor Status</label>
+            <select id="organ_donor" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600">
+              <option value="">Select status</option>
+              <option value="yes">Yes (Registered)</option>
+              <option value="no">No (Not a donor)</option>
+              <option value="unspecified">Not specified</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Life Support Preference</label>
+            <select id="life_support_pref" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600">
+              <option value="">Select preference</option>
+              <option value="Full">Full Life Support</option>
+              <option value="Limited">Limited</option>
+              <option value="Comfort">Comfort Care Only</option>
+              <option value="DNR">DNR</option>
+            </select>
+          </div>
+
+          <!-- Allergies / Conditions / Meds -->
+          <div>
+            <label class="block text-sm font-semibold">Critical Allergies ⚠️</label>
+            <div id="allergiesPills" class="flex flex-wrap gap-2 my-2"></div>
+            <input id="allergiesInput" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="Type allergy and press Enter"/>
+            <p class="text-xs text-gray-500 mt-1">Drug/food/environmental (e.g., Penicillin, Peanut).</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold">Medical Conditions</label>
+            <div id="conditionsPills" class="flex flex-wrap gap-2 my-2"></div>
+            <input id="conditionsInput" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="Type condition and press Enter"/>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold">Medications</label>
+            <div id="medicationsPills" class="flex flex-wrap gap-2 my-2"></div>
+            <input id="medicationsInput" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600" placeholder="Type medication and press Enter"/>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Triage -->
+    <section class="glass rounded-2xl p-6 border-l-4 border-amber-500">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 class="text-xl font-bold">Triage</h3>
+          <p class="text-gray-600 text-sm">Auto-computed from your data. You can override.</p>
+          <p class="text-xs text-gray-500 mt-1">Disclaimer: MYQER does not diagnose or provide medical advice. This triage label is user-provided and assistive only for responders.</p>
+        </div>
+        <div id="triageBadge" class="inline-flex items-center px-6 py-3 rounded-full text-white text-lg font-bold bg-green-600">
+          🟢 <span class="ml-2">Green — Stable</span>
+        </div>
+      </div>
+      <div class="mt-4 max-w-sm">
+        <label class="block text-sm font-medium mb-1">Override</label>
+        <select id="triage_override" class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-600">
+          <option value="auto">Auto (recommended)</option>
+          <option value="Green">Green — Stable</option>
+          <option value="Amber">Amber — Urgent</option>
+          <option value="Red">Red — Immediate</option>
+          <option value="Black">Black — Comfort Care</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ICE + QR -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- ICE -->
+      <div class="glass rounded-2xl p-6 border-l-4 border-purple-500">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-xl font-bold">ICE Contacts</h3>
+            <p class="text-gray-600 text-sm"><span id="contactsCounter">0</span> of 5 added</p>
+          </div>
+          <button id="addContact" class="btn-primary">Add Contact</button>
+        </div>
+        <div id="contactsList" class="space-y-3"></div>
+        <div id="noContacts" class="text-sm text-gray-500">Add people you trust. Name and phone are required.</div>
+      </div>
+
+      <!-- QR -->
+      <div class="glass rounded-2xl p-6 border-l-4 border-gray-800">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold">Your QR Code</h3>
+          <button id="generateQR" class="btn-primary">Generate</button>
+        </div>
+        <p class="text-gray-600 text-sm mb-4">Single, permanent code for your public emergency card.</p>
+        <div id="qrBox" class="border rounded-xl h-52 grid place-items-center mb-3 overflow-hidden bg-white"></div>
+
+        <div class="flex items-center gap-2 mb-3">
+          <input id="shareLink" class="flex-1 border rounded-lg px-3 py-2 text-sm" readonly placeholder="Share link"/>
+          <button id="copyLink" class="px-3 py-2 border rounded-lg text-sm">Copy</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="exportPNG" class="px-3 py-2 border rounded-lg text-sm" disabled>Export PNG</button>
+          <button id="printQR" class="px-3 py-2 border rounded-lg text-sm" disabled>Print</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="glass rounded-2xl p-8 border border-red-200 text-center">
+      <h3 class="text-xl font-bold mb-2 text-red-700">Danger Zone</h3>
+      <p class="text-gray-700 mb-4">This will delete your profile, health data, contacts, and disable your QR.</p>
+      <div class="max-w-sm mx-auto">
+        <input id="confirmDelete" class="w-full border rounded-lg px-4 py-3 mb-3" placeholder='Type "DELETE" to confirm'/>
+        <button id="deleteAccount" class="btn-primary w-full" disabled>Delete Account</button>
+      </div>
+    </section>
+
+  </main>
+
   <script>
-    /* ---------- Supabase ---------- */
+    // ---------- Supabase ----------
     const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
 
-    /* ---------- State ---------- */
+    // ---------- State ----------
     let currentUser = null;
-    let userProfile = null;
-    let userHealthProfile = null;
-    let userContacts = [];
-    const saveTimeouts = { identity:null, health:null };
-    let editingContactId = null;
-    let currentLanguage = localStorage.getItem('myqer_language') || 'en';
+    let profile = null;
+    let health = null;
+    let contacts = [];
 
-    /* ---------- Helpers ---------- */
-    const $ = (id) => document.getElementById(id);
-    function showToast(msg, type='info', ms=2000){
-      const t = $('toast');
-      t.textContent = msg; t.className = `toast show ${type}`;
-      setTimeout(()=> t.className = 'toast', ms);
-    }
-    function langBadge(lang){
-      const map={en:'🇺🇸 EN',es:'🇪🇸 ES',fr:'🇫🇷 FR',de:'🇩🇪 DE',it:'🇮🇹 IT',hi:'🇮🇳 HI',ar:'🇸🇦 AR',zh:'🇨🇳 ZH',hu:'🇭🇺 HU',ro:'🇷🇴 RO'};
-      return map[lang] || '🇺🇸 EN';
-    }
-    function setLanguage(lang){
-      currentLanguage = lang;
-      localStorage.setItem('myqer_language', lang);
-      $('dashboardCurrentLang').textContent = langBadge(lang);
-      if (lang === 'ar') document.documentElement.setAttribute('dir','rtl');
-      else document.documentElement.setAttribute('dir','ltr');
-      // Persist preference
-      if (currentUser) supabase.from('profiles').update({ lang }).eq('id', currentUser.id);
-      // Re-render QR link with the new lang
-      if (userProfile?.code) $('shareableLink').value = makePublicCardUrl(userProfile.code, currentLanguage);
-    }
-    function makePublicCardUrl(code, lang){ return `${location.origin}/c/${encodeURIComponent(code)}?lang=${encodeURIComponent(lang||'en')}`; }
-    function escapeHtml(s=''){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    const $ = (sel) => document.querySelector(sel);
 
-    /* ---------- Network indicator ---------- */
-    function updateNet(){
-      const on = navigator.onLine;
-      $('netDot').className = `w-3 h-3 rounded-full ${on?'bg-green-500':'bg-gray-400'}`;
-      $('netText').textContent = on ? 'Online' : 'Offline';
-    }
-    window.addEventListener('online', updateNet);
-    window.addEventListener('offline', updateNet);
+    // ---------- Boot / guard ----------
+    document.addEventListener('DOMContentLoaded', async () => {
+      // simple online indicator
+      const setNet = () => {
+        $('#netDot').className = 'w-2.5 h-2.5 rounded-full ' + (navigator.onLine ? 'bg-green-500 animate-pulse':'bg-gray-400');
+        $('#netLabel').textContent = navigator.onLine ? 'Online' : 'Offline';
+      };
+      window.addEventListener('online', setNet); window.addEventListener('offline', setNet); setNet();
 
-    /* ---------- Route guard ---------- */
-    async function guard(){
-      const { data:{ session } } = await supabase.auth.getSession();
-      if (!session?.user){ location.replace('/index.html'); return false; }
-      currentUser = session.user;
-      return true;
-    }
-    supabase.auth.onAuthStateChange(async (e,session)=>{
-      if (e === 'SIGNED_OUT') location.replace('/index.html');
+      // route guard
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUser = session?.user || null;
+      if (!currentUser) {
+        location.replace('/index.html'); return;
+      }
+
+      // wire events
+      wireEvents();
+
+      // load all
+      await loadAll();
+
+      // QR on load
+      await ensureQrRendered();
     });
 
-    /* ---------- Loaders ---------- */
-    async function loadProfile(){
-      const { data, error } = await supabase.from('profiles').select('*').single();
-      if (!error && data){ userProfile = data; if (data.lang) setLanguage(data.lang); }
-    }
-    async function loadHealth(){
-      const { data, error } = await supabase.from('health_profiles').select('*').single();
-      if (!error && data) userHealthProfile = data;
-      else userHealthProfile = { user_id: currentUser.id };
-    }
-    async function loadContacts(){
-      const { data, error } = await supabase.from('ice_contacts').select('*').order('created_at',{ascending:true});
-      userContacts = (!error && data) ? data : [];
-      renderContactsList();
+    supabase.auth.onAuthStateChange((ev, session) => {
+      if (ev === 'SIGNED_OUT') location.replace('/index.html');
+    });
+
+    // ---------- Events ----------
+    function wireEvents(){
+      // logout
+      $('#logoutBtn').addEventListener('click', async () => {
+        await supabase.auth.signOut();
+      });
+
+      // identity autosave (debounced)
+      ['#full_name','#date_of_birth','#national_health_id'].forEach(id=>{
+        $(id).addEventListener('input', ()=>debouncedSave(identitySave, 650));
+        $(id).addEventListener('blur', ()=>debouncedSave(identitySave, 50));
+      });
+      $('#country').addEventListener('change', ()=>identitySave());
+
+      // health dropdown autosave
+      ['#blood_type','#organ_donor','#life_support_pref'].forEach(id=>{
+        $(id).addEventListener('change', ()=>saveHealthFields());
+      });
+
+      // pills: Enter adds, blur also adds & saves
+      $('#allergiesInput').addEventListener('keydown', e=>pillKey(e,'allergies'));
+      $('#conditionsInput').addEventListener('keydown', e=>pillKey(e,'conditions'));
+      $('#medicationsInput').addEventListener('keydown', e=>pillKey(e,'medications'));
+      $('#allergiesInput').addEventListener('blur', e=>addBlurToPills(e,'allergies'));
+      $('#conditionsInput').addEventListener('blur', e=>addBlurToPills(e,'conditions'));
+      $('#medicationsInput').addEventListener('blur', e=>addBlurToPills(e,'medications'));
+
+      // triage override
+      $('#triage_override').addEventListener('change', async ()=>{
+        const v = $('#triage_override').value;
+        health = health || {};
+        health.triage_override = (v==='auto'?null:v);
+        await upsertHealth({ triage_override: health.triage_override });
+        updateTriage();
+      });
+
+      // ICE CRUD
+      $('#addContact').addEventListener('click', createBlankContact);
+      $('#contactsList').addEventListener('input', iceAutosaveHandler);
+      $('#contactsList').addEventListener('change', iceAutosaveHandler);
+      $('#contactsList').addEventListener('click', async (e)=>{
+        const btn = e.target.closest('[data-del]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-del');
+        await supabase.from('ice_contacts').delete().eq('id', id);
+        contacts = contacts.filter(c=>c.id!==id);
+        renderContacts();
+        showToast('Contact deleted','');
+        updateProgress();
+      });
+
+      // QR actions
+      $('#generateQR').addEventListener('click', onGenerateQR);
+      $('#copyLink').addEventListener('click', copyShareLink);
+      $('#exportPNG').addEventListener('click', exportQrPng);
+      $('#printQR').addEventListener('click', ()=>{ const u=$('#shareLink').value; if(u) window.open(u,'_blank'); });
+
+      // Danger zone
+      $('#confirmDelete').addEventListener('input', ()=>{
+        $('#deleteAccount').disabled = ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE');
+      });
+      $('#deleteAccount').addEventListener('click', doDeleteAccount);
     }
 
-    /* ---------- Hydrate ---------- */
+    // ---------- Loaders ----------
+    async function loadAll(){
+      const [pRes, hRes, cRes] = await Promise.all([
+        supabase.from('profiles').select('*').single(),
+        supabase.from('health_profiles').select('*').single(),
+        supabase.from('ice_contacts').select('*').order('created_at',{ascending:true})
+      ]);
+      if (!pRes.error) profile = pRes.data || null;
+      if (!hRes.error) health  = hRes.data  || null;
+      if (!cRes.error) contacts = cRes.data || [];
+
+      hydrateIdentity();
+      hydrateHealth();
+      renderContacts();
+      updateTriage();
+      updateProgress();
+    }
+
+    // ---------- Identity ----------
     function hydrateIdentity(){
-      const p = userProfile || {};
-      $('fullName').value = p.full_name || '';
-      $('dateOfBirth').value = p.date_of_birth || '';
-      $('country').value = p.country || '';
-      $('healthId').value = p.national_health_id || '';
-    }
-    function hydrateHealth(){
-      const h = userHealthProfile || {};
-      $('bloodType').value = h.blood_type || '';
-      $('organDonor').value = h.organ_donor === true ? 'yes' : (h.organ_donor === false ? 'no' : '');
-      $('lifeSupport').value = h.life_support_pref || '';
-      hydratePills('allergiesPills', h.allergies);
-      hydratePills('conditionsPills', h.conditions);
-      hydratePills('medicationsPills', h.medications);
-      updateTriageBadge();
-    }
-    function hydratePills(containerId, csv){
-      const el = $(containerId); el.innerHTML = '';
-      (csv ? String(csv).split(',') : []).map(s=>s.trim()).filter(Boolean)
-        .forEach(v => el.appendChild(makePill(v, containerId)));
-    }
-    function makePill(text, containerId){
-      const pill = document.createElement('span');
-      pill.className = 'inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm';
-      pill.textContent = text;
-      const close = document.createElement('button');
-      close.className = 'ml-2 text-gray-600 hover:text-red-600'; close.textContent = '×';
-      close.addEventListener('click', async ()=>{ pill.remove(); await saveHealthPills(containerId); });
-      pill.appendChild(close);
-      return pill;
+      $('#full_name').value = profile?.full_name || '';
+      $('#date_of_birth').value = profile?.date_of_birth || '';
+      $('#country').value = profile?.country || '';
+      $('#national_health_id').value = profile?.national_health_id || '';
     }
 
-    /* ---------- Autosave ---------- */
-    function debouncedSave(kind){
-      clearTimeout(saveTimeouts[kind]);
-      saveTimeouts[kind] = setTimeout(()=>{ if (kind==='identity') saveIdentity(); if (kind==='health') saveHealth(); }, 700);
-    }
-    async function saveIdentity(){
+    let identTimer=null;
+    function debouncedSave(fn,ms){ clearTimeout(identTimer); identTimer=setTimeout(fn,ms); }
+
+    async function identitySave(){
       const patch = {
-        id: currentUser.id,
-        full_name: $('fullName').value.trim(),
-        date_of_birth: $('dateOfBirth').value.trim(),
-        country: $('country').value,
-        national_health_id: $('healthId').value.trim(),
-        updated_at: new Date().toISOString()
+        full_name: $('#full_name').value.trim(),
+        date_of_birth: $('#date_of_birth').value.trim(),
+        country: $('#country').value,
+        national_health_id: $('#national_health_id').value.trim()
       };
-      const { data, error } = await supabase.from('profiles').upsert(patch).select().single();
-      if (!error){ userProfile = data; showToast('Profile saved','success'); updateProgress(); }
+      const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().single();
+      if (!error) {
+        profile = data;
+        showToast('Identity saved');
+        updateProgress();
+      }
     }
-    async function saveHealth(){
-      const organSel = $('organDonor').value || '';
-      const patch = {
-        user_id: currentUser.id,
-        blood_type: $('bloodType').value || null,
-        organ_donor: (organSel==='yes') ? true : (organSel==='no' ? false : null),
-        life_support_pref: $('lifeSupport').value || null
-      };
-      await upsertHealth(patch);
-      showToast('Health saved','success');
-      updateTriageBadge(); updateProgress();
+
+    // ---------- Health ----------
+    function hydrateHealth(){
+      const hp = health || {};
+      $('#blood_type').value = hp.blood_type || '';
+      $('#organ_donor').value = (hp.organ_donor===true?'yes':hp.organ_donor===false?'no':(hp.organ_donor===null? '': (hp.organ_donor||'')));
+      $('#life_support_pref').value = hp.life_support_pref || '';
+
+      hydratePills('allergiesPills', hp.allergies);
+      hydratePills('conditionsPills', hp.conditions);
+      hydratePills('medicationsPills', hp.medications);
     }
+
+    function hydratePills(containerId, csv){
+      const box = document.getElementById(containerId);
+      box.innerHTML='';
+      (csv?csv.split(','):[]).map(s=>s.trim()).filter(Boolean)
+        .forEach(val=> box.appendChild(makePill(val, containerId)));
+    }
+
+    function makePill(text, containerId){
+      const span = document.createElement('span');
+      span.className='tag';
+      span.innerHTML = `<span>${escapeHtml(text)}</span><button aria-label="Remove">×</button>`;
+      span.querySelector('button').addEventListener('click', async ()=>{
+        span.remove(); await saveHealthPills(containerId);
+      });
+      return span;
+    }
+
+    function pillKey(e, kind){
+      if (e.key!=='Enter') return;
+      e.preventDefault();
+      addValueToPills(e.target.value, kind);
+      e.target.value='';
+    }
+
+    function addBlurToPills(e, kind){
+      const v = (e.target.value||'').trim();
+      if (!v) return;
+      addValueToPills(v, kind);
+      e.target.value='';
+    }
+
+    function addValueToPills(raw, kind){
+      const map = { allergies:'allergiesPills', conditions:'conditionsPills', medications:'medicationsPills' };
+      const cont = document.getElementById(map[kind]);
+      raw.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean)
+        .forEach(tok => cont.appendChild(makePill(tok, cont.id)));
+      saveHealthPills(cont.id);
+    }
+
     async function saveHealthPills(containerId){
-      const pills = Array.from($(containerId).querySelectorAll('span')).map(s => s.firstChild.nodeValue.trim());
-      const csv = pills.join(', ');
-      const patch = { user_id: currentUser.id };
+      const vals = Array.from(document.getElementById(containerId).querySelectorAll('.tag span:first-child'))
+        .map(n=>n.textContent.trim()).filter(Boolean);
+      const csv = Array.from(new Set(vals.map(v=>v.toLowerCase()))).map(v=>v).join(', ');
+      const patch = {};
       if (containerId==='allergiesPills') patch.allergies = csv;
       if (containerId==='conditionsPills') patch.conditions = csv;
       if (containerId==='medicationsPills') patch.medications = csv;
       await upsertHealth(patch);
-      showToast('Health saved','success');
-      updateTriageBadge(); updateProgress();
+      showToast('Health saved');
+      updateTriage();
+      updateProgress();
     }
+
+    async function saveHealthFields(){
+      const organVal = $('#organ_donor').value;
+      const patch = {
+        blood_type: $('#blood_type').value || null,
+        organ_donor: (organVal==='yes'?true:organVal==='no'?false:null),
+        life_support_pref: $('#life_support_pref').value || null
+      };
+      await upsertHealth(patch);
+      showToast('Health saved');
+      updateTriage();
+      updateProgress();
+    }
+
     async function upsertHealth(patch){
-      userHealthProfile = Object.assign(userHealthProfile || { user_id: currentUser.id }, patch);
-      const payload = {
-        user_id: currentUser.id,
-        blood_type: userHealthProfile.blood_type ?? null,
-        organ_donor: (userHealthProfile.organ_donor ?? null),
-        life_support_pref: userHealthProfile.life_support_pref ?? null,
-        allergies: userHealthProfile.allergies ?? null,
-        conditions: userHealthProfile.conditions ?? null,
-        medications: userHealthProfile.medications ?? null,
-        triage_override: userHealthProfile.triage_override ?? null,
-        updated_at: new Date().toISOString()
+      health = {...(health||{}), ...patch};
+      await supabase.from('health_profiles').upsert({
+        blood_type: health.blood_type ?? null,
+        organ_donor: health.organ_donor ?? null,
+        life_support_pref: health.life_support_pref ?? null,
+        allergies: health.allergies ?? null,
+        conditions: health.conditions ?? null,
+        medications: health.medications ?? null,
+        triage_override: health.triage_override ?? null
+      }, { onConflict:'user_id' });
+    }
+
+    // ---------- Triage ----------
+    function updateTriage(){
+      const color = computeTriage();
+      const badge = $('#triageBadge');
+      const map = {
+        Green:{bg:'bg-green-600',label:'Green — Stable',icon:'🟢'},
+        Amber:{bg:'bg-amber-500',label:'Amber — Urgent',icon:'🟡'},
+        Red:{bg:'bg-red-600',label:'Red — Immediate',icon:'🔴'},
+        Black:{bg:'bg-gray-900',label:'Black — Comfort Care',icon:'⚫'}
       };
-      await supabase.from('health_profiles').upsert(payload, { onConflict:'user_id' });
+      const m = map[color]||map.Green;
+      badge.className = `inline-flex items-center px-6 py-3 rounded-full text-white text-lg font-bold ${m.bg}`;
+      badge.innerHTML = `${m.icon} <span class="ml-2">${m.label}</span>`;
+      $('#triage_override').value = health?.triage_override ? health.triage_override : 'auto';
     }
 
-    /* ---------- Progress ---------- */
-    function updateProgress(){
-      const iOK = !!$('fullName').value.trim() && !!$('dateOfBirth').value.trim() && !!$('country').value;
-      const hp = userHealthProfile || {};
-      const hOK = !!(hp.blood_type || hp.organ_donor !== undefined || hp.life_support_pref ||
-                     (hp.allergies && hp.allergies.trim()) || (hp.conditions && hp.conditions.trim()) || (hp.medications && hp.medications.trim()));
-      const cOK = (userContacts || []).length > 0;
-      const qOK = !!userProfile?.code;
+    function computeTriage(){
+      const hp = health||{};
+      // Override
+      if (hp.triage_override && hp.triage_override!=='auto') return hp.triage_override;
 
-      $('identityCheckmark').className = 'w-8 h-8 rounded-full flex items-center justify-center ' + (iOK ? 'bg-green-500' : 'bg-amber-500');
-      $('healthCheckmark').className   = 'w-8 h-8 rounded-full flex items-center justify-center ' + (hOK ? 'bg-green-500' : 'bg-amber-500');
+      // Black: DNR
+      if ((hp.life_support_pref||'').toUpperCase()==='DNR') return 'Black';
 
-      $('identityStatus').className = iOK ? 'text-green-600' : 'text-amber-500';
-      $('healthStatus').className   = hOK ? 'text-green-600' : 'text-amber-500';
-      $('contactsStatus').className = cOK ? 'text-green-600' : 'text-amber-500';
-      $('qrStatus').className       = qOK ? 'text-green-600' : 'text-amber-500';
+      const allergies = (hp.allergies||'').toLowerCase();
+      const conditions = (hp.conditions||'').toLowerCase();
+      const medications = (hp.medications||'').toLowerCase();
 
-      const pct = Math.round(([iOK,hOK,cOK,qOK].filter(Boolean).length/4)*100);
-      $('progressPercent').textContent = pct + '%';
-      $('progressCircle').setAttribute('stroke-dasharray', `${pct}, 100`);
-    }
+      // Red triggers (common criticals)
+      const redAllergy = ['anaphylaxis','epipen','penicillin','amoxicillin','codeine','morphine','peanut','shellfish','bee sting'];
+      if (redAllergy.some(w=>allergies.includes(w))) return 'Red';
+      const redCond = ['heart attack','myocard','mi ','stroke','seizure','status epilepticus','cancer','copd severe','oxygen dependent','dialysis'];
+      if (redCond.some(w=>conditions.includes(w))) return 'Red';
 
-    /* ---------- Contacts ---------- */
-    function renderContactsList(){
-      const list = $('contactsList'); list.querySelectorAll('.contact-card').forEach(n=>n.remove());
-      if (!userContacts.length) $('emptyState').classList.remove('hidden'); else $('emptyState').classList.add('hidden');
-      userContacts.forEach(c => list.appendChild(contactCard(c)));
-      $('contactsCounter').textContent = `${userContacts.length} of 5 added`;
-    }
-    function contactCard(c){
-      const wrap = document.createElement('div');
-      wrap.className = 'contact-card border rounded-lg p-4';
-      wrap.innerHTML = `
-        <div class="flex justify-between">
-          <div>
-            <div class="font-semibold">${escapeHtml(c.name||'')}</div>
-            <div class="text-sm text-gray-600">${escapeHtml(c.relationship||'')}</div>
-            <div class="text-sm mt-1">${escapeHtml(c.phone||'')}</div>
-            ${c.email ? `<div class="text-sm">${escapeHtml(c.email)}</div>`:''}
-            ${c.notes ? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(c.notes)}</div>`:''}
-          </div>
-          <div class="flex gap-2">
-            <button class="px-3 py-1 rounded border hover:bg-gray-50" data-act="edit">Edit</button>
-            <button class="px-3 py-1 rounded border text-red-600 hover:bg-red-50" data-act="del">Delete</button>
-          </div>
-        </div>`;
-      wrap.querySelector('[data-act="edit"]').onclick = ()=> openContactModal(c);
-      wrap.querySelector('[data-act="del"]').onclick  = ()=> deleteContact(c.id);
-      return wrap;
-    }
-    function openContactModal(c=null){
-      editingContactId = c?.id || null;
-      $('contactModalTitle').textContent = c ? 'Edit Emergency Contact' : 'Add Emergency Contact';
-      $('contactName').value = c?.name || '';
-      $('contactRelationship').value = c?.relationship || '';
-      $('contactPhone').value = c?.phone || '';
-      $('contactEmail').value = c?.email || '';
-      $('contactNotes').value = c?.notes || '';
-      $('contactModal').classList.remove('hidden');
-    }
-    function closeContactModal(){ $('contactModal').classList.add('hidden'); editingContactId = null; }
-    async function saveContactFromModal(e){
-      e.preventDefault();
-      const name = $('contactName').value.trim(); const phone = $('contactPhone').value.trim();
-      if (!name || !phone){ showToast('Name and phone required','warning'); return; }
-      const payload = {
-        user_id: currentUser.id,
-        name,
-        relationship: $('contactRelationship').value || '',
-        phone,
-        email: $('contactEmail').value || '',
-        notes: $('contactNotes').value || ''
-      };
-      if (editingContactId){
-        await supabase.from('ice_contacts').update(payload).eq('id', editingContactId);
-        Object.assign(userContacts.find(x=>x.id===editingContactId)||{}, payload);
-      } else {
-        if (userContacts.length >= 5){ showToast('Max 5 contacts','warning'); return; }
-        const row = Object.assign({ id: crypto.randomUUID() }, payload);
-        const { error } = await supabase.from('ice_contacts').insert(row);
-        if (!error) userContacts.push(row);
-      }
-      closeContactModal(); renderContactsList(); updateProgress(); showToast('Contact saved','success');
-    }
-    async function deleteContact(id){
-      await supabase.from('ice_contacts').delete().eq('id', id);
-      userContacts = userContacts.filter(c => c.id !== id);
-      renderContactsList(); updateProgress(); showToast('Contact deleted','success');
+      // Amber: any info at all, or ≥3 meds
+      const anyInfo = [allergies,conditions,medications].some(s=>s.trim());
+      const medsCount = medications ? medications.split(',').map(s=>s.trim()).filter(Boolean).length : 0;
+      if (anyInfo || medsCount>=3) return 'Amber';
+
+      // Default
+      return 'Green';
     }
 
-    /* ---------- QR (single-issue) ---------- */
-    async function initQrCard(){
-      if (userProfile?.code){
-        renderQr(userProfile.code);
-        $('shareableLink').value = makePublicCardUrl(userProfile.code, currentLanguage);
-        $('exportPNGBtn').disabled = false; $('printCardBtn').disabled = false;
-      }
+    // ---------- ICE ----------
+    function renderContacts(){
+      const list = $('#contactsList');
+      list.innerHTML='';
+      if (!contacts.length){ $('#noContacts').classList.remove('hidden'); } else { $('#noContacts').classList.add('hidden'); }
+      contacts.forEach(c=>{
+        const row = document.createElement('div');
+        row.className='border rounded-xl p-4';
+        row.innerHTML = `
+          <div class="grid grid-cols-12 gap-3 items-center">
+            <input class="col-span-3 border rounded-lg px-3 py-2" data-field="name" data-id="${c.id}" placeholder="Name*" value="${escapeHtml(c.name||'')}">
+            <input class="col-span-2 border rounded-lg px-3 py-2" data-field="relationship" data-id="${c.id}" placeholder="Relationship" value="${escapeHtml(c.relationship||'')}">
+            <input class="col-span-3 border rounded-lg px-3 py-2" data-field="phone" data-id="${c.id}" placeholder="Phone*" value="${escapeHtml(c.phone||'')}">
+            <input class="col-span-3 border rounded-lg px-3 py-2" data-field="email" data-id="${c.id}" placeholder="Email" value="${escapeHtml(c.email||'')}">
+            <button class="col-span-1 text-red-600 border rounded-lg px-3 py-2" data-del="${c.id}">Delete</button>
+            <textarea class="col-span-12 mt-2 border rounded-lg px-3 py-2" data-field="notes" data-id="${c.id}" rows="2" placeholder="Notes">${escapeHtml(c.notes||'')}</textarea>
+          </div>`;
+        list.appendChild(row);
+      });
+      $('#contactsCounter').textContent = `${contacts.length} of 5 added`;
     }
-    async function onGenerateQR(){
-      if (userProfile?.code){ showToast('Code already assigned','warning'); return; }
-      const code = await generateUniqueCode();
-      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().single();
-      if (!error && data){
-        userProfile = data;
-        renderQr(code);
-        $('shareableLink').value = makePublicCardUrl(code, currentLanguage);
-        $('exportPNGBtn').disabled = false; $('printCardBtn').disabled = false;
+
+    async function createBlankContact(){
+      if (contacts.length>=5){ showToast('Max 5 contacts',''); return; }
+      const { data, error } = await supabase.from('ice_contacts').insert({ name:'', phone:'' }).select().single();
+      if (error) return;
+      contacts.push(data);
+      renderContacts();
+    }
+
+    let iceDebounce=null;
+    function iceAutosaveHandler(e){
+      const el = e.target;
+      const id = el.getAttribute('data-id');
+      const field = el.getAttribute('data-field');
+      if (!id || !field) return;
+      const row = contacts.find(c=>c.id===id);
+      if (!row) return;
+      row[field] = el.value;
+      clearTimeout(iceDebounce);
+      iceDebounce = setTimeout(async ()=>{
+        if (!row.name?.trim() || !row.phone?.trim()){
+          showToast('Name and phone are required',''); return;
+        }
+        await supabase.from('ice_contacts').update({
+          name: row.name, relationship: row.relationship||'', phone: row.phone,
+          email: row.email||'', notes: row.notes||''
+        }).eq('id', id);
+        showToast('Contact saved','');
         updateProgress();
-        showToast('QR generated','success');
+      }, 500);
+    }
+
+    // ---------- QR ----------
+    async function ensureQrRendered(){
+      if (profile?.code){
+        renderQR(profile.code);
+        enableQrButtons(true);
+        $('#generateQR').disabled = false;
+        $('#shareLink').value = `${location.origin}/c/${profile.code}`;
       }
     }
-    async function generateUniqueCode(){
+
+    async function onGenerateQR(){
+      if (profile?.code){
+        showToast('Code already assigned',''); return;
+      }
+      const code = await makeUniqueCode();
+      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().single();
+      if (error) return;
+      profile = data;
+      renderQR(code);
+      $('#shareLink').value = `${location.origin}/c/${code}`;
+      enableQrButtons(true);
+      showToast('QR generated','');
+      updateProgress();
+    }
+
+    async function makeUniqueCode(){
       for (let i=0;i<6;i++){
         const code = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
         const { data } = await supabase.from('profiles').select('id').eq('code', code).maybeSingle();
@@ -653,146 +628,73 @@
       }
       return crypto.randomUUID().slice(0,6).toUpperCase();
     }
-    function renderQr(code){
-      const box = $('qrPreview'); box.innerHTML = '';
-      const canvas = document.createElement('canvas'); box.appendChild(canvas);
-      const url = makePublicCardUrl(code, currentLanguage);
-      QRCode.toCanvas(canvas, url, { width: box.clientWidth-8, margin:1, color:{dark:'#111',light:'#fff'} });
+
+    function renderQR(code){
+      const box = $('#qrBox'); box.innerHTML='';
+      const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
+      box.appendChild(canvas);
+      QRCode.toCanvas(canvas, `${location.origin}/c/${code}`, { width: box.clientWidth-8, margin:1, color:{dark:'#111', light:'#fff'} });
     }
+
+    function enableQrButtons(on){
+      $('#exportPNG').disabled = !on;
+      $('#printQR').disabled = !on;
+    }
+
     function copyShareLink(){
-      const v = $('shareableLink').value || ''; if (!v) return;
-      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(v).then(()=>showToast('Link copied','success'));
-      else { const i=document.createElement('input'); i.value=v; document.body.appendChild(i); i.select(); document.execCommand('copy'); i.remove(); showToast('Link copied','success'); }
+      const v = $('#shareLink').value;
+      if (!v) return;
+      if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(v).then(()=>showToast('Link copied','')); }
+      else { const t=document.createElement('input'); t.value=v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast('Link copied',''); }
     }
+
     function exportQrPng(){
-      const canvas = $('qrPreview').querySelector('canvas'); if (!canvas) return;
-      const a = document.createElement('a'); a.download = (userProfile?.code || 'myqer') + '.png'; a.href = canvas.toDataURL('image/png'); a.click();
-    }
-    function printCardBtnClick(){
-      if (!userProfile?.code) return;
-      window.open(makePublicCardUrl(userProfile.code, currentLanguage), '_blank');
+      const canvas = $('#qrCanvas'); if (!canvas) return;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png'); a.download = (profile?.code || 'myqer') + '.png'; a.click();
     }
 
-    /* ---------- Triage ---------- */
-    function computeAutoTriage(){
-      const h = userHealthProfile || {};
-      if ((h.life_support_pref||'').toLowerCase()==='dnr') return 'black';
-      const allergies = (h.allergies||'').toLowerCase();
-      const redWords=['anaphylaxis','epipen','penicillin','peanut','shellfish'];
-      if (redWords.some(w=>allergies.includes(w))) return 'red';
-      const conds=(h.conditions||'').toLowerCase();
-      const hard=['heart','stroke','seizure','cancer'];
-      const condCount=(h.conditions||'').split(',').map(s=>s.trim()).filter(Boolean).length;
-      if (hard.some(w=>conds.includes(w)) || condCount>=3) return 'red';
-      const hasAny = (allergies.trim() || conds.trim() || (h.medications||'').trim());
-      if (hasAny) return 'amber';
-      return 'green';
-    }
-    function setTriageBadge(color){
-      const badge=$('triageBadge');
-      const map={green:['bg-green-600','🟢 Green — Stable'],amber:['bg-amber-500','🟡 Amber — Urgent'],red:['bg-red-600','🔴 Red — Immediate'],black:['bg-gray-900','⚫ Black — Comfort']};
-      const m=map[color]||map.green;
-      badge.className=`inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white ${m[0]}`;
-      badge.innerHTML=m[1];
-    }
-    function updateTriageBadge(){
-      const h=userHealthProfile||{};
-      const override=(h.triage_override||'').toLowerCase();
-      const color=(override && override!=='auto') ? override : computeAutoTriage();
-      setTriageBadge(color);
-      $('triageOverride').value = override || 'auto';
-    }
-    async function onTriageOverrideChange(){
-      const val = $('triageOverride').value || 'auto';
-      userHealthProfile = userHealthProfile || { user_id: currentUser.id };
-      userHealthProfile.triage_override = (val==='auto'? null : val);
-      await upsertHealth({ triage_override: userHealthProfile.triage_override });
-      updateTriageBadge(); showToast('Triage updated','success');
-    }
-
-    /* ---------- Delete Account ---------- */
-    function handleDeleteTyping(){
-      const ok = ($('deleteConfirmInput').value.trim().toUpperCase()==='DELETE');
-      const b=$('deleteAccountBtn');
-      b.disabled=!ok;
-      b.className = ok ? 'flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg' :
-        'flex-1 bg-gray-300 text-gray-500 cursor-not-allowed font-semibold py-3 rounded-lg';
-    }
+    // ---------- Danger Zone ----------
     async function doDeleteAccount(){
-      if (!currentUser) return;
-      try{
-        await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-        await supabase.from('health_profiles').delete().eq('user_id', currentUser.id);
-        if (userProfile?.code) await supabase.from('scan_events').delete().eq('code', userProfile.code);
-        await supabase.from('profiles').delete().eq('id', currentUser.id);
+      if ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE') return;
+      try {
+        await supabase.from('ice_contacts').delete().neq('id','');
+        await supabase.from('health_profiles').delete().neq('user_id','');
+        await supabase.from('profiles').delete().neq('id','');
         await supabase.auth.signOut();
-        showToast('Account deleted','success');
-        setTimeout(()=>location.replace('/index.html'), 600);
-      }catch(e){ console.error(e); showToast('Network error','error',3000); }
+        showToast('Account deleted'); setTimeout(()=>location.replace('/index.html'), 800);
+      } catch(e){ console.error(e); showToast('Network error'); }
     }
 
-    /* ---------- Events ---------- */
-    function wireEvents(){
-      // language menu
-      document.querySelectorAll('.dropdown-menu [data-lang]').forEach(a=>{
-        a.addEventListener('click', e=>{ e.preventDefault(); setLanguage(a.getAttribute('data-lang')); });
-      });
-      $('langToggle').addEventListener('click', ()=>{
-        const root = $('langToggle').parentElement;
-        root.classList.toggle('open');
-        setTimeout(()=>root.classList.remove('open'), 4000);
-      });
+    // ---------- Helpers ----------
+    function updateProgress(){
+      const iOK = !!(profile?.full_name && profile?.date_of_birth && profile?.country);
+      const hOK = !!( (health?.blood_type) || (health?.life_support_pref) ||
+                      (health?.allergies?.trim()) || (health?.conditions?.trim()) || (health?.medications?.trim()) );
+      const cOK = contacts.length>0;
+      const qOK = !!profile?.code;
 
-      $('logoutBtn').onclick = async ()=>{ await supabase.auth.signOut(); location.replace('/index.html'); };
+      $('#iconIdentity').className = 'w-8 h-8 rounded-full grid place-items-center ' + (iOK?'bg-green-600 text-white':'bg-amber-500 text-white');
+      $('#iconHealth').className = 'w-8 h-8 rounded-full grid place-items-center ' + (hOK?'bg-green-600 text-white':'bg-amber-500 text-white');
 
-      // autosaves
-      $('fullName').addEventListener('input',()=>debouncedSave('identity'));
-      $('dateOfBirth').addEventListener('input',()=>debouncedSave('identity'));
-      $('country').addEventListener('change',()=>debouncedSave('identity'));
-      $('healthId').addEventListener('input',()=>debouncedSave('identity'));
+      $('#chkIdentity').className = iOK?'font-bold text-green-600':'font-bold text-amber-600';
+      $('#chkHealth').className = hOK?'font-bold text-green-600':'font-bold text-amber-600';
+      $('#chkContacts').className = cOK?'font-bold text-green-600':'font-bold text-amber-600';
+      $('#chkQR').className = qOK?'font-bold text-green-600':'font-bold text-amber-600';
 
-      $('bloodType').addEventListener('change',()=>debouncedSave('health'));
-      $('organDonor').addEventListener('change',()=>debouncedSave('health'));
-      $('lifeSupport').addEventListener('change',()=>debouncedSave('health'));
-
-      // pills
-      $('allergiesInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(e.target.value.trim()){ $('allergiesPills').appendChild(makePill(e.target.value.trim(),'allergiesPills')); e.target.value=''; saveHealthPills('allergiesPills'); }}});
-      $('conditionsInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(e.target.value.trim()){ $('conditionsPills').appendChild(makePill(e.target.value.trim(),'conditionsPills')); e.target.value=''; saveHealthPills('conditionsPills'); }}});
-      $('medicationsInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(e.target.value.trim()){ $('medicationsPills').appendChild(makePill(e.target.value.trim(),'medicationsPills')); e.target.value=''; saveHealthPills('medicationsPills'); }}});
-
-      // contacts
-      $('addContactBtn').onclick = ()=> openContactModal();
-      $('closeContactModal').onclick = closeContactModal;
-      $('contactForm').addEventListener('submit', saveContactFromModal);
-
-      // QR
-      $('generateQRBtn').onclick = onGenerateQR;
-      $('copyLinkBtn').onclick = copyShareLink;
-      $('exportPNGBtn').onclick = exportQrPng;
-      $('printCardBtn').onclick = printCardBtnClick;
-
-      // delete
-      $('openDeleteModal').onclick = ()=> { $('deleteConfirmModal').classList.remove('hidden'); $('deleteConfirmInput').value=''; handleDeleteTyping(); };
-      $('closeDeleteModal').onclick = ()=> $('deleteConfirmModal').classList.add('hidden');
-      $('cancelDeleteBtn').onclick = ()=> $('deleteConfirmModal').classList.add('hidden');
-      $('deleteConfirmInput').addEventListener('input', handleDeleteTyping);
-      $('deleteAccountBtn').onclick = doDeleteAccount;
+      const complete = [iOK,hOK,cOK,qOK].filter(Boolean).length;
+      const pct = Math.round(complete/4*100);
+      $('#progressPct').textContent = pct+'%';
+      $('#progressArc').setAttribute('stroke-dasharray', `${pct},100`);
     }
 
-    /* ---------- Boot ---------- */
-    (async function init(){
-      updateNet();
-      $('dashboardCurrentLang').textContent = langBadge(currentLanguage);
-      if (!(await guard())) return;
+    function escapeHtml(s=''){ return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
-      wireEvents();
-
-      await Promise.all([loadProfile(), loadHealth(), loadContacts()]);
-      hydrateIdentity(); hydrateHealth(); updateProgress(); await initQrCard();
-
-      // ensure badge + dir reflect stored lang
-      setLanguage(currentLanguage);
-    })();
+    let toastTimer=null;
+    function showToast(msg){
+      const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+    }
   </script>
 </body>
 </html>
