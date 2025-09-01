@@ -1718,6 +1718,438 @@ $('#deleteAccountBtn')?.addEventListener('click', async ()=>{
 function debounce(key, fn, ms){
   clearTimeout(saveTimers[key]); saveTimers[key] = setTimeout(fn, ms);
 }
+    <script>
+/* =============== Supabase =============== */
+const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+/* =============== State =============== */
+let currentUser = null;
+let userProfile = null;          // profiles row
+let userHealthProfile = null;    // health_profiles row
+let userContacts = [];           // ice_contacts rows
+let saveTimeouts = { identity: null, health: null };
+
+/* =============== Small helpers =============== */
+const $  = (id) => document.getElementById(id);
+function toast(msg, type='info') {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className='toast'; document.body.appendChild(t); }
+  t.className = `toast show ${type}`;
+  t.textContent = msg;
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function escapeHtml(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* =============== Auth boot =============== */
+document.addEventListener('DOMContentLoaded', init);
+supabase.auth.onAuthStateChange((_e, session) => {
+  if (_e === 'SIGNED_OUT') window.location.replace('/');
+});
+
+async function init(){
+  // must run after DOM exists
+  const { data:{ session } } = await supabase.auth.getSession();
+  currentUser = session?.user || null;
+  if (!currentUser) {
+    // hard redirect to login/landing
+    window.location.replace('/');
+    return;
+  }
+
+  await loadEverything();
+  wireUI();
+  updateProgress();
+  updateTriageBadge();
+  initQrCard();
+}
+
+/* =============== Loaders =============== */
+async function loadEverything(){
+  await Promise.all([loadProfile(), loadHealth(), loadContacts()]);
+  hydrateIdentity();
+  hydrateHealth();
+  renderContacts();
+}
+
+async function loadProfile(){
+  // rely on RLS, but also filter to be safe
+  const { data, error } = await supabase.from('profiles')
+    .select('*').eq('id', currentUser.id).maybeSingle();
+  if (error) console.error(error);
+  userProfile = data || {};
+}
+
+async function loadHealth(){
+  const { data, error } = await supabase.from('health_profiles')
+    .select('*').eq('user_id', currentUser.id).maybeSingle();
+  if (error) console.error(error);
+  userHealthProfile = data || null;
+}
+
+async function loadContacts(){
+  const { data, error } = await supabase.from('ice_contacts')
+    .select('*').eq('user_id', currentUser.id).order('created_at',{ascending:true});
+  if (error) console.error(error);
+  userContacts = data || [];
+}
+
+/* =============== Hydrate UI =============== */
+function hydrateIdentity(){
+  $('fullName')     && ( $('fullName').value     = userProfile?.full_name || '' );
+  $('dateOfBirth')  && ( $('dateOfBirth').value  = userProfile?.date_of_birth || '' );
+  $('country')      && ( $('country').value      = userProfile?.country || '' );
+  $('healthId')     && ( $('healthId').value     = userProfile?.national_health_id || '' );
+}
+
+function hydrateHealth(){
+  const hp = userHealthProfile || {};
+  $('bloodType')    && ( $('bloodType').value    = hp.blood_type || '' );
+  $('organDonor')   && ( $('organDonor').value   = (hp.organ_donor===true?'yes':hp.organ_donor===false?'no':'') );
+  $('lifeSupport')  && ( $('lifeSupport').value  = hp.life_support_pref || '' );
+
+  hydratePills('allergiesPills',  hp.allergies);
+  hydratePills('conditionsPills', hp.conditions);
+  hydratePills('medicationsPills',hp.medications);
+}
+
+function hydratePills(containerId, csv){
+  const cont = $(containerId); if(!cont) return;
+  cont.innerHTML = '';
+  (csv ? String(csv).split(',') : []).map(s=>s.trim()).filter(Boolean)
+    .forEach(val => cont.appendChild(makePill(val, containerId)));
+}
+
+function makePill(text, containerId){
+  const pill = document.createElement('span');
+  pill.className = 'inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm';
+  pill.textContent = text;
+  const x = document.createElement('button');
+  x.className='ml-2 text-gray-600 hover:text-red-600'; x.textContent='×';
+  x.addEventListener('click', async ()=>{ pill.remove(); await saveHealthPills(containerId); });
+  pill.appendChild(x);
+  return pill;
+}
+
+/* =============== Wiring =============== */
+function wireUI(){
+  // Identity autosave
+  $('fullName')    && $('fullName').addEventListener('input',  ()=>debounced('identity', saveIdentity));
+  $('dateOfBirth') && $('dateOfBirth').addEventListener('input',()=>debounced('identity', saveIdentity));
+  $('country')     && $('country').addEventListener('change',  ()=>debounced('identity', saveIdentity));
+  $('healthId')    && $('healthId').addEventListener('input',  ()=>debounced('identity', saveIdentity));
+
+  // Health autosave
+  $('bloodType')   && $('bloodType').addEventListener('change',()=>debounced('health', saveHealth));
+  $('organDonor')  && $('organDonor').addEventListener('change',()=>debounced('health', saveHealth));
+  $('lifeSupport') && $('lifeSupport').addEventListener('change',()=>debounced('health', saveHealth));
+
+  // Pills
+  $('allergiesInput')  && $('allergiesInput').addEventListener('keydown',e=>pillKey(e,'allergiesPills'));
+  $('conditionsInput') && $('conditionsInput').addEventListener('keydown',e=>pillKey(e,'conditionsPills'));
+  $('medicationsInput')&& $('medicationsInput').addEventListener('keydown',e=>pillKey(e,'medicationsPills'));
+
+  // Triage
+  $('triageOverride') && $('triageOverride').addEventListener('change', onTriageOverride);
+
+  // Contacts
+  $('addContactBtn') && $('addContactBtn').addEventListener('click', ()=>openContactModal());
+  $('contactForm')   && $('contactForm').addEventListener('submit', saveContact);
+
+  // QR
+  $('generateQRBtn') && $('generateQRBtn').addEventListener('click', onGenerateQR);
+  $('exportPNGBtn')  && $('exportPNGBtn').addEventListener('click', exportQrPng);
+  $('printCardBtn')  && $('printCardBtn').addEventListener('click', printCard);
+
+  // Danger Zone
+  $('deleteAccountBtn') && $('deleteAccountBtn').addEventListener('click', showDeleteConfirm);
+}
+
+/* =============== Debounce =============== */
+function debounced(kind, fn){
+  clearTimeout(saveTimeouts[kind]);
+  saveTimeouts[kind] = setTimeout(fn, 700);
+}
+
+/* =============== Saves =============== */
+async function saveIdentity(){
+  const patch = {
+    id: currentUser.id,
+    full_name: $('fullName')?.value?.trim() || null,
+    date_of_birth: $('dateOfBirth')?.value?.trim() || null,
+    country: $('country')?.value || null,
+    national_health_id: $('healthId')?.value?.trim() || null,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('profiles').upsert(patch).select().maybeSingle();
+  if (error) { console.error(error); return toast('Network error','error'); }
+  userProfile = data || patch;
+  toast('Profile saved','success');
+  updateProgress(); updateTriageBadge();
+}
+
+async function saveHealth(){
+  // ensure we have a holder
+  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
+  userHealthProfile = {
+    ...userHealthProfile,
+    user_id: currentUser.id,
+    blood_type: $('bloodType')?.value || null,
+    organ_donor: ( $('organDonor')?.value==='yes' ? true : $('organDonor')?.value==='no' ? false : null ),
+    life_support_pref: $('lifeSupport')?.value || null
+  };
+  await upsertHealth(userHealthProfile);
+  toast('Health saved','success');
+  updateProgress(); updateTriageBadge();
+}
+
+async function saveHealthPills(containerId){
+  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
+  const values = Array.from($(containerId)?.querySelectorAll('span')||[])
+    .map(s=>s.firstChild?.nodeValue||'').map(s=>s.trim()).filter(Boolean);
+  const csv = values.join(', ');
+  if (containerId==='allergiesPills')   userHealthProfile.allergies  = csv;
+  if (containerId==='conditionsPills')  userHealthProfile.conditions = csv;
+  if (containerId==='medicationsPills') userHealthProfile.medications= csv;
+  userHealthProfile.user_id = currentUser.id;
+  await upsertHealth(userHealthProfile);
+  toast('Saved','success');
+  updateProgress(); updateTriageBadge();
+}
+
+async function upsertHealth(hp){
+  const payload = {
+    user_id: currentUser.id,
+    blood_type: hp.blood_type ?? null,
+    organ_donor: (hp.organ_donor ?? null),
+    life_support_pref: hp.life_support_pref ?? null,
+    allergies: hp.allergies ?? null,
+    conditions: hp.conditions ?? null,
+    medications: hp.medications ?? null,
+    triage_override: hp.triage_override ?? null,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase.from('health_profiles')
+    .upsert(payload, { onConflict: 'user_id' }).select().maybeSingle();
+  if (error) console.error(error);
+  if (data) userHealthProfile = data;
+}
+
+/* =============== Pills input =============== */
+function pillKey(e, contId){
+  if (e.key!=='Enter') return;
+  e.preventDefault();
+  const val = (e.target.value||'').trim();
+  if (!val) return;
+  $(contId).appendChild(makePill(val, contId));
+  e.target.value='';
+  saveHealthPills(contId);
+}
+
+/* =============== Progress & Triage =============== */
+function updateProgress(){
+  const iOK = !!($('fullName')?.value?.trim() && $('dateOfBirth')?.value?.trim() && $('country')?.value);
+  const hp = userHealthProfile || {};
+  const hOK = !!(hp.blood_type || hp.organ_donor!==undefined || hp.life_support_pref ||
+                 (hp.allergies&&hp.allergies.trim()) || (hp.conditions&&hp.conditions.trim()) || (hp.medications&&hp.medications.trim()));
+  const cOK = (userContacts||[]).length>0;
+  const qOK = !!userProfile?.code;
+
+  if ($('identityStatus')) $('identityStatus').className = iOK?'text-green-600':'text-amber-500';
+  if ($('healthStatus'))   $('healthStatus').className   = hOK?'text-green-600':'text-amber-500';
+  if ($('contactsStatus')) $('contactsStatus').className = cOK?'text-green-600':'text-amber-500';
+  if ($('qrStatus'))       $('qrStatus').className       = qOK?'text-green-600':'text-amber-500';
+
+  const pct = Math.round(100 * [iOK,hOK,cOK,qOK].filter(Boolean).length / 4);
+  $('progressPercent') && ( $('progressPercent').textContent = pct + '%' );
+  $('progressCircle')  && ( $('progressCircle').setAttribute('stroke-dasharray', `${pct}, 100`) );
+}
+
+function computeAutoTriage(){
+  const hp = userHealthProfile || {};
+  if ((hp.life_support_pref||'').toLowerCase()==='dnr') return 'black';
+  const a = (hp.allergies||'').toLowerCase();
+  const c = (hp.conditions||'').toLowerCase();
+  const redAllergy = ['anaphylaxis','epipen','penicillin','peanut','shellfish'];
+  const redCond    = ['heart failure','cardiac arrest','stroke','seizure','cancer','dialysis'];
+  if (redAllergy.some(w=>a.includes(w)) || redCond.some(w=>c.includes(w))) return 'red';
+
+  const medsCount = (hp.medications||'').split(',').map(s=>s.trim()).filter(Boolean).length;
+  const anyFlags  = (a.trim() || c.trim() || (hp.medications||'').trim());
+  if (anyFlags && medsCount>=3) return 'amber';
+  if (anyFlags) return 'amber';
+  return 'green';
+}
+
+function setTriageBadge(color){
+  const badge = $('triageBadge'); if(!badge) return;
+  const map = { green:['bg-green-500','Green — Stable','🟢'], amber:['bg-amber-500','Amber — Urgent','🟡'], red:['bg-red-600','Red — Immediate','🔴'], black:['bg-gray-900','Black — Comfort Care','⚫'] };
+  const [bg, label, dot] = map[color] || map.green;
+  badge.className = `inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white ${bg}`;
+  badge.innerHTML = `${dot} <span>${label}</span>`;
+}
+
+function updateTriageBadge(){
+  const override = (userHealthProfile?.triage_override||'').toLowerCase();
+  const color = (override && override!=='auto') ? override : computeAutoTriage();
+  setTriageBadge(color);
+  $('triageOverride') && ($('triageOverride').value = override || 'auto');
+}
+
+async function onTriageOverride(){
+  const v = $('triageOverride').value || 'auto';
+  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
+  userHealthProfile.triage_override = (v==='auto'?null:v);
+  await upsertHealth(userHealthProfile);
+  updateTriageBadge();
+  toast('Triage updated','success');
+}
+
+/* =============== Contacts (CRUD) =============== */
+function renderContacts(){
+  const list = $('contactsList'); if(!list) return;
+  list.querySelectorAll('.contact-card').forEach(n=>n.remove());
+  if (!userContacts.length) $('emptyState')?.classList.remove('hidden'); else $('emptyState')?.classList.add('hidden');
+  userContacts.forEach(c => list.appendChild(card(c)));
+  $('contactsCounter') && ( $('contactsCounter').textContent = `${userContacts.length} of 5 added` );
+}
+
+function card(c){
+  const el = document.createElement('div');
+  el.className = 'contact-card border rounded-lg p-4';
+  el.innerHTML = `
+    <div class="flex justify-between">
+      <div>
+        <div class="font-semibold">${escapeHtml(c.name||'')}</div>
+        <div class="text-sm text-gray-600">${escapeHtml(c.relationship||'')}</div>
+        <div class="text-sm mt-1">${escapeHtml(c.phone||'')}</div>
+        ${c.email? `<div class="text-sm">${escapeHtml(c.email)}</div>`:''}
+        ${c.notes? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(c.notes)}</div>`:''}
+      </div>
+      <div class="flex gap-2">
+        <button class="px-3 py-1 rounded border hover:bg-gray-50" data-act="edit">Edit</button>
+        <button class="px-3 py-1 rounded border text-red-600 hover:bg-red-50" data-act="del">Delete</button>
+      </div>
+    </div>`;
+  el.querySelector('[data-act="edit"]').addEventListener('click', ()=>openContactModal(c));
+  el.querySelector('[data-act="del"]').addEventListener('click', ()=>removeContact(c.id));
+  return el;
+}
+
+function openContactModal(c=null){
+  $('contactName').value = c?.name || '';
+  $('contactRelationship').value = c?.relationship || '';
+  $('contactPhone').value = c?.phone || '';
+  $('contactEmail').value = c?.email || '';
+  $('contactNotes').value = c?.notes || '';
+  $('contactModal').dataset.editing = c?.id || '';
+  $('contactModal').classList.remove('hidden');
+}
+function closeContactModal(){ $('contactModal').classList.add('hidden'); }
+
+async function saveContact(e){
+  e.preventDefault();
+  const name=$('contactName').value.trim(), phone=$('contactPhone').value.trim();
+  if(!name || !phone){ toast('Name and phone required','warning'); return; }
+  const payload = {
+    user_id: currentUser.id,
+    name,
+    relationship: $('contactRelationship').value || '',
+    phone,
+    email: $('contactEmail').value || '',
+    notes: $('contactNotes').value || ''
+  };
+  const editingId = $('contactModal').dataset.editing;
+  if (editingId){
+    const { error } = await supabase.from('ice_contacts').update(payload).eq('id', editingId);
+    if (!error) {
+      const i = userContacts.findIndex(x=>x.id===editingId);
+      if (i>-1) userContacts[i] = { id: editingId, ...payload };
+    }
+  } else {
+    if (userContacts.length>=5){ toast('Max 5 contacts','warning'); return; }
+    const { data, error } = await supabase.from('ice_contacts').insert(payload).select().single();
+    if (!error && data) userContacts.push(data);
+  }
+  closeContactModal();
+  renderContacts();
+  updateProgress();
+  toast('Contact saved','success');
+}
+
+async function removeContact(id){
+  await supabase.from('ice_contacts').delete().eq('id', id);
+  userContacts = userContacts.filter(c=>c.id!==id);
+  renderContacts(); updateProgress();
+  toast('Contact deleted','success');
+}
+
+/* =============== QR (single, persistent) =============== */
+function initQrCard(){
+  if (userProfile?.code){
+    drawQr(userProfile.code);
+    const url = publicUrl(userProfile.code);
+    $('shareableLink') && ( $('shareableLink').value = url );
+    $('exportPNGBtn') && $('exportPNGBtn').removeAttribute('disabled');
+    $('printCardBtn') && $('printCardBtn').removeAttribute('disabled');
+  }
+}
+
+function publicUrl(code){ return `${location.origin}/c/${encodeURIComponent(code)}?lang=${encodeURIComponent(localStorage.getItem('myqer_language')||'en')}`; }
+
+async function onGenerateQR(){
+  if (userProfile?.code){ toast('Code already assigned','warning'); return; }
+  const code = await uniqueCode();
+  const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
+  if (error){ console.error(error); return toast('Network error','error'); }
+  userProfile = data || { ...userProfile, code };
+  drawQr(code);
+  $('shareableLink').value = publicUrl(code);
+  $('exportPNGBtn').removeAttribute('disabled');
+  $('printCardBtn').removeAttribute('disabled');
+  updateProgress();
+  toast('QR generated','success');
+}
+
+async function uniqueCode(){
+  for (let i=0;i<6;i++){
+    const c = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+    const { data } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
+    if (!data) return c;
+  }
+  return crypto.randomUUID().slice(0,6).toUpperCase();
+}
+
+function drawQr(code){
+  const box = $('qrPreview'); if (!box) return;
+  box.innerHTML = '';
+  const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
+  box.appendChild(canvas);
+  const url = publicUrl(code);
+  QRCode.toCanvas(canvas, url, { width: Math.max(220, box.clientWidth-8), margin: 1, color:{dark:'#111',light:'#fff'} });
+}
+
+function exportQrPng(){
+  const canvas = document.getElementById('qrCanvas'); if(!canvas) return;
+  const a=document.createElement('a'); a.download=(userProfile?.code||'myqer')+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+}
+
+function printCard(){
+  if (!userProfile?.code) return;
+  window.open(publicUrl(userProfile.code), '_blank');
+}
+
+/* =============== Danger Zone =============== */
+function showDeleteConfirm(){ $('deleteConfirmSection')?.classList.remove('hidden'); $('deleteConfirmInput')?.addEventListener('input', onDeleteTyping); }
+function onDeleteTyping(){
+  const ok = ($('deleteConfirmInput').value.trim().toUpperCase()==='DELETE');
+  const btn = $('deleteAccountBtn');
+  if (ok){ btn.disabled=false; btn.classList.remove('cursor-not-allowed','bg-gray-300','text-gray-500'); btn.classList.add('bg-red-600','text-white'); }
+  else   { btn.disabled=true;  btn.classList.add('cursor-not-allowed','bg-gray-300','text-gray-500'); btn.classList.remove('bg-red-600','text-white'); }
+}
 </script>
 </body>
 </html>
