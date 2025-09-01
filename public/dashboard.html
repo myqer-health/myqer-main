@@ -262,9 +262,9 @@
 
     // ---------- State ----------
     let currentUser = null;
-    let profile = null;
-    let health = null;
-    let contacts = [];
+    let profile = null;     // profiles row
+    let health = null;      // health_profiles row
+    let contacts = [];      // ice_contacts rows
 
     const $ = (sel) => document.querySelector(sel);
 
@@ -294,7 +294,7 @@
       await ensureQrRendered();
     });
 
-    supabase.auth.onAuthStateChange((ev, session) => {
+    supabase.auth.onAuthStateChange((ev) => {
       if (ev === 'SIGNED_OUT') location.replace('/index.html');
     });
 
@@ -308,7 +308,7 @@
       // identity autosave (debounced)
       ['#full_name','#date_of_birth','#national_health_id'].forEach(id=>{
         $(id).addEventListener('input', ()=>debouncedSave(identitySave, 650));
-        $(id).addEventListener('blur', ()=>debouncedSave(identitySave, 50));
+        $(id).addEventListener('blur',  ()=>debouncedSave(identitySave, 50));
       });
       $('#country').addEventListener('change', ()=>identitySave());
 
@@ -341,11 +341,11 @@
       $('#contactsList').addEventListener('click', async (e)=>{
         const btn = e.target.closest('[data-del]');
         if (!btn) return;
-        const id = btn.getAttribute('data-del');
-        await supabase.from('ice_contacts').delete().eq('id', id);
+        const id = Number(btn.getAttribute('data-del')); // ensure number
+        await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
         contacts = contacts.filter(c=>c.id!==id);
         renderContacts();
-        showToast('Contact deleted','');
+        showToast('Contact deleted');
         updateProgress();
       });
 
@@ -365,9 +365,9 @@
     // ---------- Loaders ----------
     async function loadAll(){
       const [pRes, hRes, cRes] = await Promise.all([
-        supabase.from('profiles').select('*').single(),
-        supabase.from('health_profiles').select('*').single(),
-        supabase.from('ice_contacts').select('*').order('created_at',{ascending:true})
+        supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle(),
+        supabase.from('health_profiles').select('*').eq('user_id', currentUser.id).maybeSingle(),
+        supabase.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('created_at',{ascending:true})
       ]);
       if (!pRes.error) profile = pRes.data || null;
       if (!hRes.error) health  = hRes.data  || null;
@@ -393,14 +393,16 @@
 
     async function identitySave(){
       const patch = {
+        id: currentUser.id, // include PK for upsert
         full_name: $('#full_name').value.trim(),
         date_of_birth: $('#date_of_birth').value.trim(),
         country: $('#country').value,
-        national_health_id: $('#national_health_id').value.trim()
+        national_health_id: $('#national_health_id').value.trim(),
+        updated_at: new Date().toISOString()
       };
-      const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().single();
+      const { data, error } = await supabase.from('profiles').upsert(patch, { onConflict:'id' }).select().maybeSingle();
       if (!error) {
-        profile = data;
+        profile = data || patch;
         showToast('Identity saved');
         updateProgress();
       }
@@ -421,7 +423,7 @@
     function hydratePills(containerId, csv){
       const box = document.getElementById(containerId);
       box.innerHTML='';
-      (csv?csv.split(','):[]).map(s=>s.trim()).filter(Boolean)
+      (csv?String(csv).split(','):[]).map(s=>s.trim()).filter(Boolean)
         .forEach(val=> box.appendChild(makePill(val, containerId)));
     }
 
@@ -462,9 +464,9 @@
         .map(n=>n.textContent.trim()).filter(Boolean);
       const csv = Array.from(new Set(vals.map(v=>v.toLowerCase()))).map(v=>v).join(', ');
       const patch = {};
-      if (containerId==='allergiesPills') patch.allergies = csv;
-      if (containerId==='conditionsPills') patch.conditions = csv;
-      if (containerId==='medicationsPills') patch.medications = csv;
+      if (containerId==='allergiesPills') patch.allergies = csv || null;
+      if (containerId==='conditionsPills') patch.conditions = csv || null;
+      if (containerId==='medicationsPills') patch.medications = csv || null;
       await upsertHealth(patch);
       showToast('Health saved');
       updateTriage();
@@ -486,15 +488,18 @@
 
     async function upsertHealth(patch){
       health = {...(health||{}), ...patch};
-      await supabase.from('health_profiles').upsert({
+      const payload = {
+        user_id: currentUser.id, // required for onConflict
         blood_type: health.blood_type ?? null,
-        organ_donor: health.organ_donor ?? null,
+        organ_donor: (health.organ_donor ?? null),
         life_support_pref: health.life_support_pref ?? null,
         allergies: health.allergies ?? null,
         conditions: health.conditions ?? null,
         medications: health.medications ?? null,
-        triage_override: health.triage_override ?? null
-      }, { onConflict:'user_id' });
+        triage_override: health.triage_override ?? null,
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('health_profiles').upsert(payload, { onConflict:'user_id' });
     }
 
     // ---------- Triage ----------
@@ -563,8 +568,8 @@
     }
 
     async function createBlankContact(){
-      if (contacts.length>=5){ showToast('Max 5 contacts',''); return; }
-      const { data, error } = await supabase.from('ice_contacts').insert({ name:'', phone:'' }).select().single();
+      if (contacts.length>=5){ showToast('Max 5 contacts'); return; }
+      const { data, error } = await supabase.from('ice_contacts').insert({ user_id: currentUser.id, name:'', phone:'' }).select().single();
       if (error) return;
       contacts.push(data);
       renderContacts();
@@ -573,7 +578,7 @@
     let iceDebounce=null;
     function iceAutosaveHandler(e){
       const el = e.target;
-      const id = el.getAttribute('data-id');
+      const id = Number(el.getAttribute('data-id'));
       const field = el.getAttribute('data-field');
       if (!id || !field) return;
       const row = contacts.find(c=>c.id===id);
@@ -582,13 +587,13 @@
       clearTimeout(iceDebounce);
       iceDebounce = setTimeout(async ()=>{
         if (!row.name?.trim() || !row.phone?.trim()){
-          showToast('Name and phone are required',''); return;
+          showToast('Name and phone are required'); return;
         }
         await supabase.from('ice_contacts').update({
           name: row.name, relationship: row.relationship||'', phone: row.phone,
           email: row.email||'', notes: row.notes||''
-        }).eq('id', id);
-        showToast('Contact saved','');
+        }).eq('id', id).eq('user_id', currentUser.id);
+        showToast('Contact saved');
         updateProgress();
       }, 500);
     }
@@ -598,29 +603,33 @@
       if (profile?.code){
         renderQR(profile.code);
         enableQrButtons(true);
-        $('#generateQR').disabled = false;
         $('#shareLink').value = `${location.origin}/c/${profile.code}`;
+      } else {
+        enableQrButtons(false);
+        $('#shareLink').value = '';
+        $('#qrBox').innerHTML = '';
       }
     }
 
     async function onGenerateQR(){
       if (profile?.code){
-        showToast('Code already assigned',''); return;
+        showToast('Code already assigned'); return;
       }
       const code = await makeUniqueCode();
-      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().single();
+      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
       if (error) return;
-      profile = data;
+      profile = data || { ...(profile||{}), code };
       renderQR(code);
       $('#shareLink').value = `${location.origin}/c/${code}`;
       enableQrButtons(true);
-      showToast('QR generated','');
+      showToast('QR generated');
       updateProgress();
     }
 
     async function makeUniqueCode(){
       for (let i=0;i<6;i++){
-        const code = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+        const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = Array.from({length:6},()=>alphabet[Math.floor(Math.random()*alphabet.length)]).join('');
         const { data } = await supabase.from('profiles').select('id').eq('code', code).maybeSingle();
         if (!data) return code;
       }
@@ -631,7 +640,7 @@
       const box = $('#qrBox'); box.innerHTML='';
       const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
       box.appendChild(canvas);
-      QRCode.toCanvas(canvas, `${location.origin}/c/${code}`, { width: box.clientWidth-8, margin:1, color:{dark:'#111', light:'#fff'} });
+      QRCode.toCanvas(canvas, `${location.origin}/c/${code}`, { width: Math.max(220, box.clientWidth-8), margin:1, color:{dark:'#111', light:'#fff'} });
     }
 
     function enableQrButtons(on){
@@ -642,8 +651,8 @@
     function copyShareLink(){
       const v = $('#shareLink').value;
       if (!v) return;
-      if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(v).then(()=>showToast('Link copied','')); }
-      else { const t=document.createElement('input'); t.value=v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast('Link copied',''); }
+      if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(v).then(()=>showToast('Link copied')); }
+      else { const t=document.createElement('input'); t.value=v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast('Link copied'); }
     }
 
     function exportQrPng(){
@@ -656,9 +665,9 @@
     async function doDeleteAccount(){
       if ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE') return;
       try {
-        await supabase.from('ice_contacts').delete().neq('id','');
-        await supabase.from('health_profiles').delete().neq('user_id','');
-        await supabase.from('profiles').delete().neq('id','');
+        await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
+        await supabase.from('health_profiles').delete().eq('user_id', currentUser.id);
+        await supabase.from('profiles').delete().eq('id', currentUser.id);
         await supabase.auth.signOut();
         showToast('Account deleted'); setTimeout(()=>location.replace('/index.html'), 800);
       } catch(e){ console.error(e); showToast('Network error'); }
@@ -666,19 +675,20 @@
 
     // ---------- Helpers ----------
     function updateProgress(){
-      const iOK = !!(profile?.full_name && profile?.date_of_birth && profile?.country);
-      const hOK = !!( (health?.blood_type) || (health?.life_support_pref) ||
-                      (health?.allergies?.trim()) || (health?.conditions?.trim()) || (health?.medications?.trim()) );
+      const iOK = !!(profile && profile.full_name && profile.date_of_birth && profile.country);
+      const hp = health || {};
+      const hOK = !!( (hp.blood_type) || (hp.life_support_pref) ||
+                      (hp.allergies && hp.allergies.trim()) || (hp.conditions && hp.conditions.trim()) || (hp.medications && hp.medications.trim()) );
       const cOK = contacts.length>0;
-      const qOK = !!profile?.code;
+      const qOK = !!(profile && profile.code);
 
       $('#iconIdentity').className = 'w-8 h-8 rounded-full grid place-items-center ' + (iOK?'bg-green-600 text-white':'bg-amber-500 text-white');
-      $('#iconHealth').className = 'w-8 h-8 rounded-full grid place-items-center ' + (hOK?'bg-green-600 text-white':'bg-amber-500 text-white');
+      $('#iconHealth').className   = 'w-8 h-8 rounded-full grid place-items-center ' + (hOK?'bg-green-600 text-white':'bg-amber-500 text-white');
 
       $('#chkIdentity').className = iOK?'font-bold text-green-600':'font-bold text-amber-600';
-      $('#chkHealth').className = hOK?'font-bold text-green-600':'font-bold text-amber-600';
+      $('#chkHealth').className   = hOK?'font-bold text-green-600':'font-bold text-amber-600';
       $('#chkContacts').className = cOK?'font-bold text-green-600':'font-bold text-amber-600';
-      $('#chkQR').className = qOK?'font-bold text-green-600':'font-bold text-amber-600';
+      $('#chkQR').className       = qOK?'font-bold text-green-600':'font-bold text-amber-600';
 
       const complete = [iOK,hOK,cOK,qOK].filter(Boolean).length;
       const pct = Math.round(complete/4*100);
@@ -692,1464 +702,7 @@
     function showToast(msg){
       const t = $('#toast'); t.textContent = msg; t.classList.add('show');
       clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
-    }<script>
-/* ===========================
-   MYQER Dashboard — Data & QR
-   Drop-in replacement block
-   =========================== */
-
-/* --- shared state --- */
-let currentUser = null;
-let userProfile = null;         // from profiles
-let userHealthProfile = null;   // from health_profiles
-let userContacts = [];          // from ice_contacts
-let currentLanguage = localStorage.getItem('myqer_language') || 'en';
-const saveTimeouts = { identity: null, health: null };
-
-/* ---------- helpers ---------- */
-const $  = (id) => document.getElementById(id);
-const t  = (k)  => (window.i18nDict?.[currentLanguage]?.[k]) ?? k;
-
-function showToast(msg, type='info') {
-  let el = document.querySelector('.toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.className = 'toast';
-    document.body.appendChild(el);
-  }
-  el.className = `toast show ${type}`;
-  el.textContent = msg;
-  setTimeout(() => el.classList.remove('show'), 2100);
-}
-
-function langBadge(lang) {
-  const map = { en:'🇺🇸 EN', es:'🇪🇸 ES', fr:'🇫🇷 FR', de:'🇩🇪 DE', it:'🇮🇹 IT', hi:'🇮🇳 HI', ar:'🇸🇦 AR', zh:'🇨🇳 ZH', hu:'🇭🇺 HU', ro:'🇷🇴 RO' };
-  return map[lang] || '🇺🇸 EN';
-}
-function updateLangBadge() {
-  const b = $('dashboardCurrentLang');
-  if (b) b.textContent = langBadge(currentLanguage);
-}
-
-/* =========================================================
-   AUTH BOOTSTRAP
-   ========================================================= */
-async function boot() {
-  const { data: { session } } = await supabase.auth.getSession();
-  currentUser = session?.user || null;
-
-  // belt & suspenders: if not logged in, bounce back to login/landing
-  if (!currentUser) {
-    window.location.replace('/index.html');
-    return;
-  }
-
-  await loadAllData();
-  wireEvents();                 // once
-  updateLangBadge();
-}
-document.addEventListener('DOMContentLoaded', boot);
-
-/* =========================================================
-   LOAD ALL
-   ========================================================= */
-async function loadAllData() {
-  await Promise.all([
-    loadProfile(),
-    loadHealthProfile(),
-    loadContacts()
-  ]);
-  hydrateIdentityForm();
-  hydrateHealthForm();
-  renderContactsList();
-  updateCountersAndProgress();
-  await initQrCard();           // draws code if you have one
-}
-
-/* ---------- profiles (identity + code) ---------- */
-async function loadProfile() {
-  // Always scope to current user id
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id,email,full_name,date_of_birth,country,national_health_id,code,lang,updated_at')
-    .eq('id', currentUser.id)
-    .single();
-
-  if (error) { console.warn('loadProfile', error); return; }
-  userProfile = data || {};
-  // prefer stored lang if valid
-  if (userProfile.lang && window.i18nDict?.[userProfile.lang]) {
-    currentLanguage = userProfile.lang;
-    localStorage.setItem('myqer_language', currentLanguage);
-    document.documentElement.dir = (currentLanguage === 'ar') ? 'rtl' : 'ltr';
-  }
-}
-
-/* ---------- health_profiles (create if missing) ---------- */
-async function loadHealthProfile() {
-  let { data, error } = await supabase
-    .from('health_profiles')
-    .select('user_id,blood_type,organ_donor,life_support_pref,triage_override,allergies,conditions,medications,updated_at')
-    .eq('user_id', currentUser.id)
-    .single();
-
-  if (error && error.code === 'PGRST116') {
-    // Not found: create a blank row for this user
-    const ins = await supabase.from('health_profiles').insert({ user_id: currentUser.id }).select().single();
-    data = ins.data;
-  } else if (error) {
-    console.warn('loadHealthProfile', error);
-  }
-
-  userHealthProfile = data || { user_id: currentUser.id };
-}
-
-/* ---------- ice_contacts ---------- */
-async function loadContacts() {
-  const { data, error } = await supabase
-    .from('ice_contacts')
-    .select('id,name,relationship,phone,email,notes,created_at,updated_at')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: true });
-
-  if (error) { console.warn('loadContacts', error); return; }
-  userContacts = Array.isArray(data) ? data : [];
-}
-
-/* =========================================================
-   HYDRATE FORMS
-   ========================================================= */
-function hydrateIdentityForm() {
-  if (!userProfile) return;
-  $('fullName')      && ($('fullName').value      = userProfile.full_name ?? '');
-  $('dateOfBirth')   && ($('dateOfBirth').value   = userProfile.date_of_birth ?? '');
-  $('country')       && ($('country').value       = userProfile.country ?? '');
-  $('healthId')      && ($('healthId').value      = userProfile.national_health_id ?? '');
-}
-
-function hydrateHealthForm() {
-  const hp = userHealthProfile || {};
-  $('bloodType')   && ($('bloodType').value   = hp.blood_type ?? '');
-  $('organDonor')  && ($('organDonor').value  = (hp.organ_donor === true ? 'yes' : hp.organ_donor === false ? 'no' : ''));
-  $('lifeSupport') && ($('lifeSupport').value = hp.life_support_pref ?? '');
-
-  hydratePills('allergiesPills',  hp.allergies);
-  hydratePills('conditionsPills', hp.conditions);
-  hydratePills('medicationsPills', hp.medications);
-
-  updateTriageBadge();
-}
-
-function hydratePills(containerId, csv) {
-  const cont = $(containerId);
-  if (!cont) return;
-  cont.innerHTML = '';
-  (csv ? String(csv).split(',') : [])
-    .map(s => s.trim())
-    .filter(Boolean)
-    .forEach(val => cont.appendChild(makePill(val, containerId)));
-}
-
-function makePill(text, containerId) {
-  const pill = document.createElement('span');
-  pill.className = 'inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm';
-  pill.textContent = text;
-  const close = document.createElement('button');
-  close.className = 'ml-2 text-gray-600 hover:text-red-600';
-  close.textContent = '×';
-  close.addEventListener('click', async () => {
-    pill.remove();
-    await saveHealthPills(containerId);
-  });
-  pill.appendChild(close);
-  return pill;
-}
-
-/* =========================================================
-   AUTOSAVE (debounced)
-   ========================================================= */
-function debouncedSave(kind) {
-  clearTimeout(saveTimeouts[kind]);
-  saveTimeouts[kind] = setTimeout(() => {
-    if (kind === 'identity') saveIdentity();
-    if (kind === 'health')   saveHealth();
-  }, 650);
-}
-
-/* ---------- save identity -> profiles (upsert by id) ---------- */
-async function saveIdentity() {
-  const payload = {
-    id: currentUser.id,
-    full_name:          $('fullName')?.value?.trim() || null,
-    date_of_birth:      $('dateOfBirth')?.value?.trim() || null,
-    country:            $('country')?.value || null,
-    national_health_id: $('healthId')?.value?.trim() || null,
-    lang:               currentLanguage,
-    updated_at:         new Date().toISOString()
-  };
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert(payload, { onConflict: 'id' })
-    .select()
-    .single();
-
-  if (error) { console.warn('saveIdentity', error); showToast(t('toast.network_error'),'error'); return; }
-  userProfile = data;
-  updateCountersAndProgress();
-  showToast(t('toast.profile_saved'),'success');
-}
-
-/* ---------- save health -> health_profiles (upsert by user_id) ---------- */
-async function saveHealth() {
-  const blood_type = $('bloodType')?.value || null;
-  const organSel   = $('organDonor')?.value || '';
-  const organ_donor = organSel === 'yes' ? true : (organSel === 'no' ? false : null);
-  const life_support_pref = $('lifeSupport')?.value || null;
-
-  await upsertHealth({
-    user_id: currentUser.id,
-    blood_type, organ_donor, life_support_pref
-  });
-
-  updateTriageBadge();
-  updateCountersAndProgress();
-  showToast(t('toast.health_saved'),'success');
-}
-
-async function saveHealthPills(containerId) {
-  const cont = $(containerId);
-  const values = Array.from(cont?.querySelectorAll('span') || [])
-    .map(s => (s.firstChild?.nodeValue || '').trim())
-    .filter(Boolean);
-  const csv = values.join(', ');
-
-  const patch = { user_id: currentUser.id };
-  if (containerId === 'allergiesPills')  patch.allergies  = csv || null;
-  if (containerId === 'conditionsPills') patch.conditions = csv || null;
-  if (containerId === 'medicationsPills') patch.medications = csv || null;
-
-  await upsertHealth(patch);
-  updateTriageBadge();
-  showToast(t('toast.health_saved'),'success');
-}
-
-async function upsertHealth(patch) {
-  // merge into local
-  userHealthProfile = { ...(userHealthProfile || {}), ...patch };
-
-  const payload = {
-    user_id:          currentUser.id,
-    blood_type:       userHealthProfile.blood_type ?? null,
-    organ_donor:      (userHealthProfile.organ_donor ?? null),
-    life_support_pref:userHealthProfile.life_support_pref ?? null,
-    triage_override:  userHealthProfile.triage_override ?? null,
-    allergies:        userHealthProfile.allergies ?? null,
-    conditions:       userHealthProfile.conditions ?? null,
-    medications:      userHealthProfile.medications ?? null,
-    updated_at:       new Date().toISOString()
-  };
-
-  const { error } = await supabase
-    .from('health_profiles')
-    .upsert(payload, { onConflict: 'user_id' });
-
-  if (error) console.warn('upsertHealth', error);
-}
-
-/* =========================================================
-   CONTACTS CRUD (scoped)
-   ========================================================= */
-function renderContactsList() {
-  const list = $('contactsList');
-  if (!list) return;
-
-  // purge existing
-  list.querySelectorAll('.contact-card').forEach(n => n.remove());
-
-  // empty state
-  if (!userContacts?.length) {
-    $('emptyState')?.classList.remove('hidden');
-  } else {
-    $('emptyState')?.classList.add('hidden');
-    userContacts.forEach(c => list.appendChild(contactCard(c)));
-  }
-  $('contactsCounter') && ($('contactsCounter').textContent = `${userContacts.length} of 5 added`);
-}
-
-function contactCard(contact) {
-  const wrap = document.createElement('div');
-  wrap.className = 'contact-card border rounded-lg p-4';
-  wrap.innerHTML = `
-    <div class="flex justify-between">
-      <div>
-        <div class="font-semibold">${escapeHtml(contact.name || '')}</div>
-        <div class="text-sm text-gray-600">${escapeHtml(contact.relationship || '')}</div>
-        <div class="text-sm text-gray-700 mt-1">${escapeHtml(contact.phone || '')}</div>
-        ${contact.email ? `<div class="text-sm text-gray-700">${escapeHtml(contact.email)}</div>` : ''}
-        ${contact.notes ? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(contact.notes)}</div>` : ''}
-      </div>
-      <div class="flex gap-2">
-        <button class="px-3 py-1 rounded border hover:bg-gray-50" data-action="edit">Edit</button>
-        <button class="px-3 py-1 rounded border text-red-600 hover:bg-red-50" data-action="delete">Delete</button>
-      </div>
-    </div>
-  `;
-  wrap.querySelector('[data-action="edit"]').addEventListener('click', () => openContactModal(contact));
-  wrap.querySelector('[data-action="delete"]').addEventListener('click', () => deleteContact(contact.id));
-  return wrap;
-}
-
-function openContactModal(contact=null) {
-  window.editingContactId = contact?.id || null;
-  $('contactModalTitle').textContent = contact ? t('dashboard.edit_contact') : t('dashboard.add_contact');
-  $('contactName').value         = contact?.name || '';
-  $('contactRelationship').value = contact?.relationship || '';
-  $('contactPhone').value        = contact?.phone || '';
-  $('contactEmail').value        = contact?.email || '';
-  $('contactNotes').value        = contact?.notes || '';
-  $('contactModal').classList.remove('hidden');
-}
-function closeContactModal() {
-  $('contactModal').classList.add('hidden');
-  window.editingContactId = null;
-}
-
-async function saveContactFromModal(e) {
-  e.preventDefault();
-  const name  = $('contactName').value.trim();
-  const phone = $('contactPhone').value.trim();
-  if (!name || !phone) { showToast(t('toast.name_phone_required'),'warning'); return; }
-
-  const payload = {
-    user_id: currentUser.id,
-    name,
-    relationship: $('contactRelationship').value || '',
-    phone,
-    email: $('contactEmail').value || '',
-    notes: $('contactNotes').value || ''
-  };
-
-  if (window.editingContactId) {
-    await supabase.from('ice_contacts').update(payload).eq('id', window.editingContactId).eq('user_id', currentUser.id);
-    const i = userContacts.findIndex(c => c.id === window.editingContactId);
-    if (i > -1) Object.assign(userContacts[i], payload);
-  } else {
-    if (userContacts.length >= 5) { showToast(t('toast.max_contacts'),'warning'); return; }
-    const { data, error } = await supabase.from('ice_contacts').insert(payload).select().single();
-    if (!error && data) userContacts.push(data);
-  }
-  closeContactModal();
-  renderContactsList();
-  updateCountersAndProgress();
-  showToast(t('toast.contact_saved'),'success');
-}
-
-async function deleteContact(id) {
-  await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
-  userContacts = userContacts.filter(c => c.id !== id);
-  renderContactsList();
-  updateCountersAndProgress();
-  showToast(t('toast.contact_deleted'),'success');
-}
-
-/* =========================================================
-   QR — single, persistent
-   ========================================================= */
-async function initQrCard() {
-  if (userProfile?.code) {
-    // already assigned -> render immediately
-    renderQr(userProfile.code);
-    const url = makePublicCardUrl(userProfile.code, currentLanguage);
-    $('shareableLink') && ($('shareableLink').value = url);
-    $('exportPNGBtn')?.removeAttribute('disabled');
-    $('printCardBtn')?.removeAttribute('disabled');
-  } else {
-    // not yet assigned -> leave blank until user clicks Generate
-    $('exportPNGBtn')?.setAttribute('disabled','true');
-    $('printCardBtn')?.setAttribute('disabled','true');
-  }
-}
-
-async function onGenerateQR() {
-  if (userProfile?.code) {
-    showToast(t('toast.code_already_assigned'),'warning');
-    return;
-  }
-  // generate unique 6-char uppercase
-  const code = await generateUniqueCode();
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ code })
-    .eq('id', currentUser.id)
-    .select()
-    .single();
-
-  if (error) { console.warn('generateQR', error); showToast(t('toast.network_error'),'error'); return; }
-
-  userProfile = data;
-  renderQr(code);
-  const url = makePublicCardUrl(code, currentLanguage);
-  $('shareableLink') && ($('shareableLink').value = url);
-  $('exportPNGBtn')?.removeAttribute('disabled');
-  $('printCardBtn')?.removeAttribute('disabled');
-  updateCountersAndProgress();
-  showToast(t('toast.qr_generated'),'success');
-}
-
-async function generateUniqueCode() {
-  for (let i = 0; i < 6; i++) {
-    const c = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-    const { data } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
-    if (!data) return c;
-  }
-  return crypto.randomUUID().slice(0,6).toUpperCase();
-}
-
-function renderQr(code) {
-  const box = $('qrPreview');
-  if (!box) return;
-  box.innerHTML = '';
-  const canvas = document.createElement('canvas');
-  canvas.id = 'qrCanvas';
-  box.appendChild(canvas);
-
-  const url = makePublicCardUrl(code, currentLanguage);
-  QRCode.toCanvas(canvas, url, {
-    width: Math.max(160, (box.clientWidth || 260) - 8),
-    margin: 1,
-    color: { dark: '#111111', light: '#FFFFFF' }
-  });
-}
-
-function makePublicCardUrl(code, lang) {
-  const base = `${location.origin}/c/${encodeURIComponent(code)}`;
-  return `${base}?lang=${encodeURIComponent(lang || 'en')}`;
-}
-
-function copyShareLink() {
-  const el = $('shareableLink');
-  if (!el || !el.value) return;
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(el.value).then(() => showToast(t('toast.link_copied'),'success'));
-  } else {
-    el.select(); document.execCommand('copy'); showToast(t('toast.link_copied'),'success');
-  }
-}
-function exportQrPng() {
-  const cv = $('qrCanvas'); if (!cv) return;
-  const a = document.createElement('a');
-  a.download = (userProfile?.code || 'myqer') + '.png';
-  a.href = cv.toDataURL('image/png');
-  a.click();
-}
-function printEmergencyCard() {
-  if (!userProfile?.code) return;
-  window.open(makePublicCardUrl(userProfile.code, currentLanguage), '_blank');
-}
-
-/* =========================================================
-   TRIAGE (auto + override)
-   ========================================================= */
-function computeAutoTriage() {
-  const hp = userHealthProfile || {};
-  const ls = (hp.life_support_pref || '').toLowerCase();
-  if (ls === 'dnr') return 'black';
-
-  // Allergies critical keywords → red
-  const allergies = (hp.allergies || '').toLowerCase();
-  const redAllergy = ['anaphylaxis','epipen','penicillin','peanut','shellfish','midazolam','codeine']
-    .some(w => allergies.includes(w));
-  if (redAllergy) return 'red';
-
-  // Conditions heuristic
-  const conds = (hp.conditions || '').toLowerCase();
-  const redCond = ['stroke','heart failure','myocardial','cancer','dialysis','seizure','copd','alport']
-    .some(w => conds.includes(w));
-  const condCount = (hp.conditions || '').split(',').map(s=>s.trim()).filter(Boolean).length;
-
-  // Meds count heuristic
-  const medsCount = (hp.medications || '').split(',').map(s=>s.trim()).filter(Boolean).length;
-
-  if (redCond || medsCount >= 3) return 'red';
-  if (allergies.trim() || conds.trim() || (hp.medications||'').trim()) return 'amber';
-  return 'green';
-}
-
-function setTriageBadge(colorKey) {
-  const badge = $('triageBadge'); if (!badge) return;
-  const map = {
-    green: { bg:'bg-green-500', label: t('dashboard.triage_green') || 'Green — Stable' },
-    amber: { bg:'bg-amber-500', label: t('dashboard.triage_amber') || 'Amber — Urgent' },
-    red:   { bg:'bg-red-600',   label: t('dashboard.triage_red') || 'Red — Immediate' },
-    black: { bg:'bg-gray-900',  label: t('dashboard.triage_black') || 'Black — Comfort Care' }
-  };
-  const m = map[colorKey] || map.green;
-  badge.className = `inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white ${m.bg}`;
-  badge.innerHTML = `${colorKey==='green'?'🟢':colorKey==='amber'?'🟡':colorKey==='red'?'🔴':'⚫'} <span>${m.label}</span>`;
-}
-
-function updateTriageBadge() {
-  const hp = userHealthProfile || {};
-  const override = (hp.triage_override || '').toLowerCase();
-  const color = (override && override !== 'auto') ? override : computeAutoTriage();
-  setTriageBadge(color);
-  $('triageOverride') && ($('triageOverride').value = override || 'auto');
-}
-
-async function onTriageOverrideChange() {
-  const val = $('triageOverride')?.value || 'auto';
-  userHealthProfile = userHealthProfile || { user_id: currentUser.id };
-  userHealthProfile.triage_override = (val === 'auto' ? null : val);
-  await upsertHealth({ triage_override: userHealthProfile.triage_override, user_id: currentUser.id });
-  updateTriageBadge();
-  showToast(t('toast.triage_updated'),'success');
-
-  // Disclaimer stays visible near the triage card (your markup)
-  // “MYQER does not diagnose or provide medical advice. This triage label is user-provided and assistive only for responders.”
-}
-
-/* =========================================================
-   EVENTS
-   ========================================================= */
-function wireEvents() {
-  // language switcher
-  document.querySelectorAll('.dropdown-menu [data-lang]').forEach(a => {
-    a.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const lang = a.getAttribute('data-lang');
-      if (!window.i18nDict?.[lang]) return;
-      currentLanguage = lang;
-      localStorage.setItem('myqer_language', lang);
-      document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
-      updateLangBadge();
-      // persist preference
-      await supabase.from('profiles').update({ lang }).eq('id', currentUser.id);
-      // update texts
-      if (typeof window.updateI18nElements === 'function') window.updateI18nElements();
-    });
-  });
-
-  // identity autosave
-  $('fullName')     && $('fullName').addEventListener('input', () => debouncedSave('identity'));
-  $('dateOfBirth')  && $('dateOfBirth').addEventListener('input', () => debouncedSave('identity'));
-  $('country')      && $('country').addEventListener('change', () => debouncedSave('identity'));
-  $('healthId')     && $('healthId').addEventListener('input', () => debouncedSave('identity'));
-
-  // health autosave
-  $('bloodType')    && $('bloodType').addEventListener('change', () => debouncedSave('health'));
-  $('organDonor')   && $('organDonor').addEventListener('change', () => debouncedSave('health'));
-  $('lifeSupport')  && $('lifeSupport').addEventListener('change', () => debouncedSave('health'));
-
-  // pills
-  $('allergiesInput')  && $('allergiesInput').addEventListener('keydown', e => pillKeyHandler(e,'allergies'));
-  $('conditionsInput') && $('conditionsInput').addEventListener('keydown', e => pillKeyHandler(e,'conditions'));
-  $('medicationsInput')&& $('medicationsInput').addEventListener('keydown', e => pillKeyHandler(e,'medications'));
-
-  // triage override
-  $('triageOverride') && $('triageOverride').addEventListener('change', onTriageOverrideChange);
-
-  // QR
-  $('generateQRBtn') && $('generateQRBtn').addEventListener('click', onGenerateQR);
-  $('exportPNGBtn')  && $('exportPNGBtn').addEventListener('click', exportQrPng);
-  $('printCardBtn')  && $('printCardBtn').addEventListener('click', printEmergencyCard);
-  $('copyLinkBtn')   && $('copyLinkBtn').addEventListener('click', copyShareLink);
-
-  // contacts
-  $('addContactBtn')     && $('addContactBtn').addEventListener('click', () => openContactModal());
-  $('closeContactModal') && $('closeContactModal').addEventListener('click', closeContactModal);
-  $('contactForm')       && $('contactForm').addEventListener('submit', saveContactFromModal);
-}
-
-/* ---------- pills key handler ---------- */
-function pillKeyHandler(e, kind) {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  const input = e.target;
-  const val = (input.value || '').trim();
-  if (!val) return;
-  const map = { allergies:'allergiesPills', conditions:'conditionsPills', medications:'medicationsPills' };
-  const cont = $(map[kind]); if (!cont) return;
-  cont.appendChild(makePill(val, map[kind]));
-  input.value = '';
-  saveHealthPills(map[kind]);
-}
-
-/* ---------- misc ---------- */
-function updateCountersAndProgress() {
-  const iOK =
-    !!($('fullName')?.value?.trim()) &&
-    !!($('dateOfBirth')?.value?.trim()) &&
-    !!($('country')?.value);
-
-  const hp = userHealthProfile || {};
-  const hOK = !!(hp.blood_type || hp.organ_donor !== undefined || hp.life_support_pref ||
-                 (hp.allergies && hp.allergies.trim()) ||
-                 (hp.conditions && hp.conditions.trim()) ||
-                 (hp.medications && hp.medications.trim()));
-
-  const cOK = (userContacts || []).length > 0;
-  const qOK = !!userProfile?.code;
-
-  // badges
-  $('identityCheckmark') && ($('identityCheckmark').className = 'w-8 h-8 rounded-full flex items-center justify-center ' + (iOK ? 'bg-green-500' : 'bg-amber-500'));
-  $('healthCheckmark')   && ($('healthCheckmark').className   = 'w-8 h-8 rounded-full flex items-center justify-center ' + (hOK ? 'bg-green-500' : 'bg-amber-500'));
-  $('identityStatus')    && ($('identityStatus').className    = iOK ? 'text-green-600' : 'text-amber-500');
-  $('healthStatus')      && ($('healthStatus').className      = hOK ? 'text-green-600' : 'text-amber-500');
-  $('contactsStatus')    && ($('contactsStatus').className    = cOK ? 'text-green-600' : 'text-amber-500');
-  $('qrStatus')          && ($('qrStatus').className          = qOK ? 'text-green-600' : 'text-amber-500');
-
-  const total = 4;
-  const pct = Math.round(([iOK,hOK,cOK,qOK].filter(Boolean).length/total)*100);
-  $('progressPercent') && ($('progressPercent').textContent = pct + '%');
-  $('progressCircle')  && ($('progressCircle').setAttribute('stroke-dasharray', `${pct}, 100`));
-}
-
-function escapeHtml(s='') {
-  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-    <script>
-/* =====================  CONFIG & GLOBALS  ===================== */
-const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
-
-let currentUser = null;
-let userProfile = null;
-let userHealth = null;
-let userContacts = [];
-const saveTimers = { identity: null, health: null };
-
-/* =====================  UTILITIES  ===================== */
-const $  = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-function toast(msg, type='info') {
-  let t = document.querySelector('.toast');
-  if (!t) {
-    t = document.createElement('div');
-    t.className = 'toast';
-    document.body.appendChild(t);
-  }
-  t.className = `toast show ${type}`;
-  t.textContent = msg;
-  setTimeout(()=>t.classList.remove('show'), 2400);
-}
-function escapeHtml(s=''){
-  return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
-
-/* =====================  AUTH GATE & BOOT  ===================== */
-document.addEventListener('DOMContentLoaded', async () => {
-  // If not signed in → bounce to index
-  const { data: { session } } = await supabase.auth.getSession();
-  currentUser = session?.user || null;
-  if (!currentUser) {
-    location.replace('/index.html');
-    return;
-  }
-
-  // Logout
-  $('#logoutBtn')?.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    location.replace('/index.html');
-  });
-
-  bindIdentityAutosave();
-  bindHealthAutosave();
-  bindPillInputs();
-  bindTriage();
-  bindContacts();
-  bindQr();
-
-  await loadAll();         // fetch all data
-  hydrateAll();            // paint UI
-  computeAndRenderTriage();// badge + % 
-});
-
-/* =====================  LOAD & HYDRATE  ===================== */
-async function loadAll(){
-  await Promise.all([loadProfile(), loadHealth(), loadContacts()]);
-}
-
-async function loadProfile(){
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', currentUser.id)
-    .single();
-  if (error) { console.error(error); toast('Profile load failed', 'error'); return; }
-  userProfile = data;
-}
-
-async function loadHealth(){
-  const { data, error } = await supabase
-    .from('health_profiles')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .maybeSingle();
-  if (error) { console.error(error); toast('Health load failed', 'error'); return; }
-  userHealth = data || { user_id: currentUser.id };
-}
-
-async function loadContacts(){
-  const { data, error } = await supabase
-    .from('ice_contacts')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: true });
-  if (error) { console.error(error); toast('Contacts load failed', 'error'); return; }
-  userContacts = data || [];
-}
-
-function hydrateAll(){
-  // Identity
-  $('#fullName').value        = userProfile?.full_name ?? '';
-  $('#dateOfBirth').value     = userProfile?.date_of_birth ?? '';
-  $('#country').value         = userProfile?.country ?? '';
-  $('#healthId').value        = userProfile?.national_health_id ?? '';
-
-  // Health (selects)
-  $('#bloodType').value       = userHealth?.blood_type ?? '';
-  $('#organDonor').value      = userHealth?.organ_donor === true ? 'yes' : (userHealth?.organ_donor === false ? 'no' : '');
-  $('#lifeSupport').value     = userHealth?.life_support_pref ?? '';
-
-  // Health pills (text inputs accept CSV; keep your UI as-is)
-  $('#allergiesInput').value  = userHealth?.allergies ?? '';
-  $('#conditionsInput').value = userHealth?.conditions ?? '';
-  $('#medicationsInput').value= userHealth?.medications ?? '';
-
-  // Contacts render
-  renderContacts();
-
-  // QR card
-  renderQrIfAny();
-  updateProgress();
-}
-
-/* =====================  AUTOSAVE: IDENTITY  ===================== */
-function bindIdentityAutosave(){
-  ['#fullName','#dateOfBirth','#country','#healthId'].forEach(sel=>{
-    $(sel)?.addEventListener('input', ()=>debounce('identity', saveIdentity, 700));
-    $(sel)?.addEventListener('change', ()=>debounce('identity', saveIdentity, 700));
-  });
-}
-async function saveIdentity(){
-  const patch = {
-    id: currentUser.id, // upsert key
-    full_name:         $('#fullName').value.trim(),
-    date_of_birth:     $('#dateOfBirth').value.trim(),
-    country:           $('#country').value,
-    national_health_id:$('#healthId').value.trim(),
-    updated_at: new Date().toISOString()
-  };
-  const { data, error } = await supabase.from('profiles').upsert(patch).select().single();
-  if (error){ console.error(error); toast('Couldn’t save profile','error'); return; }
-  userProfile = data;
-  toast('Profile saved','success');
-  updateProgress();
-}
-
-/* =====================  AUTOSAVE: HEALTH  ===================== */
-function bindHealthAutosave(){
-  ['#bloodType','#organDonor','#lifeSupport'].forEach(sel=>{
-    $(sel)?.addEventListener('change', ()=>debounce('health', saveHealth, 700));
-  });
-}
-function bindPillInputs(){
-  // You’re using plain inputs (not chips). Save on Enter/blur.
-  $('#allergiesInput')?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveHealth(); } });
-  $('#conditionsInput')?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveHealth(); } });
-  $('#medicationsInput')?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveHealth(); } });
-
-  ['#allergiesInput','#conditionsInput','#medicationsInput'].forEach(sel=>{
-    $(sel)?.addEventListener('blur', ()=>debounce('health', saveHealth, 700));
-  });
-}
-async function saveHealth(){
-  const organSel = $('#organDonor').value;
-  const payload = {
-    user_id: currentUser.id,
-    blood_type: $('#bloodType').value || null,
-    organ_donor: organSel === 'yes' ? true : organSel === 'no' ? false : null,
-    life_support_pref: $('#lifeSupport').value || null,
-    allergies:  $('#allergiesInput').value.trim() || null,
-    conditions: $('#conditionsInput').value.trim() || null,
-    medications:$('#medicationsInput').value.trim() || null,
-    triage_override: userHealth?.triage_override ?? null,
-    updated_at: new Date().toISOString()
-  };
-  const { data, error } = await supabase.from('health_profiles').upsert(payload, { onConflict: 'user_id' }).select().single();
-  if (error){ console.error(error); toast('Couldn’t save health','error'); return; }
-  userHealth = data;
-  toast('Health saved','success');
-  computeAndRenderTriage();
-  updateProgress();
-}
-
-/* =====================  TRIAGE  ===================== */
-function bindTriage(){
-  $('#triageOverride')?.addEventListener('change', async ()=>{
-    const v = $('#triageOverride').value;
-    userHealth = userHealth || { user_id: currentUser.id };
-    userHealth.triage_override = (v === 'auto' ? null : v);
-    const { error } = await supabase
-      .from('health_profiles')
-      .update({ triage_override: userHealth.triage_override, updated_at: new Date().toISOString() })
-      .eq('user_id', currentUser.id);
-    if (error){ console.error(error); toast('Couldn’t update triage','error'); return; }
-    computeAndRenderTriage();
-    toast('Triage updated','success');
-  });
-}
-
-// simple rules, conservative bias
-function computeAutoTriage(){
-  const hp = userHealth || {};
-  const dnr = (hp.life_support_pref || '').toLowerCase() === 'dnr';
-  if (dnr) return 'black';
-
-  const critAllergyWords = ['anaphylaxis','epipen','penicillin','peanut','shellfish','sulfa','morphine'];
-  const all = (hp.allergies || '').toLowerCase();
-  if (critAllergyWords.some(w => all.includes(w))) return 'red';
-
-  const conds = (hp.conditions || '').toLowerCase();
-  const redConds = ['heart failure','myocardial','stroke','seizure','cancer','dialysis'];
-  if (redConds.some(w => conds.includes(w))) return 'red';
-
-  const medCount = (hp.medications || '').split(',').map(s=>s.trim()).filter(Boolean).length;
-  const hasAny  = all.trim() || conds.trim() || (hp.medications||'').trim();
-  if (medCount >= 3 || hasAny) return 'amber';
-
-  return 'green';
-}
-function computeAndRenderTriage(){
-  const override = (userHealth?.triage_override || '').toLowerCase();
-  const color = override && override !== 'auto' ? override : computeAutoTriage();
-
-  const badge = $('#triageBadge');
-  if (badge){
-    const map = {
-      green: { bg:'bg-green-500', label:'Green — Stable', dot:'🟢' },
-      amber: { bg:'bg-amber-500', label:'Amber — Urgent', dot:'🟡' },
-      red:   { bg:'bg-red-600',   label:'Red — Immediate', dot:'🔴' },
-      black: { bg:'bg-gray-900',  label:'Black — Comfort', dot:'⚫' },
-    };
-    const m = map[color] || map.green;
-    badge.className = `inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white ${m.bg}`;
-    badge.innerHTML = `${m.dot} <span>${m.label}</span>`;
-  }
-}
-
-/* =====================  PROGRESS  ===================== */
-function updateProgress(){
-  const iOK = !!$('#fullName').value.trim() && !!$('#dateOfBirth').value.trim() && !!$('#country').value;
-  const hp = userHealth || {};
-  const hOK = !!(hp.blood_type || hp.organ_donor !== undefined || hp.life_support_pref ||
-                 (hp.allergies||'').trim() || (hp.conditions||'').trim() || (hp.medications||'').trim());
-  const cOK = userContacts.length > 0;
-  const qOK = !!userProfile?.code;
-
-  $('#identityStatus')?.classList.toggle('text-green-600', iOK);
-  $('#identityStatus')?.classList.toggle('text-amber-500', !iOK);
-  $('#healthStatus')?.classList.toggle('text-green-600', hOK);
-  $('#healthStatus')?.classList.toggle('text-amber-500', !hOK);
-  $('#contactsStatus')?.classList.toggle('text-green-600', cOK);
-  $('#contactsStatus')?.classList.toggle('text-amber-500', !cOK);
-  $('#qrStatus')?.classList.toggle('text-green-600', qOK);
-  $('#qrStatus')?.classList.toggle('text-amber-500', !qOK);
-
-  const pct = Math.round(([iOK,hOK,cOK,qOK].filter(Boolean).length/4)*100);
-  $('#progressPercent') && ($('#progressPercent').textContent = pct + '%');
-  $('#progressCircle')?.setAttribute('stroke-dasharray', `${pct}, 100`);
-}
-
-/* =====================  CONTACTS (ICE)  ===================== */
-function bindContacts(){
-  $('#addContactBtn')?.addEventListener('click', addEmptyContactRow);
-  $('#contactsList')?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    const id = btn.getAttribute('data-id');
-    const action = btn.getAttribute('data-action');
-    if (action === 'delete') await deleteContact(id);
-  });
-}
-function renderContacts(){
-  const list = $('#contactsList');
-  if (!list) return;
-  list.innerHTML = '';
-  if (!userContacts.length) {
-    $('#emptyState')?.classList.remove('hidden');
-  } else {
-    $('#emptyState')?.classList.add('hidden');
-  }
-  userContacts.forEach(c => list.appendChild(contactCard(c)));
-  $('#contactsCounter') && ($('#contactsCounter').textContent = `${userContacts.length} of 5 added`);
-}
-function contactCard(c){
-  const el = document.createElement('div');
-  el.className = 'contact-card border rounded-lg p-4';
-  el.innerHTML = `
-    <div class="flex justify-between">
-      <div class="grid gap-1">
-        <input class="border rounded px-2 py-1" value="${escapeHtml(c.name||'')}"       data-field="name"       data-id="${c.id}">
-        <input class="border rounded px-2 py-1" value="${escapeHtml(c.relationship||'')}"data-field="relationship"data-id="${c.id}">
-        <input class="border rounded px-2 py-1" value="${escapeHtml(c.phone||'')}"      data-field="phone"      data-id="${c.id}">
-        <input class="border rounded px-2 py-1" value="${escapeHtml(c.email||'')}"      data-field="email"      data-id="${c.id}">
-        <input class="border rounded px-2 py-1" value="${escapeHtml(c.notes||'')}"      data-field="notes"      data-id="${c.id}">
-      </div>
-      <div class="flex items-start gap-2">
-        <button class="px-3 py-1 rounded border text-red-600 hover:bg-red-50" data-action="delete" data-id="${c.id}">Delete</button>
-      </div>
-    </div>`;
-  // auto-save on blur
-  el.querySelectorAll('[data-field]').forEach(inp=>{
-    inp.addEventListener('blur', ()=>updateContactField(inp.getAttribute('data-id'), inp.getAttribute('data-field'), inp.value));
-  });
-  return el;
-}
-async function updateContactField(id, field, value){
-  const patch = {}; patch[field] = value;
-  const { error } = await supabase.from('ice_contacts').update(patch).eq('id', id).eq('user_id', currentUser.id);
-  if (error){ console.error(error); toast('Contact save failed','error'); return; }
-  const idx = userContacts.findIndex(c => c.id === id);
-  if (idx>-1) userContacts[idx][field] = value;
-  toast('Contact saved','success');
-}
-async function addEmptyContactRow(){
-  if (userContacts.length >= 5){ toast('Max 5 contacts','warning'); return; }
-  const payload = { user_id: currentUser.id, name:'', relationship:'', phone:'', email:'', notes:'' };
-  const { data, error } = await supabase.from('ice_contacts').insert(payload).select().single();
-  if (error){ console.error(error); toast('Couldn’t add contact','error'); return; }
-  userContacts.push(data);
-  renderContacts();
-  updateProgress();
-}
-async function deleteContact(id){
-  const { error } = await supabase.from('ice_contacts').delete().eq('id', id).eq('user_id', currentUser.id);
-  if (error){ console.error(error); toast('Delete failed','error'); return; }
-  userContacts = userContacts.filter(c => c.id !== id);
-  renderContacts();
-  updateProgress();
-  toast('Contact deleted','success');
-}
-
-/* =====================  QR: single, persistent  ===================== */
-function bindQr(){
-  $('#generateQRBtn')?.addEventListener('click', generateQrOnce);
-  $('#copyLinkBtn')?.addEventListener('click', copyQrLink);
-  $('#exportPNGBtn')?.addEventListener('click', exportQrPng);
-  $('#printCardBtn')?.addEventListener('click', printQrCard);
-}
-function publicCardUrl(code){
-  return `${location.origin}/c/${encodeURIComponent(code)}?lang=${encodeURIComponent('en')}`;
-}
-async function generateQrOnce(){
-  if (userProfile?.code){ toast('Code already assigned','warning'); return; }
-  // create unique 6-char uppercase code
-  let code = '';
-  for (let i=0;i<6;i++) code += 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)];
-  // rare collision loop
-  for (let tries=0; tries<5; tries++){
-    const { data: exists } = await supabase.from('profiles').select('id').eq('code', code).maybeSingle();
-    if (!exists) break;
-    code = crypto.randomUUID().slice(0,6).toUpperCase();
-  }
-  const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().single();
-  if (error){ console.error(error); toast('Couldn’t set code','error'); return; }
-  userProfile = data;
-  renderQrIfAny();
-  updateProgress();
-  toast('QR generated','success');
-}
-function renderQrIfAny(){
-  const box = $('#qrPreview');
-  if (!box) return;
-  box.innerHTML = '';
-  if (!userProfile?.code){
-    $('#shareableLink').value = '';
-    $('#exportPNGBtn')?.setAttribute('disabled','true');
-    $('#printCardBtn')?.setAttribute('disabled','true');
-    return;
-  }
-  const canvas = document.createElement('canvas');
-  canvas.id = 'qrCanvas';
-  box.appendChild(canvas);
-  const url = publicCardUrl(userProfile.code);
-  $('#shareableLink').value = url;
-  QRCode.toCanvas(canvas, url, { width: Math.min(300, box.clientWidth-8), margin: 1, color:{ dark:'#111', light:'#fff' }});
-  $('#exportPNGBtn')?.removeAttribute('disabled');
-  $('#printCardBtn')?.removeAttribute('disabled');
-}
-function copyQrLink(){
-  const v = $('#shareableLink').value;
-  if (!v) return;
-  navigator.clipboard?.writeText(v).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error'));
-}
-function exportQrPng(){
-  const canvas = $('#qrCanvas'); if (!canvas) return;
-  const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = 'myqer-qr.png';
-  a.click();
-}
-function printQrCard(){
-  if (!userProfile?.code) return;
-  window.open(publicCardUrl(userProfile.code), '_blank');
-}
-
-/* =====================  DELETE ACCOUNT  ===================== */
-$('#deleteAccountBtn')?.addEventListener('click', async ()=>{
-  try{
-    await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-    await supabase.from('health_profiles').delete().eq('user_id', currentUser.id);
-    await supabase.from('profiles').delete().eq('id', currentUser.id);
-    await supabase.auth.signOut();
-    toast('Account deleted','success');
-    setTimeout(()=>location.replace('/index.html'), 600);
-  }catch(e){
-    console.error(e); toast('Delete failed','error');
-  }
-});
-
-/* =====================  HELPERS  ===================== */
-function debounce(key, fn, ms){
-  clearTimeout(saveTimers[key]); saveTimers[key] = setTimeout(fn, ms);
-}
-    <script>
-/* =============== Supabase =============== */
-const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
-
-/* =============== State =============== */
-let currentUser = null;
-let userProfile = null;          // profiles row
-let userHealthProfile = null;    // health_profiles row
-let userContacts = [];           // ice_contacts rows
-let saveTimeouts = { identity: null, health: null };
-
-/* =============== Small helpers =============== */
-const $  = (id) => document.getElementById(id);
-function toast(msg, type='info') {
-  let t = document.querySelector('.toast');
-  if (!t) { t = document.createElement('div'); t.className='toast'; document.body.appendChild(t); }
-  t.className = `toast show ${type}`;
-  t.textContent = msg;
-  setTimeout(()=>t.classList.remove('show'), 2200);
-}
-function escapeHtml(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-/* =============== Auth boot =============== */
-document.addEventListener('DOMContentLoaded', init);
-supabase.auth.onAuthStateChange((_e, session) => {
-  if (_e === 'SIGNED_OUT') window.location.replace('/');
-});
-
-async function init(){
-  // must run after DOM exists
-  const { data:{ session } } = await supabase.auth.getSession();
-  currentUser = session?.user || null;
-  if (!currentUser) {
-    // hard redirect to login/landing
-    window.location.replace('/');
-    return;
-  }
-
-  await loadEverything();
-  wireUI();
-  updateProgress();
-  updateTriageBadge();
-  initQrCard();
-}
-
-/* =============== Loaders =============== */
-async function loadEverything(){
-  await Promise.all([loadProfile(), loadHealth(), loadContacts()]);
-  hydrateIdentity();
-  hydrateHealth();
-  renderContacts();
-}
-
-async function loadProfile(){
-  // rely on RLS, but also filter to be safe
-  const { data, error } = await supabase.from('profiles')
-    .select('*').eq('id', currentUser.id).maybeSingle();
-  if (error) console.error(error);
-  userProfile = data || {};
-}
-
-async function loadHealth(){
-  const { data, error } = await supabase.from('health_profiles')
-    .select('*').eq('user_id', currentUser.id).maybeSingle();
-  if (error) console.error(error);
-  userHealthProfile = data || null;
-}
-
-async function loadContacts(){
-  const { data, error } = await supabase.from('ice_contacts')
-    .select('*').eq('user_id', currentUser.id).order('created_at',{ascending:true});
-  if (error) console.error(error);
-  userContacts = data || [];
-}
-
-/* =============== Hydrate UI =============== */
-function hydrateIdentity(){
-  $('fullName')     && ( $('fullName').value     = userProfile?.full_name || '' );
-  $('dateOfBirth')  && ( $('dateOfBirth').value  = userProfile?.date_of_birth || '' );
-  $('country')      && ( $('country').value      = userProfile?.country || '' );
-  $('healthId')     && ( $('healthId').value     = userProfile?.national_health_id || '' );
-}
-
-function hydrateHealth(){
-  const hp = userHealthProfile || {};
-  $('bloodType')    && ( $('bloodType').value    = hp.blood_type || '' );
-  $('organDonor')   && ( $('organDonor').value   = (hp.organ_donor===true?'yes':hp.organ_donor===false?'no':'') );
-  $('lifeSupport')  && ( $('lifeSupport').value  = hp.life_support_pref || '' );
-
-  hydratePills('allergiesPills',  hp.allergies);
-  hydratePills('conditionsPills', hp.conditions);
-  hydratePills('medicationsPills',hp.medications);
-}
-
-function hydratePills(containerId, csv){
-  const cont = $(containerId); if(!cont) return;
-  cont.innerHTML = '';
-  (csv ? String(csv).split(',') : []).map(s=>s.trim()).filter(Boolean)
-    .forEach(val => cont.appendChild(makePill(val, containerId)));
-}
-
-function makePill(text, containerId){
-  const pill = document.createElement('span');
-  pill.className = 'inline-flex items-center px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-sm';
-  pill.textContent = text;
-  const x = document.createElement('button');
-  x.className='ml-2 text-gray-600 hover:text-red-600'; x.textContent='×';
-  x.addEventListener('click', async ()=>{ pill.remove(); await saveHealthPills(containerId); });
-  pill.appendChild(x);
-  return pill;
-}
-
-/* =============== Wiring =============== */
-function wireUI(){
-  // Identity autosave
-  $('fullName')    && $('fullName').addEventListener('input',  ()=>debounced('identity', saveIdentity));
-  $('dateOfBirth') && $('dateOfBirth').addEventListener('input',()=>debounced('identity', saveIdentity));
-  $('country')     && $('country').addEventListener('change',  ()=>debounced('identity', saveIdentity));
-  $('healthId')    && $('healthId').addEventListener('input',  ()=>debounced('identity', saveIdentity));
-
-  // Health autosave
-  $('bloodType')   && $('bloodType').addEventListener('change',()=>debounced('health', saveHealth));
-  $('organDonor')  && $('organDonor').addEventListener('change',()=>debounced('health', saveHealth));
-  $('lifeSupport') && $('lifeSupport').addEventListener('change',()=>debounced('health', saveHealth));
-
-  // Pills
-  $('allergiesInput')  && $('allergiesInput').addEventListener('keydown',e=>pillKey(e,'allergiesPills'));
-  $('conditionsInput') && $('conditionsInput').addEventListener('keydown',e=>pillKey(e,'conditionsPills'));
-  $('medicationsInput')&& $('medicationsInput').addEventListener('keydown',e=>pillKey(e,'medicationsPills'));
-
-  // Triage
-  $('triageOverride') && $('triageOverride').addEventListener('change', onTriageOverride);
-
-  // Contacts
-  $('addContactBtn') && $('addContactBtn').addEventListener('click', ()=>openContactModal());
-  $('contactForm')   && $('contactForm').addEventListener('submit', saveContact);
-
-  // QR
-  $('generateQRBtn') && $('generateQRBtn').addEventListener('click', onGenerateQR);
-  $('exportPNGBtn')  && $('exportPNGBtn').addEventListener('click', exportQrPng);
-  $('printCardBtn')  && $('printCardBtn').addEventListener('click', printCard);
-
-  // Danger Zone
-  $('deleteAccountBtn') && $('deleteAccountBtn').addEventListener('click', showDeleteConfirm);
-}
-
-/* =============== Debounce =============== */
-function debounced(kind, fn){
-  clearTimeout(saveTimeouts[kind]);
-  saveTimeouts[kind] = setTimeout(fn, 700);
-}
-
-/* =============== Saves =============== */
-async function saveIdentity(){
-  const patch = {
-    id: currentUser.id,
-    full_name: $('fullName')?.value?.trim() || null,
-    date_of_birth: $('dateOfBirth')?.value?.trim() || null,
-    country: $('country')?.value || null,
-    national_health_id: $('healthId')?.value?.trim() || null,
-    updated_at: new Date().toISOString()
-  };
-  const { data, error } = await supabase.from('profiles').upsert(patch).select().maybeSingle();
-  if (error) { console.error(error); return toast('Network error','error'); }
-  userProfile = data || patch;
-  toast('Profile saved','success');
-  updateProgress(); updateTriageBadge();
-}
-
-async function saveHealth(){
-  // ensure we have a holder
-  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
-  userHealthProfile = {
-    ...userHealthProfile,
-    user_id: currentUser.id,
-    blood_type: $('bloodType')?.value || null,
-    organ_donor: ( $('organDonor')?.value==='yes' ? true : $('organDonor')?.value==='no' ? false : null ),
-    life_support_pref: $('lifeSupport')?.value || null
-  };
-  await upsertHealth(userHealthProfile);
-  toast('Health saved','success');
-  updateProgress(); updateTriageBadge();
-}
-
-async function saveHealthPills(containerId){
-  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
-  const values = Array.from($(containerId)?.querySelectorAll('span')||[])
-    .map(s=>s.firstChild?.nodeValue||'').map(s=>s.trim()).filter(Boolean);
-  const csv = values.join(', ');
-  if (containerId==='allergiesPills')   userHealthProfile.allergies  = csv;
-  if (containerId==='conditionsPills')  userHealthProfile.conditions = csv;
-  if (containerId==='medicationsPills') userHealthProfile.medications= csv;
-  userHealthProfile.user_id = currentUser.id;
-  await upsertHealth(userHealthProfile);
-  toast('Saved','success');
-  updateProgress(); updateTriageBadge();
-}
-
-async function upsertHealth(hp){
-  const payload = {
-    user_id: currentUser.id,
-    blood_type: hp.blood_type ?? null,
-    organ_donor: (hp.organ_donor ?? null),
-    life_support_pref: hp.life_support_pref ?? null,
-    allergies: hp.allergies ?? null,
-    conditions: hp.conditions ?? null,
-    medications: hp.medications ?? null,
-    triage_override: hp.triage_override ?? null,
-    updated_at: new Date().toISOString()
-  };
-  const { data, error } = await supabase.from('health_profiles')
-    .upsert(payload, { onConflict: 'user_id' }).select().maybeSingle();
-  if (error) console.error(error);
-  if (data) userHealthProfile = data;
-}
-
-/* =============== Pills input =============== */
-function pillKey(e, contId){
-  if (e.key!=='Enter') return;
-  e.preventDefault();
-  const val = (e.target.value||'').trim();
-  if (!val) return;
-  $(contId).appendChild(makePill(val, contId));
-  e.target.value='';
-  saveHealthPills(contId);
-}
-
-/* =============== Progress & Triage =============== */
-function updateProgress(){
-  const iOK = !!($('fullName')?.value?.trim() && $('dateOfBirth')?.value?.trim() && $('country')?.value);
-  const hp = userHealthProfile || {};
-  const hOK = !!(hp.blood_type || hp.organ_donor!==undefined || hp.life_support_pref ||
-                 (hp.allergies&&hp.allergies.trim()) || (hp.conditions&&hp.conditions.trim()) || (hp.medications&&hp.medications.trim()));
-  const cOK = (userContacts||[]).length>0;
-  const qOK = !!userProfile?.code;
-
-  if ($('identityStatus')) $('identityStatus').className = iOK?'text-green-600':'text-amber-500';
-  if ($('healthStatus'))   $('healthStatus').className   = hOK?'text-green-600':'text-amber-500';
-  if ($('contactsStatus')) $('contactsStatus').className = cOK?'text-green-600':'text-amber-500';
-  if ($('qrStatus'))       $('qrStatus').className       = qOK?'text-green-600':'text-amber-500';
-
-  const pct = Math.round(100 * [iOK,hOK,cOK,qOK].filter(Boolean).length / 4);
-  $('progressPercent') && ( $('progressPercent').textContent = pct + '%' );
-  $('progressCircle')  && ( $('progressCircle').setAttribute('stroke-dasharray', `${pct}, 100`) );
-}
-
-function computeAutoTriage(){
-  const hp = userHealthProfile || {};
-  if ((hp.life_support_pref||'').toLowerCase()==='dnr') return 'black';
-  const a = (hp.allergies||'').toLowerCase();
-  const c = (hp.conditions||'').toLowerCase();
-  const redAllergy = ['anaphylaxis','epipen','penicillin','peanut','shellfish'];
-  const redCond    = ['heart failure','cardiac arrest','stroke','seizure','cancer','dialysis'];
-  if (redAllergy.some(w=>a.includes(w)) || redCond.some(w=>c.includes(w))) return 'red';
-
-  const medsCount = (hp.medications||'').split(',').map(s=>s.trim()).filter(Boolean).length;
-  const anyFlags  = (a.trim() || c.trim() || (hp.medications||'').trim());
-  if (anyFlags && medsCount>=3) return 'amber';
-  if (anyFlags) return 'amber';
-  return 'green';
-}
-
-function setTriageBadge(color){
-  const badge = $('triageBadge'); if(!badge) return;
-  const map = { green:['bg-green-500','Green — Stable','🟢'], amber:['bg-amber-500','Amber — Urgent','🟡'], red:['bg-red-600','Red — Immediate','🔴'], black:['bg-gray-900','Black — Comfort Care','⚫'] };
-  const [bg, label, dot] = map[color] || map.green;
-  badge.className = `inline-flex items-center px-8 py-4 rounded-full text-2xl font-bold text-white ${bg}`;
-  badge.innerHTML = `${dot} <span>${label}</span>`;
-}
-
-function updateTriageBadge(){
-  const override = (userHealthProfile?.triage_override||'').toLowerCase();
-  const color = (override && override!=='auto') ? override : computeAutoTriage();
-  setTriageBadge(color);
-  $('triageOverride') && ($('triageOverride').value = override || 'auto');
-}
-
-async function onTriageOverride(){
-  const v = $('triageOverride').value || 'auto';
-  if (!userHealthProfile) userHealthProfile = { user_id: currentUser.id };
-  userHealthProfile.triage_override = (v==='auto'?null:v);
-  await upsertHealth(userHealthProfile);
-  updateTriageBadge();
-  toast('Triage updated','success');
-}
-
-/* =============== Contacts (CRUD) =============== */
-function renderContacts(){
-  const list = $('contactsList'); if(!list) return;
-  list.querySelectorAll('.contact-card').forEach(n=>n.remove());
-  if (!userContacts.length) $('emptyState')?.classList.remove('hidden'); else $('emptyState')?.classList.add('hidden');
-  userContacts.forEach(c => list.appendChild(card(c)));
-  $('contactsCounter') && ( $('contactsCounter').textContent = `${userContacts.length} of 5 added` );
-}
-
-function card(c){
-  const el = document.createElement('div');
-  el.className = 'contact-card border rounded-lg p-4';
-  el.innerHTML = `
-    <div class="flex justify-between">
-      <div>
-        <div class="font-semibold">${escapeHtml(c.name||'')}</div>
-        <div class="text-sm text-gray-600">${escapeHtml(c.relationship||'')}</div>
-        <div class="text-sm mt-1">${escapeHtml(c.phone||'')}</div>
-        ${c.email? `<div class="text-sm">${escapeHtml(c.email)}</div>`:''}
-        ${c.notes? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(c.notes)}</div>`:''}
-      </div>
-      <div class="flex gap-2">
-        <button class="px-3 py-1 rounded border hover:bg-gray-50" data-act="edit">Edit</button>
-        <button class="px-3 py-1 rounded border text-red-600 hover:bg-red-50" data-act="del">Delete</button>
-      </div>
-    </div>`;
-  el.querySelector('[data-act="edit"]').addEventListener('click', ()=>openContactModal(c));
-  el.querySelector('[data-act="del"]').addEventListener('click', ()=>removeContact(c.id));
-  return el;
-}
-
-function openContactModal(c=null){
-  $('contactName').value = c?.name || '';
-  $('contactRelationship').value = c?.relationship || '';
-  $('contactPhone').value = c?.phone || '';
-  $('contactEmail').value = c?.email || '';
-  $('contactNotes').value = c?.notes || '';
-  $('contactModal').dataset.editing = c?.id || '';
-  $('contactModal').classList.remove('hidden');
-}
-function closeContactModal(){ $('contactModal').classList.add('hidden'); }
-
-async function saveContact(e){
-  e.preventDefault();
-  const name=$('contactName').value.trim(), phone=$('contactPhone').value.trim();
-  if(!name || !phone){ toast('Name and phone required','warning'); return; }
-  const payload = {
-    user_id: currentUser.id,
-    name,
-    relationship: $('contactRelationship').value || '',
-    phone,
-    email: $('contactEmail').value || '',
-    notes: $('contactNotes').value || ''
-  };
-  const editingId = $('contactModal').dataset.editing;
-  if (editingId){
-    const { error } = await supabase.from('ice_contacts').update(payload).eq('id', editingId);
-    if (!error) {
-      const i = userContacts.findIndex(x=>x.id===editingId);
-      if (i>-1) userContacts[i] = { id: editingId, ...payload };
     }
-  } else {
-    if (userContacts.length>=5){ toast('Max 5 contacts','warning'); return; }
-    const { data, error } = await supabase.from('ice_contacts').insert(payload).select().single();
-    if (!error && data) userContacts.push(data);
-  }
-  closeContactModal();
-  renderContacts();
-  updateProgress();
-  toast('Contact saved','success');
-}
-
-async function removeContact(id){
-  await supabase.from('ice_contacts').delete().eq('id', id);
-  userContacts = userContacts.filter(c=>c.id!==id);
-  renderContacts(); updateProgress();
-  toast('Contact deleted','success');
-}
-
-/* =============== QR (single, persistent) =============== */
-function initQrCard(){
-  if (userProfile?.code){
-    drawQr(userProfile.code);
-    const url = publicUrl(userProfile.code);
-    $('shareableLink') && ( $('shareableLink').value = url );
-    $('exportPNGBtn') && $('exportPNGBtn').removeAttribute('disabled');
-    $('printCardBtn') && $('printCardBtn').removeAttribute('disabled');
-  }
-}
-
-function publicUrl(code){ return `${location.origin}/c/${encodeURIComponent(code)}?lang=${encodeURIComponent(localStorage.getItem('myqer_language')||'en')}`; }
-
-async function onGenerateQR(){
-  if (userProfile?.code){ toast('Code already assigned','warning'); return; }
-  const code = await uniqueCode();
-  const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
-  if (error){ console.error(error); return toast('Network error','error'); }
-  userProfile = data || { ...userProfile, code };
-  drawQr(code);
-  $('shareableLink').value = publicUrl(code);
-  $('exportPNGBtn').removeAttribute('disabled');
-  $('printCardBtn').removeAttribute('disabled');
-  updateProgress();
-  toast('QR generated','success');
-}
-
-async function uniqueCode(){
-  for (let i=0;i<6;i++){
-    const c = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-    const { data } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
-    if (!data) return c;
-  }
-  return crypto.randomUUID().slice(0,6).toUpperCase();
-}
-
-function drawQr(code){
-  const box = $('qrPreview'); if (!box) return;
-  box.innerHTML = '';
-  const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
-  box.appendChild(canvas);
-  const url = publicUrl(code);
-  QRCode.toCanvas(canvas, url, { width: Math.max(220, box.clientWidth-8), margin: 1, color:{dark:'#111',light:'#fff'} });
-}
-
-function exportQrPng(){
-  const canvas = document.getElementById('qrCanvas'); if(!canvas) return;
-  const a=document.createElement('a'); a.download=(userProfile?.code||'myqer')+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
-}
-
-function printCard(){
-  if (!userProfile?.code) return;
-  window.open(publicUrl(userProfile.code), '_blank');
-}
-
-/* =============== Danger Zone =============== */
-function showDeleteConfirm(){ $('deleteConfirmSection')?.classList.remove('hidden'); $('deleteConfirmInput')?.addEventListener('input', onDeleteTyping); }
-function onDeleteTyping(){
-  const ok = ($('deleteConfirmInput').value.trim().toUpperCase()==='DELETE');
-  const btn = $('deleteAccountBtn');
-  if (ok){ btn.disabled=false; btn.classList.remove('cursor-not-allowed','bg-gray-300','text-gray-500'); btn.classList.add('bg-red-600','text-white'); }
-  else   { btn.disabled=true;  btn.classList.add('cursor-not-allowed','bg-gray-300','text-gray-500'); btn.classList.remove('bg-red-600','text-white'); }
-}
-</script>
+  </script>
 </body>
 </html>
