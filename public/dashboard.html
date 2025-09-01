@@ -598,69 +598,138 @@
       }, 500);
     }
 
-    // ---------- QR ----------
-    async function ensureQrRendered(){
-      if (profile?.code){
-        renderQR(profile.code);
-        enableQrButtons(true);
-        $('#shareLink').value = `${location.origin}/c/${profile.code}`;
-      } else {
-        enableQrButtons(false);
-        $('#shareLink').value = '';
-        $('#qrBox').innerHTML = '';
-      }
-    }
+  <script>
+// ====================== QR: single, permanent, short code ======================
+const QR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I, etc.
+let __qr_isGenerating = false;
 
-    async function onGenerateQR(){
-      if (profile?.code){
-        showToast('Code already assigned'); return;
-      }
-      const code = await makeUniqueCode();
-      const { data, error } = await supabase.from('profiles').update({ code }).eq('id', currentUser.id).select().maybeSingle();
-      if (error) return;
-      profile = data || { ...(profile||{}), code };
-      renderQR(code);
-      $('#shareLink').value = `${location.origin}/c/${code}`;
-      enableQrButtons(true);
-      showToast('QR generated');
-      updateProgress();
-    }
+// -- DOM bridge: supports both your old and new ids
+const QR_DOM = {
+  box:        document.getElementById('qrPreview') || document.getElementById('qrBox'),
+  link:       document.getElementById('shareableLink') || document.getElementById('shareLink'),
+  genBtn:     document.getElementById('generateQRBtn') || document.getElementById('generateQR'),
+  exportBtn:  document.getElementById('exportPNGBtn')  || document.getElementById('exportPNG'),
+  printBtn:   document.getElementById('printCardBtn')  || document.getElementById('printQR'),
+  copyBtn:    document.getElementById('copyLinkBtn')   || document.getElementById('copyLink'),
+};
 
-    async function makeUniqueCode(){
-      for (let i=0;i<6;i++){
-        const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = Array.from({length:6},()=>alphabet[Math.floor(Math.random()*alphabet.length)]).join('');
-        const { data } = await supabase.from('profiles').select('id').eq('code', code).maybeSingle();
-        if (!data) return code;
-      }
-      return crypto.randomUUID().slice(0,6).toUpperCase();
-    }
+// Call this after you’ve loaded userProfile/currentLanguage
+async function initQrCard() {
+  if (!QR_DOM.box) return; // no container on this page
+  if (userProfile?.code) {
+    renderQr(userProfile.code);
+    updateQrUi(true);
+  } else {
+    updateQrUi(false);
+  }
+  wireQrButtons(); // idempotent
+}
 
-    function renderQR(code){
-      const box = $('#qrBox'); box.innerHTML='';
-      const canvas = document.createElement('canvas'); canvas.id='qrCanvas';
-      box.appendChild(canvas);
-      QRCode.toCanvas(canvas, `${location.origin}/c/${code}`, { width: Math.max(220, box.clientWidth-8), margin:1, color:{dark:'#111', light:'#fff'} });
-    }
+// Generate once; keep forever
+async function onGenerateQR() {
+  if (__qr_isGenerating) return;
+  if (userProfile?.code) { showToast?.('Code already assigned'); return; }
+  try {
+    __qr_isGenerating = true;
+    const code = await generateUniqueCode(6);
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ code })
+      .eq('id', currentUser.id)
+      .select()
+      .single();
+    if (error) throw error;
+    userProfile = data || { ...(userProfile || {}), code };
+    renderQr(code);
+    updateQrUi(true);
+    showToast?.('QR generated');
+  } catch (e) {
+    console.warn('onGenerateQR', e);
+    showToast?.('Network error');
+  } finally {
+    __qr_isGenerating = false;
+  }
+}
 
-    function enableQrButtons(on){
-      $('#exportPNG').disabled = !on;
-      $('#printQR').disabled = !on;
-    }
+// Keep the same code; just redraw URL (e.g., if lang changed or box resized)
+function rerenderQrIfExists() {
+  if (userProfile?.code) renderQr(userProfile.code);
+}
 
-    function copyShareLink(){
-      const v = $('#shareLink').value;
-      if (!v) return;
-      if (navigator.clipboard?.writeText){ navigator.clipboard.writeText(v).then(()=>showToast('Link copied')); }
-      else { const t=document.createElement('input'); t.value=v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); showToast('Link copied'); }
-    }
+// --- helpers ---
+async function generateUniqueCode(len = 6, maxTries = 10) {
+  for (let i = 0; i < maxTries; i++) {
+    const c = Array.from({length: len}, () => QR_ALPHABET[Math.floor(Math.random() * QR_ALPHABET.length)]).join('');
+    const { data, error } = await supabase.from('profiles').select('id').eq('code', c).maybeSingle();
+    if (error) throw error;        // surface network/permission errors
+    if (!data) return c;           // free code
+  }
+  // extremely unlikely fallback
+  return crypto.randomUUID().replace(/-/g,'').slice(0, len).toUpperCase().replace(/[^A-Z0-9]/g,'X');
+}
 
-    function exportQrPng(){
-      const canvas = $('#qrCanvas'); if (!canvas) return;
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png'); a.download = (profile?.code || 'myqer') + '.png'; a.click();
-    }
+function publicCardUrl(code, lang = currentLanguage || 'en') {
+  const base = `${location.origin}/c/${encodeURIComponent(code)}`;
+  return `${base}?lang=${encodeURIComponent(lang)}`;
+}
 
+function renderQr(code) {
+  if (!QR_DOM.box) return;
+  QR_DOM.box.innerHTML = '';
+  const canvas = document.createElement('canvas'); canvas.id = 'qrCanvas';
+  QR_DOM.box.appendChild(canvas);
+  const url = publicCardUrl(code);
+  QRCode.toCanvas(canvas, url, {
+    width: Math.max(200, (QR_DOM.box.clientWidth || 260) - 8),
+    margin: 1,
+    color: { dark: '#111', light: '#fff' }
+  });
+  if (QR_DOM.link) QR_DOM.link.value = url;
+}
+
+function updateQrUi(enabled) {
+  [QR_DOM.exportBtn, QR_DOM.printBtn, QR_DOM.copyBtn].forEach(b => b && (b.disabled = !enabled));
+  if (QR_DOM.link && !enabled) QR_DOM.link.value = '';
+  if (!enabled && QR_DOM.box) QR_DOM.box.innerHTML = ''; // keep clean if no code yet
+}
+
+function wireQrButtons() {
+  // idempotent: remove previous listeners by cloning (cheap & safe)
+  if (QR_DOM.genBtn)   { const n = QR_DOM.genBtn.cloneNode(true);   QR_DOM.genBtn.parentNode.replaceChild(n, QR_DOM.genBtn);   QR_DOM.genBtn = n;   QR_DOM.genBtn.addEventListener('click', onGenerateQR); }
+  if (QR_DOM.exportBtn){ const n = QR_DOM.exportBtn.cloneNode(true);QR_DOM.exportBtn.parentNode.replaceChild(n, QR_DOM.exportBtn);QR_DOM.exportBtn = n;QR_DOM.exportBtn.addEventListener('click', exportQrPng); }
+  if (QR_DOM.printBtn) { const n = QR_DOM.printBtn.cloneNode(true); QR_DOM.printBtn.parentNode.replaceChild(n, QR_DOM.printBtn); QR_DOM.printBtn = n; QR_DOM.printBtn.addEventListener('click', printEmergencyCard); }
+  if (QR_DOM.copyBtn)  { const n = QR_DOM.copyBtn.cloneNode(true);  QR_DOM.copyBtn.parentNode.replaceChild(n, QR_DOM.copyBtn);  QR_DOM.copyBtn = n;  QR_DOM.copyBtn.addEventListener('click', copyShareLink); }
+}
+
+function exportQrPng() {
+  const canvas = document.getElementById('qrCanvas'); if (!canvas) return;
+  const a = document.createElement('a');
+  a.download = (userProfile?.code || 'myqer') + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+function printEmergencyCard() {
+  if (!userProfile?.code) return;
+  window.open(publicCardUrl(userProfile.code), '_blank');
+}
+function copyShareLink() {
+  const v = QR_DOM.link?.value;
+  if (!v) return;
+  (navigator.clipboard?.writeText(v) || Promise.reject()).then(()=>showToast?.('Link copied')).catch(()=>{
+    // fallback
+    const t = document.createElement('input'); t.value = v; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); t.remove(); showToast?.('Link copied');
+  });
+}
+
+// ====================== hook: call redraw on data/lang changes ======================
+// Call this after any successful save that could affect the public view.
+// Example: inside your saveIdentity/saveHealth success branches:
+///   rerenderQrIfExists();
+
+// Also call after language change:
+///   currentLanguage = newLang; rerenderQrIfExists();
+</script>
     // ---------- Danger Zone ----------
     async function doDeleteAccount(){
       if ($('#confirmDelete').value.trim().toUpperCase()!=='DELETE') return;
