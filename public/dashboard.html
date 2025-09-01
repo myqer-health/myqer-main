@@ -268,26 +268,44 @@
     let saveTimers = { identity:null, health:null };
     const $ = (sel) => document.querySelector(sel);
 
-    // ---------- Boot / guard ----------
-    document.addEventListener('DOMContentLoaded', async () => {
-      // online indicator
-      const setNet = () => {
-        $('#netDot').className = 'w-2.5 h-2.5 rounded-full ' + (navigator.onLine ? 'bg-green-500 animate-pulse':'bg-gray-400');
-        $('#netLabel').textContent = navigator.onLine ? 'Online' : 'Offline';
-      };
-      window.addEventListener('online', setNet); window.addEventListener('offline', setNet); setNet();
+    <script>
+// ---- one-time boot guard ----
+let __booted = false;
+async function boot() {
+  if (__booted) return; __booted = true;
 
-      // session gate
-      const { data: { session } } = await supabase.auth.getSession();
-      currentUser = session?.user || null;
-      if (!currentUser) { location.replace('/login'); return; }
+  // Wait for current session
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user || null;
 
-      wireEvents();
-      await loadAll();
-      await initQrCard();   // show QR immediately if code exists
-      updateTriage();
-      updateProgress();
-    });
+  // Hard gate for protected page (dashboard)
+  if (!user) {
+    // IMPORTANT: point this to your real login path
+    location.replace('/login');
+    return;
+  }
+
+  // Store and continue normal load
+  currentUser = user;
+  wireEvents();
+  await loadAll();
+  await initQrCard();
+  updateTriage();
+  updateProgress();
+}
+
+// Run boot once after DOM is ready
+document.addEventListener('DOMContentLoaded', boot);
+
+// ---- auth change listener (no redirect on SIGNED_IN) ----
+supabase.auth.onAuthStateChange((event/*, session*/) => {
+  if (event === 'SIGNED_OUT') {
+    // IMPORTANT: point this to your real login path
+    location.replace('/login');
+  }
+  // Do NOT redirect on SIGNED_IN here; the login page should do that.
+});
+</script>
 
     supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') location.replace('/login');
