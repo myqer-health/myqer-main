@@ -322,6 +322,72 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
+    <script>
+// --- Global redirect on any successful sign-in (belt & suspenders)
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    // Prefer .html (GitHub Pages / static hosts), then fallback
+    window.location.replace('/dashboard.html');
+    setTimeout(() => {
+      if (!/dashboard/i.test(location.pathname)) window.location.replace('/dashboard');
+    }, 500);
+  }
+});
+</script>
+  <script>
+async function handleAuthSubmit(e){
+  e.preventDefault();
+
+  const form = document.getElementById('authForm');
+  const mode = form?.dataset?.mode === 'signin' ? 'signin' : 'signup';
+  const email = document.getElementById('authEmail')?.value?.trim();
+  const password = document.getElementById('authPassword')?.value?.trim();
+  const fullName = document.getElementById('authFullName')?.value?.trim();
+  const btn = document.getElementById('authSubmitBtn');
+
+  if (btn){ btn.disabled = true; btn.textContent = (mode==='signin') ? 'Signing in…' : 'Creating…'; }
+
+  try{
+    if (mode === 'signin'){
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sign-in failed (no session).');
+
+      showToast('Signed in successfully!', 'success');
+      window.location.replace('/dashboard.html');
+      setTimeout(()=>window.location.replace('/dashboard'), 500);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+
+      // best-effort profile upsert
+      try{
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user){
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            email,
+            full_name: fullName || null,
+            lang: localStorage.getItem('myqer_language') || 'en',
+            updated_at: new Date().toISOString()
+          });
+        }
+      }catch(_){}
+
+      showToast('Account created!', 'success');
+      window.location.replace('/dashboard.html');
+      setTimeout(()=>window.location.replace('/dashboard'), 500);
+    }
+  }catch(err){
+    console.error('Auth error:', err);
+    showToast(err?.message || 'Network error. Please try again.', 'error', 6000);
+  }finally{
+    if (btn){ btn.disabled = false; btn.textContent = (mode==='signin'?'Sign In':'Sign Up'); }
+  }
+}
+</script>
 
     // ---------- Minimal i18n (keys used on index only) ----------
     const i18nDict = {
@@ -514,6 +580,7 @@
       $('authForm').addEventListener('submit', handleAuthSubmit);
       $('forgotPasswordBtn').addEventListener('click', handleForgotPassword);
     });
+  document.getElementById('authForm')?.addEventListener('submit', handleAuthSubmit);
   </script>
 </body>
 </html>
