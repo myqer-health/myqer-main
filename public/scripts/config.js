@@ -1,10 +1,12 @@
 // /public/scripts/config.js
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// --- Supabase project keys (frontend-safe) ---
-export const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
-
+// /public/scripts/config.js
+window.MYQER = {
+  SUPABASE_URL: 'https://dmntmhkncldgynufajei.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY',
+  RENDER_BASE: 'https://www.myqer.com' // used to build short QR URLs
+};
 // Shared client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth:   { persistSession: true, storage: window.localStorage },
