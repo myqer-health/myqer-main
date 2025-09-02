@@ -1,316 +1,285 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>MYQER Dashboard</title>
+  <title>MYQER — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Tailwind for premium, responsive UI -->
+  <!-- Tailwind (keeps your modern, premium look) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Supabase v2 (single client used) -->
+  <!-- Supabase v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <!-- QR library: keep as PLAIN script (no module/async) to avoid "spinner/blocked" issues -->
-  <!-- Using qr-code-styling for rounded modules + logo -->
+  <!-- QR code (plain script per guardrail) -->
   <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
 
-  <!-- Fonts (optional) -->
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <!-- Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 
   <style>
     :root {
-      --brand: #e11d48; /* rose-600 */
-      --brand-700: #be123c;
-      --ink: #0f172a;   /* slate-900 */
-      --muted: #64748b; /* slate-500 */
+      --brand:#e11d48;        /* rose-600 */
+      --brand-700:#be123c;
+      --ink:#0f172a;          /* slate-900 */
+      --muted:#64748b;        /* slate-500 */
+      --ring:rgba(148,163,184,.25);
     }
-    * { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji; }
-    body {
+    *{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";}
+    body{
       background:
-        radial-gradient(1000px 600px at 10% -10%, #ffe4e6 0%, rgba(255,255,255,0) 70%),
-        radial-gradient(1000px 600px at 90% -10%, #e0f2fe 0%, rgba(255,255,255,0) 70%),
-        #fff;
-      min-height: 100dvh;
+        radial-gradient(1200px 600px at 10% -10%, #ffe4e6 0%, rgba(255,255,255,0) 70%),
+        radial-gradient(1200px 600px at 90% -10%, #e0f2fe 0%, rgba(255,255,255,0) 70%),#fff;
+      min-height:100dvh;
+      color:var(--ink);
     }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow:
-        0 8px 20px rgba(15, 23, 42, .06),
-        0 2px 6px rgba(15, 23, 42, .04);
-      border: 1px solid rgba(2,6,23,.06);
+    .shell{max-width:1100px;margin:0 auto;padding:24px 16px 120px;}
+    .card{
+      background:#fff;border-radius:20px;border:1px solid rgba(2,6,23,.06);
+      box-shadow: 0 12px 28px rgba(15,23,42,.08), 0 2px 6px rgba(15,23,42,.04);
     }
-    .pill {
-      display:inline-flex; align-items:center; gap:.5rem;
-      border-radius:999px; padding:.25rem .75rem; font-weight:700; font-size:.85rem;
+    .ribbon{
+      position:absolute;top:-10px;left:18px;background:var(--brand);color:#fff;
+      font-size:.75rem;font-weight:800;border-radius:10px;padding:.25rem .6rem;
+      box-shadow:0 6px 14px rgba(225,29,72,.25);
     }
-    .pill.green { background:#dcfce7; color:#166534; }
-    .pill.amber { background:#fef3c7; color:#92400e; }
-    .pill.red   { background:#ffe4e6; color:#9f1239; }
-    .pill.black { background:#e5e7eb; color:#111827; }
-    .ribbon {
-      position:absolute; top:-10px; right:-10px;
-      background: var(--brand);
-      color:#fff; padding:.25rem .5rem; border-radius:6px; font-size:.75rem; font-weight:700;
-      box-shadow: 0 6px 14px rgba(225, 29, 72, .3);
+    .ribbon.right{left:auto;right:18px;background:#6b21a8;}
+    .section-title{font-weight:800;letter-spacing:-.01em}
+    .field{display:flex;flex-direction:column;gap:.35rem}
+    .field label{font-size:.8rem;color:var(--muted);font-weight:700;letter-spacing:.02em}
+    .field input,.field select,.field textarea{
+      border:1px solid #e5e7eb;border-radius:14px;padding:.7rem .9rem;background:#fff;outline:none;
+      transition:border-color .15s ease, box-shadow .15s ease;
     }
-    .btn {
-      display:inline-flex; align-items:center; gap:.5rem;
-      padding:.625rem .9rem; border-radius:.625rem; font-weight:700;
-      background:#0f172a; color:#fff;
-      transition:transform .06s ease, box-shadow .2s ease, background .2s ease;
-      box-shadow: 0 4px 10px rgba(15, 23, 42, .2);
-    }
-    .btn:hover { transform: translateY(-1px); background:#111827; }
-    .btn.secondary { background:#e2e8f0; color:#0f172a; box-shadow:none; }
-    .btn.danger { background: var(--brand); }
-    .btn.ghost  { background: transparent; color: var(--ink); box-shadow:none; }
-    .field { display:flex; flex-direction:column; gap:.25rem; }
-    .field label { font-size:.85rem; color:var(--muted); font-weight:600; }
-    .field input, .field select, .field textarea {
-      border:1px solid #e2e8f0; border-radius:.625rem; padding:.625rem .75rem;
-      outline:none; transition:border-color .15s ease, box-shadow .15s ease;
-      background:#fff;
-    }
-    .field input:focus, .field select:focus, .field textarea:focus {
-      border-color:#94a3b8; box-shadow:0 0 0 4px rgba(148,163,184,.2);
-    }
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:#94a3b8;box-shadow:0 0 0 6px var(--ring)}
+    .pill{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .7rem;font-weight:800;font-size:.8rem}
+    .pill.green{background:#dcfce7;color:#166534}
+    .pill.amber{background:#fef3c7;color:#92400e}
+    .pill.red{background:#ffe4e6;color:#9f1239}
+    .pill.black{background:#e5e7eb;color:#111827}
+    .btn{display:inline-flex;align-items:center;gap:.55rem;border-radius:12px;padding:.7rem 1rem;font-weight:800}
+    .btn.primary{background:var(--brand);color:#fff;box-shadow:0 10px 20px rgba(225,29,72,.25)}
+    .btn.secondary{background:#e2e8f0;color:#0f172a}
+    .btn.ghost{background:transparent;border:1px solid #e5e7eb}
+    .btn.dark{background:#0f172a;color:#fff}
+    .badge{font-size:.7rem;border-radius:8px;padding:.2rem .5rem;background:#fee2e2;color:#991b1b;font-weight:800}
 
-    /* Print A6 emergency card */
-    @media print {
-      @page { size: A6; margin: 6mm; }
-      body { background:#fff !important; }
-      #app, header, .no-print { display:none !important; }
-      #print-card { display:block !important; }
+    /* A6 print card */
+    @media print{
+      @page{size:A6;margin:6mm}
+      header,#app,.no-print,footer{display:none!important}
+      #print-card{display:block!important}
+      body{background:#fff!important}
     }
-    #print-card { display:none; }
+    #print-card{display:none}
   </style>
 </head>
 <body>
-  <header class="max-w-6xl mx-auto px-4 md:px-6 py-6">
+  <!-- Header -->
+  <header class="shell pt-6">
     <div class="flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="h-10 w-10 rounded-lg grid place-items-center" style="background: var(--brand); color:#fff; font-weight:800;">Q</div>
+        <div class="h-11 w-11 rounded-xl grid place-items-center text-white font-extrabold" style="background:var(--brand);">Q</div>
         <div>
-          <div class="text-xl font-extrabold tracking-tight text-slate-900">MYQER Dashboard</div>
-          <div class="text-xs text-slate-500">Emergency profile • Private & secure</div>
+          <div class="text-2xl font-extrabold tracking-tight">MYQER™</div>
+          <div class="text-xs text-slate-500 italic">(pronounced “my care”)</div>
         </div>
       </div>
-
       <div class="flex items-center gap-2">
-        <select id="lang" class="field text-sm border-slate-300 rounded-lg py-2 px-3">
-          <option value="en">English</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
-          <option value="de">Deutsch</option>
-          <option value="it">Italiano</option>
-          <option value="pt">Português</option>
-          <option value="nl">Nederlands</option>
-          <option value="sv">Svenska</option>
-          <option value="ar">العربية</option>
-          <option value="hi">हिन्दी</option>
+        <select id="lang" class="rounded-lg border px-3 py-2 text-sm">
+          <option value="en">EN</option><option value="fr">FR</option><option value="es">ES</option><option value="de">DE</option><option value="it">IT</option><option value="pt">PT</option><option value="nl">NL</option><option value="sv">SV</option><option value="ar">AR</option><option value="hi">HI</option>
         </select>
-        <button id="signout" class="btn secondary no-print" data-i18n="sign_out">Sign out</button>
+        <button id="signout" class="btn secondary text-sm" data-i18n="sign_out">Sign out</button>
       </div>
     </div>
   </header>
 
-  <main id="app" class="max-w-6xl mx-auto px-4 md:px-6 pb-24">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Left column: Identity + Health -->
-      <section class="lg:col-span-2 space-y-6">
+  <!-- App -->
+  <main id="app" class="shell">
+    <div class="grid lg:grid-cols-2 gap-6">
+      <!-- Identity + Health -->
+      <section class="space-y-6">
         <!-- Identity -->
         <div class="card p-6 relative">
           <div class="ribbon" data-i18n="private">Private</div>
-          <h2 class="text-lg font-bold mb-4" data-i18n="identity">Identity</h2>
-          <div class="grid md:grid-cols-2 gap-4">
+          <h2 class="section-title text-lg mb-4" data-i18n="identity">Identity</h2>
+          <div class="grid sm:grid-cols-2 gap-4">
             <div class="field">
-              <label for="full_name" data-i18n="full_name">Full name</label>
-              <input id="full_name" type="text" autocomplete="name" />
+              <label data-i18n="full_name">Full name</label>
+              <input id="full_name" autocomplete="name" />
             </div>
             <div class="field">
-              <label for="dob" data-i18n="dob">Date of birth</label>
+              <label data-i18n="dob">Date of birth</label>
               <input id="dob" type="date" />
             </div>
             <div class="field">
-              <label for="country" data-i18n="country">Country</label>
-              <input id="country" type="text" autocomplete="country" />
+              <label data-i18n="country">Country of residence</label>
+              <input id="country" placeholder="Select your country" />
             </div>
             <div class="field">
-              <label for="health_id" data-i18n="health_id">National / Health ID (optional)</label>
-              <input id="health_id" type="text" />
+              <label data-i18n="health_id">National health ID / insurance number</label>
+              <input id="health_id" placeholder="Enter your health ID or insurance number" />
+            </div>
+            <div class="field sm:col-span-2">
+              <label>Email</label>
+              <input id="email" type="email" disabled class="bg-slate-50"/>
             </div>
           </div>
-          <div class="mt-3 text-sm text-slate-500" id="id-saved"></div>
+          <div id="id-saved" class="mt-3 text-sm text-slate-500"></div>
         </div>
 
         <!-- Health Profile -->
         <div class="card p-6 relative">
-          <h2 class="text-lg font-bold mb-4" data-i18n="health_profile">Health Profile</h2>
-          <div class="grid md:grid-cols-2 gap-4">
+          <h2 class="section-title text-lg mb-4" data-i18n="health_profile">Health Profile</h2>
+          <div class="grid sm:grid-cols-2 gap-4">
             <div class="field">
-              <label for="blood_type" data-i18n="blood_type">Blood type</label>
+              <label data-i18n="blood_type">Blood type</label>
               <select id="blood_type">
-                <option value=""></option>
-                <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
-                <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+                <option value=""></option><option>O+</option><option>O-</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
               </select>
             </div>
             <div class="field">
-              <label for="organ_donor" data-i18n="organ_donor">Organ donor</label>
-              <select id="organ_donor">
-                <option value=""></option>
-                <option value="true" data-i18n="yes">Yes</option>
-                <option value="false" data-i18n="no">No</option>
-              </select>
+              <label data-i18n="organ_donor">Organ donor</label>
+              <select id="organ_donor"><option value=""></option><option value="true" data-i18n="yes">Yes</option><option value="false" data-i18n="no">No</option></select>
             </div>
-            <div class="field md:col-span-2">
-              <label for="allergies" data-i18n="allergies">Allergies (include severity)</label>
-              <textarea id="allergies" rows="2"></textarea>
-            </div>
-            <div class="field md:col-span-2">
-              <label for="conditions" data-i18n="conditions">Conditions</label>
-              <textarea id="conditions" rows="2"></textarea>
-            </div>
-            <div class="field md:col-span-2">
-              <label for="meds" data-i18n="meds">Medications</label>
-              <textarea id="meds" rows="2"></textarea>
-            </div>
-            <div class="field md:col-span-2">
-              <label for="implants" data-i18n="implants">Implants / devices</label>
-              <textarea id="implants" rows="2"></textarea>
-            </div>
-            <div class="field">
-              <label for="life_support" data-i18n="life_support">Life support preference</label>
+            <div class="field sm:col-span-2">
+              <label data-i18n="life_support">Life support & resuscitation preferences</label>
               <select id="life_support">
-                <option value=""></option>
+                <option>No Preference Specified</option>
                 <option>DNR</option>
                 <option>Comfort only</option>
                 <option>Full support</option>
               </select>
             </div>
-            <div class="field">
-              <label for="burial_pref" data-i18n="burial">Burial preference</label>
-              <input id="burial_pref" type="text" />
+            <div class="field sm:col-span-2">
+              <label data-i18n="allergies">Allergies & adverse reactions</label>
+              <textarea id="allergies" rows="2" placeholder="e.g., Penicillin, Peanuts, Latex, Shellfish, Bee stings"></textarea>
             </div>
-            <div class="field">
-              <label for="religion_pref" data-i18n="religion">Religious preference</label>
-              <input id="religion_pref" type="text" />
+            <div class="field sm:col-span-2">
+              <label data-i18n="conditions">Medical conditions & diagnoses</label>
+              <textarea id="conditions" rows="2" placeholder="e.g., Diabetes, Heart Disease, Asthma, Epilepsy, Cancer"></textarea>
+            </div>
+            <div class="field sm:col-span-2">
+              <label data-i18n="meds">Current medications</label>
+              <textarea id="meds" rows="2"></textarea>
+            </div>
+            <div class="field sm:col-span-2">
+              <label data-i18n="implants">Implants / medical devices</label>
+              <textarea id="implants" rows="2"></textarea>
             </div>
 
             <!-- Optional risk flags -->
-            <div class="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <label class="inline-flex items-center gap-2">
-                <input id="flag_anticoagulants" type="checkbox" />
-                <span class="text-sm" data-i18n="risk_anticoagulants">Anticoagulants risk</span>
-              </label>
-              <label class="inline-flex items-center gap-2">
-                <input id="flag_seizure" type="checkbox" />
-                <span class="text-sm" data-i18n="risk_seizure">Seizure risk</span>
-              </label>
-              <label class="inline-flex items-center gap-2">
-                <input id="flag_pregnancy" type="checkbox" />
-                <span class="text-sm" data-i18n="risk_pregnancy">Pregnancy risk</span>
-              </label>
-              <label class="inline-flex items-center gap-2">
-                <input id="flag_steroid" type="checkbox" />
-                <span class="text-sm" data-i18n="risk_steroid">Steroid/Immunosuppression risk</span>
-              </label>
+            <div class="sm:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <label class="inline-flex items-center gap-2 text-sm"><input id="flag_anticoagulants" type="checkbox"/><span data-i18n="risk_anticoagulants">Anticoagulants risk</span></label>
+              <label class="inline-flex items-center gap-2 text-sm"><input id="flag_seizure" type="checkbox"/><span data-i18n="risk_seizure">Seizure risk</span></label>
+              <label class="inline-flex items-center gap-2 text-sm"><input id="flag_pregnancy" type="checkbox"/><span data-i18n="risk_pregnancy">Pregnancy risk</span></label>
+              <label class="inline-flex items-center gap-2 text-sm"><input id="flag_steroid" type="checkbox"/><span data-i18n="risk_steroid">Steroid/Immunosuppression risk</span></label>
             </div>
 
             <!-- Triage -->
-            <div class="md:col-span-2 flex items-center justify-between gap-4 mt-2">
+            <div class="sm:col-span-2 mt-1 flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div data-i18n="triage" class="text-sm font-semibold text-slate-500">Triage</div>
+                <div class="text-sm font-semibold text-slate-600" data-i18n="triage">Triage</div>
                 <span id="triage-pill" class="pill green">GREEN</span>
               </div>
               <div class="flex items-center gap-2">
-                <label class="text-sm text-slate-500" for="triage_override" data-i18n="override">Manual override</label>
-                <select id="triage_override" class="text-sm">
-                  <option value=""></option>
-                  <option value="Green">Green</option>
-                  <option value="Amber">Amber</option>
-                  <option value="Red">Red</option>
-                  <option value="Black">Black</option>
+                <label class="text-sm text-slate-600" data-i18n="override">Manual override</label>
+                <select id="triage_override" class="text-sm rounded-lg border px-3 py-2">
+                  <option value=""></option><option value="Green">Green</option><option value="Amber">Amber</option><option value="Red">Red</option><option value="Black">Black</option>
                 </select>
               </div>
             </div>
           </div>
-          <div class="mt-3 text-sm text-slate-500" id="health-saved"></div>
+          <div id="health-saved" class="mt-3 text-sm text-slate-500"></div>
         </div>
 
-        <!-- ICE contacts -->
+        <!-- ICE -->
         <div class="card p-6 relative">
-          <h2 class="text-lg font-bold mb-2" data-i18n="ice_title">ICE Contacts (max 3)</h2>
-          <p class="text-sm text-slate-500 mb-4" data-i18n="ice_hint">Add trusted contacts. Mark one as primary.</p>
+          <h2 class="section-title text-lg mb-1" data-i18n="ice_title">Emergency Contacts (ICE)</h2>
+          <p class="text-sm text-slate-500 mb-4" data-i18n="ice_hint">Add up to three trusted contacts and mark one as primary.</p>
           <div id="ice-list" class="space-y-3"></div>
-          <div class="flex justify-between items-center mt-4">
-            <button id="add-ice" class="btn" data-i18n="add_contact">Add contact</button>
-            <div class="text-sm text-slate-500" id="ice-saved"></div>
+          <div class="flex items-center justify-between mt-3">
+            <button id="add-ice" class="btn dark text-sm" data-i18n="add_contact">Add contact</button>
+            <div id="ice-saved" class="text-sm text-slate-500"></div>
           </div>
         </div>
+      </section>
 
-        <!-- Danger zone -->
+      <!-- QR + Danger Zone -->
+      <aside class="space-y-6">
+        <!-- QR -->
         <div class="card p-6 relative">
-          <h2 class="text-lg font-bold mb-2 text-rose-700" data-i18n="danger_zone">Danger zone</h2>
-          <p class="text-sm text-slate-600 mb-3" data-i18n="danger_copy">
-            Deleting your account is irreversible. This removes your profile, health data, ICE contacts, and the user from auth. Your QR code will stop resolving.
-          </p>
-          <label class="inline-flex items-center gap-2 mb-4">
+          <div class="ribbon" style="background:#ef4444" data-i18n="qr_label">QR code</div>
+          <h3 class="section-title text-lg mb-2" data-i18n="emergency_card">Emergency QR Code</h3>
+          <p class="text-sm text-slate-600 mb-4" data-i18n="qr_blurb">Instant access to your medical profile for first responders and healthcare providers.</p>
+
+          <div class="border-2 border-dashed rounded-xl p-6 grid place-items-center mb-4" style="border-color:#fbcfe8">
+            <div id="qr" class="min-h-[220px] grid place-items-center w-full"></div>
+          </div>
+
+          <div class="grid gap-2">
+            <button id="gen-code" class="btn primary" data-i18n="generate_code">Generate Emergency QR Code</button>
+            <div class="flex items-center gap-2">
+              <input id="short-link" readonly class="flex-1 rounded-lg border px-3 py-2 text-sm" />
+              <button id="copy-link" class="btn secondary text-sm" data-i18n="copy">Copy</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="download-png" class="btn secondary text-sm" data-i18n="download_png">Download PNG</button>
+              <button id="download-svg" class="btn secondary text-sm" data-i18n="download_svg">Download SVG</button>
+            </div>
+            <button id="print-card-btn" class="btn ghost text-sm" data-i18n="print">Print A6 card</button>
+          </div>
+          <div id="qr-msg" class="mt-3 text-sm text-slate-500"></div>
+          <div class="mt-3 text-xs text-slate-500"><span class="badge">Privacy Protected</span> <span data-i18n="qr_privacy">Your QR code provides secure, read-only access to essential medical information only.</span></div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card p-6 relative">
+          <div class="ribbon right" data-i18n="danger_zone_label">Danger Zone</div>
+          <h3 class="section-title text-lg mb-2" data-i18n="danger_zone">Account Management</h3>
+          <p class="text-sm text-slate-600 mb-3" data-i18n="danger_copy">Manage your account settings and data. These actions are permanent and cannot be undone.</p>
+
+          <div class="rounded-xl border p-4 bg-rose-50 border-rose-200 mb-3">
+            <div class="font-bold text-rose-700 mb-1" data-i18n="delete_title">Permanent Data Deletion</div>
+            <p class="text-sm text-rose-700" data-i18n="delete_text">Deleting your account will permanently remove all personal information, medical data, emergency contacts, and QR codes from our secure servers. This action cannot be reversed and all data will be lost forever.</p>
+          </div>
+
+          <div class="text-sm text-slate-600 mb-3" data-i18n="delete_before">Before You Delete:</div>
+          <ul class="list-disc pl-6 text-sm text-slate-600 mb-4">
+            <li data-i18n="delete_tip_1">Download or print your emergency card</li>
+            <li data-i18n="delete_tip_2">Inform emergency contacts of the change</li>
+            <li data-i18n="delete_tip_3">Update any medical alert devices</li>
+            <li data-i18n="delete_tip_4">Consider exporting your medical data</li>
+          </ul>
+
+          <label class="inline-flex items-center gap-2 mb-3">
             <input id="confirm-delete" type="checkbox" />
             <span class="text-sm" data-i18n="i_understand">I understand the consequences.</span>
           </label>
           <div>
-            <button id="delete-account" class="btn danger" disabled data-i18n="delete_account">Delete account</button>
+            <button id="delete-account" class="btn primary text-sm" style="background:#dc2626" disabled data-i18n="delete_account">Delete account</button>
           </div>
-          <div class="mt-3 text-sm text-slate-500" id="delete-msg"></div>
-        </div>
-      </section>
-
-      <!-- Right column: QR + link -->
-      <aside class="space-y-6">
-        <div class="card p-6 relative">
-          <div class="ribbon" style="right:auto; left:-10px;" data-i18n="share_safely">Share safely</div>
-          <h2 class="text-lg font-bold mb-3" data-i18n="emergency_card">Emergency QR & short link</h2>
-          <p class="text-sm text-slate-600 mb-4" data-i18n="qr_blurb">
-            Generate your emergency card code and share/print the QR. The public JSON (safe fields only) is served by the <em>card</em> Edge Function.
-          </p>
-
-          <div id="qr-box" class="rounded-xl border border-rose-100 p-4 mb-4 relative">
-            <div id="qr" class="w-full grid place-items-center min-h-[220px]"></div>
-          </div>
-
-          <div class="grid gap-3">
-            <button id="gen-code" class="btn" data-i18n="generate_code">Generate emergency code</button>
-            <div class="flex items-center gap-2">
-              <input id="short-link" type="text" class="flex-1 rounded-lg border px-3 py-2" readonly />
-              <button id="copy-link" class="btn secondary" data-i18n="copy">Copy</button>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button id="download-png" class="btn secondary" data-i18n="download_png">Download PNG</button>
-              <button id="download-svg" class="btn secondary" data-i18n="download_svg">Download SVG</button>
-            </div>
-            <button id="print-card-btn" class="btn ghost" data-i18n="print">Print A6 card</button>
-          </div>
-
-          <div class="mt-3 text-sm text-slate-500" id="qr-msg"></div>
-        </div>
-
-        <!-- Optional voice summary -->
-        <div class="card p-6">
-          <h3 class="text-sm font-bold mb-2" data-i18n="voice_title">Voice: speak summary</h3>
-          <div class="flex items-center gap-2">
-            <button id="speak" class="btn secondary" data-i18n="speak">Speak</button>
-            <span class="text-xs text-slate-500" data-i18n="voice_hint">Uses a gentle voice in the selected language.</span>
-          </div>
+          <div id="delete-msg" class="mt-3 text-sm text-slate-500"></div>
         </div>
       </aside>
     </div>
   </main>
 
-  <!-- Print layout (A6) -->
+  <!-- Footer -->
+  <footer class="shell no-print">
+    <div class="card p-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="text-sm text-slate-500">
+          © <span id="year"></span> MYQER. <span data-i18n="footer_rights">All rights reserved.</span>
+          · <a href="/privacy.html" class="underline" data-i18n="privacy">Privacy</a>
+          · <a href="/terms.html" class="underline" data-i18n="terms">Terms</a>
+        </div>
+        <div class="text-xs text-slate-500" data-i18n="footer_note">Zero tracking • On-device privacy • Your data belongs to you.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Print card -->
   <section id="print-card" class="p-3">
     <div class="w-full h-full border-2 border-rose-600 rounded-xl p-3">
       <div class="flex items-center justify-between">
@@ -334,657 +303,435 @@
           <div id="qr-print"></div>
         </div>
       </div>
-      <div class="mt-3 text-xs">
-        <span class="font-bold">Triage:</span> <span id="p_triage" class="font-bold"></span>
-      </div>
-      <div class="mt-2 text-[10px] text-slate-500">Public JSON served by /functions/v1/card (safe fields only). No auth required.</div>
+      <div class="mt-3 text-xs"><span class="font-bold">Triage:</span> <span id="p_triage" class="font-bold"></span></div>
+      <div class="mt-1 text-[10px] text-slate-500">Public JSON served by /functions/v1/card (safe fields only). No auth required.</div>
     </div>
   </section>
 
   <script>
-    // ====== Configure Supabase (client-side only; NEVER put service role here) ======
+    /* ========== Config (client-side only; anon key) ========== */
     const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
     const SUPABASE_ANON_KEY = "ey...YOUR-ANON-KEY...";
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth:{ persistSession:true, storageKey:"myqer-auth", detectSessionInUrl:true }
+    });
 
-    // ====== i18n (10 languages for static UI strings only) ======
+    /* ========== Small helpers ========== */
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+    function toast(id,msg,ok=false){
+      const el = $(id); if(!el) return;
+      el.textContent = msg;
+      el.className = "mt-3 text-sm "+(ok?"text-emerald-600":"text-rose-600");
+      setTimeout(()=>{el.textContent=""; el.className="mt-3 text-sm text-slate-500";},8000);
+      console[ok?"log":"error"](msg);
+    }
+    let __didRedirect=false; function go(url){ if(__didRedirect) return; __didRedirect=true; location.replace(url); }
+
+    /* ========== i18n (UI strings only) ========== */
     const T = {
-      en: {
-        sign_out: "Sign out",
-        private: "Private",
-        identity: "Identity",
-        full_name: "Full name",
-        dob: "Date of birth",
-        country: "Country",
-        health_id: "National / Health ID (optional)",
-        health_profile: "Health Profile",
-        blood_type: "Blood type",
-        organ_donor: "Organ donor",
-        yes: "Yes",
-        no: "No",
-        allergies: "Allergies (include severity)",
-        conditions: "Conditions",
-        meds: "Medications",
-        implants: "Implants / devices",
-        life_support: "Life support preference",
-        burial: "Burial preference",
-        religion: "Religious preference",
-        risk_anticoagulants: "Anticoagulants risk",
-        risk_seizure: "Seizure risk",
-        risk_pregnancy: "Pregnancy risk",
-        risk_steroid: "Steroid/Immunosuppression risk",
-        triage: "Triage",
-        override: "Manual override",
-        ice_title: "ICE Contacts (max 3)",
-        ice_hint: "Add trusted contacts. Mark one as primary.",
-        add_contact: "Add contact",
-        danger_zone: "Danger zone",
-        danger_copy: "Deleting your account is irreversible. This removes your profile, health data, ICE contacts, and the user from auth. Your QR code will stop resolving.",
-        i_understand: "I understand the consequences.",
-        delete_account: "Delete account",
-        share_safely: "Share safely",
-        emergency_card: "Emergency QR & short link",
-        qr_blurb: "Generate your emergency card code and share/print the QR. The public JSON (safe fields only) is served by the card Edge Function.",
-        generate_code: "Generate emergency code",
-        copy: "Copy",
-        download_png: "Download PNG",
-        download_svg: "Download SVG",
-        print: "Print A6 card",
-        voice_title: "Voice: speak summary",
-        speak: "Speak",
-        voice_hint: "Uses a gentle voice in the selected language."
-      },
-      fr: { sign_out:"Se déconnecter", private:"Privé", identity:"Identité", full_name:"Nom complet", dob:"Date de naissance", country:"Pays",
-        health_id:"ID national / de santé (facultatif)", health_profile:"Profil de santé", blood_type:"Groupe sanguin", organ_donor:"Donneur d'organes",
-        yes:"Oui", no:"Non", allergies:"Allergies (indiquer la gravité)", conditions:"Pathologies", meds:"Médicaments", implants:"Implants / dispositifs",
-        life_support:"Préférence de maintien en vie", burial:"Préférence funéraire", religion:"Préférence religieuse",
-        risk_anticoagulants:"Risque anticoagulants", risk_seizure:"Risque de crise", risk_pregnancy:"Risque grossesse", risk_steroid:"Risque stéroïdes/immuno",
-        triage:"Triage", override:"Forcer", ice_title:"Contacts ICE (max 3)", ice_hint:"Ajoutez des contacts de confiance. Marquez un primaire.",
-        add_contact:"Ajouter un contact", danger_zone:"Zone dangereuse",
-        danger_copy:"Supprimer votre compte est irréversible…", i_understand:"Je comprends les risques.", delete_account:"Supprimer le compte",
-        share_safely:"Partager en sécurité", emergency_card:"QR d'urgence & lien court",
-        qr_blurb:"Générez votre code d'urgence et imprimez…", generate_code:"Générer le code d'urgence", copy:"Copier",
-        download_png:"Télécharger PNG", download_svg:"Télécharger SVG", print:"Imprimer carte A6",
-        voice_title:"Voix : lire le résumé", speak:"Lire", voice_hint:"Voix douce selon la langue." },
-      es: { sign_out:"Cerrar sesión", private:"Privado", identity:"Identidad", full_name:"Nombre completo", dob:"Fecha de nacimiento", country:"País",
-        health_id:"ID nacional / salud (opcional)", health_profile:"Perfil de salud", blood_type:"Grupo sanguíneo", organ_donor:"Donante de órganos",
-        yes:"Sí", no:"No", allergies:"Alergias (incluye gravedad)", conditions:"Condiciones", meds:"Medicamentos", implants:"Implantes / dispositivos",
-        life_support:"Preferencia de soporte vital", burial:"Preferencia de entierro", religion:"Preferencia religiosa",
-        risk_anticoagulants:"Riesgo anticoagulantes", risk_seizure:"Riesgo convulsiones", risk_pregnancy:"Riesgo embarazo", risk_steroid:"Riesgo esteroides/inmuno",
-        triage:"Triaje", override:"Anular", ice_title:"Contactos ICE (máx 3)", ice_hint:"Añade contactos de confianza. Marca uno como primario.",
-        add_contact:"Añadir contacto", danger_zone:"Zona de peligro",
-        danger_copy:"Eliminar tu cuenta es irreversible…", i_understand:"Entiendo las consecuencias.", delete_account:"Eliminar cuenta",
-        share_safely:"Compartir de forma segura", emergency_card:"QR de emergencia y enlace corto",
-        qr_blurb:"Genera tu código de emergencia e imprime…", generate_code:"Generar código de emergencia", copy:"Copiar",
-        download_png:"Descargar PNG", download_svg:"Descargar SVG", print:"Imprimir tarjeta A6",
-        voice_title:"Voz: leer resumen", speak:"Hablar", voice_hint:"Usa una voz suave en el idioma elegido." },
-      de: { sign_out:"Abmelden", private:"Privat", identity:"Identität", full_name:"Vollständiger Name", dob:"Geburtsdatum", country:"Land",
-        health_id:"Staats-/Gesundheits-ID (optional)", health_profile:"Gesundheitsprofil", blood_type:"Blutgruppe", organ_donor:"Organspender",
-        yes:"Ja", no:"Nein", allergies:"Allergien (Schweregrad)", conditions:"Erkrankungen", meds:"Medikamente", implants:"Implantate / Geräte",
-        life_support:"Lebenserhaltungs-Preference", burial:"Bestattungswunsch", religion:"Religiöse Präferenz",
-        risk_anticoagulants:"Antikoagulanzien-Risiko", risk_seizure:"Anfallsrisiko", risk_pregnancy:"Schwangerschaftsrisiko", risk_steroid:"Steroid/Immuno-Risiko",
-        triage:"Triage", override:"Manuell überschreiben", ice_title:"ICE-Kontakte (max. 3)", ice_hint:"Vertrauenspersonen hinzufügen. Einen primär setzen.",
-        add_contact:"Kontakt hinzufügen", danger_zone:"Gefahrenzone",
-        danger_copy:"Das Löschen ist irreversibel…", i_understand:"Ich verstehe die Folgen.", delete_account:"Konto löschen",
-        share_safely:"Sicher teilen", emergency_card:"Notfall-QR & Kurzlink",
-        qr_blurb:"Generieren und drucken Sie Ihren Notfallcode…", generate_code:"Notfallcode erzeugen", copy:"Kopieren",
-        download_png:"PNG herunterladen", download_svg:"SVG herunterladen", print:"A6-Karte drucken",
-        voice_title:"Sprachausgabe: Zusammenfassung", speak:"Vorlesen", voice_hint:"Sanfte Stimme in der gewählten Sprache." },
-      it: { sign_out:"Esci", private:"Privato", identity:"Identità", full_name:"Nome completo", dob:"Data di nascita", country:"Paese",
-        health_id:"ID nazionale / sanitario (facoltativo)", health_profile:"Profilo sanitario", blood_type:"Gruppo sanguigno", organ_donor:"Donatore",
-        yes:"Sì", no:"No", allergies:"Allergie (con gravità)", conditions:"Patologie", meds:"Farmaci", implants:"Impianti / dispositivi",
-        life_support:"Preferenza supporto vitale", burial:"Preferenza funeraria", religion:"Preferenza religiosa",
-        risk_anticoagulants:"Rischio anticoagulanti", risk_seizure:"Rischio convulsioni", risk_pregnancy:"Rischio gravidanza", risk_steroid:"Rischio steroidi/immuno",
-        triage:"Triage", override:"Forza manuale", ice_title:"Contatti ICE (max 3)", ice_hint:"Aggiungi contatti fidati. Imposta il primario.",
-        add_contact:"Aggiungi contatto", danger_zone:"Zona pericolosa",
-        danger_copy:"L'eliminazione è irreversibile…", i_understand:"Comprendo le conseguenze.", delete_account:"Elimina account",
-        share_safely:"Condividi in sicurezza", emergency_card:"QR d'emergenza & link corto",
-        qr_blurb:"Genera e stampa il tuo codice d'emergenza…", generate_code:"Genera codice d'emergenza", copy:"Copia",
-        download_png:"Scarica PNG", download_svg:"Scarica SVG", print:"Stampa tessera A6",
-        voice_title:"Voce: leggi il riepilogo", speak:"Parla", voice_hint:"Voce dolce nella lingua selezionata." },
-      pt: { sign_out:"Sair", private:"Privado", identity:"Identidade", full_name:"Nome completo", dob:"Data de nascimento", country:"País",
-        health_id:"ID nacional / saúde (opcional)", health_profile:"Perfil de saúde", blood_type:"Tipo sanguíneo", organ_donor:"Doador de órgãos",
-        yes:"Sim", no:"Não", allergies:"Alergias (com gravidade)", conditions:"Condições", meds:"Medicamentos", implants:"Implantes / dispositivos",
-        life_support:"Preferência de suporte de vida", burial:"Preferência de sepultamento", religion:"Preferência religiosa",
-        risk_anticoagulants:"Risco anticoagulantes", risk_seizure:"Risco convulsões", risk_pregnancy:"Risco gravidez", risk_steroid:"Risco esteroides/imuno",
-        triage:"Triagem", override:"Substituir", ice_title:"Contatos ICE (máx 3)", ice_hint:"Adicione contatos de confiança. Marque um como primário.",
-        add_contact:"Adicionar contato", danger_zone:"Zona de perigo",
-        danger_copy:"Excluir sua conta é irreversível…", i_understand:"Entendo as consequências.", delete_account:"Excluir conta",
-        share_safely:"Compartilhe com segurança", emergency_card:"QR de emergência e link curto",
-        qr_blurb:"Gere seu código de emergência e imprima…", generate_code:"Gerar código de emergência", copy:"Copiar",
-        download_png:"Baixar PNG", download_svg:"Baixar SVG", print:"Imprimir cartão A6",
-        voice_title:"Voz: falar resumo", speak:"Falar", voice_hint:"Voz suave no idioma escolhido." },
-      nl: { sign_out:"Afmelden", private:"Privé", identity:"Identiteit", full_name:"Volledige naam", dob:"Geboortedatum", country:"Land",
-        health_id:"Nationaal / Gezondheids-ID (optioneel)", health_profile:"Gezondheidsprofiel", blood_type:"Bloedgroep", organ_donor:"Orgaandonor",
-        yes:"Ja", no:"Nee", allergies:"Allergieën (met ernst)", conditions:"Aandoeningen", meds:"Medicatie", implants:"Implantaten / apparaten",
-        life_support:"Levensondersteuning voorkeur", burial:"Begrafenisvoorkeur", religion:"Religieuze voorkeur",
-        risk_anticoagulants:"Risico antistolling", risk_seizure:"Risico aanvallen", risk_pregnancy:"Risico zwangerschap", risk_steroid:"Risico steroid/immuno",
-        triage:"Triage", override:"Handmatig overschrijven", ice_title:"ICE-contacten (max 3)", ice_hint:"Voeg vertrouwde contacten toe. Markeer een primaire.",
-        add_contact:"Contact toevoegen", danger_zone:"Gevaarzone",
-        danger_copy:"Verwijderen is onomkeerbaar…", i_understand:"Ik begrijp de gevolgen.", delete_account:"Account verwijderen",
-        share_safely:"Veilig delen", emergency_card:"Nood-QR & korte link",
-        qr_blurb:"Genereer uw noodcode en print…", generate_code:"Noodcode genereren", copy:"Kopiëren",
-        download_png:"PNG downloaden", download_svg:"SVG downloaden", print:"A6-kaart afdrukken",
-        voice_title:"Stem: lees samenvatting", speak:"Spreken", voice_hint:"Zachte stem in de gekozen taal." },
-      sv: { sign_out:"Logga ut", private:"Privat", identity:"Identitet", full_name:"Fullständigt namn", dob:"Födelsedatum", country:"Land",
-        health_id:"Nationellt / Hälso-ID (valfritt)", health_profile:"Hälsoprofil", blood_type:"Blodgrupp", organ_donor:"Organdonator",
-        yes:"Ja", no:"Nej", allergies:"Allergier (ange svårighetsgrad)", conditions:"Tillstånd", meds:"Läkemedel", implants:"Implantat / enheter",
-        life_support:"Livsuppehållande preferens", burial:"Begravningsönskemål", religion:"Religiös preferens",
-        risk_anticoagulants:"Antikoagulantia-risk", risk_seizure:"Anfallsrisk", risk_pregnancy:"Graviditetsrisk", risk_steroid:"Steroider/Immuno-risk",
-        triage:"Triage", override:"Manuell åsidosättning", ice_title:"ICE-kontakter (max 3)", ice_hint:"Lägg till betrodda kontakter. Markera en primär.",
-        add_contact:"Lägg till kontakt", danger_zone:"Fara",
-        danger_copy:"Att radera kontot kan inte ångras…", i_understand:"Jag förstår konsekvenserna.", delete_account:"Radera konto",
-        share_safely:"Dela säkert", emergency_card:"Nöd-QR & kortlänk",
-        qr_blurb:"Generera din nödkod och skriv ut…", generate_code:"Generera nödkod", copy:"Kopiera",
-        download_png:"Ladda ner PNG", download_svg:"Ladda ner SVG", print:"Skriv ut A6-kort",
-        voice_title:"Röst: läs sammanfattning", speak:"Läs upp", voice_hint:"Mjuk röst i valt språk." },
-      ar: { sign_out:"تسجيل الخروج", private:"خاص", identity:"الهوية", full_name:"الاسم الكامل", dob:"تاريخ الميلاد", country:"البلد",
-        health_id:"الهوية الوطنية / الصحية (اختياري)", health_profile:"الملف الصحي", blood_type:"فصيلة الدم", organ_donor:"متبرع بالأعضاء",
-        yes:"نعم", no:"لا", allergies:"الحساسية (مع الشدة)", conditions:"الحالات", meds:"الأدوية", implants:"الزرعات / الأجهزة",
-        life_support:"تفضيل دعم الحياة", burial:"تفضيل الدفن", religion:"التفضيل الديني",
-        risk_anticoagulants:"خطر مميعات الدم", risk_seizure:"خطر النوبات", risk_pregnancy:"خطر الحمل", risk_steroid:"خطر الستيرويد/المناعة",
-        triage:"الفرز", override:"تجاوز يدوي", ice_title:"جهات اتصال الطوارئ (حتى 3)", ice_hint:"أضف جهات موثوقة. عيّن جهة أساسية.",
-        add_contact:"إضافة جهة اتصال", danger_zone:"منطقة الخطر",
-        danger_copy:"حذف الحساب نهائي ولا يمكن التراجع…", i_understand:"أفهم العواقب.", delete_account:"حذف الحساب",
-        share_safely:"مشاركة آمنة", emergency_card:"رمز QR للطوارئ ورابط قصير",
-        qr_blurb:"أنشئ رمز الطوارئ واطبعه…", generate_code:"إنشاء رمز الطوارئ", copy:"نسخ",
-        download_png:"تنزيل PNG", download_svg:"تنزيل SVG", print:"طباعة بطاقة A6",
-        voice_title:"الصوت: قراءة الملخص", speak:"تحدث", voice_hint:"صوت ناعم باللغة المختارة." },
-      hi: { sign_out:"साइन आउट", private:"निजी", identity:"पहचान", full_name:"पूरा नाम", dob:"जन्म तिथि", country:"देश",
-        health_id:"राष्ट्रीय/स्वास्थ्य आईडी (वैकल्पिक)", health_profile:"स्वास्थ्य प्रोफ़ाइल", blood_type:"रक्त समूह", organ_donor:"अंग दाता",
-        yes:"हाँ", no:"नहीं", allergies:"एलर्जी (गंभीरता लिखें)", conditions:"बीमारियाँ", meds:"दवाइयाँ", implants:"इम्प्लांट/डिवाइस",
-        life_support:"जीवन-समर्थन वरीयता", burial:"दफ़न/अंत्येष्टि वरीयता", religion:"धार्मिक वरीयता",
-        risk_anticoagulants:"एंटीकोएगुलेंट जोखिम", risk_seizure:"दौरे का जोखिम", risk_pregnancy:"गर्भावस्था जोखिम", risk_steroid:"स्टेरॉइड/इम्युनो जोखिम",
-        triage:"ट्रायेज", override:"मैनुअल ओवरराइड", ice_title:"ICE संपर्क (अधिकतम 3)", ice_hint:"विश्वसनीय संपर्क जोड़ें। एक को प्राथमिक रखें।",
-        add_contact:"संपर्क जोड़ें", danger_zone:"खतरे का क्षेत्र",
-        danger_copy:"खाता हटाना स्थायी है…", i_understand:"मैं परिणाम समझता/समझती हूँ।", delete_account:"खाता हटाएँ",
-        share_safely:"सुरक्षित रूप से साझा करें", emergency_card:"आपातकालीन QR और शॉर्ट लिंक",
-        qr_blurb:"अपना आपातकालीन कोड बनाएँ और प्रिंट करें…", generate_code:"आपातकालीन कोड बनाएं", copy:"कॉपी",
-        download_png:"PNG डाउनलोड", download_svg:"SVG डाउनलोड", print:"A6 कार्ड प्रिंट",
-        voice_title:"आवाज़: सारांश बोलें", speak:"बोलें", voice_hint:"चुनी गई भाषा में कोमल आवाज़।" }
+      en:{sign_out:"Sign out",private:"Private",identity:"Identity",full_name:"Full name",dob:"Date of birth",country:"Country of residence",health_id:"National health ID / insurance number",
+          health_profile:"Health Profile",blood_type:"Blood type",organ_donor:"Organ donor",yes:"Yes",no:"No",life_support:"Life support & resuscitation preferences",
+          allergies:"Allergies & adverse reactions",conditions:"Medical conditions & diagnoses",meds:"Current medications",implants:"Implants / medical devices",
+          risk_anticoagulants:"Anticoagulants risk",risk_seizure:"Seizure risk",risk_pregnancy:"Pregnancy risk",risk_steroid:"Steroid/Immunosuppression risk",
+          triage:"Triage",override:"Manual override",ice_title:"Emergency Contacts (ICE)",ice_hint:"Add up to three trusted contacts and mark one as primary.",add_contact:"Add contact",
+          qr_label:"QR code",emergency_card:"Emergency QR Code",qr_blurb:"Instant access to your medical profile for first responders and healthcare providers.",
+          generate_code:"Generate Emergency QR Code",copy:"Copy",download_png:"Download PNG",download_svg:"Download SVG",print:"Print A6 card",
+          qr_privacy:"Your QR code provides secure, read-only access to essential medical information only.",
+          danger_zone_label:"Danger Zone",danger_zone:"Account Management",danger_copy:"Manage your account settings and data. These actions are permanent and cannot be undone.",
+          delete_title:"Permanent Data Deletion",delete_text:"Deleting your account will permanently remove all personal information, medical data, emergency contacts, and QR codes from our secure servers. This action cannot be reversed and all data will be lost forever.",
+          delete_before:"Before You Delete:",delete_tip_1:"Download or print your emergency card",delete_tip_2:"Inform emergency contacts of the change",delete_tip_3:"Update any medical alert devices",delete_tip_4:"Consider exporting your medical data",
+          i_understand:"I understand the consequences.",delete_account:"Delete account",footer_rights:"All rights reserved.",privacy:"Privacy",terms:"Terms",footer_note:"Zero tracking • On-device privacy • Your data belongs to you."},
+      fr:{sign_out:"Se déconnecter",private:"Privé",identity:"Identité",full_name:"Nom complet",dob:"Date de naissance",country:"Pays de résidence",health_id:"ID national / n° d'assurance",
+          health_profile:"Profil de santé",blood_type:"Groupe sanguin",organ_donor:"Donneur d'organes",yes:"Oui",no:"Non",life_support:"Préférences réanimation/maintien en vie",
+          allergies:"Allergies & réactions",conditions:"Antécédents médicaux & diagnostics",meds:"Médicaments en cours",implants:"Implants / dispositifs",
+          risk_anticoagulants:"Risque anticoagulants",risk_seizure:"Risque de crise",risk_pregnancy:"Risque grossesse",risk_steroid:"Risque stéroïdes/immuno",
+          triage:"Triage",override:"Forcer",ice_title:"Contacts ICE",ice_hint:"Ajoutez jusqu'à trois contacts de confiance et marquez-en un comme principal.",add_contact:"Ajouter un contact",
+          qr_label:"QR code",emergency_card:"QR d'urgence",qr_blurb:"Accès instantané à votre dossier médical pour les secouristes.",
+          generate_code:"Générer le code d'urgence",copy:"Copier",download_png:"Télécharger PNG",download_svg:"Télécharger SVG",print:"Imprimer carte A6",
+          qr_privacy:"Votre QR donne un accès sécurisé en lecture seule aux infos essentielles.",
+          danger_zone_label:"Zone dangereuse",danger_zone:"Gestion du compte",danger_copy:"Gérez votre compte et vos données. Actions irréversibles.",
+          delete_title:"Suppression définitive",delete_text:"Supprimer votre compte efface définitivement vos données et QR. Action irréversible.",
+          delete_before:"Avant de supprimer :",delete_tip_1:"Téléchargez ou imprimez votre carte",delete_tip_2:"Informez vos contacts d'urgence",delete_tip_3:"Mettez à jour vos dispositifs d'alerte",delete_tip_4:"Pensez à exporter vos données",
+          i_understand:"Je comprends les conséquences.",delete_account:"Supprimer le compte",footer_rights:"Tous droits réservés.",privacy:"Confidentialité",terms:"Conditions",footer_note:"Aucun pistage • Vie privée sur l’appareil • Vos données vous appartiennent."},
+      es:{sign_out:"Cerrar sesión",private:"Privado",identity:"Identidad",full_name:"Nombre completo",dob:"Fecha de nacimiento",country:"País de residencia",health_id:"ID nacional / seguro",
+          health_profile:"Perfil de salud",blood_type:"Grupo sanguíneo",organ_donor:"Donante de órganos",yes:"Sí",no:"No",life_support:"Preferencias de soporte vital",
+          allergies:"Alergias y reacciones",conditions:"Enfermedades y diagnósticos",meds:"Medicamentos actuales",implants:"Implantes / dispositivos",
+          risk_anticoagulants:"Riesgo anticoagulantes",risk_seizure:"Riesgo convulsiones",risk_pregnancy:"Riesgo embarazo",risk_steroid:"Riesgo esteroides/inmuno",
+          triage:"Triaje",override:"Anular",ice_title:"Contactos ICE",ice_hint:"Añade hasta tres contactos de confianza y marca uno como principal.",add_contact:"Añadir contacto",
+          qr_label:"Código QR",emergency_card:"QR de emergencia",qr_blurb:"Acceso instantáneo a tu perfil médico para los servicios de emergencia.",
+          generate_code:"Generar código de emergencia",copy:"Copiar",download_png:"Descargar PNG",download_svg:"Descargar SVG",print:"Imprimir tarjeta A6",
+          qr_privacy:"El QR da acceso seguro solo lectura a información esencial.",
+          danger_zone_label:"Zona de peligro",danger_zone:"Gestión de cuenta",danger_copy:"Gestiona tu cuenta y datos. Acciones permanentes.",
+          delete_title:"Eliminación permanente",delete_text:"Eliminar tu cuenta borra permanentemente todos los datos y QR.",
+          delete_before:"Antes de eliminar:",delete_tip_1:"Descarga o imprime tu tarjeta",delete_tip_2:"Informa a tus contactos ICE",delete_tip_3:"Actualiza dispositivos de alerta",delete_tip_4:"Considera exportar tus datos",
+          i_understand:"Entiendo las consecuencias.",delete_account:"Eliminar cuenta",footer_rights:"Todos los derechos reservados.",privacy:"Privacidad",terms:"Términos",footer_note:"Cero rastreo • Privacidad en el dispositivo • Tus datos son tuyos."},
+      de:{sign_out:"Abmelden",private:"Privat",identity:"Identität",full_name:"Vollständiger Name",dob:"Geburtsdatum",country:"Wohnsitzland",health_id:"Nationale Gesundheits-ID / Versicherung",
+          health_profile:"Gesundheitsprofil",blood_type:"Blutgruppe",organ_donor:"Organspender",yes:"Ja",no:"Nein",life_support:"Behandlungs-/Reanimations­präferenzen",
+          allergies:"Allergien & Reaktionen",conditions:"Erkrankungen & Diagnosen",meds:"Aktuelle Medikamente",implants:"Implantate / Geräte",
+          risk_anticoagulants:"Antikoagulanzien-Risiko",risk_seizure:"Anfallsrisiko",risk_pregnancy:"Schwangerschaftsrisiko",risk_steroid:"Steroid/Immuno-Risiko",
+          triage:"Triage",override:"Manuell überschreiben",ice_title:"ICE-Kontakte",ice_hint:"Bis zu drei Vertrauenspersonen – eine primär.",add_contact:"Kontakt hinzufügen",
+          qr_label:"QR-Code",emergency_card:"Notfall-QR",qr_blurb:"Sofortzugriff für Ersthelfer und Klinikpersonal.",
+          generate_code:"Notfallcode erzeugen",copy:"Kopieren",download_png:"PNG herunterladen",download_svg:"SVG herunterladen",print:"A6-Karte drucken",
+          qr_privacy:"QR gewährt sicheren Nur-Lese-Zugriff auf Wesentliches.",
+          danger_zone_label:"Gefahrenzone",danger_zone:"Kontoverwaltung",danger_copy:"Dauerhafte, nicht rückgängig zu machende Aktionen.",
+          delete_title:"Daten endgültig löschen",delete_text:"Löscht dauerhaft alle Daten und QR-Codes.",
+          delete_before:"Vor dem Löschen:",delete_tip_1:"Karte herunterladen/ausdrucken",delete_tip_2:"ICE informieren",delete_tip_3:"Medizinische Geräte anpassen",delete_tip_4:"Daten exportieren",
+          i_understand:"Ich verstehe die Folgen.",delete_account:"Konto löschen",footer_rights:"Alle Rechte vorbehalten.",privacy:"Datenschutz",terms:"Nutzungsbedingungen",footer_note:"Kein Tracking • Geräteschutz • Deine Daten gehören dir."},
+      it:{sign_out:"Esci",private:"Privato",identity:"Identità",full_name:"Nome completo",dob:"Data di nascita",country:"Paese di residenza",health_id:"ID sanitario / assicurazione",
+          health_profile:"Profilo sanitario",blood_type:"Gruppo sanguigno",organ_donor:"Donatore",yes:"Sì",no:"No",life_support:"Preferenze rianimazione/supporto vitale",
+          allergies:"Allergie e reazioni",conditions:"Patologie e diagnosi",meds:"Farmaci correnti",implants:"Impianti / dispositivi",
+          risk_anticoagulants:"Rischio anticoagulanti",risk_seizure:"Rischio convulsioni",risk_pregnancy:"Rischio gravidanza",risk_steroid:"Rischio steroidi/immuno",
+          triage:"Triage",override:"Forza manuale",ice_title:"Contatti ICE",ice_hint:"Aggiungi fino a tre contatti fidati, impostane uno primario.",add_contact:"Aggiungi contatto",
+          qr_label:"QR",emergency_card:"QR di emergenza",qr_blurb:"Accesso immediato al profilo medico per i soccorritori.",
+          generate_code:"Genera codice d'emergenza",copy:"Copia",download_png:"Scarica PNG",download_svg:"Scarica SVG",print:"Stampa tessera A6",
+          qr_privacy:"QR con accesso sicuro in sola lettura alle info essenziali.",
+          danger_zone_label:"Zona pericolosa",danger_zone:"Gestione account",danger_copy:"Azioni permanenti e irreversibili.",
+          delete_title:"Eliminazione permanente",delete_text:"Elimina definitivamente tutti i dati e i QR.",
+          delete_before:"Prima di eliminare:",delete_tip_1:"Scarica/stampa la tessera",delete_tip_2:"Informa i contatti ICE",delete_tip_3:"Aggiorna dispositivi d'allerta",delete_tip_4:"Valuta l'esportazione dei dati",
+          i_understand:"Comprendo le conseguenze.",delete_account:"Elimina account",footer_rights:"Tutti i diritti riservati.",privacy:"Privacy",terms:"Termini",footer_note:"Zero tracciamento • Privacy sul dispositivo • I tuoi dati sono tuoi."},
+      pt:{sign_out:"Sair",private:"Privado",identity:"Identidade",full_name:"Nome completo",dob:"Data de nascimento",country:"País de residência",health_id:"ID de saúde / seguro",
+          health_profile:"Perfil de saúde",blood_type:"Tipo sanguíneo",organ_donor:"Doador de órgãos",yes:"Sim",no:"Não",life_support:"Preferências de suporte de vida",
+          allergies:"Alergias e reações",conditions:"Condições e diagnósticos",meds:"Medicamentos atuais",implants:"Implantes / dispositivos",
+          risk_anticoagulants:"Risco anticoagulantes",risk_seizure:"Risco convulsões",risk_pregnancy:"Risco gravidez",risk_steroid:"Risco esteroides/imuno",
+          triage:"Triagem",override:"Substituir",ice_title:"Contatos ICE",ice_hint:"Adicione até três contatos confiáveis; defina um primário.",add_contact:"Adicionar contato",
+          qr_label:"QR",emergency_card:"QR de emergência",qr_blurb:"Acesso imediato ao seu perfil médico.",
+          generate_code:"Gerar código de emergência",copy:"Copiar",download_png:"Baixar PNG",download_svg:"Baixar SVG",print:"Imprimir cartão A6",
+          qr_privacy:"Acesso seguro somente leitura às infos essenciais.",
+          danger_zone_label:"Zona de risco",danger_zone:"Gerenciar conta",danger_copy:"Ações permanentes e irreversíveis.",
+          delete_title:"Exclusão permanente",delete_text:"Remove definitivamente todos os dados e QR.",
+          delete_before:"Antes de excluir:",delete_tip_1:"Baixe/imprima o cartão",delete_tip_2:"Avise contatos ICE",delete_tip_3:"Atualize dispositivos",delete_tip_4:"Considere exportar dados",
+          i_understand:"Entendo as consequências.",delete_account:"Excluir conta",footer_rights:"Todos os direitos reservados.",privacy:"Privacidade",terms:"Termos",footer_note:"Sem rastreamento • Privacidade no dispositivo • Seus dados são seus."},
+      nl:{sign_out:"Afmelden",private:"Privé",identity:"Identiteit",full_name:"Volledige naam",dob:"Geboortedatum",country:"Woonland",health_id:"Nationaal zorg-ID / verzekering",
+          health_profile:"Gezondheidsprofiel",blood_type:"Bloedgroep",organ_donor:"Orgaandonor",yes:"Ja",no:"Nee",life_support:"Voorkeuren reanimatie/ondersteuning",
+          allergies:"Allergieën & reacties",conditions:"Aandoeningen & diagnoses",meds:"Medicatie",implants:"Implantaten / apparaten",
+          risk_anticoagulants:"Risico antistolling",risk_seizure:"Aanvalsrisico",risk_pregnancy:"Zwangerschapsrisico",risk_steroid:"Risico steroïd/immuno",
+          triage:"Triage",override:"Handmatig overschrijven",ice_title:"ICE-contacten",ice_hint:"Voeg max. drie betrouwbare contacten toe; één primair.",add_contact:"Contact toevoegen",
+          qr_label:"QR-code",emergency_card:"Nood-QR",qr_blurb:"Directe toegang voor hulpverleners.",
+          generate_code:"Noodcode genereren",copy:"Kopie",download_png:"PNG downloaden",download_svg:"SVG downloaden",print:"A6-kaart afdrukken",
+          qr_privacy:"Veilige alleen-lezen toegang tot essentiële info.",
+          danger_zone_label:"Gevaarzone",danger_zone:"Accountbeheer",danger_copy:"Permanente, onomkeerbare acties.",
+          delete_title:"Permanent verwijderen",delete_text:"Verwijdert alle gegevens en QR’s definitief.",
+          delete_before:"Voor het verwijderen:",delete_tip_1:"Kaart downloaden/printen",delete_tip_2:"ICE informeren",delete_tip_3:"Apparaten bijwerken",delete_tip_4:"Data exporteren",
+          i_understand:"Ik begrijp de gevolgen.",delete_account:"Account verwijderen",footer_rights:"Alle rechten voorbehouden.",privacy:"Privacy",terms:"Voorwaarden",footer_note:"Geen tracking • Privacy op het apparaat • Jouw data is van jou."},
+      sv:{sign_out:"Logga ut",private:"Privat",identity:"Identitet",full_name:"Fullständigt namn",dob:"Födelsedatum",country:"Bosättningsland",health_id:"Nationellt hälso-ID / försäkring",
+          health_profile:"Hälsoprofil",blood_type:"Blodgrupp",organ_donor:"Organdonator",yes:"Ja",no:"Nej",life_support:"Livsuppehållande/HLR-preferenser",
+          allergies:"Allergier & reaktioner",conditions:"Diagnoser & tillstånd",meds:"Nuvarande läkemedel",implants:"Implantat / enheter",
+          risk_anticoagulants:"Antikoagulantia-risk",risk_seizure:"Kramprisk",risk_pregnancy:"Graviditetsrisk",risk_steroid:"Steroider/Immuno-risk",
+          triage:"Triaj",override:"Manuell åsidosättning",ice_title:"ICE-kontakter",ice_hint:"Lägg till upp till tre betrodda kontakter; en primär.",add_contact:"Lägg till kontakt",
+          qr_label:"QR-kod",emergency_card:"Nöd-QR",qr_blurb:"Omedelbar åtkomst för räddningspersonal.",
+          generate_code:"Generera nöd-kod",copy:"Kopiera",download_png:"Ladda ned PNG",download_svg:"Ladda ned SVG",print:"Skriv ut A6-kort",
+          qr_privacy:"Säker skrivskyddad åtkomst till viktig info.",
+          danger_zone_label:"Fara",danger_zone:"Kontohantering",danger_copy:"Åtgärderna är permanenta.",
+          delete_title:"Permanent borttagning",delete_text:"Tar bort alla data och QR permanent.",
+          delete_before:"Innan du tar bort:",delete_tip_1:"Ladda ned/skriv ut kort",delete_tip_2:"Informera ICE-kontakter",delete_tip_3:"Uppdatera medicinteknik",delete_tip_4:"Överväg export",
+          i_understand:"Jag förstår konsekvenserna.",delete_account:"Radera konto",footer_rights:"Alla rättigheter förbehålls.",privacy:"Integritet",terms:"Villkor",footer_note:"Ingen spårning • Integritet på enheten • Din data är din."},
+      ar:{sign_out:"تسجيل الخروج",private:"خاص",identity:"الهوية",full_name:"الاسم الكامل",dob:"تاريخ الميلاد",country:"بلد الإقامة",health_id:"الهوية الصحية / التأمين",
+          health_profile:"الملف الصحي",blood_type:"فصيلة الدم",organ_donor:"متبرع بالأعضاء",yes:"نعم",no:"لا",life_support:"تفضيلات الإنعاش والدعم الحيوي",
+          allergies:"الحساسيات وردود الفعل",conditions:"الأمراض والتشخيصات",meds:"الأدوية الحالية",implants:"الزرعات / الأجهزة",
+          risk_anticoagulants:"خطر مميعات الدم",risk_seizure:"خطر النوبات",risk_pregnancy:"خطر الحمل",risk_steroid:"خطر الستيرويد/المناعة",
+          triage:"الفرز",override:"تجاوز يدوي",ice_title:"جهات اتصال الطوارئ",ice_hint:"أضف حتى ثلاثة أشخاص موثوقين واجعل أحدهم أساسيًا.",add_contact:"إضافة جهة اتصال",
+          qr_label:"رمز QR",emergency_card:"رمز الطوارئ",qr_blurb:"وصول فوري إلى ملفك الطبي للمستجيبين.",
+          generate_code:"إنشاء رمز الطوارئ",copy:"نسخ",download_png:"تنزيل PNG",download_svg:"تنزيل SVG",print:"طباعة بطاقة A6",
+          qr_privacy:"وصول آمن للقراءة فقط إلى المعلومات الأساسية.",
+          danger_zone_label:"منطقة الخطر",danger_zone:"إدارة الحساب",danger_copy:"إجراءات دائمة لا يمكن التراجع عنها.",
+          delete_title:"حذف دائم للبيانات",delete_text:"سيتم حذف جميع بياناتك ورموز QR نهائيًا.",
+          delete_before:"قبل الحذف:",delete_tip_1:"حمّل/اطبع بطاقتك",delete_tip_2:"أبلغ جهات الطوارئ",delete_tip_3:"حدّث أجهزتك الطبية",delete_tip_4:"فكّر بتصدير بياناتك",
+          i_understand:"أفهم العواقب.",delete_account:"حذف الحساب",footer_rights:"كل الحقوق محفوظة.",privacy:"الخصوصية",terms:"الشروط",footer_note:"صفر تتبع • خصوصية على الجهاز • بياناتك ملكك."},
+      hi:{sign_out:"साइन आउट",private:"निजी",identity:"पहचान",full_name:"पूरा नाम",dob:"जन्म तिथि",country:"निवास देश",health_id:"राष्ट्रीय स्वास्थ्य/बीमा आईडी",
+          health_profile:"स्वास्थ्य प्रोफ़ाइल",blood_type:"रक्त समूह",organ_donor:"अंग दाता",yes:"हाँ",no:"नहीं",life_support:"जीवन-समर्थन/पुनर्जीवन वरीयता",
+          allergies:"एलर्जी व प्रतिक्रियाएँ",conditions:"बीमारियाँ व निदान",meds:"वर्तमान दवाइयाँ",implants:"इम्प्लांट/डिवाइस",
+          risk_anticoagulants:"एंटीकोएगुलेंट जोखिम",risk_seizure:"दौरे का जोखिम",risk_pregnancy:"गर्भावस्था जोखिम",risk_steroid:"स्टेरॉइड/इम्युनो जोखिम",
+          triage:"ट्रायेज",override:"मैनुअल ओवरराइड",ice_title:"ICE संपर्क",ice_hint:"तीन विश्वसनीय संपर्क—एक प्राथमिक।",add_contact:"संपर्क जोड़ें",
+          qr_label:"QR",emergency_card:"आपातकालीन QR",qr_blurb:"आपातस्थितियों में त्वरित पहुंच।",
+          generate_code:"आपातकालीन कोड बनाएं",copy:"कॉपी",download_png:"PNG डाउनलोड",download_svg:"SVG डाउनलोड",print:"A6 कार्ड प्रिंट",
+          qr_privacy:"QR केवल आवश्यक जानकारी का सुरक्षित पढ़ने-भर का एक्सेस देता है।",
+          danger_zone_label:"खतरा क्षेत्र",danger_zone:"खाता प्रबंधन",danger_copy:"कार्रवाइयाँ स्थायी हैं।",
+          delete_title:"स्थायी हटाना",delete_text:"आपका सारा डेटा व QR स्थायी रूप से हट जाएगा।",
+          delete_before:"हटाने से पहले:",delete_tip_1:"कार्ड डाउनलोड/प्रिंट करें",delete_tip_2:"ICE संपर्कों को सूचित करें",delete_tip_3:"चिकित्सकीय उपकरण अपडेट करें",delete_tip_4:"डेटा एक्सपोर्ट पर विचार करें",
+          i_understand:"मैं परिणाम समझता/समझती हूँ।",delete_account:"खाता हटाएँ",footer_rights:"सर्वाधिकार सुरक्षित।",privacy:"गोपनीयता",terms:"नियम",footer_note:"शून्य ट्रैकिंग • डिवाइस-स्तरीय गोपनीयता • आपका डेटा आपका।"}
     };
-
-    function setLang(lang) {
-      const dict = T[lang] || T.en;
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (dict[key]) el.textContent = dict[key];
+    function setLang(lang){
+      const d=T[lang]||T.en;
+      $$("#app [data-i18n], header [data-i18n], footer [data-i18n]").forEach(el=>{
+        const key = el.getAttribute("data-i18n"); if(d[key]) el.textContent = d[key];
       });
       localStorage.setItem("myqer_lang", lang);
     }
 
-    // ====== Helpers ======
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    function toast(msg, ok=false, id="#qr-msg") {
-      const el = $(id);
-      el.textContent = msg;
-      el.className = "mt-3 text-sm " + (ok ? "text-emerald-600" : "text-rose-600");
-      setTimeout(() => { el.textContent = ""; el.className = "mt-3 text-sm text-slate-500"; }, 8000);
-      console[ok ? "log" : "error"](msg);
-    }
-    function debounce(fn, ms=500) {
-      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-    }
+    /* ========== State ========== */
+    let currentUser=null, profile={}, health={}, iceContacts=[];
+    let qr=null;
 
-    // ====== State ======
-    let user = null;
-    let profile = null;
-    let health = null;
-    let iceContacts = [];
+    /* ====== Loop-proof session bootstrap ====== */
+    (async function boot(){
+      $("#year").textContent = new Date().getFullYear();
+      const lang = localStorage.getItem("myqer_lang")||"en"; $("#lang").value=lang; setLang(lang);
+      $("#lang").addEventListener("change",()=>setLang($("#lang").value));
 
-    // ====== Auth boot ======
-    (async function boot() {
-      try {
-        // restore language
-        const lang = localStorage.getItem("myqer_lang") || "en";
-        $("#lang").value = lang; setLang(lang);
-        $("#lang").addEventListener("change", () => setLang($("#lang").value));
-
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session) {
-          location.replace("/");
-          return;
-        }
-        user = session.user;
-
-        // Load all in parallel
-        const [pRes, hRes, iRes] = await Promise.all([
-          sb.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-          sb.from("health_profiles").select("*").eq("user_id", user.id).maybeSingle(),
-          sb.from("ice_contacts").select("*").eq("user_id", user.id)
-        ]);
-
-        if (pRes.error) console.error(pRes.error);
-        if (hRes.error) console.error(hRes.error);
-        if (iRes.error) console.error(iRes.error);
-
-        profile = pRes.data || {};
-        health = hRes.data || {};
-        iceContacts = (iRes.data || []).sort((a,b) => (b.is_primary?1:0) - (a.is_primary?1:0));
-
-        renderIdentity();
-        renderHealth();
-        renderICE();
-
-        restoreQRFromLocal();
-
-        // UI events
-        $("#signout").addEventListener("click", async () => {
-          await sb.auth.signOut(); location.replace("/");
+      const { data:{ session } } = await sb.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        $("#email").value = currentUser.email || "";
+        await loadAll();
+        sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT') go('/'); });
+      } else {
+        // wait briefly for SIGNED_IN to avoid ping-pong after OAuth/magic link
+        let resolved=false;
+        await new Promise(res=>{
+          const to=setTimeout(()=>{ if(!resolved){resolved=true; res();}},3000);
+          sb.auth.onAuthStateChange((ev,sess)=>{
+            if(ev==='SIGNED_IN' && sess && !resolved){ clearTimeout(to); resolved=true; currentUser=sess.user; $("#email").value=currentUser.email||""; res(); }
+          });
         });
-        $("#add-ice").addEventListener("click", onAddICE);
-        $("#gen-code").addEventListener("click", generateCodeFlow);
-        $("#copy-link").addEventListener("click", copyLink);
-        $("#download-png").addEventListener("click", () => downloadQR("png"));
-        $("#download-svg").addEventListener("click", () => downloadQR("svg"));
-        $("#print-card-btn").addEventListener("click", printCard);
-
-        $("#confirm-delete").addEventListener("change", () => {
-          $("#delete-account").disabled = !$("#confirm-delete").checked;
-        });
-        $("#delete-account").addEventListener("click", deleteAccount);
-
-        $("#speak").addEventListener("click", speakSummary);
-      } catch (e) {
-        console.error(e);
-        toast("Failed to initialize. Check console.", false);
+        if (!currentUser){ go('/'); return; }
+        await loadAll();
+        sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT') go('/'); });
       }
+
+      // Wire UI actions
+      $("#signout").addEventListener("click", async ()=>{ await sb.auth.signOut(); go('/'); });
+      $("#add-ice").addEventListener("click", onAddICE);
+      $("#gen-code").addEventListener("click", generateCodeFlow);
+      $("#copy-link").addEventListener("click", copyLink);
+      $("#download-png").addEventListener("click",()=>downloadQR('png'));
+      $("#download-svg").addEventListener("click",()=>downloadQR('svg'));
+      $("#print-card-btn").addEventListener("click", printCard);
+      $("#confirm-delete").addEventListener("change",()=>$("#delete-account").disabled=!$("#confirm-delete").checked);
+      $("#delete-account").addEventListener("click", deleteAccount);
     })();
 
-    // ====== Renderers & autosave ======
-    function renderIdentity() {
-      $("#full_name").value = profile.full_name || "";
-      $("#dob").value = profile.date_of_birth || "";
-      $("#country").value = profile.country || "";
-      $("#health_id").value = profile.health_id || "";
-      // bind save
-      ["full_name","dob","country","health_id"].forEach(id => {
-        $("#"+id).addEventListener("input", debouncedSaveProfile);
-        $("#"+id).addEventListener("change", debouncedSaveProfile);
-      });
+    /* ========== Data I/O ========== */
+    async function loadAll(){
+      const [p,h,i] = await Promise.all([
+        sb.from("profiles").select("*").eq("id", currentUser.id).maybeSingle(),
+        sb.from("health_profiles").select("*").eq("user_id", currentUser.id).maybeSingle(),
+        sb.from("ice_contacts").select("*").eq("user_id", currentUser.id)
+      ]);
+      if(p.error) console.error(p.error); if(h.error) console.error(h.error); if(i.error) console.error(i.error);
+      profile = p.data || {};
+      health  = h.data || {};
+      iceContacts = (i.data||[]).sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0));
+
+      renderIdentity(); renderHealth(); renderICE(); restoreQRFromLocal();
     }
 
-    async function saveProfile() {
-      const payload = {
-        id: user.id, // upsert key
-        full_name: $("#full_name").value.trim() || null,
-        date_of_birth: $("#dob").value || null,
-        country: $("#country").value.trim() || null,
-        health_id: $("#health_id").value.trim() || null,
-        code: profile.code || null
-      };
-      const { data, error } = await sb.from("profiles").upsert(payload, { onConflict: "id" }).select().single();
-      if (error) {
-        console.error(error); $("#id-saved").textContent = "Save failed — retained locally."; return;
-      }
-      profile = data; $("#id-saved").textContent = "Saved ✓";
+    function renderIdentity(){
+      $("#full_name").value = profile.full_name || "";
+      $("#dob").value       = profile.date_of_birth || "";
+      $("#country").value   = profile.country || "";
+      $("#health_id").value = profile.health_id || "";
+      ["full_name","dob","country","health_id"].forEach(id=>{
+        const f = debounceSaveProfile; $("#"+id).addEventListener("input",f); $("#"+id).addEventListener("change",f);
+      });
       setPrintFields();
     }
-    const debouncedSaveProfile = debounce(saveProfile, 500);
+    const debounce = (fn,ms=500)=>{let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);} };
+    const debounceSaveProfile = debounce(saveProfile,500);
+    async function saveProfile(){
+      const payload = {
+        id: currentUser.id,
+        full_name: $("#full_name").value.trim()||null,
+        date_of_birth: $("#dob").value||null,
+        country: $("#country").value.trim()||null,
+        health_id: $("#health_id").value.trim()||null,
+        code: profile.code || null
+      };
+      const { data, error } = await sb.from("profiles").upsert(payload,{ onConflict:"id" }).select().single();
+      if(error){ console.error(error); $("#id-saved").textContent="Save failed — kept locally."; return; }
+      profile=data; $("#id-saved").textContent="Saved ✓"; setPrintFields();
+    }
 
-    function renderHealth() {
+    function renderHealth(){
       $("#blood_type").value = health.blood_type || "";
-      $("#organ_donor").value = (health.organ_donor === true ? "true" : health.organ_donor === false ? "false" : "");
+      $("#organ_donor").value = health.organ_donor===true?"true":health.organ_donor===false?"false":"";
+      $("#life_support").value = health.life_support_pref || "No Preference Specified";
       $("#allergies").value = health.allergies || "";
       $("#conditions").value = health.conditions || "";
       $("#meds").value = health.meds || "";
       $("#implants").value = health.implants || "";
-      $("#life_support").value = health.life_support_pref || "";
-      $("#burial_pref").value = health.burial_pref || "";
-      $("#religion_pref").value = health.religion_pref || "";
       $("#triage_override").value = health.triage_override || "";
-
-      $("#flag_anticoagulants").checked = !!health.risk_anticoagulants;
-      $("#flag_seizure").checked = !!health.risk_seizure;
-      $("#flag_pregnancy").checked = !!health.risk_pregnancy;
-      $("#flag_steroid").checked = !!health.risk_steroid;
+      $("#flag_anticoagulants").checked=!!health.risk_anticoagulants;
+      $("#flag_seizure").checked=!!health.risk_seizure;
+      $("#flag_pregnancy").checked=!!health.risk_pregnancy;
+      $("#flag_steroid").checked=!!health.risk_steroid;
 
       updateTriagePill();
 
-      // bind save
-      const ids = ["blood_type","organ_donor","allergies","conditions","meds","implants","life_support","burial_pref","religion_pref","triage_override"];
-      ids.forEach(id => { $("#"+id).addEventListener("input", debouncedSaveHealth); $("#"+id).addEventListener("change", debouncedSaveHealth); });
-      ["flag_anticoagulants","flag_seizure","flag_pregnancy","flag_steroid"].forEach(id => {
-        $("#"+id).addEventListener("change", debouncedSaveHealth);
-      });
+      const ids=["blood_type","organ_donor","life_support","allergies","conditions","meds","implants","triage_override"];
+      ids.forEach(id=>{ $("#"+id).addEventListener("input",debounceSaveHealth); $("#"+id).addEventListener("change",debounceSaveHealth);});
+      ["flag_anticoagulants","flag_seizure","flag_pregnancy","flag_steroid"].forEach(id=>$("#"+id).addEventListener("change",debounceSaveHealth));
     }
-
-    async function saveHealth() {
+    const debounceSaveHealth = debounce(saveHealth,500);
+    async function saveHealth(){
       const payload = {
-        user_id: user.id,
-        blood_type: $("#blood_type").value || null,
-        organ_donor: $("#organ_donor").value === "" ? null : $("#organ_donor").value === "true",
-        allergies: $("#allergies").value || null,
-        conditions: $("#conditions").value || null,
-        meds: $("#meds").value || null,
-        implants: $("#implants").value || null,
-        life_support_pref: $("#life_support").value || null,
-        burial_pref: $("#burial_pref").value || null,
-        religion_pref: $("#religion_pref").value || null,
-        triage_override: $("#triage_override").value || null,
-        risk_anticoagulants: $("#flag_anticoagulants").checked || false,
-        risk_seizure: $("#flag_seizure").checked || false,
-        risk_pregnancy: $("#flag_pregnancy").checked || false,
-        risk_steroid: $("#flag_steroid").checked || false
+        user_id: currentUser.id,
+        blood_type: $("#blood_type").value||null,
+        organ_donor: $("#organ_donor").value===""?null:$("#organ_donor").value==="true",
+        life_support_pref: $("#life_support").value||null,
+        allergies: $("#allergies").value||null,
+        conditions: $("#conditions").value||null,
+        meds: $("#meds").value||null,
+        implants: $("#implants").value||null,
+        triage_override: $("#triage_override").value||null,
+        risk_anticoagulants: $("#flag_anticoagulants").checked||false,
+        risk_seizure: $("#flag_seizure").checked||false,
+        risk_pregnancy: $("#flag_pregnancy").checked||false,
+        risk_steroid: $("#flag_steroid").checked||false
       };
-      const { data, error } = await sb.from("health_profiles").upsert(payload, { onConflict: "user_id" }).select().single();
-      if (error) { console.error(error); $("#health-saved").textContent = "Save failed — check console."; return; }
-      health = data; $("#health-saved").textContent = "Saved ✓";
-      updateTriagePill();
-      setPrintFields();
+      const { data, error } = await sb.from("health_profiles").upsert(payload,{ onConflict:"user_id" }).select().single();
+      if(error){ console.error(error); $("#health-saved").textContent="Save failed — check console."; return; }
+      health=data; $("#health-saved").textContent="Saved ✓"; updateTriagePill(); setPrintFields();
     }
-    const debouncedSaveHealth = debounce(saveHealth, 500);
 
-    function computeAutoTriage() {
-      const allergies = ($("#allergies").value || "").toLowerCase();
-      const conditions = ($("#conditions").value || "").toLowerCase();
+    function computeAutoTriage(){
+      const allergies = ($("#allergies").value||"").toLowerCase();
+      const conditions = ($("#conditions").value||"").toLowerCase();
       const life = $("#life_support").value;
-
-      const severeAllergy = /anaphylaxis|severe|epi|airway/.test(allergies);
-      const criticalCond = /(heart failure|copd|unstable|renal failure|dialysis|cancer|stroke)/.test(conditions);
-      const anyChronic = conditions.trim().length > 0 || ($("#meds").value || "").trim().length > 0 || ($("#implants").value || "").trim().length > 0;
-
-      if (life === "DNR" || life === "Comfort only" || (severeAllergy && criticalCond)) return "RED";
-      if (anyChronic) return "AMBER";
+      const severeAllergy=/anaphylaxis|severe|epi|airway/.test(allergies);
+      const criticalCond=/(heart failure|copd|unstable|renal failure|dialysis|cancer|stroke)/.test(conditions);
+      const anyChronic = conditions.trim().length>0 || ($("#meds").value||"").trim().length>0 || ($("#implants").value||"").trim().length>0;
+      if(life==="DNR"||life==="Comfort only"|| (severeAllergy&&criticalCond)) return "RED";
+      if(anyChronic) return "AMBER";
       return "GREEN";
     }
-    function updateTriagePill() {
-      const pill = $("#triage-pill");
-      const override = $("#triage_override").value;
-      const label = (override || computeAutoTriage()).toUpperCase();
-      pill.textContent = label;
-      pill.className = "pill " + (label === "GREEN" ? "green" : label === "AMBER" ? "amber" : label === "RED" ? "red" : "black");
+    function updateTriagePill(){
+      const override=$("#triage_override").value;
+      const label=(override||computeAutoTriage()).toUpperCase();
+      const pill=$("#triage-pill");
+      pill.textContent=label;
+      pill.className="pill "+(label==="GREEN"?"green":label==="AMBER"?"amber":label==="RED"?"red":"black");
       setPrintFields();
     }
 
-    function renderICE() {
-      const list = $("#ice-list");
-      list.innerHTML = "";
-      iceContacts.slice(0,3).forEach(c => list.appendChild(iceRow(c)));
-      if (iceContacts.length === 0) onAddICE(true); // show one empty row
-      $("#ice-saved").textContent = "";
+    /* ICE */
+    function renderICE(){
+      const list=$("#ice-list"); list.innerHTML="";
+      (iceContacts.length?iceContacts:[{}]).slice(0,3).forEach(c=>list.appendChild(iceRow(c)));
       setPrintFields();
     }
-
-    function iceRow(contact) {
-      const row = document.createElement("div");
-      row.className = "grid md:grid-cols-12 gap-2 p-3 rounded-lg border border-slate-200";
-
-      // Fields
-      row.innerHTML = `
-        <div class="md:col-span-3 field">
-          <label>Name</label>
-          <input value="${contact?.name || ""}" class="ice-name" type="text" />
-        </div>
-        <div class="md:col-span-3 field">
-          <label>Relationship</label>
-          <input value="${contact?.relationship || ""}" class="ice-rel" type="text" />
-        </div>
-        <div class="md:col-span-3 field">
-          <label>Phone</label>
-          <input value="${contact?.phone || ""}" class="ice-phone" type="tel" />
-        </div>
-        <div class="md:col-span-2 flex items-center gap-2">
-          <input type="checkbox" class="ice-primary" ${contact?.is_primary ? "checked":""}/>
-          <span class="text-sm">Primary</span>
-        </div>
-        <div class="md:col-span-1 flex items-center justify-end">
-          <button class="btn secondary ice-delete">✕</button>
-        </div>
-      `;
-
-      // Wire events
-      const name = row.querySelector(".ice-name");
-      const rel = row.querySelector(".ice-rel");
-      const phone = row.querySelector(".ice-phone");
-      const primary = row.querySelector(".ice-primary");
-      const del = row.querySelector(".ice-delete");
-
-      const saveDebounced = debounce(async () => {
-        await saveICE(row, contact?.id || null);
-      }, 400);
-
-      [name, rel, phone].forEach(el => { el.addEventListener("input", saveDebounced); el.addEventListener("change", saveDebounced); });
-      primary.addEventListener("change", async () => {
-        // only one primary allowed (UI-level uniqueness)
-        if (primary.checked) {
-          iceContacts.forEach(c => c.is_primary = (c.id === contact?.id));
-          $$("#ice-list .ice-primary").forEach(ck => { if (ck !== primary) ck.checked = false; });
-        }
-        await saveICE(row, contact?.id || null);
+    function iceRow(c={}){
+      const row=document.createElement("div");
+      row.className="grid sm:grid-cols-12 gap-2 p-3 rounded-xl border border-slate-200";
+      row.innerHTML=`
+        <div class="sm:col-span-4 field"><label>Name</label><input class="ice-name" value="${c.name||""}"/></div>
+        <div class="sm:col-span-4 field"><label>Relationship</label><input class="ice-rel" value="${c.relationship||""}"/></div>
+        <div class="sm:col-span-3 field"><label>Phone</label><input class="ice-phone" type="tel" value="${c.phone||""}"/></div>
+        <div class="sm:col-span-1 flex items-center justify-end gap-2">
+          <label class="inline-flex items-center gap-2 text-sm"><input class="ice-primary" type="checkbox" ${c.is_primary?"checked":""}/><span>Primary</span></label>
+          <button class="btn secondary ice-del">✕</button>
+        </div>`;
+      const saveRow = debounce(async()=>{ await saveICE(row, c.id||null);},400);
+      row.querySelectorAll(".ice-name,.ice-rel,.ice-phone").forEach(el=>{ el.addEventListener("input",saveRow); el.addEventListener("change",saveRow); });
+      row.querySelector(".ice-primary").addEventListener("change",saveRow);
+      row.querySelector(".ice-del").addEventListener("click", async ()=>{
+        if(!c.id){ row.remove(); return; }
+        const { error } = await sb.from("ice_contacts").delete().eq("id",c.id).eq("user_id",currentUser.id);
+        if(error){ console.error(error); toast("#ice-saved","Failed to delete.",false); return; }
+        iceContacts = iceContacts.filter(x=>x.id!==c.id); renderICE(); $("#ice-saved").textContent="Saved ✓";
       });
-
-      del.addEventListener("click", async () => {
-        if (!contact?.id) { row.remove(); return; }
-        const { error } = await sb.from("ice_contacts").delete().eq("id", contact.id).eq("user_id", user.id);
-        if (error) { console.error(error); toast("Failed to delete contact.", false, "#ice-saved"); return; }
-        iceContacts = iceContacts.filter(c => c.id !== contact.id);
-        renderICE();
-        $("#ice-saved").textContent = "Saved ✓";
-      });
-
-      row.dataset.id = contact?.id || "";
+      row.dataset.id=c.id||"";
       return row;
     }
+    async function saveICE(row, existingId){
+      const name=row.querySelector(".ice-name").value.trim();
+      const relationship=row.querySelector(".ice-rel").value.trim();
+      const phone=row.querySelector(".ice-phone").value.trim();
+      const is_primary=row.querySelector(".ice-primary").checked;
 
-    async function saveICE(row, existingId = null) {
-      // Gather row values
-      const name = row.querySelector(".ice-name").value.trim();
-      const relationship = row.querySelector(".ice-rel").value.trim();
-      const phone = row.querySelector(".ice-phone").value.trim();
-      const is_primary = row.querySelector(".ice-primary").checked;
-
-      if (!name && !relationship && !phone) {
-        // if completely empty and was existing row -> delete
-        if (existingId) {
-          const { error } = await sb.from("ice_contacts").delete().eq("id", existingId).eq("user_id", user.id);
-          if (error) { console.error(error); toast("Failed to delete contact.", false, "#ice-saved"); return; }
-          iceContacts = iceContacts.filter(c => c.id !== existingId);
-          renderICE();
-        }
+      const nonEmpty = name||relationship||phone;
+      if(!nonEmpty && existingId){
+        const { error } = await sb.from("ice_contacts").delete().eq("id",existingId).eq("user_id",currentUser.id);
+        if(error){ console.error(error); toast("#ice-saved","Delete failed",false); } else { iceContacts=iceContacts.filter(c=>c.id!==existingId); renderICE(); }
         return;
       }
 
-      // enforce max 3
-      const nonEmptyCount = $$("#ice-list > div").filter(r => {
-        const n = r.querySelector(".ice-name").value.trim();
-        const p = r.querySelector(".ice-phone").value.trim();
-        const rel = r.querySelector(".ice-rel").value.trim();
-        return n || p || rel;
+      // enforce ≤3
+      const rows=$$("#ice-list > div").filter(r=>{
+        const n=r.querySelector(".ice-name").value.trim();
+        const p=r.querySelector(".ice-phone").value.trim();
+        const rel=r.querySelector(".ice-rel").value.trim();
+        return n||p||rel;
       }).length;
-      if (nonEmptyCount > 3) { toast("Max 3 contacts.", false, "#ice-saved"); row.remove(); return; }
+      if(rows>3){ toast("#ice-saved","Max 3 contacts.",false); row.remove(); return; }
 
-      // ensure only one primary
-      if (is_primary) {
-        $$("#ice-list .ice-primary").forEach(ck => { if (ck !== row.querySelector(".ice-primary")) ck.checked = false; });
-      }
+      // only one primary
+      if(is_primary){ $$("#ice-list .ice-primary").forEach(ck=>{ if(ck!==row.querySelector(".ice-primary")) ck.checked=false; }); }
 
-      // upsert
-      const payload = {
-        id: existingId || undefined,
-        user_id: user.id,
-        name, relationship, phone,
-        is_primary
-      };
-      const { data, error } = await sb.from("ice_contacts").upsert(payload, { onConflict: "id" }).select().single();
-      if (error) { console.error(error); toast("Failed to save contact.", false, "#ice-saved"); return; }
-
-      // refresh local list from DB to keep IDs correct
-      const { data: fresh, error: e2 } = await sb.from("ice_contacts").select("*").eq("user_id", user.id);
-      if (e2) { console.error(e2); }
-      iceContacts = (fresh || []).sort((a,b) => (b.is_primary?1:0) - (a.is_primary?1:0));
-      $("#ice-saved").textContent = "Saved ✓";
-      setPrintFields();
-      renderICE();
+      const payload={ id:existingId||undefined, user_id:currentUser.id, name, relationship, phone, is_primary };
+      const { error } = await sb.from("ice_contacts").upsert(payload,{ onConflict:"id" }).select().maybeSingle();
+      if(error){ console.error(error); toast("#ice-saved","Save failed",false); return; }
+      const { data: fresh } = await sb.from("ice_contacts").select("*").eq("user_id",currentUser.id);
+      iceContacts=(fresh||[]).sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0));
+      $("#ice-saved").textContent="Saved ✓"; renderICE();
     }
+    function onAddICE(){ if($$("#ice-list > div").length>=3){ toast("#ice-saved","Max 3 contacts.",false); return;} $("#ice-list").appendChild(iceRow({})); }
 
-    function onAddICE(silent=false) {
-      if ($$("#ice-list > div").length >= 3) { if (!silent) toast("Max 3 contacts.", false, "#ice-saved"); return; }
-      $("#ice-list").appendChild(iceRow({}));
-    }
-
-    // ====== QR code & short link ======
-    let qr; // qr-code-styling instance
-
-    function ensureQR() {
-      if (qr) return qr;
+    /* ====== QR + short link ====== */
+    function ensureQR(){
+      if(qr) return qr;
       qr = new QRCodeStyling({
-        width: 220,
-        height: 220,
-        type: "svg",
-        data: "https://www.myqer.com/",
-        margin: 8,
-        qrOptions: { typeNumber: 0, mode: "Byte", errorCorrectionLevel: "Q" },
-        dotsOptions: { type: "rounded", /* 'rounded' modules */ },
-        cornersSquareOptions: { type: "extra-rounded" },
-        cornersDotOptions: { type: "dot" },
-        backgroundOptions: { color: "#ffffff" },
-        imageOptions: { crossOrigin: "anonymous", margin: 4, imageSize: 0.25 },
-        // subtle brand framing via background around container (we wrap in a bordered box)
+        width:220, height:220, type:"svg", data:"https://www.myqer.com/",
+        qrOptions:{ errorCorrectionLevel:"Q" },
+        dotsOptions:{ type:"rounded" }, cornersSquareOptions:{ type:"extra-rounded" },
+        imageOptions:{ crossOrigin:"anonymous", margin:4, imageSize:0.25 }
       });
-      $("#qr").innerHTML = "";
-      qr.append($("#qr"));
-      return qr;
+      $("#qr").innerHTML=""; qr.append($("#qr")); return qr;
     }
-
-    function linkForCode(code) {
-      return `https://www.myqer.com/c/${code}`;
+    function linkForCode(code){ return `https://www.myqer.com/c/${code}`; }
+    function restoreQRFromLocal(){
+      const code=localStorage.getItem("myqer_last_code"), link=localStorage.getItem("myqer_last_link");
+      if(code&&link){ ensureQR().update({ data:link }); $("#short-link").value=link; $("#qr-msg").textContent="Restored last QR."; }
     }
-
-    function restoreQRFromLocal() {
-      const lastCode = localStorage.getItem("myqer_last_code");
-      const lastLink = localStorage.getItem("myqer_last_link");
-      if (lastCode && lastLink) {
-        ensureQR().update({ data: lastLink });
-        $("#short-link").value = lastLink;
-        $("#qr-msg").textContent = "Restored last QR (offline-friendly).";
-      }
-    }
-
-    async function generateCodeFlow() {
-      try {
-        if (!profile?.code) {
+    async function generateCodeFlow(){
+      try{
+        if(!profile.code){
           const code = crypto.getRandomValues(new Uint8Array(16)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),"");
-          const { data, error } = await sb.from("profiles").upsert({ id: user.id, code }, { onConflict:"id" }).select().single();
-          if (error) throw error;
-          profile = data;
+          const { data, error } = await sb.from("profiles").upsert({ id:currentUser.id, code },{ onConflict:"id" }).select().single();
+          if(error) throw error; profile=data;
         }
-        const url = linkForCode(profile.code);
-        ensureQR().update({ data: url, image: "/assets/icon-64.png" }); // optional center logo if you host it
-        $("#short-link").value = url;
-        localStorage.setItem("myqer_last_code", profile.code);
-        localStorage.setItem("myqer_last_link", url);
-        toast("Emergency code ready.", true);
+        const url=linkForCode(profile.code);
+        ensureQR().update({ data:url, image:"/assets/icon-64.png" });
+        $("#short-link").value=url;
+        localStorage.setItem("myqer_last_code",profile.code);
+        localStorage.setItem("myqer_last_link",url);
+        toast("#qr-msg","Emergency code ready.",true);
         setPrintFields();
-      } catch (e) {
-        console.error(e);
-        toast("Failed to generate code. See console.", false);
-      }
+      }catch(e){ console.error(e); toast("#qr-msg","Failed to generate.",false); }
     }
+    async function copyLink(){ const v=$("#short-link").value; if(!v) return; await navigator.clipboard.writeText(v); toast("#qr-msg","Copied ✓",true); }
+    async function downloadQR(fmt){ if(!qr) return; await qr.download({ name:`myqer-qr.${fmt}`, extension:fmt }); toast("#qr-msg",`Downloaded ${fmt.toUpperCase()} ✓`,true); }
 
-    async function copyLink() {
-      const v = $("#short-link").value;
-      if (!v) return;
-      await navigator.clipboard.writeText(v);
-      toast("Copied short link ✓", true);
+    function setPrintFields(){
+      $("#p_name").textContent=$("#full_name").value||"";
+      $("#p_dob").textContent=$("#dob").value||"";
+      $("#p_country").textContent=$("#country").value||"";
+      $("#p_blood").textContent=$("#blood_type").value||"";
+      $("#p_triage").textContent=($("#triage_override").value||computeAutoTriage());
+      const primary=iceContacts.find(c=>c.is_primary)||iceContacts[0]||null;
+      $("#p_ice").textContent=primary?`${primary.name||""}${primary.phone?(" • "+primary.phone):""}`:"";
+      const url=$("#short-link").value;
+      if(url){ const q2=new QRCodeStyling({ width:160,height:160,type:"svg",data:url,margin:6,dotsOptions:{type:"rounded"},cornersSquareOptions:{type:"extra-rounded"},imageOptions:{margin:4,imageSize:0.25} });
+        $("#qr-print").innerHTML=""; q2.append($("#qr-print")); }
     }
+    function printCard(){ if(!$("#short-link").value){ toast("#qr-msg","Generate your code first.",false); return;} setPrintFields(); window.print(); }
 
-    async function downloadQR(fmt="png") {
-      if (!qr) return;
-      const name = `myqer-qr.${fmt}`;
-      await qr.download({ name, extension: fmt });
-      toast(`Downloaded ${fmt.toUpperCase()} ✓`, true);
-    }
-
-    function setPrintFields() {
-      $("#p_name").textContent = $("#full_name").value || "";
-      $("#p_dob").textContent = $("#dob").value || "";
-      $("#p_country").textContent = $("#country").value || "";
-      $("#p_blood").textContent = $("#blood_type").value || "";
-      $("#p_triage").textContent = ($("#triage_override").value || computeAutoTriage());
-      const primary = iceContacts.find(c => c.is_primary) || iceContacts[0] || null;
-      $("#p_ice").textContent = primary ? `${primary.name || ""} ${primary.phone ? "• "+primary.phone : ""}` : "";
-      // print QR
-      const url = $("#short-link").value;
-      if (url) {
-        const q2 = new QRCodeStyling({ width: 160, height: 160, type: "svg", data: url, margin: 6, dotsOptions:{type:"rounded"}, cornersSquareOptions:{type:"extra-rounded"}, imageOptions:{margin:4,imageSize:0.25} });
-        $("#qr-print").innerHTML = ""; q2.append($("#qr-print"));
-      }
-    }
-
-    function printCard() {
-      if (!$("#short-link").value) { toast("Generate your code first.", false); return; }
-      setPrintFields();
-      window.print();
-    }
-
-    // ====== Delete account (Edge Function, secured) ======
-    async function deleteAccount() {
-      if (!$("#confirm-delete").checked) return;
-      try {
-        $("#delete-account").disabled = true;
-        $("#delete-msg").textContent = "Deleting…";
-        const { data: { session } } = await sb.auth.getSession();
-        const token = session?.access_token;
-        const res = await fetch("/functions/v1/delete-account", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}`, "Content-Type":"application/json" },
-          body: JSON.stringify({ reason: "user_requested" })
+    /* ====== Delete ====== */
+    async function deleteAccount(){
+      if(!$("#confirm-delete").checked) return;
+      try{
+        $("#delete-account").disabled=true; $("#delete-msg").textContent="Deleting…";
+        const { data:{ session } } = await sb.auth.getSession();
+        const token=session?.access_token;
+        const res = await fetch("/functions/v1/delete-account",{
+          method:"POST", headers:{ "Authorization":`Bearer ${token}`,"Content-Type":"application/json" }, body:JSON.stringify({ reason:"user_requested" })
         });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(`Delete failed: ${res.status} ${txt}`);
-        }
-        $("#delete-msg").textContent = "Deleted. Signing out…";
-        await sleep(600);
-        await sb.auth.signOut();
-        location.replace("/");
-      } catch (e) {
-        console.error(e);
-        $("#delete-account").disabled = false;
-        $("#delete-msg").textContent = "Failed to delete account. Check console.";
-      }
+        if(!res.ok){ const t=await res.text(); throw new Error(t||"Delete failed"); }
+        $("#delete-msg").textContent="Deleted. Signing out…"; await sleep(600);
+        await sb.auth.signOut(); go("/");
+      }catch(e){ console.error(e); $("#delete-account").disabled=false; $("#delete-msg").textContent="Failed to delete. Check console."; }
     }
-
-    // ====== Voice summary (optional) ======
-    function pickVoiceForLang(lang) {
-      const voices = window.speechSynthesis.getVoices();
-      // heuristic: pick a female voice for the language if possible
-      const prefer = voices.filter(v =>
-        v.lang.toLowerCase().startsWith(lang) ||
-        (lang === "en" && v.lang.toLowerCase().startsWith("en"))
-      );
-      return prefer.find(v => /female|samantha|victoria|alice|mira|sofia|pauline|camila|helena/i.test(v.name)) || prefer[0] || voices[0];
-    }
-    function speakSummary() {
-      const lang = $("#lang").value || "en";
-      const dict = T[lang] || T.en;
-      const primary = iceContacts.find(c => c.is_primary) || iceContacts[0] || {};
-      const text = [
-        `${dict.identity}: ${$("#full_name").value || "—"}, ${$("#dob").value || "—"}, ${$("#country").value || "—"}.`,
-        `${dict.health_profile}: ${dict.blood_type} ${$("#blood_type").value || "—"}, ${dict.organ_donor}: ${$("#organ_donor").value === "true" ? dict.yes : $("#organ_donor").value === "false" ? dict.no : "—"}.`,
-        `${dict.allergies}: ${$("#allergies").value || "—"}.`,
-        `${dict.conditions}: ${$("#conditions").value || "—"}.`,
-        `${dict.meds}: ${$("#meds").value || "—"}.`,
-        `${dict.triage}: ${($("#triage_override").value || computeAutoTriage())}.`,
-        `ICE: ${primary.name || "—"}, ${primary.phone || ""}`.trim()
-      ].join(" ");
-      const u = new SpeechSynthesisUtterance(text);
-      const voice = pickVoiceForLang(lang);
-      if (voice) u.voice = voice;
-      u.lang = voice?.lang || (lang === "en" ? "en-GB" : lang);
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
-    }
-
-    // ====== Guardrails / notes ======
-    // - RLS policies assumed as per README.
-    // - Only ANON key used here; Service Role stays server-side in Edge Functions.
-    // - If you modify DB schema, Regenerate types in Supabase -> API.
-    // - Do NOT cache /functions/v1/* if you add a service worker.
-
   </script>
 </body>
 </html>
