@@ -1,1 +1,1716 @@
 
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYQER™ Dashboard - Emergency Card Management</title>
+    <meta name="description" content="Manage your emergency medical information and QR code">
+    
+    <!-- Preconnect -->
+    <link rel="preconnect" href="https://tgddpmxpbgrzrbzpomou.supabase.co">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-red': '#c62828',
+                        'slate-ink': '#0f172a',
+                        'muted-gray': '#475569'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .glass-strong {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+        }
+        
+        .ribbon-card {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ribbon {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            z-index: 10;
+        }
+        
+        .ribbon-green { background: linear-gradient(135deg, #10b981, #059669); }
+        .ribbon-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .ribbon-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        
+        .btn-premium {
+            background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+            box-shadow: 0 4px 20px rgba(198, 40, 40, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-premium:hover::before {
+            left: 100%;
+        }
+        
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(198, 40, 40, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(15, 23, 42, 0.05);
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(15, 23, 42, 0.1);
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            box-shadow: 0 4px 20px rgba(220, 38, 38, 0.3);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(220, 38, 38, 0.4);
+        }
+        
+        .triage-pill {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.875rem;
+        }
+        
+        .triage-green { 
+            background: #16a34a; 
+            color: white; 
+            border: 2px solid #16a34a;
+        }
+        .triage-amber { 
+            background: #f59e0b; 
+            color: white; 
+            border: 2px solid #f59e0b;
+        }
+        .triage-red { 
+            background: #ef4444; 
+            color: white; 
+            border: 2px solid #ef4444;
+        }
+        .triage-black { 
+            background: #111827; 
+            color: white; 
+            border: 2px solid #111827;
+        }
+        
+        .qr-container {
+            position: relative;
+            display: inline-block;
+            padding: 20px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .qr-ring {
+            position: absolute;
+            inset: 10px;
+            border: 3px solid #c62828;
+            border-radius: 12px;
+            pointer-events: none;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .form-field {
+            transition: all 0.2s ease;
+        }
+        
+        .form-field:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(198, 40, 40, 0.1);
+        }
+        
+        .ice-contact-row {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .ice-contact-row:hover {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        
+        .delete-btn {
+            color: #ef4444;
+            transition: all 0.2s ease;
+        }
+        
+        .delete-btn:hover {
+            color: #dc2626;
+            transform: scale(1.1);
+        }
+        
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* Enhanced micro-animations */
+        .ribbon-card {
+            transition: all 0.3s ease;
+        }
+        
+        .ribbon-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-premium:active, .btn-secondary:active, .btn-danger:active {
+            transform: scale(0.98);
+        }
+        
+        .form-field:focus {
+            box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.1);
+        }
+        
+        /* Ribbon notch effect */
+        .ribbon::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-top: 6px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Card spacing */
+        @media (min-width: 768px) {
+            .space-y-8 > * + * {
+                margin-top: 2rem; /* 32px */
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .space-y-8 > * + * {
+                margin-top: 1.25rem; /* 20px */
+            }
+        }
+    </style>
+</head>
+
+<body class="gradient-bg min-h-screen">
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toastMessage">Saved</span>
+    </div>
+
+    <!-- Top Bar -->
+    <header class="sticky top-0 z-50 glass border-b border-white/20 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold">
+                        <span class="text-slate-ink">MYQ</span><span class="text-brand-red">ER</span>
+                        <span class="text-xs text-muted-gray ml-1">™</span>
+                    </div>
+                </div>
+
+                <!-- Center Breadcrumb -->
+                <div class="hidden md:block">
+                    <span class="text-lg font-semibold text-slate-ink" data-i18n="dashboardTitle">Dashboard</span>
+                </div>
+
+                <!-- Right Side -->
+                <div class="flex items-center space-x-4">
+                    <!-- Language Selector -->
+                    <select id="lang" class="bg-transparent border border-gray-300 rounded-lg px-3 py-2 text-sm text-muted-gray focus:outline-none focus:ring-2 focus:ring-brand-red">
+                        <option value="en">EN</option>
+                        <option value="es">ES</option>
+                        <option value="fr">FR</option>
+                        <option value="de">DE</option>
+                        <option value="it">IT</option>
+                        <option value="pt">PT</option>
+                        <option value="ro">RO</option>
+                        <option value="ar">AR</option>
+                        <option value="hi">HI</option>
+                        <option value="zh">ZH</option>
+                    </select>
+
+                    <!-- Back to Home -->
+                    <a href="/" class="text-muted-gray hover:text-slate-ink transition-colors text-sm font-medium" data-i18n="backToHome">
+                        Back to Home
+                    </a>
+
+                    <!-- Logout Button -->
+                    <button id="logoutBtn" class="btn-secondary text-slate-ink px-4 py-2 rounded-lg text-sm font-medium hover:text-white">
+                        <span data-i18n="logout">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tagline -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-2">
+            <p class="text-xs text-muted-gray" data-i18n="tagline">(pronounced "my care")</p>
+        </div>
+    </header>
+
+    <!-- Loading State -->
+    <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-brand-red mb-6"></div>
+            <p class="text-xl font-semibold text-slate-ink mb-2" data-i18n="loadingDashboard">Loading your dashboard…</p>
+            <p class="text-sm text-muted-gray" data-i18n="loadingSubtext">Fetching your emergency information</p>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorBox" class="fixed inset-0 bg-white z-50 flex items-center justify-center hidden">
+        <div class="max-w-md mx-auto text-center p-8">
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-ink mb-3" data-i18n="errorTitle">Something went wrong</h2>
+            <p id="errorMsg" class="text-muted-gray mb-8 leading-relaxed">Unable to load your dashboard. Please check your connection and try again.</p>
+            <div class="space-y-3">
+                <button onclick="window.location.reload()" class="btn-premium text-white px-8 py-3 rounded-lg font-medium w-full">
+                    <span data-i18n="tryAgain">Try Again</span>
+                </button>
+                <button onclick="window.location.href='/'" class="btn-secondary text-slate-ink px-8 py-3 rounded-lg font-medium w-full">
+                    <span data-i18n="backToHome">Back to Home</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dash" class="hidden">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-16">
+            <div class="space-y-8">
+            <!-- Card 1 - Identity -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-green"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-slate-ink" data-i18n="identityTitle">Identity — Personal Information</h2>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="identityExplainer">Responders confirm who you are.</p>
+                    
+                    <form id="profileForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="fullName">Full Name</label>
+                            <input name="full_name" type="text" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="dateOfBirth">Date of Birth</label>
+                            <input name="date_of_birth" type="date" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="country">Country</label>
+                            <input name="country" type="text" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="healthId">Health ID (NHS/other)</label>
+                            <input name="health_id" type="text" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                    </form>
+                    
+                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-sm font-medium text-slate-ink" data-i18n="yourCardCode">Your card code:</p>
+                            <button id="generateCodeBtn" class="btn-secondary text-slate-ink px-3 py-1 rounded text-xs font-medium hidden">
+                                <span data-i18n="generateCode">Generate Code</span>
+                            </button>
+                        </div>
+                        <code id="codeText" class="text-lg font-mono text-brand-red bg-white px-3 py-2 rounded border">Not generated yet</code>
+                        <p class="text-xs text-muted-gray mt-2" data-i18n="codeInfo">Code is for your QR link. It doesn't change.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2 - Health Profile -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-red"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-slate-ink" data-i18n="healthTitle">Critical — Medical — Health Details</h2>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="healthExplainer">These appear on your emergency card. Keep current.</p>
+                    
+                    <form id="healthForm" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="bloodType">Blood Type</label>
+                                <select name="blood_type" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                                    <option value="">Select blood type</option>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="organDonor">Organ Donor</label>
+                                <select name="organ_donor" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                                    <option value="">Select option</option>
+                                    <option value="yes" data-i18n="yes">Yes</option>
+                                    <option value="no" data-i18n="no">No</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="allergies">Allergies (critical)</label>
+                            <textarea name="allergies" rows="3" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" placeholder="List critical allergies..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="conditions">Conditions</label>
+                            <textarea name="conditions" rows="3" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" placeholder="Medical conditions..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="medications">Medications</label>
+                            <textarea name="meds" rows="3" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" placeholder="Current medications..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="implants">Implants/Devices</label>
+                            <textarea name="implants" rows="2" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" placeholder="Pacemaker, implants, etc..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="lifeSupportPref">Life-support preference</label>
+                            <select name="life_support_pref" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                                <option value="">Select preference</option>
+                                <option value="full" data-i18n="fullSupport">Full</option>
+                                <option value="comfort" data-i18n="comfortCare">Comfort</option>
+                                <option value="dnr" data-i18n="dnr">DNR</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="optionalNotes">Optional notes</label>
+                            <textarea name="notes" rows="2" class="form-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" placeholder="Additional information..."></textarea>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-sm text-yellow-800" data-i18n="healthDisclaimer">Preferences are informational; clinicians must confirm with official documents.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3 - ICE Contacts -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-orange"></div>
+                <div class="pt-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-orange-500 rounded-full mr-3"></div>
+                            <h2 class="text-2xl font-bold text-slate-ink" data-i18n="iceTitle">Emergency Contacts (ICE)</h2>
+                        </div>
+                        <button id="addIce" class="btn-secondary text-slate-ink px-4 py-2 rounded-lg text-sm font-medium">
+                            <span data-i18n="addContact">Add contact</span>
+                        </button>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="iceExplainer">Add up to 3 trusted contacts.</p>
+                    
+                    <div id="iceList" class="space-y-4">
+                        <!-- ICE contacts will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4 - Automated Triage -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-red"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-slate-ink" data-i18n="triageTitle">Emergency Triage Status</h2>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="triageExplainer">Auto-computed from your data; you can override.</p>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <p class="text-sm font-medium text-slate-ink mb-3" data-i18n="currentStatus">Current Status:</p>
+                            <div id="triagePill" class="triage-pill triage-green inline-block">
+                                GREEN - Standard
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="overrideStatus">Override Status:</label>
+                            <select id="triageOverride" class="form-field w-full md:w-64 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                                <option value="auto" data-i18n="auto">Auto</option>
+                                <option value="green" data-i18n="green">Green</option>
+                                <option value="amber" data-i18n="amber">Amber</option>
+                                <option value="red" data-i18n="red">Red</option>
+                                <option value="black" data-i18n="black">Black</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex space-x-4">
+                            <button id="speak" class="btn-secondary text-slate-ink px-6 py-3 rounded-lg font-medium">
+                                <span data-i18n="speakSummary">🔊 Speak Summary</span>
+                            </button>
+                            <button id="stopSpeak" class="btn-secondary text-slate-ink px-6 py-3 rounded-lg font-medium" disabled>
+                                <span data-i18n="stopSpeaking">⏹️ Stop</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 5 - Emergency Card & QR -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-green"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-slate-ink" data-i18n="qrTitle">Emergency Card & QR</h2>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="qrExplainer">QR never changes; it always opens your latest info.</p>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                        <!-- QR Code -->
+                        <div class="text-center">
+                            <div class="qr-container inline-block">
+                                <div class="qr-ring"></div>
+                                <canvas id="qrCanvas" width="200" height="200" class="relative z-10"></canvas>
+                            </div>
+                            <p id="codeUnderQR" class="text-sm font-mono text-muted-gray mt-4">Code will appear here</p>
+                            <p id="qrStatus" class="text-xs text-red-500 mt-1 hidden">No code yet</p>
+                            <p class="text-xs text-muted-gray mt-2">MYQER™ (my care)</p>
+                        </div>
+                        
+                        <!-- Controls -->
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="cardUrl">Card URL:</label>
+                                <div class="flex space-x-2">
+                                    <input id="cardUrl" type="text" readonly class="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono">
+                                    <button id="copyLink" class="btn-secondary text-slate-ink px-4 py-3 rounded-lg text-sm font-medium">
+                                        <span data-i18n="copy">Copy</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <p class="text-sm font-medium text-slate-ink" data-i18n="downloads">Downloads:</p>
+                                <div class="flex flex-wrap gap-3">
+                                    <button id="dlPNG" class="btn-secondary text-slate-ink px-4 py-2 rounded-lg text-sm font-medium">
+                                        <span data-i18n="downloadPng">PNG</span>
+                                    </button>
+                                    <button id="dlSVG" class="btn-secondary text-slate-ink px-4 py-2 rounded-lg text-sm font-medium">
+                                        <span data-i18n="downloadSvg">SVG</span>
+                                    </button>
+                                    <button id="printQR" class="btn-secondary text-slate-ink px-4 py-2 rounded-lg text-sm font-medium">
+                                        <span data-i18n="print">Print</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 6 - Triage Colours -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-green"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-slate-ink" data-i18n="triageColorsTitle">Triage Colours</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-green-500 rounded-full"></div>
+                                <span class="text-slate-ink font-medium" data-i18n="greenDesc">Green — Standard</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                                <span class="text-slate-ink font-medium" data-i18n="amberDesc">Amber — Stable chronic</span>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-red-500 rounded-full"></div>
+                                <span class="text-slate-ink font-medium" data-i18n="redDesc">Red — Severe allergy/life-threatening</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-4 h-4 bg-gray-600 rounded-full"></div>
+                                <span class="text-slate-ink font-medium" data-i18n="blackDesc">Black — DNR/Comfort</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 space-y-3 text-sm text-muted-gray">
+                        <p data-i18n="disclaimer1">• Info only; clinicians verify with official records.</p>
+                        <p data-i18n="disclaimer2">• Privacy: data stays on your device unless you share it.</p>
+                        <p data-i18n="disclaimer3">• QR is fixed; it opens the freshest data.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 9 - Danger Zone -->
+            <div class="ribbon-card glass-strong rounded-2xl p-8 shadow-xl">
+                <div class="ribbon ribbon-red"></div>
+                <div class="pt-2">
+                    <div class="flex items-center mb-4">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                        <h2 class="text-2xl font-bold text-red-600" data-i18n="dangerTitle">Delete Account</h2>
+                    </div>
+                    <p class="text-muted-gray mb-6" data-i18n="dangerExplainer">Permanent. Removes your data and signs you out.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="confirmDelete">Type "DELETE MY ACCOUNT" to confirm:</label>
+                            <input id="deletePhrase" type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                        </div>
+                        <button id="deleteBtn" disabled class="btn-danger text-white px-6 py-3 rounded-lg font-medium opacity-50 cursor-not-allowed">
+                            <span data-i18n="deleteAccount">Delete My Account</span>
+                        </button>
+                        <p id="deleteNote" class="text-xs text-muted-gray" data-i18n="deleteNote">This action cannot be undone.</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-50 border-t border-gray-200 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <div class="text-xl font-bold">
+                            <span class="text-slate-ink">MYQ</span><span class="text-brand-red">ER</span>
+                            <span class="text-xs text-muted-gray ml-1">™</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-muted-gray mb-4" data-i18n="footerTagline">
+                        Emergency medical information, always accessible.
+                    </p>
+                    <p class="text-xs text-muted-gray" data-i18n="copyright">
+                        © 2024 MYQER. All rights reserved.
+                    </p>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="flex space-x-6">
+                        <a href="/privacy.html" class="text-sm text-muted-gray hover:text-slate-ink transition-colors" data-i18n="privacy">
+                            Privacy Policy
+                        </a>
+                        <a href="/terms.html" class="text-sm text-muted-gray hover:text-slate-ink transition-colors" data-i18n="terms">
+                            Terms of Service
+                        </a>
+                    </div>
+                    
+                    <div class="text-xs text-muted-gray space-y-1">
+                        <p data-i18n="qrImmutable">• Your QR code never changes - it always shows your latest information</p>
+                        <p data-i18n="dataPrivacy">• Your data stays on your device unless you choose to share it</p>
+                        <p data-i18n="emergencyOnly">• Designed for emergency responders and medical professionals</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        // Initialize Supabase client
+        const SUPABASE_URL = "https://tgddpmxpbgrzrbzpomou.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM";
+        
+        window._supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Translation dictionary
+        const T = {
+            en: {
+                dashboardTitle: "Dashboard", backToHome: "Back to Home", logout: "Logout", tagline: "(pronounced \"my care\")",
+                identityTitle: "Identity — Personal Information", identityExplainer: "Responders confirm who you are.",
+                fullName: "Full Name", dateOfBirth: "Date of Birth", country: "Country", healthId: "Health ID (NHS/other)",
+                yourCardCode: "Your card code:", codeInfo: "Code is for your QR link. It doesn't change.",
+                healthTitle: "Critical — Medical — Health Details", healthExplainer: "These appear on your emergency card. Keep current.",
+                bloodType: "Blood Type", organDonor: "Organ Donor", yes: "Yes", no: "No",
+                allergies: "Allergies (critical)", conditions: "Conditions", medications: "Medications",
+                implants: "Implants/Devices", lifeSupportPref: "Life-support preference", optionalNotes: "Optional notes",
+                fullSupport: "Full", comfortCare: "Comfort", dnr: "DNR",
+                healthDisclaimer: "Preferences are informational; clinicians must confirm with official documents.",
+                iceTitle: "Emergency Contacts (ICE)", iceExplainer: "Add up to 3 trusted contacts.", addContact: "Add contact",
+                triageTitle: "Emergency Triage Status", triageExplainer: "Auto-computed from your data; you can override.",
+                currentStatus: "Current Status:", overrideStatus: "Override Status:",
+                auto: "Auto", green: "Green", amber: "Amber", red: "Red", black: "Black",
+                speakSummary: "🔊 Speak Summary", stopSpeaking: "⏹️ Stop",
+                qrTitle: "Emergency Card & QR", qrExplainer: "QR never changes; it always opens your latest info.",
+                cardUrl: "Card URL:", copy: "Copy", downloads: "Downloads:",
+                downloadPng: "PNG", downloadSvg: "SVG", print: "Print",
+                triageColorsTitle: "Triage Colours",
+                greenDesc: "Green — Standard", amberDesc: "Amber — Stable chronic",
+                redDesc: "Red — Severe allergy/life-threatening", blackDesc: "Black — DNR/Comfort",
+                disclaimer1: "• Info only; clinicians verify with official records.",
+                disclaimer2: "• Privacy: data stays on your device unless you share it.",
+                disclaimer3: "• QR is fixed; it opens the freshest data.",
+                dangerTitle: "Delete Account", dangerExplainer: "Permanent. Removes your data and signs you out.",
+                confirmDelete: "Type \"DELETE MY ACCOUNT\" to confirm:", deleteAccount: "Delete My Account",
+                deleteNote: "This action cannot be undone.",
+                name: "Name", relationship: "Relationship", phone: "Phone", delete: "Delete",
+                loadingDashboard: "Loading your dashboard…", loadingSubtext: "Fetching your emergency information", 
+                errorTitle: "Something went wrong", tryAgain: "Try Again",
+                footerTagline: "Emergency medical information, always accessible.", copyright: "© 2024 MYQER. All rights reserved.",
+                privacy: "Privacy Policy", terms: "Terms of Service",
+                qrImmutable: "• Your QR code never changes - it always shows your latest information",
+                dataPrivacy: "• Your data stays on your device unless you choose to share it",
+                emergencyOnly: "• Designed for emergency responders and medical professionals",
+                generateCode: "Generate Code"
+            },
+            es: {
+                dashboardTitle: "Panel de Control", backToHome: "Volver al Inicio", logout: "Cerrar Sesión", tagline: "(pronunciado \"mi cuidado\")",
+                identityTitle: "Identidad — Información Personal", identityExplainer: "Los socorristas confirman quién eres.",
+                fullName: "Nombre Completo", dateOfBirth: "Fecha de Nacimiento", country: "País", healthId: "ID de Salud (NHS/otro)",
+                yourCardCode: "Tu código de tarjeta:", codeInfo: "El código es para tu enlace QR. No cambia.",
+                healthTitle: "Crítico — Médico — Detalles de Salud", healthExplainer: "Estos aparecen en tu tarjeta de emergencia. Mantén actualizado.",
+                bloodType: "Tipo de Sangre", organDonor: "Donante de Órganos", yes: "Sí", no: "No",
+                allergies: "Alergias (críticas)", conditions: "Condiciones", medications: "Medicamentos",
+                implants: "Implantes/Dispositivos", lifeSupportPref: "Preferencia de soporte vital", optionalNotes: "Notas opcionales",
+                fullSupport: "Completo", comfortCare: "Comodidad", dnr: "No Resucitar",
+                healthDisclaimer: "Las preferencias son informativas; los clínicos deben confirmar con documentos oficiales.",
+                iceTitle: "Contactos de Emergencia (ICE)", iceExplainer: "Agrega hasta 3 contactos de confianza.", addContact: "Agregar contacto",
+                triageTitle: "Estado de Triaje de Emergencia", triageExplainer: "Auto-calculado de tus datos; puedes anular.",
+                currentStatus: "Estado Actual:", overrideStatus: "Anular Estado:",
+                auto: "Auto", green: "Verde", amber: "Ámbar", red: "Rojo", black: "Negro",
+                speakSummary: "🔊 Hablar Resumen", stopSpeaking: "⏹️ Parar",
+                qrTitle: "Tarjeta de Emergencia y QR", qrExplainer: "QR nunca cambia; siempre abre tu información más reciente.",
+                cardUrl: "URL de Tarjeta:", copy: "Copiar", downloads: "Descargas:",
+                downloadPng: "PNG", downloadSvg: "SVG", print: "Imprimir",
+                triageColorsTitle: "Colores de Triaje",
+                greenDesc: "Verde — Estándar", amberDesc: "Ámbar — Crónico estable",
+                redDesc: "Rojo — Alergia severa/amenaza de vida", blackDesc: "Negro — No Resucitar/Comodidad",
+                disclaimer1: "• Solo información; los clínicos verifican con registros oficiales.",
+                disclaimer2: "• Privacidad: los datos permanecen en tu dispositivo a menos que los compartas.",
+                disclaimer3: "• QR es fijo; abre los datos más frescos.",
+                dangerTitle: "Eliminar Cuenta", dangerExplainer: "Permanente. Elimina tus datos y te desconecta.",
+                confirmDelete: "Escribe \"DELETE MY ACCOUNT\" para confirmar:", deleteAccount: "Eliminar Mi Cuenta",
+                deleteNote: "Esta acción no se puede deshacer.",
+                name: "Nombre", relationship: "Relación", phone: "Teléfono", delete: "Eliminar",
+                loadingDashboard: "Cargando tu panel de control…", loadingSubtext: "Obteniendo tu información de emergencia",
+                errorTitle: "Algo salió mal", tryAgain: "Intentar de nuevo",
+                footerTagline: "Información médica de emergencia, siempre accesible.", copyright: "© 2024 MYQER. Todos los derechos reservados.",
+                privacy: "Política de Privacidad", terms: "Términos de Servicio",
+                qrImmutable: "• Tu código QR nunca cambia - siempre muestra tu información más reciente",
+                dataPrivacy: "• Tus datos permanecen en tu dispositivo a menos que elijas compartirlos",
+                emergencyOnly: "• Diseñado para socorristas y profesionales médicos",
+                generateCode: "Generar Código"
+            },
+            fr: {
+                dashboardTitle: "Tableau de Bord", backToHome: "Retour à l'Accueil", logout: "Déconnexion", tagline: "(prononcé \"mon soin\")",
+                identityTitle: "Identité — Informations Personnelles", identityExplainer: "Les secouristes confirment qui vous êtes.",
+                fullName: "Nom Complet", dateOfBirth: "Date de Naissance", country: "Pays", healthId: "ID Santé (NHS/autre)",
+                yourCardCode: "Votre code de carte:", codeInfo: "Le code est pour votre lien QR. Il ne change pas.",
+                healthTitle: "Critique — Médical — Détails de Santé", healthExplainer: "Ceux-ci apparaissent sur votre carte d'urgence. Gardez à jour.",
+                bloodType: "Groupe Sanguin", organDonor: "Donneur d'Organes", yes: "Oui", no: "Non",
+                allergies: "Allergies (critiques)", conditions: "Conditions", medications: "Médicaments",
+                implants: "Implants/Dispositifs", lifeSupportPref: "Préférence de support vital", optionalNotes: "Notes optionnelles",
+                fullSupport: "Complet", comfortCare: "Confort", dnr: "Ne Pas Réanimer",
+                healthDisclaimer: "Les préférences sont informatives; les cliniciens doivent confirmer avec des documents officiels.",
+                iceTitle: "Contacts d'Urgence (ICE)", iceExplainer: "Ajoutez jusqu'à 3 contacts de confiance.", addContact: "Ajouter contact",
+                triageTitle: "Statut de Triage d'Urgence", triageExplainer: "Auto-calculé à partir de vos données; vous pouvez remplacer.",
+                currentStatus: "Statut Actuel:", overrideStatus: "Remplacer Statut:",
+                auto: "Auto", green: "Vert", amber: "Ambre", red: "Rouge", black: "Noir",
+                speakSummary: "🔊 Parler Résumé", stopSpeaking: "⏹️ Arrêter",
+                qrTitle: "Carte d'Urgence et QR", qrExplainer: "QR ne change jamais; il ouvre toujours vos dernières informations.",
+                cardUrl: "URL de Carte:", copy: "Copier", downloads: "Téléchargements:",
+                downloadPng: "PNG", downloadSvg: "SVG", print: "Imprimer",
+                triageColorsTitle: "Couleurs de Triage",
+                greenDesc: "Vert — Standard", amberDesc: "Ambre — Chronique stable",
+                redDesc: "Rouge — Allergie sévère/menace de vie", blackDesc: "Noir — Ne Pas Réanimer/Confort",
+                disclaimer1: "• Info seulement; les cliniciens vérifient avec les dossiers officiels.",
+                disclaimer2: "• Confidentialité: les données restent sur votre appareil sauf si vous les partagez.",
+                disclaimer3: "• QR est fixe; il ouvre les données les plus fraîches.",
+                dangerTitle: "Supprimer Compte", dangerExplainer: "Permanent. Supprime vos données et vous déconnecte.",
+                confirmDelete: "Tapez \"DELETE MY ACCOUNT\" pour confirmer:", deleteAccount: "Supprimer Mon Compte",
+                deleteNote: "Cette action ne peut pas être annulée.",
+                name: "Nom", relationship: "Relation", phone: "Téléphone", delete: "Supprimer",
+                loadingDashboard: "Chargement de votre tableau de bord…", loadingSubtext: "Récupération de vos informations d'urgence",
+                errorTitle: "Quelque chose s'est mal passé", tryAgain: "Réessayer",
+                footerTagline: "Informations médicales d'urgence, toujours accessibles.", copyright: "© 2024 MYQER. Tous droits réservés.",
+                privacy: "Politique de Confidentialité", terms: "Conditions d'Utilisation",
+                qrImmutable: "• Votre code QR ne change jamais - il affiche toujours vos dernières informations",
+                dataPrivacy: "• Vos données restent sur votre appareil sauf si vous choisissez de les partager",
+                emergencyOnly: "• Conçu pour les secouristes et professionnels médicaux",
+                generateCode: "Générer Code"
+            }
+        };
+
+        // Global variables
+        let currentUser = null;
+        let iceContacts = [];
+        let currentCode = null;
+        let speechSynthesis = window.speechSynthesis;
+        let currentUtterance = null;
+        let profileData = {};
+        let healthData = {};
+        let autosaveTimeout = null;
+
+        // Helper functions
+        function showToast(message = 'Saved', type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            
+            // Update toast color based on type
+            toast.className = 'toast show';
+            if (type === 'error') {
+                toast.style.background = '#ef4444';
+            } else if (type === 'warning') {
+                toast.style.background = '#f59e0b';
+            } else {
+                toast.style.background = '#10b981';
+            }
+            
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('errorMsg').textContent = message;
+            document.getElementById('errorBox').classList.remove('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('errorBox').classList.add('hidden');
+            document.getElementById('dash').classList.remove('hidden');
+        }
+
+        // Database functions
+        async function loadUserProfile() {
+            try {
+                const { data, error } = await window._supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                if (data) {
+                    profileData = data;
+                    currentCode = data.code || null; // Allow empty codes
+                } else {
+                    // Create new profile without code initially
+                    const { data: newProfile, error: insertError } = await window._supabase
+                        .from('profiles')
+                        .insert({
+                            id: currentUser.id,
+                            email: currentUser.email,
+                            code: null
+                        })
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    profileData = newProfile;
+                    currentCode = null;
+                }
+
+                // Populate form
+                const form = document.getElementById('profileForm');
+                if (profileData.full_name) form.full_name.value = profileData.full_name;
+                if (profileData.date_of_birth) form.date_of_birth.value = profileData.date_of_birth;
+                if (profileData.country) form.country.value = profileData.country;
+                if (profileData.health_id) form.health_id.value = profileData.health_id;
+
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                throw new Error('Failed to load profile data');
+            }
+        }
+
+        async function generateAndSaveCode() {
+            try {
+                const newCode = generateCode();
+                
+                const { error } = await window._supabase
+                    .from('profiles')
+                    .update({ code: newCode })
+                    .eq('id', currentUser.id);
+
+                if (error) throw error;
+
+                currentCode = newCode;
+                profileData.code = newCode;
+                updateQRCode();
+                showToast('Code generated!');
+
+            } catch (error) {
+                console.error('Error generating code:', error);
+                showToast("Couldn't generate code. Check your connection.", 'error');
+            }
+        }
+
+        async function loadHealthProfile() {
+            try {
+                const { data, error } = await window._supabase
+                    .from('health_profiles')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    throw error;
+                }
+
+                if (data) {
+                    healthData = data;
+                } else {
+                    // Create new health profile
+                    const { data: newHealth, error: insertError } = await window._supabase
+                        .from('health_profiles')
+                        .insert({
+                            user_id: currentUser.id
+                        })
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+                    healthData = newHealth;
+                }
+
+                // Populate form
+                const form = document.getElementById('healthForm');
+                if (healthData.blood_type) form.blood_type.value = healthData.blood_type;
+                if (healthData.organ_donor !== null) form.organ_donor.value = healthData.organ_donor ? 'yes' : 'no';
+                if (healthData.allergies) form.allergies.value = healthData.allergies;
+                if (healthData.conditions) form.conditions.value = healthData.conditions;
+                if (healthData.meds) form.meds.value = healthData.meds;
+                if (healthData.implants) form.implants.value = healthData.implants;
+                if (healthData.life_support_pref) form.life_support_pref.value = healthData.life_support_pref;
+                if (healthData.notes) form.notes.value = healthData.notes;
+
+            } catch (error) {
+                console.error('Error loading health profile:', error);
+                throw new Error('Failed to load health data');
+            }
+        }
+
+        async function loadIceContacts() {
+            try {
+                const { data, error } = await window._supabase
+                    .from('ice_contacts')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at');
+
+                if (error) throw error;
+
+                iceContacts = data || [];
+                renderIceContacts();
+                updateAddButton();
+
+            } catch (error) {
+                console.error('Error loading ICE contacts:', error);
+                throw new Error('Failed to load emergency contacts');
+            }
+        }
+
+        async function saveProfile(formData, retryCount = 0) {
+            try {
+                const updates = {
+                    full_name: formData.get('full_name'),
+                    date_of_birth: formData.get('date_of_birth'),
+                    country: formData.get('country'),
+                    health_id: formData.get('health_id')
+                };
+
+                const { error } = await window._supabase
+                    .from('profiles')
+                    .update(updates)
+                    .eq('id', currentUser.id);
+
+                if (error) throw error;
+
+                Object.assign(profileData, updates);
+                showToast();
+
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                
+                // Retry once after 1-2 seconds
+                if (retryCount === 0) {
+                    setTimeout(() => {
+                        saveProfile(formData, 1);
+                    }, 1500);
+                } else {
+                    showToast("Couldn't save. Check your connection.", 'error');
+                }
+            }
+        }
+
+        async function saveHealthProfile(formData, retryCount = 0) {
+            try {
+                const updates = {
+                    blood_type: formData.get('blood_type'),
+                    organ_donor: formData.get('organ_donor') === 'yes' ? true : formData.get('organ_donor') === 'no' ? false : null,
+                    allergies: formData.get('allergies'),
+                    conditions: formData.get('conditions'),
+                    meds: formData.get('meds'),
+                    implants: formData.get('implants'),
+                    life_support_pref: formData.get('life_support_pref'),
+                    notes: formData.get('notes'),
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error } = await window._supabase
+                    .from('health_profiles')
+                    .update(updates)
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                Object.assign(healthData, updates);
+                showToast();
+                updateTriagePill();
+
+            } catch (error) {
+                console.error('Error saving health profile:', error);
+                
+                // Retry once after 1-2 seconds
+                if (retryCount === 0) {
+                    setTimeout(() => {
+                        saveHealthProfile(formData, 1);
+                    }, 1500);
+                } else {
+                    showToast("Couldn't save. Check your connection.", 'error');
+                }
+            }
+        }
+
+        async function saveIceContact(contact) {
+            try {
+                if (contact.id && contact.id > 1000000000000) {
+                    // New contact (temporary ID)
+                    const { data, error } = await window._supabase
+                        .from('ice_contacts')
+                        .insert({
+                            user_id: currentUser.id,
+                            name: contact.name,
+                            relation: contact.relationship,
+                            phone: contact.phone
+                        })
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    // Update local contact with real ID
+                    const index = iceContacts.findIndex(c => c.id === contact.id);
+                    if (index !== -1) {
+                        iceContacts[index] = data;
+                    }
+                } else {
+                    // Update existing contact
+                    const { error } = await window._supabase
+                        .from('ice_contacts')
+                        .update({
+                            name: contact.name,
+                            relation: contact.relationship,
+                            phone: contact.phone
+                        })
+                        .eq('id', contact.id);
+
+                    if (error) throw error;
+                }
+
+                showToast();
+
+            } catch (error) {
+                console.error('Error saving ICE contact:', error);
+                showToast("Couldn't save. Check your connection.", 'error');
+            }
+        }
+
+        async function deleteIceContact(id) {
+            try {
+                if (id > 1000000000000) {
+                    // Just remove from local array if it's a temporary contact
+                    iceContacts = iceContacts.filter(c => c.id !== id);
+                } else {
+                    const { error } = await window._supabase
+                        .from('ice_contacts')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    iceContacts = iceContacts.filter(c => c.id !== id);
+                }
+
+                renderIceContacts();
+                updateAddButton();
+                showToast('Contact removed');
+
+            } catch (error) {
+                console.error('Error deleting ICE contact:', error);
+                showToast("Couldn't delete. Check your connection.", 'error');
+            }
+        }
+
+        function updateLanguage(lang) {
+            const translations = T[lang] || T.en;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[key]) {
+                    el.innerHTML = translations[key];
+                }
+            });
+            
+            // Set direction for RTL languages
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            
+            // Save to localStorage
+            localStorage.setItem('myqer_lang', lang);
+        }
+
+        function generateCode() {
+            // Generate 32-character hex-like ID
+            const chars = '0123456789abcdef';
+            let result = '';
+            for (let i = 0; i < 32; i++) {
+                result += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return result;
+        }
+
+        function updateQRCode() {
+            const canvas = document.getElementById('qrCanvas');
+            const qrStatus = document.getElementById('qrStatus');
+            const generateBtn = document.getElementById('generateCodeBtn');
+            
+            if (!currentCode) {
+                // Clear canvas and show no code status
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                document.getElementById('codeText').textContent = 'Not generated yet';
+                document.getElementById('codeUnderQR').textContent = 'No code yet';
+                document.getElementById('cardUrl').value = '';
+                
+                qrStatus.classList.remove('hidden');
+                qrStatus.textContent = 'No code yet';
+                generateBtn.classList.remove('hidden');
+                return;
+            }
+            
+            // Hide status and generate button when code exists
+            qrStatus.classList.add('hidden');
+            generateBtn.classList.add('hidden');
+            
+            const url = `https://www.myqer.com/c/${currentCode}`;
+            document.getElementById('cardUrl').value = url;
+            document.getElementById('codeText').textContent = currentCode;
+            document.getElementById('codeUnderQR').textContent = currentCode;
+            
+            try {
+                QRCode.toCanvas(canvas, url, {
+                    width: 200,
+                    margin: 1,
+                    color: {
+                        dark: '#c62828',
+                        light: '#ffffff'
+                    }
+                }, (error) => {
+                    if (error) {
+                        qrStatus.classList.remove('hidden');
+                        qrStatus.textContent = 'QR generation failed';
+                        console.error('QR generation error:', error);
+                    }
+                });
+            } catch (error) {
+                qrStatus.classList.remove('hidden');
+                qrStatus.textContent = 'QR generation failed';
+                console.error('QR generation error:', error);
+            }
+        }
+
+        function computeTriageLevel() {
+            const healthForm = document.getElementById('healthForm');
+            const formData = new FormData(healthForm);
+            
+            const allergies = formData.get('allergies')?.toLowerCase() || '';
+            const conditions = formData.get('conditions')?.toLowerCase() || '';
+            const lifeSupportPref = formData.get('life_support_pref') || '';
+            
+            // Triage logic as specified
+            // 1. DNR or comfort care -> BLACK
+            if (lifeSupportPref === 'dnr' || lifeSupportPref === 'comfort') {
+                return 'black';
+            }
+            
+            // 2. Anaphylaxis or severe conditions -> RED
+            if (allergies.includes('anaphylaxis') || conditions.includes('severe')) {
+                return 'red';
+            }
+            
+            // 3. Any conditions present but not severe -> AMBER
+            if (conditions.trim().length > 0) {
+                return 'amber';
+            }
+            
+            // 4. Otherwise -> GREEN
+            return 'green';
+        }
+
+        function updateTriagePill() {
+            const override = document.getElementById('triageOverride').value;
+            const computed = computeTriageLevel();
+            const level = override === 'auto' ? computed : override;
+            
+            const pill = document.getElementById('triagePill');
+            pill.className = `triage-pill triage-${level}`;
+            
+            const labels = {
+                green: 'GREEN — Standard',
+                amber: 'AMBER',
+                red: 'RED',
+                black: 'BLACK'
+            };
+            
+            pill.textContent = labels[level] || labels.green;
+        }
+
+        function debounceAutosave(callback, delay = 500) {
+            if (autosaveTimeout) {
+                clearTimeout(autosaveTimeout);
+            }
+            autosaveTimeout = setTimeout(callback, delay);
+        }
+
+        function addIceContact() {
+            if (iceContacts.length >= 3) {
+                showToast('Max 3 contacts reached', 'warning');
+                return;
+            }
+            
+            const contact = {
+                id: Date.now(), // Temporary ID
+                name: '',
+                relationship: '',
+                phone: ''
+            };
+            
+            iceContacts.push(contact);
+            renderIceContacts();
+            updateAddButton();
+        }
+
+        function removeIceContact(id) {
+            if (confirm('Remove this contact?')) {
+                deleteIceContact(id);
+            }
+        }
+
+        function updateAddButton() {
+            const addBtn = document.getElementById('addIce');
+            addBtn.disabled = iceContacts.length >= 3;
+            addBtn.classList.toggle('opacity-50', iceContacts.length >= 3);
+            addBtn.classList.toggle('cursor-not-allowed', iceContacts.length >= 3);
+        }
+
+        function renderIceContacts() {
+            const container = document.getElementById('iceList');
+            const translations = T[document.getElementById('lang').value] || T.en;
+            
+            if (iceContacts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-muted-gray">
+                        <p class="text-sm">No emergency contacts added yet.</p>
+                        <p class="text-xs mt-1">Click "Add contact" to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = iceContacts.map(contact => `
+                <div class="ice-contact-row">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-ink mb-1">${translations.name}</label>
+                            <input type="text" value="${contact.name || ''}" 
+                                   onchange="updateIceContact(${contact.id}, 'name', this.value)"
+                                   oninput="debounceAutosave(() => updateIceContact(${contact.id}, 'name', this.value))"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-ink mb-1">${translations.relationship}</label>
+                            <input type="text" value="${contact.relationship || contact.relation || ''}" 
+                                   onchange="updateIceContact(${contact.id}, 'relationship', this.value)"
+                                   oninput="debounceAutosave(() => updateIceContact(${contact.id}, 'relationship', this.value))"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-ink mb-1">${translations.phone}</label>
+                            <input type="tel" value="${contact.phone || ''}" 
+                                   onchange="updateIceContact(${contact.id}, 'phone', this.value)"
+                                   oninput="debounceAutosave(() => updateIceContact(${contact.id}, 'phone', this.value))"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-red focus:border-transparent">
+                        </div>
+                        <div class="text-center">
+                            <button onclick="removeIceContact(${contact.id})" 
+                                    class="delete-btn text-xl p-2 hover:bg-red-50 rounded-lg">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.updateIceContact = function(id, field, value) {
+            const contact = iceContacts.find(c => c.id === id);
+            if (contact) {
+                contact[field] = value;
+                saveIceContact(contact);
+            }
+        };
+
+        window.removeIceContact = removeIceContact;
+
+        function setupAutosave() {
+            // Profile form autosave
+            const profileForm = document.getElementById('profileForm');
+            profileForm.addEventListener('input', (e) => {
+                debounceAutosave(() => {
+                    const formData = new FormData(profileForm);
+                    saveProfile(formData);
+                });
+            });
+            
+            profileForm.addEventListener('change', (e) => {
+                const formData = new FormData(profileForm);
+                saveProfile(formData);
+            });
+            
+            // Health form autosave
+            const healthForm = document.getElementById('healthForm');
+            healthForm.addEventListener('input', (e) => {
+                debounceAutosave(() => {
+                    const formData = new FormData(healthForm);
+                    saveHealthProfile(formData);
+                });
+            });
+            
+            healthForm.addEventListener('change', (e) => {
+                const formData = new FormData(healthForm);
+                saveHealthProfile(formData);
+            });
+        }
+
+        function setupVoice() {
+            const speakBtn = document.getElementById('speak');
+            const stopBtn = document.getElementById('stopSpeak');
+            
+            speakBtn.addEventListener('click', () => {
+                const lang = document.getElementById('lang').value;
+                const text = generateSummaryText(lang);
+                
+                if (currentUtterance) {
+                    speechSynthesis.cancel();
+                }
+                
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                currentUtterance.lang = getVoiceLang(lang);
+                
+                // Try to find a female voice
+                const voices = speechSynthesis.getVoices();
+                const femaleVoice = voices.find(voice => 
+                    voice.lang.startsWith(getVoiceLang(lang).substring(0, 2)) && 
+                    (voice.name.toLowerCase().includes('female') || voice.name.toLowerCase().includes('woman'))
+                );
+                
+                if (femaleVoice) {
+                    currentUtterance.voice = femaleVoice;
+                }
+                
+                currentUtterance.onstart = () => {
+                    speakBtn.disabled = true;
+                    stopBtn.disabled = false;
+                };
+                
+                currentUtterance.onend = () => {
+                    speakBtn.disabled = false;
+                    stopBtn.disabled = true;
+                };
+                
+                speechSynthesis.speak(currentUtterance);
+            });
+            
+            stopBtn.addEventListener('click', () => {
+                speechSynthesis.cancel();
+                speakBtn.disabled = false;
+                stopBtn.disabled = true;
+            });
+        }
+
+        function generateSummaryText(lang) {
+            const profileForm = document.getElementById('profileForm');
+            const healthForm = document.getElementById('healthForm');
+            
+            const profileData = new FormData(profileForm);
+            const healthData = new FormData(healthForm);
+            
+            const name = profileData.get('full_name') || 'Unknown';
+            const allergies = healthData.get('allergies') || 'None reported';
+            const conditions = healthData.get('conditions') || 'None reported';
+            const meds = healthData.get('meds') || 'None reported';
+            
+            // Simple summary in English (could be expanded for other languages)
+            return `Emergency information for ${name}. Allergies: ${allergies}. Medical conditions: ${conditions}. Current medications: ${meds}.`;
+        }
+
+        function getVoiceLang(lang) {
+            const langMap = {
+                'en': 'en-US',
+                'es': 'es-ES',
+                'fr': 'fr-FR',
+                'de': 'de-DE',
+                'it': 'it-IT',
+                'pt': 'pt-PT',
+                'ro': 'ro-RO',
+                'ar': 'ar-SA',
+                'hi': 'hi-IN',
+                'zh': 'zh-CN'
+            };
+            return langMap[lang] || 'en-US';
+        }
+
+        function setupDownloads() {
+            document.getElementById('copyLink').addEventListener('click', async () => {
+                const url = document.getElementById('cardUrl').value;
+                if (!url) {
+                    showToast('No code to copy', 'warning');
+                    return;
+                }
+                try {
+                    await navigator.clipboard.writeText(url);
+                    showToast('Copied');
+                } catch (err) {
+                    showToast('Copy failed', 'error');
+                }
+            });
+            
+            document.getElementById('dlPNG').addEventListener('click', () => {
+                if (!currentCode) {
+                    showToast('Generate code first', 'warning');
+                    return;
+                }
+                const canvas = document.getElementById('qrCanvas');
+                const link = document.createElement('a');
+                link.download = 'myqer-qr.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+            
+            document.getElementById('dlSVG').addEventListener('click', () => {
+                if (!currentCode) {
+                    showToast('Generate code first', 'warning');
+                    return;
+                }
+                const url = `https://www.myqer.com/c/${currentCode}`;
+                QRCode.toString(url, { 
+                    type: 'svg',
+                    width: 200,
+                    margin: 1,
+                    color: {
+                        dark: '#c62828',
+                        light: '#ffffff'
+                    }
+                }, (err, svg) => {
+                    if (!err) {
+                        // Wrap in white background SVG
+                        const wrappedSvg = `
+                            <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+                                <rect width="240" height="240" fill="white"/>
+                                <g transform="translate(20,20)">
+                                    ${svg.replace(/<svg[^>]*>|<\/svg>/g, '').replace(/width="[^"]*"|height="[^"]*"/g, '')}
+                                </g>
+                            </svg>
+                        `;
+                        const blob = new Blob([wrappedSvg], { type: 'image/svg+xml' });
+                        const link = document.createElement('a');
+                        link.download = 'myqer-qr.svg';
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                    } else {
+                        showToast('SVG generation failed', 'error');
+                    }
+                });
+            });
+            
+            document.getElementById('printQR').addEventListener('click', () => {
+                if (!currentCode) {
+                    showToast('Generate code first', 'warning');
+                    return;
+                }
+                const canvas = document.getElementById('qrCanvas');
+                const url = `https://www.myqer.com/c/${currentCode}`;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>MYQER QR Code</title>
+                            <style>
+                                body { text-align: center; font-family: Arial, sans-serif; margin: 40px; }
+                                .qr-print { border: 3px solid #c62828; padding: 20px; display: inline-block; border-radius: 12px; }
+                                .code { font-family: monospace; font-size: 14px; margin: 10px 0; }
+                                .url { font-size: 12px; color: #666; }
+                            </style>
+                        </head>
+                        <body>
+                            <h2>MYQER™ Emergency Card</h2>
+                            <div class="qr-print">
+                                <img src="${canvas.toDataURL()}" style="width: 200px; height: 200px;">
+                            </div>
+                            <div class="code">Code: ${currentCode}</div>
+                            <div class="url">${url}</div>
+                            <p style="font-size: 10px; color: #999; margin-top: 20px;">MYQER™ (my care) - Emergency medical information</p>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            });
+        }
+
+        function setupDangerZone() {
+            const deletePhrase = document.getElementById('deletePhrase');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const deleteNote = document.getElementById('deleteNote');
+            
+            deletePhrase.addEventListener('input', () => {
+                const isValid = deletePhrase.value.toUpperCase() === 'DELETE MY ACCOUNT';
+                deleteBtn.disabled = !isValid;
+                deleteBtn.classList.toggle('opacity-50', !isValid);
+                deleteBtn.classList.toggle('cursor-not-allowed', !isValid);
+            });
+            
+            deleteBtn.addEventListener('click', async () => {
+                if (deletePhrase.value.toUpperCase() === 'DELETE MY ACCOUNT') {
+                    if (confirm('Are you absolutely sure? This cannot be undone.')) {
+                        try {
+                            deleteNote.textContent = 'Processing deletion...';
+                            deleteBtn.disabled = true;
+                            
+                            // Get current session for token
+                            const { data: { session } } = await window._supabase.auth.getSession();
+                            
+                            if (session?.access_token) {
+                                // Call secured delete endpoint (would be implemented as Edge Function)
+                                const response = await fetch('/api/delete-account', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${session.access_token}`,
+                                        'Content-Type': 'application/json'
+                                    }
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error('Delete request failed');
+                                }
+                            }
+                            
+                            // Sign out and redirect
+                            await window._supabase.auth.signOut();
+                            window.location.href = '/';
+                            
+                        } catch (error) {
+                            console.error('Error during account deletion:', error);
+                            deleteNote.textContent = 'Deletion failed. Please contact support and try again later.';
+                            deleteBtn.disabled = false;
+                            showToast('Account deletion failed', 'error');
+                        }
+                    }
+                }
+            });
+        }
+
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await window._supabase.auth.getSession();
+                if (error) throw error;
+                
+                if (!session) {
+                    window.location.href = '/';
+                    return false;
+                }
+                currentUser = session.user;
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                throw new Error('Authentication failed');
+            }
+        }
+
+        // Initialize dashboard
+        async function init() {
+            // Initial state: show loading, hide everything else
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('dash').classList.add('hidden');
+            document.getElementById('errorBox').classList.add('hidden');
+            
+            try {
+                // Step 1: Check authentication
+                const isAuthenticated = await checkAuth();
+                if (!isAuthenticated) return;
+                
+                // Step 2: Load saved language and apply
+                const savedLang = localStorage.getItem('myqer_lang') || 'en';
+                document.getElementById('lang').value = savedLang;
+                updateLanguage(savedLang);
+                
+                // Step 3: Load all user data in parallel
+                await Promise.all([
+                    loadUserProfile(),
+                    loadHealthProfile(),
+                    loadIceContacts()
+                ]);
+                
+                // Step 4: Setup event listeners
+                document.getElementById('lang').addEventListener('change', (e) => {
+                    updateLanguage(e.target.value);
+                });
+                
+                document.getElementById('logoutBtn').addEventListener('click', async () => {
+                    try {
+                        await window._supabase.auth.signOut();
+                        window.location.href = '/';
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        showToast('Logout failed', 'error');
+                    }
+                });
+                
+                document.getElementById('addIce').addEventListener('click', addIceContact);
+                document.getElementById('triageOverride').addEventListener('change', updateTriagePill);
+                document.getElementById('generateCodeBtn').addEventListener('click', generateAndSaveCode);
+                
+                // Step 5: Setup all functionality
+                setupAutosave();
+                setupVoice();
+                setupDownloads();
+                setupDangerZone();
+                
+                // Step 6: Initialize UI components
+                updateQRCode();
+                updateTriagePill();
+                
+                // Step 7: Load voices for speech synthesis
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = () => {
+                        // Voices loaded, refresh locale if needed
+                        const currentLang = document.getElementById('lang').value;
+                        // Voice locale is automatically handled in speak function
+                    };
+                }
+                
+                // Step 8: All data loaded successfully - show dashboard
+                showDashboard();
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError(error.message || "We couldn't reach your data. Please refresh or try later.");
+            }
+        }
+
+        // Start the app
+        init();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'978dc87da5bf9491',t:'MTc1NjgyNDI0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();
+</script>
+</body>
+</html>
