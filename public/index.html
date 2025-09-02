@@ -226,13 +226,28 @@
     /* =========================  Supabase  ========================= */
     const SUPABASE_URL = 'https://tgddpmxpbgrzrbzpomou.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM';
+
+    // Single client with stable storageKey to match the dashboard
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'myqer-auth' }
     });
 
-    // Redirect on sign-in (belt & suspenders)
+    // one-shot navigation guard to prevent redirect ping-pong
+    let __didForward = false;
+    function goDashboardOnce() {
+      if (__didForward) return;
+      __didForward = true;
+      // prefer explicit .html (static hosting), then fallback
+      window.location.replace('/dashboard.html');
+      setTimeout(() => {
+        if (!/dashboard(\.html)?$/i.test(location.pathname)) window.location.replace('/dashboard');
+      }, 350);
+    }
+
+    // Redirect forward ONLY when the user actually signs in
     supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) goDashboard();
+      if (event === 'SIGNED_IN' && session?.user) goDashboardOnce();
+      // do NOT redirect on SIGNED_OUT here
     });
 
     /* =========================  i18n dictionary (index)  ========================= */
@@ -421,7 +436,6 @@
         try {
           const url = new URL(a.getAttribute('href'), location.origin);
           if (url.origin === location.origin) {
-            // keep existing query if any, else add lang
             if (!url.searchParams.get('lang')) url.search = qs;
             a.setAttribute('href', url.pathname + url.search + url.hash);
           }
@@ -436,25 +450,26 @@
       updateI18nElements();
     }
 
-    function goDashboard() {
-      // prefer explicit .html (static hosting), then fallback
+    // one-shot go to dashboard
+    function goDashboardOnce() {
+      if (window.__didForward) return;
+      window.__didForward = true;
       window.location.replace('/dashboard.html');
-      setTimeout(()=>{ if (!/dashboard/i.test(location.pathname)) window.location.replace('/dashboard'); }, 350);
+      setTimeout(()=>{ if (!/dashboard(\.html)?$/i.test(location.pathname)) window.location.replace('/dashboard'); }, 350);
     }
 
     /* =========================  Init  ========================= */
     document.addEventListener('DOMContentLoaded', async () => {
       setLanguage(currentLanguage);
 
-      // If already authenticated, skip landing
+      // If already authenticated, skip landing (guarded)
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) return goDashboard();
+      if (session?.user) { goDashboardOnce(); return; }
 
       // Language switches
       $$('.dropdown-menu [data-lang]').forEach(a => a.addEventListener('click', (e) => {
         e.preventDefault();
         setLanguage(a.getAttribute('data-lang'));
-        // Keep URL clean but reflect current language
         history.replaceState({}, '', location.pathname + `?lang=${currentLanguage}`);
       }));
 
@@ -513,12 +528,12 @@
           }
           showToast(t('toast.account_created'),'success');
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) goDashboard();
+          if (session?.user) goDashboardOnce();
         } else {
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
           showToast(t('toast.signed_in'),'success');
-          goDashboard();
+          goDashboardOnce();
         }
       } catch (err){
         console.error(err);
