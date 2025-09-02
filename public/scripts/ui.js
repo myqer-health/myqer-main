@@ -65,3 +65,83 @@ document.addEventListener("DOMContentLoaded", async () => {
     codeText.textContent = "❌ Error loading QR";
   }
 });
+  // === QR Code rendering on dashboard ===
+document.addEventListener('DOMContentLoaded', async () => {
+  const supabase = window.supabaseClient;
+  const canvas = document.getElementById('qrCanvas');
+  const codeEl = document.getElementById('codeUnderQR');
+  if (!supabase || !canvas || !codeEl) return;
+
+  // helper to draw QR on canvas
+  const drawQR = (url) => {
+    // qrcodejs draws into an element; pass the canvas element directly
+    // Clear any previous drawing (qrcodejs will overlay a <img>, so reset)
+    const parent = canvas.parentElement;
+    // remove previously inserted <img> if any
+    Array.from(parent.querySelectorAll('img')).forEach(img => img.remove());
+    // Render a fresh QR
+    new QRCode(parent, {
+      text: url,
+      width: 200,
+      height: 200,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  };
+
+  try {
+    // 1) Require login
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      codeEl.textContent = 'Please sign in to generate your QR.';
+      return;
+    }
+    const userId = session.user.id;
+
+    // 2) Load (or create) profile code
+    // Try to read the code from profiles
+    let { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, code, full_name, country')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    // If the row doesn't exist yet, create it so we can store a code later
+    if (!profile) {
+      const { data: inserted, error: insErr } = await supabase
+        .from('profiles')
+        .insert({ id: userId })
+        .select('id, code')
+        .single();
+      if (insErr) throw insErr;
+      profile = inserted;
+    }
+
+    // If no code yet, generate a short one (client-side; server can also do this)
+    let code = profile.code;
+    if (!code) {
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusing chars
+      const rand = (n) => Array.from({ length: n }, () => alphabet[Math.floor(Math.random()*alphabet.length)]).join('');
+      code = `${rand(3)}-${rand(4)}-${rand(3)}`;  // e.g., F7N-8PG2-MQ4
+
+      // Save it
+      const { error: upErr } = await supabase
+        .from('profiles')
+        .update({ code })
+        .eq('id', userId);
+      if (upErr) throw upErr;
+    }
+
+    // 3) Build short URL + draw QR
+    const shortUrl = `${window.MYQER.RENDER_BASE}/c/${code}`;
+    codeEl.textContent = code;
+    drawQR(shortUrl);
+
+  } catch (e) {
+    console.error('QR generate error:', e);
+    codeEl.textContent = 'Error generating QR.';
+  }
+});
