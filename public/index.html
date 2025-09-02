@@ -1,1 +1,798 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYQER™ - Your Emergency Card. One Scan, Instant Triage.</title>
+    <meta name="description" content="MYQER (pronounced 'my care') gives responders instant access to your medical info — allergies, meds, ICE contacts — anywhere, anytime.">
+    
+    <!-- Preconnect -->
+    <link rel="preconnect" href="https://tgddpmxpbgrzrbzpomou.supabase.co">
+    
+    <!-- OpenGraph -->
+    <meta property="og:title" content="MYQER™ - Your Emergency Card">
+    <meta property="og:description" content="One scan, instant triage. Emergency medical information always accessible.">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="MYQER™ - Your Emergency Card">
+    <meta name="twitter:description" content="One scan, instant triage. Emergency medical information always accessible.">
+    
+    <!-- Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-red': '#c62828',
+                        'slate-ink': '#0f172a',
+                        'muted-gray': '#475569'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .glass-strong {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+        }
+        
+        .btn-premium {
+            background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+            box-shadow: 0 4px 20px rgba(198, 40, 40, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-premium:hover::before {
+            left: 100%;
+        }
+        
+        .btn-premium:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(198, 40, 40, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+        }
+        
+        .btn-secondary {
+            background: rgba(15, 23, 42, 0.05);
+            border: 2px solid #0f172a;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.2);
+        }
+        
+        .hamburger-line {
+            transition: all 0.3s ease;
+        }
+        
+        .hamburger-open .line1 { transform: rotate(45deg) translate(5px, 5px); }
+        .hamburger-open .line2 { opacity: 0; }
+        .hamburger-open .line3 { transform: rotate(-45deg) translate(7px, -6px); }
+        
+        .dropdown-menu {
+            transform: translateY(-10px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .dropdown-menu.show {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .text-highlight {
+            background: linear-gradient(135deg, #c62828, #0f172a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .password-toggle {
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .password-toggle:hover {
+            color: #c62828;
+        }
+        
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .floating-element:nth-child(2) {
+            animation-delay: -2s;
+        }
+        
+        .floating-element:nth-child(3) {
+            animation-delay: -4s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-20px) rotate(1deg); }
+            66% { transform: translateY(-10px) rotate(-1deg); }
+        }
+        
+        .premium-glow {
+            box-shadow: 0 0 30px rgba(198, 40, 40, 0.1), 0 0 60px rgba(198, 40, 40, 0.05);
+        }
+        
+        .text-shimmer {
+            background: linear-gradient(45deg, #c62828, #0f172a, #c62828);
+            background-size: 200% 200%;
+            animation: shimmer 3s ease-in-out infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+    </style>
+</head>
 
+<body class="gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 glass border-b border-white/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold">
+                        <span class="text-slate-ink">MYQ</span><span class="text-brand-red">ER</span>
+                        <span class="text-xs text-muted-gray ml-1">™</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-6">
+                    <!-- Language Selector -->
+                    <select id="langSelect" class="bg-transparent border border-gray-300 rounded-lg px-3 py-2 text-sm text-muted-gray focus:outline-none focus:ring-2 focus:ring-brand-red">
+                        <option value="en">EN</option>
+                        <option value="es">ES</option>
+                        <option value="fr">FR</option>
+                        <option value="de">DE</option>
+                        <option value="it">IT</option>
+                        <option value="pt">PT</option>
+                        <option value="ro">RO</option>
+                        <option value="ar">AR</option>
+                        <option value="hi">HI</option>
+                        <option value="zh">ZH</option>
+                    </select>
+
+                    <!-- Hamburger Menu -->
+                    <div class="relative">
+                        <button id="hamburgerBtn" class="p-2 rounded-lg hover:bg-white/20 transition-colors">
+                            <div class="w-6 h-6 flex flex-col justify-center items-center">
+                                <span class="hamburger-line line1 block w-6 h-0.5 bg-slate-ink mb-1"></span>
+                                <span class="hamburger-line line2 block w-6 h-0.5 bg-slate-ink mb-1"></span>
+                                <span class="hamburger-line line3 block w-6 h-0.5 bg-slate-ink"></span>
+                            </div>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div id="dropdownMenu" class="dropdown-menu absolute right-0 mt-2 w-48 glass-strong rounded-xl shadow-xl py-2">
+                            <a href="/about.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors" data-i18n="navAbout">About</a>
+                            <a href="/clinician.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors" data-i18n="navClinician">Clinician</a>
+                            <a href="/how.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors" data-i18n="navHow">How it works</a>
+                            <a href="/privacy.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors" data-i18n="navPrivacy">Privacy</a>
+                            <a href="/terms.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors" data-i18n="navTerms">Terms</a>
+                            <a href="/contact.html" class="block px-4 py-2 text-slate-ink hover:bg-white/20 transition-colors">Contact</a>
+                        </div>
+                    </div>
+
+                    <!-- Open App Button -->
+                    <button id="btnOpenApp" class="btn-premium text-white px-6 py-2 rounded-lg font-semibold">
+                        Open App
+                    </button>
+                </div>
+
+                <!-- Mobile Navigation -->
+                <div class="md:hidden flex items-center space-x-4">
+                    <select id="mLangSelect" class="bg-transparent border border-gray-300 rounded-lg px-2 py-1 text-xs text-muted-gray">
+                        <option value="en">EN</option>
+                        <option value="es">ES</option>
+                        <option value="fr">FR</option>
+                        <option value="de">DE</option>
+                        <option value="it">IT</option>
+                        <option value="pt">PT</option>
+                        <option value="ro">RO</option>
+                        <option value="ar">AR</option>
+                        <option value="hi">HI</option>
+                        <option value="zh">ZH</option>
+                    </select>
+                    <button id="mOpenApp" class="btn-premium text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                        Open App
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <!-- Premium Background Elements -->
+        <div class="absolute inset-0 opacity-5">
+            <div class="absolute top-20 left-10 w-72 h-72 bg-brand-red rounded-full blur-3xl floating-element"></div>
+            <div class="absolute bottom-20 right-10 w-96 h-96 bg-slate-ink rounded-full blur-3xl floating-element"></div>
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-brand-red to-slate-ink rounded-full blur-3xl opacity-20 floating-element"></div>
+        </div>
+        
+        <!-- Floating Decorative Elements -->
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <div class="absolute top-1/4 left-1/4 w-2 h-2 bg-brand-red rounded-full opacity-20 floating-element"></div>
+            <div class="absolute top-3/4 right-1/4 w-3 h-3 bg-slate-ink rounded-full opacity-15 floating-element"></div>
+            <div class="absolute top-1/2 right-1/3 w-1 h-1 bg-brand-red rounded-full opacity-25 floating-element"></div>
+            <div class="absolute bottom-1/4 left-1/3 w-2 h-2 bg-slate-ink rounded-full opacity-20 floating-element"></div>
+        </div>
+        
+        <div class="relative max-w-6xl mx-auto text-center">
+            <!-- Main Headlines -->
+            <h2 class="text-4xl lg:text-5xl font-black text-black leading-tight mb-4">
+                Your <span class="text-brand-red">FREE</span> emergency QR card.
+            </h2>
+            
+            <h3 class="text-3xl lg:text-4xl font-bold text-brand-red mb-4">
+                One scan, instant triage.
+            </h3>
+            
+            <p class="text-xl lg:text-2xl text-black mb-4 leading-relaxed">
+                A QR triage code to guide responders — anywhere, anytime.
+            </p>
+
+            <p class="text-lg text-black mb-2">(pronounced "My Care")</p>
+            <p class="text-base text-black mb-8 font-bold">No cost · No trial · No ads</p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+                <button id="createAccountBtn" class="btn-premium text-white px-10 py-5 rounded-2xl text-xl font-bold shadow-2xl transform hover:scale-105 transition-all duration-300" data-i18n="createAccount">
+                    Create Free Account
+                </button>
+                <button id="openAppHero" class="btn-secondary text-slate-ink px-10 py-5 rounded-2xl text-xl font-bold hover:text-white transform hover:scale-105 transition-all duration-300">
+                    Open App
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 relative">
+        <div class="max-w-6xl mx-auto">
+            <!-- Feature List -->
+            <div class="max-w-4xl mx-auto mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                    <div class="flex items-start space-x-4 p-6 glass-strong border-l-4 border-brand-red rounded-2xl shadow-2xl hover:shadow-3xl transition-all hover:scale-105 transform duration-300">
+                        <div class="text-2xl mt-1 filter drop-shadow-lg">🆘</div>
+                        <span class="text-base text-black font-semibold">Emergency card (allergies, meds, ICE)</span>
+                    </div>
+                    <div class="flex items-start space-x-4 p-6 glass-strong border-l-4 border-orange-500 rounded-2xl shadow-2xl hover:shadow-3xl transition-all hover:scale-105 transform duration-300">
+                        <div class="text-2xl mt-1 filter drop-shadow-lg">📶</div>
+                        <span class="text-base text-black font-semibold">Works offline (no signal needed)</span>
+                    </div>
+                    <div class="flex items-start space-x-4 p-6 glass-strong border-l-4 border-yellow-500 rounded-2xl shadow-2xl hover:shadow-3xl transition-all hover:scale-105 transform duration-300">
+                        <div class="text-2xl mt-1 filter drop-shadow-lg">🏷️</div>
+                        <span class="text-base text-black font-semibold">DIY printable QR tags & stickers</span>
+                    </div>
+                    <div class="flex items-start space-x-4 p-6 glass-strong border-l-4 border-green-600 rounded-2xl shadow-2xl hover:shadow-3xl transition-all hover:scale-105 transform duration-300">
+                        <div class="text-2xl mt-1 filter drop-shadow-lg">🗣️</div>
+                        <span class="text-base text-black font-semibold">Multi-language text & voice*</span>
+                    </div>
+                    <div class="flex items-start space-x-4 p-6 glass-strong border-l-4 border-blue-600 rounded-2xl shadow-2xl hover:shadow-3xl transition-all hover:scale-105 transform md:col-span-2 justify-center duration-300">
+                        <div class="text-2xl mt-1 filter drop-shadow-lg">🔒</div>
+                        <span class="text-base text-black font-semibold">Zero tracking & on-device privacy</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Premium Feature Details -->
+            <div class="mt-20 space-y-8">
+                <h2 class="text-3xl font-bold text-center text-slate-ink mb-12">Complete Emergency Profile</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <div class="glass-strong rounded-2xl p-8 text-center shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg">1</div>
+                        <h3 class="font-bold text-slate-ink mb-3 text-lg">Identity Verification</h3>
+                        <p class="text-muted-gray text-sm">Responders confirm who you are. <span class="text-highlight font-semibold">Full name, date of birth, country, health ID.</span></p>
+                    </div>
+                    
+                    <div class="glass-strong rounded-2xl p-8 text-center shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-gradient-to-br from-brand-red to-red-700 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg">2</div>
+                        <h3 class="font-bold text-slate-ink mb-3 text-lg">Health Profile</h3>
+                        <p class="text-muted-gray text-sm">Critical allergies, conditions, meds, implants, <span class="text-highlight font-semibold">blood type, organ donor, directives.</span> Religious and burial preferences.</p>
+                    </div>
+                    
+                    <div class="glass-strong rounded-2xl p-8 text-center shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg">3</div>
+                        <h3 class="font-bold text-slate-ink mb-3 text-lg">ICE Contacts</h3>
+                        <p class="text-muted-gray text-sm">Up to 3 emergency contacts. <span class="text-highlight font-semibold">Auto save</span> and instant access for responders.</p>
+                    </div>
+                    
+                    <div class="glass-strong rounded-2xl p-8 text-center shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-gradient-to-br from-slate-ink to-gray-800 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 shadow-lg">4</div>
+                        <h3 class="font-bold text-slate-ink mb-3 text-lg">QR + Triage</h3>
+                        <p class="text-muted-gray text-sm">Your permanent short QR. <span class="text-highlight font-semibold">Always shows latest info. Auto triage + manual override.</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Premium Features -->
+            <div class="mt-20 text-center">
+                <div class="glass-strong rounded-3xl p-12 shadow-2xl border border-white/30">
+                    <h3 class="text-2xl font-bold text-slate-ink mb-6">Why MYQER is Different</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-1">✓</div>
+                            <div>
+                                <h4 class="font-semibold text-slate-ink mb-1">Always Updated</h4>
+                                <p class="text-sm text-muted-gray">Your QR code never changes, but always shows your latest medical information</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-teal-500 to-teal-700 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-1">✓</div>
+                            <div>
+                                <h4 class="font-semibold text-slate-ink mb-1">Works Everywhere</h4>
+                                <p class="text-sm text-muted-gray">No app needed for responders. Works on any smartphone, even offline</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-1">✓</div>
+                            <div>
+                                <h4 class="font-semibold text-slate-ink mb-1">Completely Free</h4>
+                                <p class="text-sm text-muted-gray">No hidden costs, no trials, no ads. Your emergency information should always be accessible</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white/90 backdrop-blur-10 border-t border-gray-100 py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-6 text-xs text-muted-gray">
+                <span>© 2025 MYQER — My QR for Emergency Response</span>
+                <span class="hidden sm:inline">•</span>
+                <a href="/privacy.html" class="hover:text-slate-ink transition-colors">Privacy</a>
+                <span class="hidden sm:inline">•</span>
+                <a href="/terms.html" class="hover:text-slate-ink transition-colors">Terms</a>
+                <span class="hidden sm:inline">•</span>
+                <span>Built with privacy in mind (GDPR/HIPAA-minded)</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="glass-strong rounded-2xl p-8 w-full max-w-md relative">
+                <button id="authClose" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+
+                <!-- Alert Container -->
+                <div id="authAlerts" class="mb-4 hidden">
+                    <div class="p-4 rounded-lg text-sm"></div>
+                </div>
+
+                <!-- Login View -->
+                <div id="view-login" class="auth-view">
+                    <h2 class="text-2xl font-bold text-slate-ink mb-6 text-center" data-i18n="signinTitle">Sign In to MYQER</h2>
+                    <form class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="email">Email</label>
+                            <input id="loginEmail" type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                        </div>
+                        <div class="relative">
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="password">Password</label>
+                            <input id="loginPassword" type="password" class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                            <button type="button" id="toggleLoginPass" class="password-toggle absolute right-3 top-9 text-gray-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <button id="doLogin" type="submit" class="w-full btn-premium text-white py-3 rounded-lg font-semibold" data-i18n="signIn">
+                            Sign In
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center space-y-2">
+                        <button id="goRegister" class="text-brand-red hover:underline" data-i18n="createAccount">Create account</button>
+                        <br>
+                        <button id="goReset" class="text-muted-gray hover:underline text-sm" data-i18n="forgotPassword">Forgot password?</button>
+                    </div>
+                </div>
+
+                <!-- Register View -->
+                <div id="view-register" class="auth-view hidden">
+                    <h2 class="text-2xl font-bold text-slate-ink mb-6 text-center" data-i18n="signupTitle">Create Your MYQER Account</h2>
+                    <form class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="fullName">Full Name</label>
+                            <input id="registerName" type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="email">Email</label>
+                            <input id="registerEmail" type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                        </div>
+                        <div class="relative">
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="password">Password</label>
+                            <input id="registerPassword" type="password" class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                            <button type="button" id="toggleRegPass" class="password-toggle absolute right-3 top-9 text-gray-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <button id="doRegister" type="submit" class="w-full btn-premium text-white py-3 rounded-lg font-semibold" data-i18n="createAccount">
+                            Create Account
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center">
+                        <button id="backLogin1" class="text-brand-red hover:underline" data-i18n="backToSignIn">Back to sign in</button>
+                    </div>
+                </div>
+
+                <!-- Reset View -->
+                <div id="view-reset" class="auth-view hidden">
+                    <h2 class="text-2xl font-bold text-slate-ink mb-6 text-center" data-i18n="resetTitle">Reset Password</h2>
+                    <form class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="email">Email</label>
+                            <input id="resetEmail" type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                        </div>
+                        <button id="doReset" type="submit" class="w-full btn-premium text-white py-3 rounded-lg font-semibold" data-i18n="sendReset">
+                            Send Reset Link
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center">
+                        <button id="backLogin2" class="text-brand-red hover:underline" data-i18n="backToSignIn">Back to sign in</button>
+                    </div>
+                </div>
+
+                <!-- Update Password View -->
+                <div id="view-update" class="auth-view hidden">
+                    <h2 class="text-2xl font-bold text-slate-ink mb-6 text-center" data-i18n="updateTitle">Update Password</h2>
+                    <form class="space-y-4">
+                        <div class="relative">
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="newPassword">New Password</label>
+                            <input id="updatePassword" type="password" class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                            <button type="button" id="toggleNewPass" class="password-toggle absolute right-3 top-9 text-gray-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-ink mb-2" data-i18n="confirmPassword">Confirm Password</label>
+                            <input id="updatePasswordConfirm" type="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent" required>
+                        </div>
+                        <button id="doUpdate" type="submit" class="w-full btn-premium text-white py-3 rounded-lg font-semibold" data-i18n="updatePassword">
+                            Update Password
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center">
+                        <button id="backLogin3" class="text-brand-red hover:underline" data-i18n="backToSignIn">Back to sign in</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Initialize Supabase client
+        const SUPABASE_URL = "https://tgddpmxpbgrzrbzpomou.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZGRwbXhwYmdyenJienBvbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNDgxMTMsImV4cCI6MjA3MTYyNDExM30.uXntx0rZISv927MQAG1LgGKA-lA08hSkzXMre7Bk2QM";
+        
+        window._supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Translation dictionary
+        const T = {
+            en: {
+                navAbout: "About", navPrivacy: "Privacy", navTerms: "Terms", navClinician: "Clinician", navHow: "How it works",
+                signIn: "Sign In", signUp: "Sign Up", signinTitle: "Sign In to MYQER", signupTitle: "Create Your MYQER Account",
+                email: "Email", password: "Password", fullName: "Full Name", createAccount: "Create Account",
+                forgotPassword: "Forgot password?", backToSignIn: "Back to sign in", resetTitle: "Reset Password",
+                sendReset: "Send Reset Link", updateTitle: "Update Password", newPassword: "New Password",
+                confirmPassword: "Confirm Password", updatePassword: "Update Password",
+                phoneTitle: "Your emergency card.<br><span class=\"text-highlight\">One scan, instant triage.</span>",
+                phoneCopy: "MYQER™ (pronounced \"my care\") gives responders instant access to your medical info — allergies, meds, ICE contacts — anywhere, anytime.",
+                tagline: "pronounced \"my care\""
+            },
+            es: {
+                navAbout: "Acerca de", navPrivacy: "Privacidad", navTerms: "Términos", navClinician: "Clínico", navHow: "Cómo funciona",
+                signIn: "Iniciar Sesión", signUp: "Registrarse", signinTitle: "Iniciar Sesión en MYQER", signupTitle: "Crear Tu Cuenta MYQER",
+                email: "Correo", password: "Contraseña", fullName: "Nombre Completo", createAccount: "Crear Cuenta",
+                forgotPassword: "¿Olvidaste tu contraseña?", backToSignIn: "Volver a iniciar sesión", resetTitle: "Restablecer Contraseña",
+                sendReset: "Enviar Enlace", updateTitle: "Actualizar Contraseña", newPassword: "Nueva Contraseña",
+                confirmPassword: "Confirmar Contraseña", updatePassword: "Actualizar Contraseña",
+                phoneTitle: "Tu tarjeta de emergencia.<br><span class=\"text-highlight\">Un escaneo, triaje instantáneo.</span>",
+                phoneCopy: "MYQER™ da a los socorristas acceso instantáneo a tu información médica — alergias, medicamentos, contactos de emergencia — en cualquier lugar, en cualquier momento."
+            },
+            fr: {
+                navAbout: "À propos", navPrivacy: "Confidentialité", navTerms: "Conditions", navClinician: "Clinicien", navHow: "Comment ça marche",
+                signIn: "Se connecter", signUp: "S'inscrire", signinTitle: "Se connecter à MYQER", signupTitle: "Créer votre compte MYQER",
+                email: "Email", password: "Mot de passe", fullName: "Nom complet", createAccount: "Créer un compte",
+                forgotPassword: "Mot de passe oublié?", backToSignIn: "Retour à la connexion", resetTitle: "Réinitialiser le mot de passe",
+                sendReset: "Envoyer le lien", updateTitle: "Mettre à jour le mot de passe", newPassword: "Nouveau mot de passe",
+                confirmPassword: "Confirmer le mot de passe", updatePassword: "Mettre à jour le mot de passe",
+                phoneTitle: "Votre carte d'urgence.<br><span class=\"text-highlight\">Un scan, triage instantané.</span>",
+                phoneCopy: "MYQER™ donne aux secouristes un accès instantané à vos informations médicales — allergies, médicaments, contacts d'urgence — partout, à tout moment."
+            }
+        };
+
+        // Helper functions
+        function openModal(view) {
+            document.getElementById('authModal').classList.remove('hidden');
+            showAuthView(view);
+        }
+
+        function showAlert(message, type = 'error') {
+            const alertContainer = document.getElementById('authAlerts');
+            const alertDiv = alertContainer.querySelector('div');
+            alertDiv.textContent = message;
+            alertDiv.className = `p-4 rounded-lg text-sm ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            alertContainer.classList.remove('hidden');
+            setTimeout(() => alertContainer.classList.add('hidden'), 5000);
+        }
+
+        function showAuthView(viewName) {
+            document.querySelectorAll('.auth-view').forEach(view => view.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+        }
+
+        async function checkSession() {
+            const { data: { session } } = await window._supabase.auth.getSession();
+            return session;
+        }
+
+        function updateLanguage(lang) {
+            const translations = T[lang] || T.en;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[key]) {
+                    el.innerHTML = translations[key];
+                }
+            });
+            
+            // Set direction for RTL languages
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            
+            // Save to localStorage
+            localStorage.setItem('myqer_lang', lang);
+        }
+
+        // Check for recovery URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('type') === 'recovery') {
+            openModal('update');
+        }
+
+        // Load saved language
+        const savedLang = localStorage.getItem('myqer_lang') || 'en';
+        document.getElementById('langSelect').value = savedLang;
+        document.getElementById('mLangSelect').value = savedLang;
+        updateLanguage(savedLang);
+
+        // Event listeners
+        document.getElementById('hamburgerBtn').addEventListener('click', () => {
+            const btn = document.getElementById('hamburgerBtn');
+            const menu = document.getElementById('dropdownMenu');
+            btn.classList.toggle('hamburger-open');
+            menu.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const btn = document.getElementById('hamburgerBtn');
+            const menu = document.getElementById('dropdownMenu');
+            if (!btn.contains(e.target) && !menu.contains(e.target)) {
+                btn.classList.remove('hamburger-open');
+                menu.classList.remove('show');
+            }
+        });
+
+        // Language selectors
+        document.getElementById('langSelect').addEventListener('change', (e) => {
+            updateLanguage(e.target.value);
+            document.getElementById('mLangSelect').value = e.target.value;
+        });
+
+        document.getElementById('mLangSelect').addEventListener('change', (e) => {
+            updateLanguage(e.target.value);
+            document.getElementById('langSelect').value = e.target.value;
+        });
+
+        // Open App buttons
+        document.getElementById('btnOpenApp').addEventListener('click', async () => {
+            const session = await checkSession();
+            if (session) {
+                window.location.href = '/dashboard.html';
+            } else {
+                openModal('login');
+            }
+        });
+
+        document.getElementById('mOpenApp').addEventListener('click', async () => {
+            const session = await checkSession();
+            if (session) {
+                window.location.href = '/dashboard.html';
+            } else {
+                openModal('login');
+            }
+        });
+
+        document.getElementById('createAccountBtn').addEventListener('click', () => openModal('register'));
+        document.getElementById('openAppHero').addEventListener('click', async () => {
+            const session = await checkSession();
+            if (session) {
+                window.location.href = '/dashboard.html';
+            } else {
+                openModal('login');
+            }
+        });
+
+        // Auth modal navigation
+        document.getElementById('authClose').addEventListener('click', () => {
+            document.getElementById('authModal').classList.add('hidden');
+        });
+
+        document.getElementById('goRegister').addEventListener('click', () => showAuthView('register'));
+        document.getElementById('backLogin1').addEventListener('click', () => showAuthView('login'));
+        document.getElementById('goReset').addEventListener('click', () => showAuthView('reset'));
+        document.getElementById('backLogin2').addEventListener('click', () => showAuthView('login'));
+        document.getElementById('backLogin3').addEventListener('click', () => showAuthView('login'));
+
+        // Password toggles
+        document.getElementById('toggleLoginPass').addEventListener('click', () => {
+            const input = document.getElementById('loginPassword');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        document.getElementById('toggleRegPass').addEventListener('click', () => {
+            const input = document.getElementById('registerPassword');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        document.getElementById('toggleNewPass').addEventListener('click', () => {
+            const input = document.getElementById('updatePassword');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+
+        // Auth form handlers
+        document.getElementById('doLogin').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const { data, error } = await window._supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) {
+                showAlert(error.message);
+            } else {
+                window.location.href = '/dashboard.html';
+            }
+        });
+
+        document.getElementById('doRegister').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            const { data, error } = await window._supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        full_name: name
+                    }
+                }
+            });
+
+            if (error) {
+                showAlert(error.message);
+            } else {
+                showAlert('Check your email to confirm your account!', 'success');
+                setTimeout(() => showAuthView('login'), 2000);
+            }
+        });
+
+        document.getElementById('doReset').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('resetEmail').value;
+
+            const { error } = await window._supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: location.origin + "/?type=recovery"
+            });
+
+            if (error) {
+                showAlert(error.message);
+            } else {
+                showAlert('Password reset email sent!', 'success');
+            }
+        });
+
+        document.getElementById('doUpdate').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('updatePassword').value;
+            const confirmPassword = document.getElementById('updatePasswordConfirm').value;
+
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match');
+                return;
+            }
+
+            const { error } = await window._supabase.auth.updateUser({
+                password
+            });
+
+            if (error) {
+                showAlert(error.message);
+            } else {
+                showAlert('Password updated successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '/dashboard.html';
+                }, 2000);
+            }
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('authModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('authModal').classList.add('hidden');
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'978d50af000548c4',t:'MTc1NjgxOTMzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
