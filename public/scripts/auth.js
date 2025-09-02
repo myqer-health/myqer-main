@@ -1,5 +1,9 @@
 // /public/scripts/auth.js
-import { supabase, APP_URL, AUTH_QUERY } from '/scripts/config.js';
+const supabase = window.supabase.createClient(
+  window.MYQER.SUPABASE_URL,
+  window.MYQER.SUPABASE_ANON_KEY
+);
+window.supabaseClient = supabase; // expose for other scripts
 
 // --- Small utilities
 const go = (p) => window.location.replace(p);
