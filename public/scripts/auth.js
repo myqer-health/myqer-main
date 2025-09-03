@@ -103,3 +103,9 @@ export function wirePasswordToggles() {
     });
   });
 }
+window.addEventListener('error', (e) => {
+  console.log('JS error:', e.message);
+});
+supabase.auth.onAuthStateChange((_e, sess) => {
+  console.log('Auth state changed. Has session?', !!sess);
+});
