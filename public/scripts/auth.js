@@ -1,115 +1,54 @@
-<script type="module">
-// ============================
-// MYQER Auth (email + password)
-// ============================
+// public/scripts/auth.js
 
-// 1) Create client
+// --- 1) Supabase client ------------------------------------------
 const supabase = window.supabase.createClient(
   window.MYQER.SUPABASE_URL,
   window.MYQER.SUPABASE_ANON_KEY
 );
-window.supabaseClient = supabase; // expose for other scripts
+window.supabaseClient = supabase; // expose to other scripts
 
-// ---------- Small helpers ----------
-const go = (p) => window.location.assign(p);
-export const q = (sel, root = document) => root.querySelector(sel);
-
-// 2) Handle special links from Supabase emails
-//    A) ?code=...  (PKCE confirm / recovery)
-//    B) #access_token=... (rare in v2, but harmless to support)
-(async () => {
-  const url = new URL(window.location.href);
-
-  // A) PKCE code in query (confirm / OAuth / recovery)
-  if (url.searchParams.get('code')) {
-    try {
-      const { error } = await supabase.auth.exchangeCodeForSession(url.toString());
-      if (error) console.error('exchangeCodeForSession:', error);
-    } catch (e) {
-      console.error('PKCE exchange failed:', e);
-    } finally {
-      history.replaceState({}, '', url.origin + url.pathname);
-    }
-  }
-
-  // B) Hash tokens (legacy magic link)
-  if (url.hash.includes('access_token=') && url.hash.includes('refresh_token=')) {
-    const hash = new URLSearchParams(url.hash.slice(1));
-    try {
-      const { error } = await supabase.auth.setSession({
-        access_token: hash.get('access_token'),
-        refresh_token: hash.get('refresh_token'),
-      });
-      if (error) console.error('setSession:', error);
-    } catch (e) {
-      console.error('setSession failed:', e);
-    } finally {
-      history.replaceState({}, '', url.origin + url.pathname + url.search);
-    }
-  }
-})();
-
-// 3) Email + password flows
-export async function signUpWithPassword(email, password) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    // after clicking "Confirm", bring them to the dashboard
-    options: { emailRedirectTo: `${location.origin}${window.MYQER.APP_URL}` }
-  });
-  if (error) throw error;
-  return data;
+// --- 2) Small UI helpers (alerts + modal show/hide) ---------------
+function showAlert(msg, type = 'info') {
+  // Minimal toast; replace with your own if you have one
+  console.log(`[${type}]`, msg);
+  try {
+    const el = document.getElementById('authAlert');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3500);
+  } catch {}
 }
 
-export async function signInWithPassword(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
+// Modal helpers (used by inline JS in index.html)
+function showAuthView(view) {
+  // views are the <div id="view-login">, <div id="view-register">, <div id="view-reset">
+  document.querySelectorAll('.auth-view').forEach(v => v.classList.add('hidden'));
+  const el = document.getElementById(`view-${view}`);
+  if (el) el.classList.remove('hidden');
+}
+function openModal(view = 'login') {
+  const m = document.getElementById('authModal');
+  if (!m) return;
+  m.classList.remove('hidden');
+  showAuthView(view);
+}
+function closeModal() {
+  const m = document.getElementById('authModal');
+  if (!m) return;
+  m.classList.add('hidden');
 }
 
-export async function signOutToLogin() {
-  await supabase.auth.signOut();
-  go(`/?${window.MYQER.AUTH_QUERY}`);
-}
+// Make modal helpers callable from inline scripts
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.showAuthView = showAuthView;
 
-export async function requireAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) go(`/?${window.MYQER.AUTH_QUERY}`);
-  return session;
-}
-
-export async function redirectIfAuthed() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) go(window.MYQER.APP_URL);
-}
-
-// 4) Password reset (forgot + set new password)
-export async function sendPasswordReset(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${location.origin}${window.MYQER.APP_URL}`
-  });
-  if (error) throw error;
-}
-
-// If the user just arrived via a recovery link, prompt for new password.
-(async () => {
-  const url = new URL(window.location.href);
-  if (url.hash.includes('type=recovery')) {
-    const newPass = prompt('Set a new password:');
-    if (newPass) {
-      const { error } = await supabase.auth.updateUser({ password: newPass });
-      if (error) alert(error.message);
-      else alert('Password updated. Please sign in with the new password.');
-    }
-    history.replaceState({}, '', url.origin + url.pathname);
-  }
-})();
-
-// 5) Optional UI sugar
-export function wirePasswordToggles() {
+// Optional: password “show/hide” toggles inside modal
+function wirePasswordToggles() {
   document.querySelectorAll('.password-wrapper').forEach(w => {
-    const input = q('input', w);
-    const btn   = q('.password-toggle', w);
+    const input = w.querySelector('input');
+    const btn = w.querySelector('.password-toggle');
     if (!input || !btn) return;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -119,20 +58,106 @@ export function wirePasswordToggles() {
     });
   });
 }
+document.addEventListener('DOMContentLoaded', wirePasswordToggles);
 
-// 6) Debug: observe session changes (safe to keep)
-supabase.auth.onAuthStateChange((_e, sess) => {
-  console.log('Auth state changed → session?', !!sess);
+// --- 3) Redirect handlers (magic-link hash or PKCE code) ----------
+(async () => {
+  const url = new URL(window.location.href);
+
+  // Case A: magic-link sent by Supabase — tokens in the URL hash
+  // e.g. https://myqer.com/#access_token=...&refresh_token=...&type=signup
+  const hash = new URLSearchParams(url.hash.slice(1));
+  const access = hash.get('access_token');
+  const refresh = hash.get('refresh_token');
+
+  if (access && refresh) {
+    const { error } = await supabase.auth.setSession({
+      access_token: access,
+      refresh_token: refresh,
+    });
+    if (error) console.error('setSession error:', error);
+    // Clean the hash so we don’t repeat on refresh
+    history.replaceState({}, '', url.origin + url.pathname + url.search);
+  }
+
+  // Case B: PKCE flow (?code=…) (some templates / providers use this)
+  if (url.searchParams.get('code')) {
+    const { error } = await supabase.auth.exchangeCodeForSession(url.toString());
+    if (error) console.error('exchangeCodeForSession error:', error);
+    // Clean query string
+    history.replaceState({}, '', url.origin + url.pathname);
+  }
+})();
+
+// --- 4) High-level auth helpers you can call from buttons ---------
+async function checkSession() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) console.error('getSession error:', error);
+  return session ?? null;
+}
+window.checkSession = checkSession;
+
+async function signIn(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    showAlert(error.message || 'Invalid credentials', 'error');
+    return false;
+  }
+  showAlert('Signed in', 'success');
+  return true;
+}
+window.signIn = signIn;
+
+async function signUp(name, email, password) {
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: name } }
+  });
+  if (error) {
+    showAlert(error.message || 'Sign up failed', 'error');
+    return false;
+  }
+  showAlert('Check your email to confirm your account.', 'success');
+  return true;
+}
+window.signUp = signUp;
+
+async function sendResetEmail(email) {
+  // Supabase will send a password reset email; the link returns to your Site URL
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin // fine for static sites
+  });
+  if (error) {
+    showAlert(error.message || 'Could not send reset email', 'error');
+    return false;
+  }
+  showAlert('Password reset email sent.', 'success');
+  return true;
+}
+window.sendResetEmail = sendResetEmail;
+
+async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    showAlert(error.message || 'Failed to update password', 'error');
+    return false;
+  }
+  showAlert('Password updated successfully', 'success');
+  return true;
+}
+window.updatePassword = updatePassword;
+
+async function signOutToLogin() {
+  await supabase.auth.signOut();
+  // On landing page, you open the modal; on dashboard you may redirect:
+  if (location.pathname.endsWith('/dashboard.html')) {
+    location.href = '/?login';
+  }
+}
+window.signOutToLogin = signOutToLogin;
+
+// Keep a log (handy when debugging)
+supabase.auth.onAuthStateChange((_e, s) => {
+  console.log('Auth state changed — has session?', !!s);
 });
-
-// 7) Expose for inline handlers if needed
-window.MYQER_AUTH = {
-  signUpWithPassword,
-  signInWithPassword,
-  sendPasswordReset,
-  signOutToLogin,
-  requireAuth,
-  redirectIfAuthed,
-  wirePasswordToggles
-};
-</script>
