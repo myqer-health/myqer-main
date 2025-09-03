@@ -2014,6 +2014,63 @@
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9795483c44c17759',t:'MTc1NjkwMjg3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 <script type="module" src="landing.js"></script>
 </script>
+    <script>
+// === Hook up Auth modal buttons to auth.js helpers ===
+document.addEventListener('DOMContentLoaded', () => {
+  const byId = (id) => document.getElementById(id);
+
+  // LOGIN
+  const btnLogin = byId('doLogin');
+  if (btnLogin) {
+    btnLogin.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = byId('loginEmail')?.value?.trim();
+      const pass  = byId('loginPassword')?.value || '';
+      // uses window.signIn from auth.js
+      const ok = await window.signIn(email, pass);
+      if (ok) window.location.href = '/dashboard.html';
+    });
+  }
+
+  // REGISTER
+  const btnRegister = byId('doRegister');
+  if (btnRegister) {
+    btnRegister.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const name  = byId('registerName')?.value?.trim();
+      const email = byId('registerEmail')?.value?.trim();
+      const pass  = byId('registerPassword')?.value || '';
+      // uses window.signUp from auth.js
+      const ok = await window.signUp(name, email, pass);
+      // on success we just show “check your email” (handled in auth.js showAlert)
+    });
+  }
+
+  // SEND RESET LINK
+  const btnReset = byId('doSendReset');
+  if (btnReset) {
+    btnReset.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = byId('resetEmail')?.value?.trim();
+      // uses window.sendResetEmail from auth.js
+      await window.sendResetEmail(email);
+    });
+  }
+
+  // UPDATE PASSWORD (reset flow after clicking email link)
+  const btnUpdate = byId('doUpdate');
+  if (btnUpdate) {
+    btnUpdate.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const p1 = byId('updatePassword')?.value || '';
+      const p2 = byId('updatePasswordConfirm')?.value || '';
+      if (p1 !== p2) { alert('Passwords do not match'); return; }
+      const ok = await window.updatePassword(p1); // from auth.js
+      if (ok) window.location.href = '/dashboard.html';
+    });
+  }
+});
+</script>
     <!-- dashboard.html & index.html, just before </body> -->
 <script defer src="/scripts/config.js?v=6"></script>
 <script defer src="https://esm.sh/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
