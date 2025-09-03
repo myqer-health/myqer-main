@@ -1,13 +1,21 @@
 // /public/scripts/config.js
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// /public/scripts/config.js
+<script>
+// Global app config (one place to edit)
 window.MYQER = {
+  // --- Supabase (your new project) ---
   SUPABASE_URL: 'https://dmntmhkncldgynufajei.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY',
-  APP_URL: 'https://www.myqer.com',           // used by auth.js redirects
-  RENDER_BASE: 'https://www.myqer.com'        // used by /c/:code short URLs
+
+  // --- App routes ---
+  APP_URL: '/dashboard.html',         // where to land after sign-in/confirm
+  AUTH_QUERY: 'auth=login',           // optional query to open login modal
+
+  // If you ever need your short URL base for QR:
+  RENDER_BASE: 'https://www.myqer.com'
 };
+</script>
 // Shared client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth:   { persistSession: true, storage: window.localStorage },
