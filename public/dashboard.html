@@ -1375,7 +1375,37 @@
             </div>
         </div>
     </footer>
+    // ======== HARD GUARD (paste near top of dashboard script) ========
+const sb = window.sb;
+(async () => {
+  // Wait until the Supabase client exists
+  if (!sb) {
+    console.error('[guard] Supabase client missing. Make sure auth.js loads before this script.');
+    return;
+  }
 
+  // Ask Supabase for the current user (the only truth that matters)
+  const { data: { user }, error } = await sb.auth.getUser();
+  if (error) console.error('[guard] getUser error:', error);
+
+  if (!user) {
+    console.warn('[guard] No Supabase user -> redirect to landing');
+    location.replace('/?login');
+    return;
+  }
+
+  console.log('[guard] Logged in as:', user.email);
+  // Hide the loader if you use one
+  document.getElementById('loadingState')?.classList.add('hidden');
+  // If your main app wrapper is hidden by default, show it now:
+  document.getElementById('mainApp')?.classList.remove('hidden');
+})();
+// ======== END HARD GUARD ========
+<script>
+  if (location.hostname === 'myqer.com') {
+    location.replace('https://www.myqer.com' + location.pathname + location.search + location.hash);
+  }
+</script>
     <script>
         // Global state
         let currentLang = 'en';
