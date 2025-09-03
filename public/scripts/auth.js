@@ -161,3 +161,54 @@ window.signOutToLogin = signOutToLogin;
 supabase.auth.onAuthStateChange((_e, s) => {
   console.log('Auth state changed — has session?', !!s);
 });
+// --- 5) Bind landing modal buttons by ID (so index.html doesn't need extra code)
+document.addEventListener('DOMContentLoaded', () => {
+  const $ = (id) => document.getElementById(id);
+
+  // Create account
+  $('doRegister')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const name     = $('registerName')?.value?.trim() || '';
+    const email    = $('registerEmail')?.value?.trim() || '';
+    const password = $('registerPassword')?.value || '';
+    console.log('[auth] doRegister clicked', { email });
+    const ok = await window.signUp(name, email, password);
+    if (ok) window.closeModal?.();
+  });
+
+  // Sign in
+  $('doLogin')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email    = $('loginEmail')?.value?.trim() || '';
+    const password = $('loginPassword')?.value || '';
+    console.log('[auth] doLogin clicked', { email });
+    const ok = await window.signIn(email, password);
+    if (ok) window.location.href = '/dashboard.html';
+  });
+
+  // Send password reset email
+  $('doSendReset')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = $('resetEmail')?.value?.trim() || '';
+    console.log('[auth] doSendReset clicked', { email });
+    await window.sendResetEmail(email);
+  });
+
+  // Update password (optional "new password" view)
+  $('doUpdate')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const pass = $('updatePassword')?.value || '';
+    console.log('[auth] doUpdate clicked');
+    const ok = await window.updatePassword(pass);
+    if (ok) window.location.href = '/dashboard.html';
+  });
+
+  // “Open App” buttons: go to dashboard if authed; else open login modal
+  const wireOpen = async () => {
+    const session = await window.checkSession?.();
+    if (session) window.location.href = '/dashboard.html';
+    else window.openModal?.('login');
+  };
+  document.getElementById('btnOpenApp')?.addEventListener('click', (e) => { e.preventDefault(); wireOpen(); });
+  document.getElementById('btnOpenAppHero')?.addEventListener('click', (e) => { e.preventDefault(); wireOpen(); });
+});
