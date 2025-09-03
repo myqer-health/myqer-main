@@ -2076,5 +2076,54 @@ document.addEventListener('DOMContentLoaded', () => {
 <script defer src="https://esm.sh/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script defer src="/scripts/auth.js?v=6"></script>
 <!-- (then your page's own ui.js, etc.) -->
+    <!-- Bind landing modal buttons to the new auth helpers -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const $ = (id) => document.getElementById(id);
+
+    // Create account
+    $('doRegister')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const name     = $('registerName')?.value?.trim() || '';
+      const email    = $('registerEmail')?.value?.trim() || '';
+      const password = $('registerPassword')?.value || '';
+      const ok = await window.signUp(name, email, password);   // from auth.js
+      if (ok) window.closeModal?.();                           // optional
+    });
+
+    // Sign in
+    $('doLogin')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email    = $('loginEmail')?.value?.trim() || '';
+      const password = $('loginPassword')?.value || '';
+      const ok = await window.signIn(email, password);         // from auth.js
+      if (ok) window.location.href = '/dashboard.html';
+    });
+
+    // Send password reset email
+    $('doSendReset')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = $('resetEmail')?.value?.trim() || '';
+      await window.sendResetEmail(email);                      // from auth.js
+    });
+
+    // Update password (if you show a “new password” view)
+    $('doUpdate')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const pass = $('updatePassword')?.value || '';
+      const ok = await window.updatePassword(pass);            // from auth.js
+      if (ok) window.location.href = '/dashboard.html';
+    });
+
+    // Open App buttons should either go to dashboard if authed, or open login modal
+    const wireOpen = async () => {
+      const session = await window.checkSession?.();           // from auth.js
+      if (session) window.location.href = '/dashboard.html';
+      else window.openModal?.('login');
+    };
+    document.getElementById('btnOpenApp')?.addEventListener('click', (e) => { e.preventDefault(); wireOpen(); });
+    document.getElementById('btnOpenAppHero')?.addEventListener('click', (e) => { e.preventDefault(); wireOpen(); });
+  });
+</script>
 </body>
 </html>
