@@ -4,6 +4,17 @@ const supabase = window.supabase.createClient(
   window.MYQER.SUPABASE_ANON_KEY
 );
 window.supabaseClient = supabase; // expose for other scripts
+// ⬇️ ADD THIS BLOCK RIGHT HERE
+(async () => {
+  // If the confirm link contained a PKCE code, exchange it for a session
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('code')) {
+    const { error } = await window.supabaseClient.auth.exchangeCodeForSession(window.location.href);
+    if (error) console.error('exchangeCodeForSession error:', error);
+    // Clean the query string so refresh doesn't re-exchange
+    history.replaceState({}, '', url.origin + url.pathname);
+  }
+})();
 
 // --- Small utilities
 const go = (p) => window.location.replace(p);
