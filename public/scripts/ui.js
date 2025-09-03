@@ -1,118 +1,109 @@
+<script>
 (function () {
-  // ===== menu sheet (your original 29 lines) =====
-  const sheet = document.getElementById('menuSheet');
+  // ===== MENU SHEET (unchanged) =========================================
+  const sheet  = document.getElementById('menuSheet');
   const toggle = document.getElementById('menuToggle');
   const closeBtn = document.getElementById('menuClose');
 
-  function open() {
+  function openSheet() {
     if (!sheet) return;
     sheet.hidden = false;
     document.body.classList.add('no-scroll');
-    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    toggle && toggle.setAttribute('aria-expanded', 'true');
   }
-  function close() {
+  function closeSheet() {
     if (!sheet) return;
     sheet.hidden = true;
     document.body.classList.remove('no-scroll');
-    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    toggle && toggle.setAttribute('aria-expanded', 'false');
   }
+  toggle && toggle.addEventListener('click', () => sheet.hidden ? openSheet() : closeSheet());
+  closeBtn && closeBtn.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && closeSheet());
+  sheet && sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
 
-  toggle && toggle.addEventListener('click', () => {
-    sheet && (sheet.hidden ? open() : close());
-  });
-  closeBtn && closeBtn.addEventListener('click', close);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close();
-  });
-  sheet && sheet.addEventListener('click', (e) => {
-    if (e.target === sheet) close(); // click outside card
-  });
-
-  // ===== QR code on dashboard (single source of truth) =====
+  // ===== DASHBOARD QR ====================================================
   document.addEventListener('DOMContentLoaded', async () => {
-    // expect these elements to exist in dashboard.html
-    const canvas = document.getElementById('qrCanvas');      // the visual slot (a <canvas> or a <div> container)
-    const codeEl = document.getElementById('codeUnderQR');   // text line under QR
-    if (!canvas || !codeEl) return; // not on dashboard, do nothing
+    // Elements expected on dashboard.html
+    const hostEl = document.getElementById('qrCanvas');   // a <div> or <canvas> container
+    const codeEl = document.getElementById('codeUnderQR'); // the text shown under the QR
+    if (!hostEl || !codeEl) return; // not on dashboard
 
-    // 1) Supabase client must already be created globally (config.js)
-    //    window.supabase must exist, created with your anon + url
-    const supabase = window.supabase;
-    if (!supabase) {
-      console.error('supabase client missing. Did you include config.js before ui.js?');
+    // 1) Supabase client (created in auth.js/config.js)
+    const sb = window.supabaseClient || window.supabase;
+    if (!sb) {
+      console.error('Supabase client missing. Load config.js + auth.js before this script.');
       codeEl.textContent = 'App error. Please reload.';
       return;
     }
 
-    // 2) Require login
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      codeEl.textContent = 'Please sign in to generate your QR.';
-      return;
-    }
+    // 2) Require an active session
+    const { data: { session }, error: sessErr } = await sb.auth.getSession();
+    if (sessErr) console.error('getSession error:', sessErr);
+    if (!session) { codeEl.textContent = 'Please sign in to generate your QR.'; return; }
     const userId = session.user.id;
 
-    // 3) Load (or create) a short code on the profile
-    let { data: profile, error } = await supabase
+    // 3) Ensure profile row exists and fetch code
+    const { data: prof, error: selErr } = await sb
       .from('profiles')
-      .select('id, code, full_name, country')
+      .select('id, code')
       .eq('id', userId)
       .maybeSingle();
 
-    if (error) {
-      console.error('profiles read error:', error);
-      codeEl.textContent = 'Error reading profile.';
-      return;
-    }
+    if (selErr) { console.error('profiles read error:', selErr); codeEl.textContent = 'Error reading profile.'; return; }
 
+    let profile = prof;
     if (!profile) {
-      const ins = await supabase
-        .from('profiles')
-        .insert({ id: userId })
-        .select('id, code')
-        .single();
-      if (ins.error) {
-        console.error('profiles insert error:', ins.error);
-        codeEl.textContent = 'Error creating profile.';
-        return;
-      }
+      const ins = await sb.from('profiles').insert({ id: userId }).select('id, code').single();
+      if (ins.error) { console.error('profiles insert error:', ins.error); codeEl.textContent = 'Error creating profile.'; return; }
       profile = ins.data;
     }
 
+    // 4) Generate a unique, human-readable code if missing
     let code = profile.code;
     if (!code) {
-      // generate readable, short, non-ambiguous code
-      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      const rand = (n) => Array.from({ length: n }, () => alphabet[Math.floor(Math.random()*alphabet.length)]).join('');
-      code = `${rand(3)}-${rand(4)}-${rand(3)}`;  // e.g. F7N-8PG2-MQ4
-
-      const up = await supabase.from('profiles').update({ code }).eq('id', userId);
-      if (up.error) {
-        console.error('profiles update error:', up.error);
-        codeEl.textContent = 'Error saving code.';
-        return;
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0, I/1
+      const rnd = (n) => Array.from({ length: n }, () => alphabet[Math.floor(Math.random()*alphabet.length)]).join('');
+      let attempts = 0, ok = false, candidate = '';
+      while (!ok && attempts < 6) {
+        candidate = `${rnd(3)}-${rnd(4)}-${rnd(3)}`; // e.g. F7N-8PG2-MQ4
+        const { data: exists, error: chkErr } = await sb.from('profiles').select('id').eq('code', candidate).maybeSingle();
+        if (chkErr) { console.error('code check error:', chkErr); break; }
+        ok = !exists;
+        attempts++;
       }
+      if (!ok) { codeEl.textContent = 'Could not generate code. Try again.'; return; }
+
+      const up = await sb.from('profiles').update({ code: candidate }).eq('id', userId);
+      if (up.error) { console.error('profiles update error:', up.error); codeEl.textContent = 'Error saving code.'; return; }
+      code = candidate;
     }
 
-    // 4) Draw QR for the short URL on your domain
-    const shortUrl = `https://www.myqer.com/c/${code}`;
+    // 5) Ensure QRCode lib is available (loads once if missing)
+    async function ensureQRCode() {
+      if (window.QRCode) return;
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        s.onload = res; s.onerror = rej; document.head.appendChild(s);
+      });
+    }
+    try { await ensureQRCode(); } catch { codeEl.textContent = 'QR library failed to load.'; return; }
+
+    // 6) Render QR
+    const shortUrl = `https://www.myqer.com/c/${encodeURIComponent(code)}`;
     codeEl.textContent = code;
 
-    // qrcodejs draws an <img> into a container. If your "canvas" is a <canvas>,
-    // render into its parent to avoid mixing contexts.
-    const host = canvas.parentElement || canvas;
-
-    // clean previous image(s)
-    Array.from(host.querySelectorAll('img')).forEach(img => img.remove());
-
-    // render fresh QR
-    new QRCode(host, {
+    const container = hostEl.tagName === 'CANVAS' ? hostEl.parentElement || hostEl : hostEl;
+    container.innerHTML = ''; // clear any previous image
+    new QRCode(container, {
       text: shortUrl,
       width: 200,
       height: 200,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
+      colorDark: '#000000',
+      colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.H
     });
   });
 })();
+</script>
