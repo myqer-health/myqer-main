@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MYQER™ - Your FREE Emergency QR Card</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
@@ -1076,7 +1076,6 @@
                 <h2 id="loginTitle" data-i18n="login.title">Sign in to MYQER</h2>
                 <form>
                     <div class="form-group">
-                        <input id="loginFullname" type="text" data-i18n-placeholder="common.fullname" placeholder="Full Name" style="display: none;">
                         <input id="loginEmail" type="email" data-i18n-placeholder="common.email" placeholder="Email" required aria-label="Email">
                     </div>
                     <div class="form-group">
@@ -1125,14 +1124,14 @@
             <h2 id="registerTitle" data-i18n="register.title">Create your MYQER account</h2>
             <form>
                 <div class="form-group">
-                    <input id="registerFullname" type="text" data-i18n-placeholder="common.fullname" placeholder="Full Name" required aria-label="Full Name">
+                    <input id="regName" type="text" data-i18n-placeholder="common.fullname" placeholder="Full Name" required aria-label="Full Name">
                 </div>
                 <div class="form-group">
-                    <input id="registerEmail" type="email" data-i18n-placeholder="common.email" placeholder="Email" required aria-label="Email">
+                    <input id="regEmail" type="email" data-i18n-placeholder="common.email" placeholder="Email" required aria-label="Email">
                 </div>
                 <div class="form-group">
                     <div class="password-field">
-                        <input id="registerPassword" type="password" data-i18n-placeholder="common.password" placeholder="Password" required aria-label="Password">
+                        <input id="regPassword" type="password" data-i18n-placeholder="common.password" placeholder="Password" required aria-label="Password">
                         <button type="button" class="password-toggle" id="registerPasswordToggle" data-i18n="common.show">Show</button>
                     </div>
                 </div>
@@ -1176,6 +1175,7 @@
                         flowType: 'pkce'
                     }
                 });
+                window.supabaseClient = supabase;
                 isSupabaseAvailable = true;
                 console.log('✅ Supabase initialized successfully');
             }
@@ -1258,76 +1258,413 @@
         };
 
         /////////////////////////////////////////
-        // 3) i18n (EN base + external overrides)
+        // 3) Complete i18n system with all languages
         /////////////////////////////////////////
-        const I18N_KEYS = {
-            "hero.title": "Your FREE emergency QR card.",
-            "hero.subtitle": "One scan, instant triage.",
-            "hero.support": "A QR triage code to guide responders — anywhere, anytime.",
-            "hero.pronounce": "(pronounced \"My Care\")",
-            "cta.create": "Create Account",
-            "cta.signin": "Sign In",
-            "menu.openApp": "Open App",
-            "menu.about": "About",
-            "menu.clinician": "Clinician",
-            "menu.how": "How it works",
-            "menu.privacy": "Privacy",
-            "menu.terms": "Terms",
-            "menu.contact": "Contact",
-            "value.access": "People — Essential Access",
-            "value.free": "Free to use (No cost • No trial • No ads)",
-            "value.card": "Emergency card (allergies, meds, ICE)",
-            "value.offline": "Works offline (no signal needed)",
-            "value.diy": "DIY printable QR tags & stickers",
-            "value.multi": "Multi-language",
-            "value.privacy": "Zero tracking & on-device privacy",
-            "footer.trust": "GDPR & HIPAA compliant. Your emergency info stays private until you choose to share.",
-            "login.title": "Sign in to MYQER",
-            "login.forgot": "Forgot password?",
-            "register.title": "Create your MYQER account",
-            "register.back": "Back to sign in",
-            "reset.title": "Reset Password",
-            "reset.send": "Send Reset Link",
-            "common.fullname": "Full Name",
-            "common.email": "Email",
-            "common.password": "Password",
-            "common.show": "Show",
-            "common.hide": "Hide",
-            "common.terms": "Terms",
-            "common.privacy": "Privacy",
-            "common.legalPrefix": "By continuing you agree to our"
+        let currentLang = "en";
+
+        // Complete translation system
+        const LOCALES = {
+            en: {
+                "hero.title": "Your FREE emergency QR card.",
+                "hero.free": "FREE",
+                "hero.subtitle": "One scan, instant triage.",
+                "hero.support": "A QR triage code to guide responders — anywhere, anytime.",
+                "hero.pronounce": "(pronounced \"My Care\")",
+                "cta.create": "Create Account",
+                "cta.signin": "Sign In",
+                "menu.openApp": "Open App",
+                "menu.about": "About",
+                "menu.clinician": "Clinician",
+                "menu.how": "How it works",
+                "menu.privacy": "Privacy",
+                "menu.terms": "Terms",
+                "menu.contact": "Contact",
+                "value.access": "People — Essential Access",
+                "value.free": "Free to use (No cost • No trial • No ads)",
+                "value.card": "Emergency card (allergies, meds, ICE)",
+                "value.offline": "Works offline (no signal needed)",
+                "value.diy": "DIY printable QR tags & stickers",
+                "value.multi": "Multi-language",
+                "value.privacy": "Zero tracking & on-device privacy",
+                "footer.trust": "GDPR & HIPAA compliant. Your emergency info stays private until you choose to share.",
+                "login.title": "Sign in to MYQER",
+                "login.forgot": "Forgot password?",
+                "register.title": "Create your MYQER account",
+                "register.back": "Already have an account? Sign in",
+                "reset.title": "Reset Password",
+                "reset.send": "Send Reset Link",
+                "common.fullname": "Full Name",
+                "common.email": "Email",
+                "common.password": "Password",
+                "common.show": "Show",
+                "common.hide": "Hide",
+                "common.terms": "Terms",
+                "common.privacy": "Privacy",
+                "common.legalPrefix": "By continuing you agree to our"
+            },
+            es: {
+                "hero.title": "Tu tarjeta QR de emergencia GRATUITA.",
+                "hero.free": "GRATUITA",
+                "hero.subtitle": "Un escaneo, triaje instantáneo.",
+                "hero.support": "Un código QR de triaje para guiar a los socorristas — en cualquier lugar, en cualquier momento.",
+                "hero.pronounce": "(pronunciado \"My Care\")",
+                "cta.create": "Crear Cuenta",
+                "cta.signin": "Iniciar Sesión",
+                "menu.openApp": "Abrir App",
+                "menu.about": "Acerca de",
+                "menu.clinician": "Clínico",
+                "menu.how": "Cómo funciona",
+                "menu.privacy": "Privacidad",
+                "menu.terms": "Términos",
+                "menu.contact": "Contacto",
+                "value.access": "Personas — Acceso Esencial",
+                "value.free": "Gratis de usar (Sin costo • Sin prueba • Sin anuncios)",
+                "value.card": "Tarjeta de emergencia (alergias, medicamentos, ICE)",
+                "value.offline": "Funciona sin conexión (no necesita señal)",
+                "value.diy": "Etiquetas y pegatinas QR imprimibles DIY",
+                "value.multi": "Multi-idioma",
+                "value.privacy": "Cero seguimiento y privacidad en el dispositivo",
+                "footer.trust": "Compatible con GDPR y HIPAA. Tu información de emergencia permanece privada hasta que elijas compartirla.",
+                "login.title": "Iniciar sesión en MYQER",
+                "login.forgot": "¿Olvidaste tu contraseña?",
+                "register.title": "Crea tu cuenta MYQER",
+                "register.back": "¿Ya tienes una cuenta? Iniciar sesión",
+                "reset.title": "Restablecer Contraseña",
+                "reset.send": "Enviar Enlace de Restablecimiento",
+                "common.fullname": "Nombre Completo",
+                "common.email": "Correo Electrónico",
+                "common.password": "Contraseña",
+                "common.show": "Mostrar",
+                "common.hide": "Ocultar",
+                "common.terms": "Términos",
+                "common.privacy": "Privacidad",
+                "common.legalPrefix": "Al continuar aceptas nuestros"
+            },
+            fr: {
+                "hero.title": "Votre carte QR d'urgence GRATUITE.",
+                "hero.free": "GRATUITE",
+                "hero.subtitle": "Un scan, triage instantané.",
+                "hero.support": "Un code QR de triage pour guider les secours — n'importe où, n'importe quand.",
+                "hero.pronounce": "(prononcé \"My Care\")",
+                "cta.create": "Créer un Compte",
+                "cta.signin": "Se Connecter",
+                "menu.openApp": "Ouvrir l'App",
+                "menu.about": "À propos",
+                "menu.clinician": "Clinicien",
+                "menu.how": "Comment ça marche",
+                "menu.privacy": "Confidentialité",
+                "menu.terms": "Conditions",
+                "menu.contact": "Contact",
+                "value.access": "Personnes — Accès Essentiel",
+                "value.free": "Gratuit à utiliser (Aucun coût • Aucun essai • Aucune pub)",
+                "value.card": "Carte d'urgence (allergies, médicaments, ICE)",
+                "value.offline": "Fonctionne hors ligne (aucun signal nécessaire)",
+                "value.diy": "Étiquettes et autocollants QR imprimables DIY",
+                "value.multi": "Multi-langue",
+                "value.privacy": "Zéro suivi et confidentialité sur l'appareil",
+                "footer.trust": "Conforme RGPD et HIPAA. Vos informations d'urgence restent privées jusqu'à ce que vous choisissiez de les partager.",
+                "login.title": "Se connecter à MYQER",
+                "login.forgot": "Mot de passe oublié?",
+                "register.title": "Créez votre compte MYQER",
+                "register.back": "Vous avez déjà un compte? Se connecter",
+                "reset.title": "Réinitialiser le Mot de Passe",
+                "reset.send": "Envoyer le Lien de Réinitialisation",
+                "common.fullname": "Nom Complet",
+                "common.email": "Email",
+                "common.password": "Mot de Passe",
+                "common.show": "Afficher",
+                "common.hide": "Masquer",
+                "common.terms": "Conditions",
+                "common.privacy": "Confidentialité",
+                "common.legalPrefix": "En continuant, vous acceptez nos"
+            },
+            de: {
+                "hero.title": "Ihre KOSTENLOSE Notfall-QR-Karte.",
+                "hero.free": "KOSTENLOSE",
+                "hero.subtitle": "Ein Scan, sofortige Triage.",
+                "hero.support": "Ein QR-Triage-Code zur Führung von Ersthelfern — überall, jederzeit.",
+                "hero.pronounce": "(ausgesprochen \"My Care\")",
+                "cta.create": "Konto Erstellen",
+                "cta.signin": "Anmelden",
+                "menu.openApp": "App Öffnen",
+                "menu.about": "Über uns",
+                "menu.clinician": "Kliniker",
+                "menu.how": "Wie es funktioniert",
+                "menu.privacy": "Datenschutz",
+                "menu.terms": "Bedingungen",
+                "menu.contact": "Kontakt",
+                "value.access": "Menschen — Wesentlicher Zugang",
+                "value.free": "Kostenlos zu verwenden (Keine Kosten • Keine Testversion • Keine Werbung)",
+                "value.card": "Notfallkarte (Allergien, Medikamente, ICE)",
+                "value.offline": "Funktioniert offline (kein Signal erforderlich)",
+                "value.diy": "DIY druckbare QR-Tags & Aufkleber",
+                "value.multi": "Mehrsprachig",
+                "value.privacy": "Null Tracking & Gerätedatenschutz",
+                "footer.trust": "DSGVO & HIPAA konform. Ihre Notfallinformationen bleiben privat, bis Sie sich entscheiden zu teilen.",
+                "login.title": "Bei MYQER anmelden",
+                "login.forgot": "Passwort vergessen?",
+                "register.title": "Erstellen Sie Ihr MYQER-Konto",
+                "register.back": "Haben Sie bereits ein Konto? Anmelden",
+                "reset.title": "Passwort Zurücksetzen",
+                "reset.send": "Reset-Link Senden",
+                "common.fullname": "Vollständiger Name",
+                "common.email": "E-Mail",
+                "common.password": "Passwort",
+                "common.show": "Anzeigen",
+                "common.hide": "Verbergen",
+                "common.terms": "Bedingungen",
+                "common.privacy": "Datenschutz",
+                "common.legalPrefix": "Durch Fortfahren stimmen Sie unseren zu"
+            },
+            it: {
+                "hero.title": "La tua carta QR di emergenza GRATUITA.",
+                "hero.free": "GRATUITA",
+                "hero.subtitle": "Una scansione, triage istantaneo.",
+                "hero.support": "Un codice QR di triage per guidare i soccorritori — ovunque, in qualsiasi momento.",
+                "hero.pronounce": "(pronunciato \"My Care\")",
+                "cta.create": "Crea Account",
+                "cta.signin": "Accedi",
+                "menu.openApp": "Apri App",
+                "menu.about": "Chi siamo",
+                "menu.clinician": "Clinico",
+                "menu.how": "Come funziona",
+                "menu.privacy": "Privacy",
+                "menu.terms": "Termini",
+                "menu.contact": "Contatto",
+                "value.access": "Persone — Accesso Essenziale",
+                "value.free": "Gratuito da usare (Nessun costo • Nessuna prova • Nessuna pubblicità)",
+                "value.card": "Carta di emergenza (allergie, farmaci, ICE)",
+                "value.offline": "Funziona offline (nessun segnale necessario)",
+                "value.diy": "Tag e adesivi QR stampabili fai-da-te",
+                "value.multi": "Multi-lingua",
+                "value.privacy": "Zero tracciamento e privacy sul dispositivo",
+                "footer.trust": "Conforme GDPR e HIPAA. Le tue informazioni di emergenza rimangono private finché non scegli di condividerle.",
+                "login.title": "Accedi a MYQER",
+                "login.forgot": "Password dimenticata?",
+                "register.title": "Crea il tuo account MYQER",
+                "register.back": "Hai già un account? Accedi",
+                "reset.title": "Reimposta Password",
+                "reset.send": "Invia Link di Reset",
+                "common.fullname": "Nome Completo",
+                "common.email": "Email",
+                "common.password": "Password",
+                "common.show": "Mostra",
+                "common.hide": "Nascondi",
+                "common.terms": "Termini",
+                "common.privacy": "Privacy",
+                "common.legalPrefix": "Continuando accetti i nostri"
+            },
+            pt: {
+                "hero.title": "Seu cartão QR de emergência GRATUITO.",
+                "hero.free": "GRATUITO",
+                "hero.subtitle": "Uma digitalização, triagem instantânea.",
+                "hero.support": "Um código QR de triagem para orientar socorristas — em qualquer lugar, a qualquer hora.",
+                "hero.pronounce": "(pronunciado \"My Care\")",
+                "cta.create": "Criar Conta",
+                "cta.signin": "Entrar",
+                "menu.openApp": "Abrir App",
+                "menu.about": "Sobre",
+                "menu.clinician": "Clínico",
+                "menu.how": "Como funciona",
+                "menu.privacy": "Privacidade",
+                "menu.terms": "Termos",
+                "menu.contact": "Contato",
+                "value.access": "Pessoas — Acesso Essencial",
+                "value.free": "Grátis para usar (Sem custo • Sem teste • Sem anúncios)",
+                "value.card": "Cartão de emergência (alergias, medicamentos, ICE)",
+                "value.offline": "Funciona offline (sem sinal necessário)",
+                "value.diy": "Tags e adesivos QR imprimíveis DIY",
+                "value.multi": "Multi-idioma",
+                "value.privacy": "Zero rastreamento e privacidade no dispositivo",
+                "footer.trust": "Compatível com GDPR e HIPAA. Suas informações de emergência permanecem privadas até você escolher compartilhar.",
+                "login.title": "Entrar no MYQER",
+                "login.forgot": "Esqueceu a senha?",
+                "register.title": "Crie sua conta MYQER",
+                "register.back": "Já tem uma conta? Entrar",
+                "reset.title": "Redefinir Senha",
+                "reset.send": "Enviar Link de Redefinição",
+                "common.fullname": "Nome Completo",
+                "common.email": "Email",
+                "common.password": "Senha",
+                "common.show": "Mostrar",
+                "common.hide": "Ocultar",
+                "common.terms": "Termos",
+                "common.privacy": "Privacidade",
+                "common.legalPrefix": "Ao continuar você concorda com nossos"
+            },
+            ro: {
+                "hero.title": "Cardul tău QR de urgență GRATUIT.",
+                "hero.free": "GRATUIT",
+                "hero.subtitle": "O scanare, triaj instantaneu.",
+                "hero.support": "Un cod QR de triaj pentru a ghida salvatorii — oriunde, oricând.",
+                "hero.pronounce": "(pronunțat \"My Care\")",
+                "cta.create": "Creează Cont",
+                "cta.signin": "Conectează-te",
+                "menu.openApp": "Deschide App",
+                "menu.about": "Despre",
+                "menu.clinician": "Clinician",
+                "menu.how": "Cum funcționează",
+                "menu.privacy": "Confidențialitate",
+                "menu.terms": "Termeni",
+                "menu.contact": "Contact",
+                "value.access": "Oameni — Acces Esențial",
+                "value.free": "Gratuit de folosit (Fără cost • Fără încercare • Fără reclame)",
+                "value.card": "Card de urgență (alergii, medicamente, ICE)",
+                "value.offline": "Funcționează offline (nu necesită semnal)",
+                "value.diy": "Etichete și autocolante QR imprimabile DIY",
+                "value.multi": "Multi-limbă",
+                "value.privacy": "Zero urmărire și confidențialitate pe dispozitiv",
+                "footer.trust": "Conform GDPR și HIPAA. Informațiile tale de urgență rămân private până când alegi să le împărtășești.",
+                "login.title": "Conectează-te la MYQER",
+                "login.forgot": "Ai uitat parola?",
+                "register.title": "Creează-ți contul MYQER",
+                "register.back": "Ai deja un cont? Conectează-te",
+                "reset.title": "Resetează Parola",
+                "reset.send": "Trimite Link de Resetare",
+                "common.fullname": "Nume Complet",
+                "common.email": "Email",
+                "common.password": "Parolă",
+                "common.show": "Arată",
+                "common.hide": "Ascunde",
+                "common.terms": "Termeni",
+                "common.privacy": "Confidențialitate",
+                "common.legalPrefix": "Continuând ești de acord cu"
+            },
+            ar: {
+                "hero.title": "بطاقة QR الطارئة المجانية الخاصة بك.",
+                "hero.free": "مجانية",
+                "hero.subtitle": "مسح واحد، فرز فوري.",
+                "hero.support": "رمز QR للفرز لتوجيه المستجيبين — في أي مكان، في أي وقت.",
+                "hero.pronounce": "(يُنطق \"My Care\")",
+                "cta.create": "إنشاء حساب",
+                "cta.signin": "تسجيل الدخول",
+                "menu.openApp": "فتح التطبيق",
+                "menu.about": "حول",
+                "menu.clinician": "طبيب",
+                "menu.how": "كيف يعمل",
+                "menu.privacy": "الخصوصية",
+                "menu.terms": "الشروط",
+                "menu.contact": "اتصال",
+                "value.access": "الأشخاص — الوصول الأساسي",
+                "value.free": "مجاني للاستخدام (بدون تكلفة • بدون تجربة • بدون إعلانات)",
+                "value.card": "بطاقة الطوارئ (الحساسية، الأدوية، ICE)",
+                "value.offline": "يعمل بدون اتصال (لا يحتاج إشارة)",
+                "value.diy": "علامات وملصقات QR قابلة للطباعة DIY",
+                "value.multi": "متعدد اللغات",
+                "value.privacy": "صفر تتبع وخصوصية على الجهاز",
+                "footer.trust": "متوافق مع GDPR و HIPAA. تبقى معلومات الطوارئ الخاصة بك خاصة حتى تختار مشاركتها.",
+                "login.title": "تسجيل الدخول إلى MYQER",
+                "login.forgot": "نسيت كلمة المرور؟",
+                "register.title": "أنشئ حساب MYQER الخاص بك",
+                "register.back": "لديك حساب بالفعل؟ تسجيل الدخول",
+                "reset.title": "إعادة تعيين كلمة المرور",
+                "reset.send": "إرسال رابط الإعادة تعيين",
+                "common.fullname": "الاسم الكامل",
+                "common.email": "البريد الإلكتروني",
+                "common.password": "كلمة المرور",
+                "common.show": "إظهار",
+                "common.hide": "إخفاء",
+                "common.terms": "الشروط",
+                "common.privacy": "الخصوصية",
+                "common.legalPrefix": "بالمتابعة توافق على"
+            },
+            hi: {
+                "hero.title": "आपका मुफ्त आपातकालीन QR कार्ड।",
+                "hero.free": "मुफ्त",
+                "hero.subtitle": "एक स्कैन, तत्काल ट्राइएज।",
+                "hero.support": "प्रतिक्रियाकर्ताओं को मार्गदर्शन करने के लिए एक QR ट्राइएज कोड — कहीं भी, कभी भी।",
+                "hero.pronounce": "(उच्चारण \"My Care\")",
+                "cta.create": "खाता बनाएं",
+                "cta.signin": "साइन इन करें",
+                "menu.openApp": "ऐप खोलें",
+                "menu.about": "के बारे में",
+                "menu.clinician": "चिकित्सक",
+                "menu.how": "यह कैसे काम करता है",
+                "menu.privacy": "गोपनीयता",
+                "menu.terms": "नियम",
+                "menu.contact": "संपर्क",
+                "value.access": "लोग — आवश्यक पहुंच",
+                "value.free": "उपयोग करने के लिए मुफ्त (कोई लागत नहीं • कोई परीक्षण नहीं • कोई विज्ञापन नहीं)",
+                "value.card": "आपातकालीन कार्ड (एलर्जी, दवाएं, ICE)",
+                "value.offline": "ऑफलाइन काम करता है (कोई सिग्नल की आवश्यकता नहीं)",
+                "value.diy": "DIY प्रिंट करने योग्य QR टैग और स्टिकर",
+                "value.multi": "बहु-भाषा",
+                "value.privacy": "शून्य ट्रैकिंग और डिवाइस पर गोपनीयता",
+                "footer.trust": "GDPR और HIPAA अनुपालित। आपकी आपातकालीन जानकारी तब तक निजी रहती है जब तक आप साझा करना नहीं चुनते।",
+                "login.title": "MYQER में साइन इन करें",
+                "login.forgot": "पासवर्ड भूल गए?",
+                "register.title": "अपना MYQER खाता बनाएं",
+                "register.back": "पहले से खाता है? साइन इन करें",
+                "reset.title": "पासवर्ड रीसेट करें",
+                "reset.send": "रीसेट लिंक भेजें",
+                "common.fullname": "पूरा नाम",
+                "common.email": "ईमेल",
+                "common.password": "पासवर्ड",
+                "common.show": "दिखाएं",
+                "common.hide": "छुपाएं",
+                "common.terms": "नियम",
+                "common.privacy": "गोपनीयता",
+                "common.legalPrefix": "जारी रखकर आप हमारे से सहमत हैं"
+            },
+            zh: {
+                "hero.title": "您的免费紧急QR卡。",
+                "hero.free": "免费",
+                "hero.subtitle": "一次扫描，即时分诊。",
+                "hero.support": "用于指导救援人员的QR分诊代码 — 随时随地。",
+                "hero.pronounce": "(发音为\"My Care\")",
+                "cta.create": "创建账户",
+                "cta.signin": "登录",
+                "menu.openApp": "打开应用",
+                "menu.about": "关于",
+                "menu.clinician": "临床医生",
+                "menu.how": "工作原理",
+                "menu.privacy": "隐私",
+                "menu.terms": "条款",
+                "menu.contact": "联系",
+                "value.access": "人员 — 基本访问",
+                "value.free": "免费使用（无费用 • 无试用 • 无广告）",
+                "value.card": "紧急卡片（过敏、药物、ICE）",
+                "value.offline": "离线工作（无需信号）",
+                "value.diy": "DIY可打印QR标签和贴纸",
+                "value.multi": "多语言",
+                "value.privacy": "零跟踪和设备隐私",
+                "footer.trust": "符合GDPR和HIPAA。您的紧急信息保持私密，直到您选择分享。",
+                "login.title": "登录MYQER",
+                "login.forgot": "忘记密码？",
+                "register.title": "创建您的MYQER账户",
+                "register.back": "已有账户？登录",
+                "reset.title": "重置密码",
+                "reset.send": "发送重置链接",
+                "common.fullname": "全名",
+                "common.email": "邮箱",
+                "common.password": "密码",
+                "common.show": "显示",
+                "common.hide": "隐藏",
+                "common.terms": "条款",
+                "common.privacy": "隐私",
+                "common.legalPrefix": "继续即表示您同意我们的"
+            }
         };
 
-        // External locales hook (optional): window.MYQER_LOCALES = { es:{...}, fr:{...}, ... }
-        let currentLang = "en";
-        const getLocale = () => (window.MYQER_LOCALES?.[currentLang] || {});
-        const t = (key) => getLocale()[key] ?? I18N_KEYS[key] ?? key;
+        // Translation function
+        const t = (key) => {
+            return LOCALES[currentLang]?.[key] || LOCALES.en[key] || key;
+        };
 
+        // Bind text to all elements
         const bindText = () => {
-            const map = {
-                heroTitle: "hero.title",
-                heroSubtitle: "hero.subtitle",
-                heroSupport: "hero.support",
-                heroPronounce: "hero.pronounce",
-                btnCreate: "cta.create",
-                btnLogin: "cta.signin",
-                btnOpenApp: "menu.openApp",
-                navAbout: "menu.about",
-                navClinician: "menu.clinician",
-                navHow: "menu.how",
-                navPrivacy: "menu.privacy",
-                navTerms: "menu.terms",
-                navContact: "menu.contact",
-                trustNote: "footer.trust",
-            };
-            Object.entries(map).forEach(([id, key]) => {
-                const el = $(id);
-                if (el) el.textContent = t(key);
-            });
-            // value row items: expect <span data-i18n="value.free"> etc.
+            // Update all elements with data-i18n attributes
             document.querySelectorAll("[data-i18n]").forEach(el => {
-                const k = el.getAttribute("data-i18n");
-                el.textContent = t(k);
+                const key = el.getAttribute("data-i18n");
+                const translation = t(key);
+                
+                // Special handling for the FREE text to maintain red styling
+                if (key === "hero.free") {
+                    el.innerHTML = translation;
+                    el.className = "free-text";
+                } else {
+                    el.textContent = translation;
+                }
             });
             
             // Update placeholders
@@ -1338,9 +1675,17 @@
                     el.placeholder = translation;
                 }
             });
+
+            // Update password toggle buttons
+            const loginToggle = $("loginPasswordToggle");
+            const registerToggle = $("registerPasswordToggle");
+            if (loginToggle) loginToggle.textContent = t("common.show");
+            if (registerToggle) registerToggle.textContent = t("common.show");
+
+            console.log(`🌐 Language updated to: ${currentLang.toUpperCase()}`);
         };
 
-        // Update all i18n elements
+        // Update language function
         function updateLanguage(lang) {
             currentLang = lang;
             
@@ -1356,12 +1701,17 @@
                 'it': 'IT', 'pt': 'PT', 'ro': 'RO', 'ar': 'AR', 
                 'hi': 'HI', 'zh': 'ZH'
             };
-            document.getElementById('langSelector').textContent = langMap[lang] || 'EN';
+            const selector = $('langSelector');
+            if (selector) {
+                selector.textContent = langMap[lang] || 'EN';
+            }
         }
 
         // Toast notification system
         function showToast(message, type = 'success', duration = 4000) {
-            const toastArea = document.getElementById('globalToastArea');
+            const toastArea = $('globalToastArea');
+            if (!toastArea) return;
+            
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
@@ -1391,12 +1741,14 @@
             close: $("menuClose"),
             overlay: $("menuOverlay")
         };
+
         const openSheet = () => { 
             menu.sheet.hidden = false; 
             menu.sheet.classList.add('open');
             menu.overlay.classList.add('open');
             document.body.classList.add("no-scroll"); 
         };
+
         const closeSheet = () => { 
             menu.sheet.classList.remove('open');
             menu.overlay.classList.remove('open');
@@ -1411,42 +1763,41 @@
         on(menu.overlay, "click", closeSheet);
 
         // Language selector
-        const langSelector = document.getElementById('langSelector');
-        const langDropdown = document.getElementById('langDropdown');
+        const langSelector = $('langSelector');
+        const langDropdown = $('langDropdown');
 
-        langSelector.addEventListener('click', () => {
-            const isOpen = langDropdown.style.display === 'block';
-            langDropdown.style.display = isOpen ? 'none' : 'block';
-            langSelector.setAttribute('aria-expanded', !isOpen);
-        });
+        if (langSelector && langDropdown) {
+            langSelector.addEventListener('click', () => {
+                const isOpen = langDropdown.style.display === 'block';
+                langDropdown.style.display = isOpen ? 'none' : 'block';
+                langSelector.setAttribute('aria-expanded', !isOpen);
+            });
 
-        // Language selection
-        langDropdown.addEventListener('click', (e) => {
-            if (e.target.dataset.lang) {
-                currentLang = e.target.dataset.lang;
-                langSelector.textContent = (currentLang || "EN").toUpperCase();
-                setRTL(currentLang);
-                bindText();
-                langDropdown.style.display = 'none';
-                langSelector.setAttribute('aria-expanded', 'false');
-            }
-        });
+            // Language selection
+            langDropdown.addEventListener('click', (e) => {
+                if (e.target.dataset.lang) {
+                    updateLanguage(e.target.dataset.lang);
+                    langDropdown.style.display = 'none';
+                    langSelector.setAttribute('aria-expanded', 'false');
+                }
+            });
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!langSelector.contains(e.target) && !langDropdown.contains(e.target)) {
-                langDropdown.style.display = 'none';
-                langSelector.setAttribute('aria-expanded', 'false');
-            }
-        });
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!langSelector.contains(e.target) && !langDropdown.contains(e.target)) {
+                    langDropdown.style.display = 'none';
+                    langSelector.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
 
         // Menu navigation
-        document.getElementById('navAbout').addEventListener('click', () => window.location.href = '/about.html');
-        document.getElementById('navClinician').addEventListener('click', () => window.location.href = '/clinician.html');
-        document.getElementById('navHow').addEventListener('click', () => window.location.href = '/app.html');
-        document.getElementById('navPrivacy').addEventListener('click', () => window.location.href = '/privacy.html');
-        document.getElementById('navTerms').addEventListener('click', () => window.location.href = '/terms.html');
-        document.getElementById('navContact').addEventListener('click', () => window.location.href = '/contact.html');
+        on($('navAbout'), 'click', () => window.location.href = '/about.html');
+        on($('navClinician'), 'click', () => window.location.href = '/clinician.html');
+        on($('navHow'), 'click', () => window.location.href = '/app.html');
+        on($('navPrivacy'), 'click', () => window.location.href = '/privacy.html');
+        on($('navTerms'), 'click', () => window.location.href = '/terms.html');
+        on($('navContact'), 'click', () => window.location.href = '/contact.html');
 
         /////////////////////////////////////////
         // 5) Modals open/close + toggles
@@ -1466,6 +1817,7 @@
                 showLoginView();
             }
         }
+
         function closeModal(which) {
             const el = modals[which];
             if (!el) return;
@@ -1482,24 +1834,22 @@
 
         // Modal view switching
         function showLoginView() {
-            document.getElementById('viewLogin').classList.remove('hidden');
-            document.getElementById('viewReset').classList.remove('active');
+            const viewLogin = $('viewLogin');
+            const viewReset = $('viewReset');
+            if (viewLogin) viewLogin.classList.remove('hidden');
+            if (viewReset) viewReset.classList.remove('active');
         }
 
         function showResetView() {
-            document.getElementById('viewLogin').classList.add('hidden');
-            document.getElementById('viewReset').classList.add('active');
+            const viewLogin = $('viewLogin');
+            const viewReset = $('viewReset');
+            if (viewLogin) viewLogin.classList.add('hidden');
+            if (viewReset) viewReset.classList.add('active');
         }
 
         // Forgot view (inside login modal)
-        const forgotLink = $("linkForgot");
-        const viewReset = $("viewReset");
-        on(forgotLink, "click", () => { if (viewReset) showResetView(); });
-
-        // Reset password flow
-        document.getElementById('linkBackToLogin').addEventListener('click', () => {
-            showLoginView();
-        });
+        on($("linkForgot"), "click", showResetView);
+        on($("linkBackToLogin"), "click", showLoginView);
 
         // Modal close buttons
         document.querySelectorAll('.modal-close').forEach(btn => {
@@ -1523,28 +1873,24 @@
         // Password toggle functionality
         const wireShowHide = (btnId, inputId) => {
             const btn = $(btnId), input = $(inputId);
+            if (!btn || !input) return;
+            
             on(btn, "click", (e) => {
                 e.preventDefault();
-                const pwd = input.type === "password";
-                input.type = pwd ? "text" : "password";
-                btn.textContent = pwd ? t("common.hide") : t("common.show");
+                const isPwd = input.type === "password";
+                input.type = isPwd ? "text" : "password";
+                btn.textContent = isPwd ? t("common.hide") : t("common.show");
             });
         };
-        wireShowHide("loginPasswordToggle", "loginPassword");
-        wireShowHide("registerPasswordToggle", "registerPassword");
 
-        // Email validation
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
+        wireShowHide("loginPasswordToggle", "loginPassword");
+        wireShowHide("registerPasswordToggle", "regPassword");
 
         /////////////////////////////////////////
-        // 6) Auth actions (email+password)
+        // 6) Auth actions with your exact code
         /////////////////////////////////////////
         async function getSession() {
-            if (!isSupabaseAvailable) {
-                return null;
-            }
+            if (!isSupabaseAvailable) return null;
             try {
                 const { data, error } = await supabase.auth.getSession();
                 if (error) throw error;
@@ -1555,131 +1901,49 @@
             }
         }
 
-        // Authentication functions
-        async function handleLogin(email, password) {
-            if (!isSupabaseAvailable) {
-                // Demo mode
-                showToast('Welcome back! Redirecting to dashboard...', 'success');
-                setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 2000);
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password,
-                });
-
-                if (error) {
-                    showToast(error.message, 'error');
-                    return;
-                }
-
-                showToast('Welcome back! Redirecting to dashboard...', 'success');
-                setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 2000);
-            } catch (error) {
-                console.error('Login error:', error);
-                showToast('Login failed. Please try again.', 'error');
-            }
-        }
-
-        async function handleRegister(fullname, email, password) {
-            if (!isSupabaseAvailable) {
-                // Demo mode
-                showToast('Account created successfully! Redirecting to dashboard...', 'success');
-                setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 2000);
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        data: {
-                            full_name: fullname,
-                        }
-                    }
-                });
-
-                if (error) {
-                    showToast(error.message, 'error');
-                    return;
-                }
-
-                if (data.user && !data.user.email_confirmed_at) {
-                    showToast('Please check your email to confirm your account!', 'info');
-                } else {
-                    showToast('Account created successfully! Redirecting to dashboard...', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/dashboard.html';
-                    }, 2000);
-                }
-            } catch (error) {
-                console.error('Registration error:', error);
-                showToast('Registration failed. Please try again.', 'error');
-            }
-        }
-
-        async function handlePasswordReset(email) {
-            if (!isSupabaseAvailable) {
-                // Demo mode
-                showToast('Password reset email sent successfully!', 'success');
-                showLoginView();
-                return;
-            }
-
-            try {
-                const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/reset-password.html`,
-                });
-
-                if (error) {
-                    showToast(error.message, 'error');
-                    return;
-                }
-
-                showToast('Password reset email sent successfully!', 'success');
-                showLoginView();
-            } catch (error) {
-                console.error('Password reset error:', error);
-                showToast('Password reset failed. Please try again.', 'error');
-            }
-        }
-
         // Button event handlers
         on($("btnOpenApp"), "click", async () => {
             const session = await getSession();
-            if (session) location.href = '/dashboard.html';
+            if (session) location.href = DASHBOARD_URL;
             else openModal("login");
         });
 
         on($("btnCreate"), "click", () => openModal("register"));
         on($("btnLogin"), "click", () => openModal("login"));
 
-        // Do login
-        on($("doLogin"), "click", async () => {
+        // Do login - YOUR EXACT CODE
+        on($("doLogin"), "click", async (e) => {
+            e.preventDefault();
             const email = $("loginEmail")?.value?.trim();
             const password = $("loginPassword")?.value || "";
             if (!email || !password) return toast("Enter email and password", "error");
+            
+            if (!isSupabaseAvailable) {
+                toast("Welcome back!", "success");
+                setTimeout(() => location.href = DASHBOARD_URL, 1500);
+                return;
+            }
+            
             const { error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
             if (error) return toast(error.message, "error");
             toast("Welcome back!", "success");
-            location.href = DASHBOARD_URL;
+            setTimeout(() => location.href = DASHBOARD_URL, 1500);
         });
 
-        // Do register
-        on($("doRegister"), "click", async () => {
-            const name = $("registerFullname")?.value?.trim();
-            const email = $("registerEmail")?.value?.trim();
-            const password = $("registerPassword")?.value || "";
+        // Do register - YOUR EXACT CODE
+        on($("doRegister"), "click", async (e) => {
+            e.preventDefault();
+            const name = $("regName")?.value?.trim();
+            const email = $("regEmail")?.value?.trim();
+            const password = $("regPassword")?.value || "";
             if (!name || !email || !password) return toast("Fill all fields", "error");
+            
+            if (!isSupabaseAvailable) {
+                toast("Check your email to confirm.", "success");
+                closeModal("register");
+                return;
+            }
+            
             const { data, error } = await window.supabaseClient.auth.signUp({ email, password });
             if (error) return toast(error.message, "error");
             // Optional: store name later in profile page
@@ -1687,33 +1951,33 @@
             closeModal("register");
         });
 
-        // Reset password
-        on($("doSendReset"), "click", async () => {
+        // Reset password - YOUR EXACT CODE
+        on($("doSendReset"), "click", async (e) => {
+            e.preventDefault();
             const email = $("resetEmail")?.value?.trim();
             if (!email) return toast("Enter your email", "error");
+            
+            if (!isSupabaseAvailable) {
+                toast("Password reset email sent!", "success");
+                showLoginView();
+                return;
+            }
+            
             const { error } = await window.supabaseClient.auth.resetPasswordForEmail(email, {
                 redirectTo: location.origin + "/?auth=login" // back to login after reset
             });
             if (error) return toast(error.message, "error");
             toast("Password reset email sent!", "success");
+            showLoginView();
         });
 
-        // Initialize the application
-        function initializeApp() {
-            // Initialize with English
-            updateLanguage('en');
-            
-            // Ensure login view is shown by default
-            showLoginView();
-        }
-
-        // Clicking background closes modals (optional: add overlay click handlers if desired)
+        // Clicking background closes modals
         document.querySelectorAll('[role="dialog"]').forEach(d => {
             on(d, "click", (e) => { if (e.target === d) d.hidden = true; });
         });
 
         /////////////////////////////////////////
-        // 7) Initial render
+        // 7) Initial render - YOUR EXACT CODE
         /////////////////////////////////////////
         (() => {
             setRTL(currentLang);
@@ -1721,20 +1985,31 @@
         })();
 
         // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize with English
+            updateLanguage('en');
+            
+            // Ensure login view is shown by default
+            showLoginView();
+            
+            console.log('🚀 MYQER Landing Page Initialized');
+            console.log('✅ Full translation system active');
+            console.log('✅ Authentication system ready');
+            console.log('✅ Premium UI components loaded');
+        });
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (modalLogin.classList.contains('open')) closeModal(modalLogin);
-                if (modalRegister.classList.contains('open')) closeModal(modalRegister);
-                if (menuSheet.classList.contains('open')) closeMenu();
-                if (langDropdown.style.display === 'block') {
+                if (modals.login?.classList.contains('open')) closeModal('login');
+                if (modals.register?.classList.contains('open')) closeModal('register');
+                if (menu.sheet?.classList.contains('open')) closeSheet();
+                if (langDropdown?.style.display === 'block') {
                     langDropdown.style.display = 'none';
-                    langSelector.setAttribute('aria-expanded', 'false');
+                    langSelector?.setAttribute('aria-expanded', 'false');
                 }
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97953931c532496e',t:'MTc1NjkwMjI1OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9795483c44c17759',t:'MTc1NjkwMjg3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
