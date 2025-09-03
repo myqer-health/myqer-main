@@ -449,12 +449,12 @@
         .value-card {
             position: relative;
             padding: 1.25rem;
-            background: var(--glass-gradient);
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.08) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 59, 48, 0.05) 100%);
             backdrop-filter: blur(20px) saturate(180%);
             border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 59, 48, 0.2);
             box-shadow: 
-                0 4px 16px var(--shadow-light),
+                0 4px 16px rgba(255, 59, 48, 0.1),
                 0 1px 0 rgba(255, 255, 255, 0.5) inset;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
@@ -474,9 +474,10 @@
         .value-card:hover {
             transform: translateY(-4px) scale(1.01);
             box-shadow: 
-                0 12px 32px var(--shadow-medium),
+                0 12px 32px rgba(255, 59, 48, 0.2),
                 0 1px 0 rgba(255, 255, 255, 0.7) inset;
-            background: rgba(255, 255, 255, 0.95);
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.12) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 59, 48, 0.08) 100%);
+            border-color: rgba(255, 59, 48, 0.3);
         }
 
         .value-card h3 {
@@ -495,11 +496,11 @@
         }
 
         .value-card.featured {
-            background: var(--glass-gradient);
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.08) 0%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 59, 48, 0.05) 100%);
             backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 59, 48, 0.2);
             box-shadow: 
-                0 4px 16px var(--shadow-light),
+                0 4px 16px rgba(255, 59, 48, 0.1),
                 0 1px 0 rgba(255, 255, 255, 0.5) inset;
         }
 
@@ -1650,16 +1651,28 @@
             }
         };
 
-        // Listen for auth state changes
+        // Listen for auth state changes - FIXED NO LOOP
         const setupAuthListener = () => {
             supabase.auth.onAuthStateChange((event, session) => {
                 console.log('🔐 Auth state changed:', event, session ? 'User logged in' : 'User logged out');
                 
-                if (event === 'SIGNED_IN' && session) {
+                // Only redirect on successful login from forms, not on page load
+                if (event === 'SIGNED_IN' && session && !window.isInitialLoad) {
                     console.log('✅ User signed in successfully, redirecting...');
-                    setTimeout(() => {
+                    // Close modal first
+                    document.getElementById('authModal').style.display = 'none';
+                    document.body.style.overflow = '';
+                    
+                    // Clear any existing timeouts
+                    if (window.redirectTimeout) {
+                        clearTimeout(window.redirectTimeout);
+                    }
+                    
+                    // Redirect after short delay
+                    window.redirectTimeout = setTimeout(() => {
+                        console.log('🚀 Redirecting to dashboard...');
                         window.location.href = DASHBOARD_URL;
-                    }, 1000);
+                    }, 500);
                 }
                 
                 if (event === 'SIGNED_OUT') {
@@ -1670,6 +1683,9 @@
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', async () => {
+            // Set initial load flag to prevent redirect loop
+            window.isInitialLoad = true;
+            
             // Initialize language
             updateLanguage('en');
 
@@ -1687,6 +1703,11 @@
             if (session && session.user) {
                 console.log('🔄 User already authenticated on page load');
             }
+            
+            // Clear initial load flag after setup
+            setTimeout(() => {
+                window.isInitialLoad = false;
+            }, 1000);
 
             // Menu functionality
             const menuToggle = document.getElementById('menuToggle');
@@ -1820,14 +1841,16 @@
                     console.log('✅ Login successful:', data);
                     showAlert('Sign in successful! Redirecting...', 'success');
                     
-                    // The auth state change listener will handle the redirect
-                    // But also add a fallback timeout
+                    // Clear the initial load flag so redirect works
+                    window.isInitialLoad = false;
+                    
+                    // Close modal and redirect directly
                     setTimeout(() => {
-                        if (window.location.pathname === '/') {
-                            console.log('🔄 Fallback redirect to dashboard');
-                            window.location.href = DASHBOARD_URL;
-                        }
-                    }, 2000);
+                        document.getElementById('authModal').style.display = 'none';
+                        document.body.style.overflow = '';
+                        console.log('🚀 Direct redirect to dashboard');
+                        window.location.href = DASHBOARD_URL;
+                    }, 1000);
 
                 } catch (error) {
                     console.error('❌ Login error:', error);
@@ -2020,5 +2043,5 @@
             console.log('📊 Total lines: 2200+ with complete functionality');
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9797b31f04540876',t:'MTc1NjkyODIyNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9797c2a96643cd92',t:'MTc1NjkyODg2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
