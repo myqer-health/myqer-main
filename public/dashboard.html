@@ -2169,16 +2169,20 @@
             }
         };
 
-        // Load user data with session persistence
-        const loadUserData = async () => {
-            try {
-                // Check for session guard - redirect if no session
-                const hasSession = localStorage.getItem('myqer_session') || sessionStorage.getItem('myqer_session');
-                if (!hasSession) {
-                    console.log('No session found, redirecting to login');
-                    window.location.href = '/';
-                    return;
-                }
+        // Load user data with Supabase session guard
+const loadUserData = async () => {
+  try {
+    // Ask Supabase if we have a real session
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) console.warn('Supabase session error:', error);
+
+    if (!session) {
+      console.log('❌ No Supabase session, redirecting to login');
+      window.location.href = '/';
+      return;
+    }
+
+    // ...your existing code continues here (load from localStorage, sync, generateQRCode, etc.)
 
                 // Load from localStorage first (persistent across sessions)
                 const profile = localStorage.getItem('myqer_profile');
@@ -2481,13 +2485,25 @@
                 }
             });
 
-            // Logout
-            document.getElementById('btnSignOut').addEventListener('click', () => {
-                if (confirm('Are you sure you want to logout?')) {
-                    localStorage.clear();
-                    window.location.href = '/';
-                }
-            });
+            document.getElementById('btnSignOut').addEventListener('click', async () => {
+  if (confirm('Are you sure you want to logout?')) {
+    try {
+      // Sign out from Supabase session
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Clear local storage/session just in case
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Redirect back to landing/login
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Logout error:', err);
+      alert('Logout failed, please try again');
+    }
+  }
+});
 
             console.log('🚀 MYQER Dashboard Initialized');
         });
