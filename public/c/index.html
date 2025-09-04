@@ -1,77 +1,302 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MYQER™ Emergency Card</title>
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:24px;background:#fff}
-  .wrap{max-width:640px;margin:0 auto}
-  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;color:#fff}
-  .pill.green{background:#22c55e}.pill.amber{background:#f59e0b}.pill.red{background:#ef4444}
-  .section{border:1px solid #eee;border-radius:12px;padding:16px;margin:12px 0}
-  h1{margin:0 0 12px 0;font-size:22px}
-  h2{margin:0 0 8px 0;font-size:16px;color:#555}
-  .muted{color:#777}
-  ul{margin:6px 0 0 20px}
-</style>
-<div class="wrap" id="root">
-  <p class="muted">Loading…</p>
-</div>
-<script>
-(async () => {
-  // 1) read code from /c/XXXX
-  const code = (location.pathname.split('/').filter(Boolean).pop() || '').toUpperCase();
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MYQER™ Emergency Card</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
-  // 2) fetch from your Supabase Edge Function
-  const endpoint = 'https://dmtmhnkncldgynufajei.supabase.co/functions/v1/card?code=' + encodeURIComponent(code);
+  <style>
+    :root{
+      --ink:#0f172a; --slate:#475569; --muted:#94a3b8; --red:#dc2626;
+      --amber:#d97706; --green:#059669; --border:rgba(148,163,184,.25);
+      --card: #fff; --bg: #f8fafc;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Arial,sans-serif}
+    .wrap{max-width:860px;margin:0 auto;padding:24px}
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:16px;
+      box-shadow:0 6px 24px rgba(15,23,42,.06); padding:20px 20px 8px;
+    }
+    .row{display:flex;gap:16px;align-items:flex-start}
+    .between{justify-content:space-between;align-items:center}
+    h1{font-size:22px;margin:0 0 6px}
+    .muted{color:var(--slate)}
+    .small{font-size:12px}
+    .pill{
+      display:inline-block; font-weight:700; font-size:12px; padding:6px 10px;
+      border-radius:999px; letter-spacing:.04em; border:1px solid transparent;
+    }
+    .pill.green{color:var(--green); background:#dcfce7; border-color:#bbf7d0}
+    .pill.amber{color:#b45309; background:#fef3c7; border-color:#fde68a}
+    .pill.red{color:#b91c1c; background:#fee2e2; border-color:#fecaca}
+    .pill.black{color:#0f172a; background:#e2e8f0; border-color:#cbd5e1}
 
-  let data;
-  try {
-    const res = await fetch(endpoint, { mode:'cors' });
-    data = await res.json();
-    if (!res.ok) throw new Error(data?.error || 'Failed');
-  } catch (e) {
-    document.getElementById('root').innerHTML =
-      `<p class="muted">Error loading card: ${String(e.message || e)}</p>`;
-    return;
-  }
+    .grid{display:grid;grid-template-columns:1fr 1fr; gap:16px}
+    @media (max-width:680px){ .grid{grid-template-columns:1fr} }
 
-  // 3) render
-  const triage = (data.profile.triage || 'green').toLowerCase();
-  const li = arr => (Array.isArray(arr) ? arr : String(arr || '').split(','))
-                    .map(s => s.trim()).filter(Boolean).map(s=>`<li>${s}</li>`).join('') || '<li>None listed</li>';
+    .panel{
+      border:1px solid var(--border); border-radius:12px; padding:14px 14px 10px;
+      background:#ffffff;
+    }
+    .panel h3{font-size:14px;margin:0 0 8px;color:var(--slate);text-transform:uppercase;letter-spacing:.06em}
+    .kv{display:grid;grid-template-columns:140px 1fr; gap:6px 12px; font-size:14px}
+    .kv div.label{color:var(--muted)}
+    ul.list{margin:6px 0 2px; padding-left:18px}
+    ul.list li{margin:4px 0; font-size:14px}
 
-  document.getElementById('root').innerHTML = `
-    <h1>Emergency Card <span class="pill ${triage}">${triage.toUpperCase()}</span></h1>
-    <div class="section">
-      <h2>Identity</h2>
-      <div><strong>Name:</strong> ${data.profile.full_name || '-'}</div>
-      <div><strong>Country:</strong> ${data.profile.country || '-'}</div>
-      <div><strong>DOB:</strong> ${data.profile.dob || '-'}</div>
-      <div class="muted">Code: ${data.profile.code}</div>
+    .ice{display:flex; flex-direction:column; gap:10px}
+    .ice-item{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    }
+    .tel{color:var(--red); text-decoration:none; font-weight:600}
+    .err,.hint{margin-top:12px; font-size:14px}
+    .err{color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; padding:10px;border-radius:8px}
+    .hint{color:var(--slate)}
+    .loader{margin:18px 0 0; width:32px; height:32px; border:3px solid #e2e8f0; border-top-color:var(--red); border-radius:50%; animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .footer-note{margin-top:14px; color:var(--muted); font-size:12px; text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="card" class="card">
+      <div class="row between">
+        <div>
+          <h1>Emergency Card</h1>
+          <div class="muted small" id="subtitle">Loading…</div>
+        </div>
+        <div id="triageSpot"></div>
+      </div>
+
+      <div id="loading" class="loader" aria-label="Loading" role="status"></div>
+      <div id="error" class="err" style="display:none"></div>
+
+      <div id="content" style="display:none">
+        <div class="grid" style="margin-top:14px">
+          <div class="panel">
+            <h3>Identity</h3>
+            <div class="kv">
+              <div class="label">Name</div><div id="kvName">-</div>
+              <div class="label">Date of Birth</div><div id="kvDob">-</div>
+              <div class="label">Country</div><div id="kvCountry">-</div>
+              <div class="label">Code</div><div id="kvCode">-</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Vitals</h3>
+            <div class="kv">
+              <div class="label">Blood Type</div><div id="kvBlood">-</div>
+              <div class="label">Organ Donor</div><div id="kvDonor">-</div>
+              <div class="label">Life Support Pref</div><div id="kvLife">-</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Allergies</h3>
+            <ul id="listAllergies" class="list"></ul>
+          </div>
+
+          <div class="panel">
+            <h3>Conditions</h3>
+            <ul id="listConds" class="list"></ul>
+          </div>
+
+          <div class="panel">
+            <h3>Medications</h3>
+            <ul id="listMeds" class="list"></ul>
+          </div>
+
+          <div class="panel">
+            <h3>Emergency Contacts (ICE)</h3>
+            <div id="iceBox" class="ice"></div>
+          </div>
+        </div>
+
+        <p class="hint">If this information appears inconsistent, confirm with official medical records.</p>
+      </div>
     </div>
 
-    <div class="section">
-      <h2>Medical</h2>
-      <div><strong>Blood Type:</strong> ${data.health.blood_type || '-'}</div>
-      <div><strong>Organ Donor:</strong> ${data.health.organ_donor ? 'Yes' : 'No/Unknown'}</div>
-      <div><strong>Life Support Preference:</strong> ${data.health.life_support_pref || '-'}</div>
-      <div><strong>Allergies:</strong><ul>${li(data.health.allergies)}</ul></div>
-      <div><strong>Conditions:</strong><ul>${li(data.health.conditions)}</ul></div>
-      <div><strong>Medications:</strong><ul>${li(data.health.meds)}</ul></div>
-      <div><strong>Implants/Devices:</strong><ul>${li(data.health.implants)}</ul></div>
-    </div>
+    <div class="footer-note">© 2024 MYQER™ — Data shown here is read-only for emergency use.</div>
+  </div>
 
-    <div class="section">
-      <h2>Emergency Contacts</h2>
-      ${
-        (data.ice||[]).length
-        ? data.ice.map((c,i)=>`<div><strong>${i+1}.</strong> ${c.name || '-'} — ${c.relation || '-'} — ${c.phone || '-'}</div>`).join('')
-        : '<div class="muted">No contacts listed</div>'
+  <script>
+    // ---------- config ----------
+    // Default Edge Function base (you can override with ?api=...)
+    const DEFAULT_API_BASE = 'https://dmntmhkncldgynufajei.supabase.co';
+
+    // ---------- triage helpers (local fallback) ----------
+    const TRIAGE_KEYWORDS = [
+      { re: /anaphylaxis|epi-?pen|airway/i,                 score: 4 },
+      { re: /anticoagulant|warfarin|apixaban|xarelto|rivaroxaban/i, score: 3 },
+      { re: /insulin|diabetic ketoacidosis|dka/i,           score: 3 },
+      { re: /chest pain|mi|myocardial infarction|angina/i,  score: 4 },
+      { re: /stroke|tia|hemorrhage|subarachnoid/i,          score: 4 },
+      { re: /seizure|status epilepticus/i,                  score: 3 },
+      { re: /pacemaker|defibrillator|icd/i,                 score: 2 },
+      { re: /oxygen|respiratory failure|severe copd/i,      score: 3 },
+      { re: /renal failure|dialysis/i,                      score: 2 },
+      { re: /sickle cell/i,                                 score: 2 },
+      { re: /pregnan/i,                                     score: 2 },
+    ];
+
+    function toList(v){
+      if (Array.isArray(v)) return v.filter(Boolean).map(String);
+      return String(v || '').split(',').map(s=>s.trim()).filter(Boolean);
+    }
+
+    function deriveTriage(profile, sections){
+      const a = toList(sections?.allergies?.items);
+      const c = toList(sections?.conditions?.items);
+      const m = toList(sections?.meds?.items);
+      const hay = [a,c,m].flat().join('\n');
+      let score = 0;
+      for (const k of TRIAGE_KEYWORDS) if (k.re.test(hay)) score += k.score;
+      if (score >= 6) return { level: 'red',   reason: `local score ${score}` };
+      if (score >= 3) return { level: 'amber', reason: `local score ${score}` };
+      return { level: 'green', reason: `local score ${score}` };
+    }
+
+    // ---------- rendering ----------
+    function pill(level){
+      const lv = (level||'').toLowerCase();
+      const cls = ['green','amber','red','black'].includes(lv) ? lv : 'green';
+      return `<span class="pill ${cls}">${cls.toUpperCase()}</span>`;
+    }
+
+    function renderCard(data){
+      const loading = document.getElementById('loading');
+      const content = document.getElementById('content');
+      const errorEl = document.getElementById('error');
+      const subtitle = document.getElementById('subtitle');
+      const triageSpot = document.getElementById('triageSpot');
+
+      loading.style.display = 'none';
+      errorEl.style.display = 'none';
+      content.style.display = 'block';
+
+      const profile = data.profile || {};
+      const sec = data.sections || {};
+      const blood = sec.blood || {};
+      const prefs = sec.prefs || {};
+      const ice  = (sec.ice && sec.ice.contacts) ? sec.ice.contacts : [];
+
+      // triage: prefer server, else local derive
+      let triageLevel = (profile.triage || '').toLowerCase();
+      let source = 'server';
+      if (!triageLevel) {
+        triageLevel = deriveTriage(profile, sec).level;
+        source = 'local';
       }
-    </div>
+      triageSpot.innerHTML = pill(triageLevel);
+      subtitle.textContent = `Triage: ${source === 'server' ? 'from profile' : 'calculated on device'}`;
 
-    <p class="muted">${data.disclaimer || ''}</p>
-  `;
-})();
-</script>
+      // identity
+      document.getElementById('kvName').textContent    = profile.full_name || '-';
+      document.getElementById('kvDob').textContent     = profile.dob || '-';
+      document.getElementById('kvCountry').textContent = profile.country || '-';
+      document.getElementById('kvCode').textContent    = (profile.code || '').toUpperCase() || '-';
+
+      // vitals
+      document.getElementById('kvBlood').textContent = blood.value || '-';
+      document.getElementById('kvDonor').textContent = blood.donor ? 'Yes' : (blood.donor === false ? 'No' : '-');
+      document.getElementById('kvLife').textContent  = prefs.life_support_pref || '-';
+
+      // lists
+      const renderList = (elId, arr) => {
+        const ul = document.getElementById(elId);
+        ul.innerHTML = '';
+        const items = toList(arr);
+        if (!items.length){ ul.innerHTML = '<li>—</li>'; return; }
+        for (const item of items){
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        }
+      };
+      renderList('listAllergies', sec.allergies?.items);
+      renderList('listConds',     sec.conditions?.items);
+      renderList('listMeds',      sec.meds?.items);
+
+      // ICE contacts
+      const iceBox = document.getElementById('iceBox');
+      iceBox.innerHTML = '';
+      if (!ice || !ice.length){
+        const d = document.createElement('div');
+        d.className = 'muted small';
+        d.textContent = 'No emergency contacts listed.';
+        iceBox.appendChild(d);
+      } else {
+        ice.slice(0,3).forEach(c=>{
+          const row = document.createElement('div');
+          row.className = 'ice-item';
+          const left = document.createElement('div');
+          left.innerHTML = `<div style="font-weight:600">${c.name||'-'}</div>
+                            <div class="muted small">${c.relation||''}</div>`;
+          const right = document.createElement('a');
+          right.className = 'tel';
+          right.href = c.phone ? `tel:${c.phone}` : '#';
+          right.textContent = c.phone || '—';
+          row.append(left, right);
+          iceBox.appendChild(row);
+        });
+      }
+    }
+
+    function showError(msg){
+      document.getElementById('loading').style.display = 'none';
+      const el = document.getElementById('error');
+      el.textContent = msg || 'Something went wrong.';
+      el.style.display = 'block';
+    }
+
+    // ---------- data loader ----------
+    async function fetchAndRender(){
+      const url = new URL(location.href);
+
+      // Prefer /c/XXXX-XXXX path; fallback to ?code=
+      let code = (location.pathname.split('/').pop() || '').trim();
+      if (!code || code.toLowerCase() === 'index.html') {
+        code = (url.searchParams.get('code') || '').trim();
+      }
+      if (!code){
+        showError('Missing code in URL. Try /c/XXXX-XXXX');
+        return;
+      }
+
+      // API base: default to your project, allow override via ?api=
+      const apiBase = url.searchParams.get('api') || DEFAULT_API_BASE;
+      const lang = (url.searchParams.get('lang') || navigator.language || 'en').slice(0,2);
+
+      const endpoint = `${apiBase}/functions/v1/card?code=${encodeURIComponent(code)}&lang=${encodeURIComponent(lang)}`;
+      try{
+        const res = await fetch(endpoint, { headers: { 'Accept':'application/json' }});
+        if (!res.ok){
+          const t = await res.text().catch(()=> '');
+          throw new Error(`(${res.status}) ${t || 'Failed to load card'}`);
+        }
+        const data = await res.json();
+        // Ensure minimal shape
+        if (!data || !data.profile){
+          throw new Error('Malformed response from card API.');
+        }
+        // If the edge function didn’t echo code, ensure we display the one we asked for
+        data.profile.code = data.profile.code || code;
+        renderCard(data);
+      }catch(err){
+        console.error(err);
+        showError(err.message);
+      }
+    }
+
+    // boot
+    fetchAndRender();
+  </script>
+</body>
+</html>
