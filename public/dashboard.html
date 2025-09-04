@@ -1,2681 +1,772 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MYQER™ Dashboard - Your Emergency Profile</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --red: #DC2626;
-            --green: #059669;
-            --orange: #EA580C;
-            --ink: #0F172A;
-            --slate: #475569;
-            --light-slate: #94A3B8;
-            --bg: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
-            --white: #FFFFFF;
-            --glass: rgba(255, 255, 255, 0.95);
-            --border: rgba(148, 163, 184, 0.15);
-            --shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
-            --shadow-lg: 0 20px 64px rgba(15, 23, 42, 0.12);
-            --shadow-xl: 0 32px 80px rgba(15, 23, 42, 0.15);
-            --gradient-red: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
-            --gradient-green: linear-gradient(135deg, #059669 0%, #047857 100%);
-            --gradient-orange: linear-gradient(135deg, #EA580C 0%, #C2410C 100%);
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg);
-            color: var(--ink);
-            line-height: 1.6;
-            min-height: 100vh;
-            font-weight: 400;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* Loading State */
-        #loadingState {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--white);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid var(--border);
-            border-top: 4px solid var(--red);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            font-size: 1.125rem;
-            color: var(--slate);
-            font-weight: 500;
-        }
-
-        /* Error Box */
-        #errorBox {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--white);
-            border: 2px solid #EF4444;
-            border-radius: 16px;
-            padding: 2rem;
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-            box-shadow: var(--shadow-lg);
-            z-index: 9998;
-            display: none;
-        }
-
-        #errorBox h3 {
-            color: #EF4444;
-            margin-bottom: 1rem;
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        #errorMsg {
-            color: var(--slate);
-            margin-bottom: 1.5rem;
-        }
-
-        .error-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        /* Toast Area */
-        #toastArea {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 9997;
-            pointer-events: none;
-        }
-
-        .toast {
-            background: var(--white);
-            border-radius: 12px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 0.5rem;
-            box-shadow: var(--shadow);
-            border-left: 4px solid var(--green);
-            font-size: 0.875rem;
-            font-weight: 500;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
-            pointer-events: auto;
-            max-width: 320px;
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .toast.error {
-            border-left-color: #EF4444;
-            color: #991B1B;
-        }
-
-        .toast.success {
-            border-left-color: var(--green);
-            color: #166534;
-        }
-
-        /* Header */
-        header {
-            background: var(--white);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            backdrop-filter: blur(20px);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .logo h1 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-        }
-
-        .logo-myq {
-            color: var(--ink);
-        }
-
-        .logo-er {
-            color: var(--red);
-        }
-
-        .logo-tm {
-            color: var(--ink);
-            font-size: 0.8em;
-            vertical-align: super;
-        }
-
-        .logo-hint {
-            font-size: 0.75rem;
-            color: var(--light-slate);
-            font-style: italic;
-            font-weight: 400;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        #langSelector {
-            position: relative;
-            background: var(--glass);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-        }
-
-        .lang-dropdown {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            z-index: 1001;
-            min-width: 120px;
-            display: none;
-        }
-
-        .lang-dropdown button {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: none;
-            background: none;
-            text-align: left;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: background 0.2s;
-        }
-
-        .lang-dropdown button:hover {
-            background: var(--bg);
-        }
-
-        #netStatus {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        #netStatus.online {
-            background: #DCFCE7;
-            color: var(--green);
-        }
-
-        #netStatus.offline {
-            background: #FEF3C7;
-            color: #D97706;
-        }
-
-        #btnSignOut {
-            background: var(--red);
-            color: var(--white);
-            border: none;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        #btnSignOut:hover {
-            background: #B71C1C;
-            transform: translateY(-1px);
-        }
-
-        /* Offline Banner */
-        #offlineBanner {
-            background: #FEF3C7;
-            color: #92400E;
-            padding: 0.75rem 2rem;
-            text-align: center;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border-bottom: 1px solid #F59E0B;
-            display: none;
-        }
-
-        /* Main Content */
-        main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-            display: grid;
-            gap: 2rem;
-        }
-
-        /* Ultra-Premium Glass Cards with Left Ribbons */
-        .card {
-            background: var(--glass);
-            backdrop-filter: blur(24px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 3rem 3rem 3rem 4rem;
-            box-shadow: var(--shadow-lg);
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-left: 1rem;
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-xl);
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 6px;
-            background: var(--gradient-green);
-            border-radius: 0 4px 4px 0;
-        }
-
-        .card.ice::before {
-            background: var(--gradient-orange);
-        }
-
-        .card.critical::before {
-            background: var(--gradient-red);
-        }
-
-        .card.emergency::before {
-            background: var(--gradient-red);
-        }
-
-        /* Left Ribbon */
-        .ribbon {
-            position: absolute;
-            top: 2rem;
-            left: -0.5rem;
-            background: var(--gradient-green);
-            color: var(--white);
-            padding: 0.75rem 1.5rem 0.75rem 2rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            border-radius: 0 12px 12px 0;
-            box-shadow: 0 4px 16px rgba(5, 150, 105, 0.3);
-            z-index: 10;
-        }
-
-        .ribbon::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: -8px;
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid rgba(5, 150, 105, 0.8);
-            border-top: 8px solid rgba(5, 150, 105, 0.8);
-        }
-
-        .ribbon.ice {
-            background: var(--gradient-orange);
-            box-shadow: 0 4px 16px rgba(234, 88, 12, 0.3);
-        }
-
-        .ribbon.ice::after {
-            border-right-color: rgba(234, 88, 12, 0.8);
-            border-top-color: rgba(234, 88, 12, 0.8);
-        }
-
-        .ribbon.critical {
-            background: var(--gradient-red);
-            box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
-        }
-
-        .ribbon.critical::after {
-            border-right-color: rgba(220, 38, 38, 0.8);
-            border-top-color: rgba(220, 38, 38, 0.8);
-        }
-
-        .ribbon.emergency {
-            background: var(--gradient-red);
-            box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
-        }
-
-        .ribbon.emergency::after {
-            border-right-color: rgba(220, 38, 38, 0.8);
-            border-top-color: rgba(220, 38, 38, 0.8);
-        }
-
-        /* Card Headers */
-        .card-header {
-            margin-bottom: 1.5rem;
-        }
-
-        .card-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 0.5rem;
-        }
-
-        .card-subtitle {
-            color: var(--slate);
-            font-size: 0.875rem;
-            line-height: 1.5;
-        }
-
-        /* Form Elements */
-        .form-grid {
-            display: grid;
-            gap: 1.5rem;
-        }
-
-        .form-grid.two-col {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            color: var(--ink);
-            font-size: 0.875rem;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            padding: 0.75rem 1rem;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            font-size: 1rem;
-            transition: all 0.2s;
-            background: var(--white);
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--red);
-            box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .form-hint {
-            font-size: 0.75rem;
-            color: var(--light-slate);
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: var(--red);
-        }
-
-        /* Save Buttons */
-        .save-button {
-            background: var(--red);
-            color: var(--white);
-            border: none;
-            border-radius: 12px;
-            padding: 0.875rem 2rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 1rem;
-        }
-
-        .save-button:hover:not(:disabled) {
-            background: #B71C1C;
-            transform: translateY(-1px);
-        }
-
-        .save-button:disabled {
-            background: var(--light-slate);
-            cursor: not-allowed;
-        }
-
-        /* Status Messages */
-        .status-msg {
-            font-size: 0.875rem;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .status-msg.success {
-            background: #DCFCE7;
-            color: var(--green);
-        }
-
-        .status-msg.error {
-            background: #FEE2E2;
-            color: #DC2626;
-        }
-
-        /* Triage Section */
-        .triage-section {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(248, 250, 252, 0.5);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }
-
-        .triage-label {
-            font-weight: 600;
-            color: var(--ink);
-        }
-
-        #triagePill {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        #triagePill.green {
-            background: #DCFCE7;
-            color: var(--green);
-        }
-
-        #triagePill.amber {
-            background: #FEF3C7;
-            color: #D97706;
-        }
-
-        #triagePill.red {
-            background: #FEE2E2;
-            color: #DC2626;
-        }
-
-        #triagePill.black {
-            background: #F1F5F9;
-            color: var(--slate);
-        }
-
-        #triageOverride {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.875rem;
-            background: var(--white);
-        }
-
-        /* Premium Emergency Card & QR Section */
-        .emergency-card {
-            background: linear-gradient(135deg, rgba(220, 38, 38, 0.03) 0%, rgba(220, 38, 38, 0.08) 100%);
-            border: 1px solid rgba(220, 38, 38, 0.15);
-        }
-
-        .qr-section {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 3rem;
-            margin-top: 2rem;
-            align-items: start;
-        }
-
-        #qrSlot {
-            position: relative;
-            width: 240px;
-            height: 240px;
-            background: var(--white);
-            border: 3px solid rgba(220, 38, 38, 0.1);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.1);
-        }
-
-        #qrSlot::before {
-            content: '';
-            position: absolute;
-            inset: -8px;
-            background: conic-gradient(from 0deg, transparent, rgba(220, 38, 38, 0.2), transparent);
-            border-radius: 24px;
-            z-index: -1;
-            animation: rotate 3s linear infinite;
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        #qrCanvas {
-            border-radius: 12px;
-        }
-
-        .qr-placeholder {
-            width: 200px;
-            height: 200px;
-            background: rgba(220, 38, 38, 0.05);
-            border: 2px dashed rgba(220, 38, 38, 0.2);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--slate);
-            font-size: 0.875rem;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        #codeUnderQR {
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.875rem;
-            color: var(--slate);
-            text-align: center;
-            margin-top: 1rem;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-        }
-
-        #qrStatus {
-            background: rgba(220, 38, 38, 0.1);
-            color: var(--red);
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-top: 1rem;
-        }
-
-        .qr-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .qr-url-section {
-            background: rgba(220, 38, 38, 0.03);
-            border: 1px solid rgba(220, 38, 38, 0.1);
-            border-radius: 16px;
-            padding: 1.5rem;
-        }
-
-        .qr-url-section h4 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--ink);
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        #cardUrl {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid rgba(220, 38, 38, 0.2);
-            border-radius: 8px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.875rem;
-            background: var(--white);
-            color: var(--slate);
-            margin-bottom: 1rem;
-        }
-
-        .url-actions {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .qr-downloads {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .qr-downloads h4 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--ink);
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .download-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 0.75rem;
-        }
-
-        .btn-secondary {
-            background: var(--white);
-            color: var(--red);
-            border: 2px solid var(--red);
-            border-radius: 12px;
-            padding: 0.875rem 2rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-secondary:hover {
-            background: var(--red);
-            color: var(--white);
-        }
-
-        /* Premium ICE Contacts */
-        .ice-row {
-            background: rgba(234, 88, 12, 0.03);
-            border: 1px solid rgba(234, 88, 12, 0.1);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-        }
-
-        .ice-row:hover {
-            background: rgba(234, 88, 12, 0.05);
-            border-color: rgba(234, 88, 12, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(234, 88, 12, 0.1);
-        }
-
-        .ice-contact-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .contact-number {
-            background: var(--gradient-orange);
-            color: var(--white);
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1rem;
-            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
-        }
-
-        .ice-actions {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .iceSaveBtn {
-            background: var(--gradient-orange);
-            color: var(--white);
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .iceSaveBtn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
-        }
-
-        .iceDeleteBtn {
-            background: none;
-            border: none;
-            color: #DC2626;
-            cursor: pointer;
-            font-size: 1.25rem;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-        }
-
-        .iceDeleteBtn:hover {
-            background: rgba(220, 38, 38, 0.1);
-            color: #B91C1C;
-        }
-
-        .ice-form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .ice-form-grid .form-group:nth-child(3) {
-            grid-column: 1 / -1;
-        }
-
-        #addIce {
-            background: rgba(234, 88, 12, 0.1);
-            color: var(--orange);
-            border: 2px dashed rgba(234, 88, 12, 0.3);
-            border-radius: 16px;
-            padding: 1.5rem 2rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 1rem;
-            width: 100%;
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        #addIce:hover:not(:disabled) {
-            background: rgba(234, 88, 12, 0.15);
-            border-color: rgba(234, 88, 12, 0.5);
-            transform: translateY(-2px);
-        }
-
-        #addIce:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            header {
-                padding: 1rem;
-            }
-
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: stretch;
-            }
-
-            .header-controls {
-                justify-content: space-between;
-            }
-
-            main {
-                padding: 1rem;
-                gap: 1.5rem;
-            }
-
-            .card {
-                padding: 1.5rem 1.5rem 1.5rem 2rem;
-                margin-left: 0.5rem;
-            }
-
-            .form-grid.two-col {
-                grid-template-columns: 1fr;
-            }
-
-            .qr-section {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-                text-align: center;
-            }
-
-            .qr-placeholder {
-                width: 150px;
-                height: 150px;
-            }
-
-            #qrSlot {
-                width: 200px;
-                height: 200px;
-                margin: 0 auto;
-            }
-
-            .download-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .ice-form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .disclaimers {
-                padding: 0 1rem;
-            }
-
-            .disclaimer-content {
-                padding: 1.5rem;
-            }
-
-            .footer {
-                padding: 1.5rem 1rem;
-            }
-
-            .footer-content {
-                flex-direction: column;
-                text-align: center;
-                gap: 1.5rem;
-            }
-
-            .footer-links {
-                justify-content: center;
-            }
-        }
-
-        /* RTL Support */
-        [dir="rtl"] .ribbon {
-            right: auto;
-            left: -30px;
-            transform: rotate(-45deg);
-        }
-
-        [dir="rtl"] .lang-dropdown {
-            right: auto;
-            left: 0;
-        }
-
-        /* Accessibility */
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-
-        /* Focus styles */
-        button:focus,
-        input:focus,
-        select:focus,
-        textarea:focus {
-            outline: 2px solid var(--red);
-            outline-offset: 2px;
-        }
-
-        /* Auto-save indicators */
-        .field-saved {
-            position: relative;
-        }
-
-        .field-saved::after {
-            content: '✓';
-            position: absolute;
-            right: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--green);
-            font-weight: 700;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .field-saved.show-check::after {
-            opacity: 1;
-        }
-
-        /* Delete Account Section */
-        .delete-account {
-            background: linear-gradient(135deg, rgba(220, 38, 38, 0.03) 0%, rgba(220, 38, 38, 0.08) 100%);
-            border: 1px solid rgba(220, 38, 38, 0.15);
-            margin-top: 3rem;
-        }
-
-        .delete-form {
-            background: rgba(220, 38, 38, 0.05);
-            border: 1px solid rgba(220, 38, 38, 0.1);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-top: 1.5rem;
-        }
-
-        .delete-button {
-            background: #DC2626;
-            color: var(--white);
-            border: none;
-            border-radius: 12px;
-            padding: 0.875rem 2rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 1rem;
-            width: 100%;
-        }
-
-        .delete-button:hover:not(:disabled) {
-            background: #B91C1C;
-            transform: translateY(-1px);
-        }
-
-        .delete-button:disabled {
-            background: var(--light-slate);
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        /* Disclaimers */
-        .disclaimers {
-            max-width: 1200px;
-            margin: 3rem auto 2rem;
-            padding: 0 2rem;
-        }
-
-        .disclaimer-content {
-            background: rgba(148, 163, 184, 0.05);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .disclaimer-content p {
-            color: var(--slate);
-            font-size: 0.875rem;
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        .disclaimer-content p:first-child {
-            margin-bottom: 0.75rem;
-            font-weight: 500;
-        }
-
-        /* Footer */
-        .footer {
-            background: var(--white);
-            border-top: 1px solid var(--border);
-            padding: 2rem;
-            margin-top: 4rem;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 2rem;
-        }
-
-        .footer-links a {
-            color: var(--slate);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-
-        .footer-links a:hover {
-            color: var(--red);
-        }
-
-        .footer-copyright {
-            color: var(--light-slate);
-            font-size: 0.75rem;
-        }
-
-        /* Hidden state */
-        .hidden {
-            display: none !important;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MYQER™ Dashboard - Your Emergency Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --red:#DC2626;--green:#059669;--orange:#EA580C;--ink:#0F172A;--slate:#475569;--light-slate:#94A3B8;
+      --bg:linear-gradient(135deg,#F8FAFC 0%,#F1F5F9 100%);--white:#fff;--glass:rgba(255,255,255,.95);
+      --border:rgba(148,163,184,.15);--shadow:0 8px 32px rgba(15,23,42,.08);--shadow-lg:0 20px 64px rgba(15,23,42,.12);
+      --shadow-xl:0 32px 80px rgba(15,23,42,.15);--gradient-red:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);
+      --gradient-green:linear-gradient(135deg,#059669 0%,#047857 100%);--gradient-orange:linear-gradient(135deg,#EA580C 0%,#C2410C 100%)
+    }
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;min-height:100vh}
+    #loadingState{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999}
+    .spinner{width:48px;height:48px;border:4px solid var(--border);border-top:4px solid var(--red);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:1rem}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:1.125rem;color:var(--slate);font-weight:500}
+    #errorBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #EF4444;border-radius:16px;padding:2rem;max-width:400px;width:90%;text-align:center;box-shadow:var(--shadow-lg);z-index:9998;display:none}
+    #errorBox h3{color:#EF4444;margin-bottom:1rem;font-size:1.25rem;font-weight:600}
+    .error-actions{display:flex;gap:1rem;justify-content:center}
+    #toastArea{position:fixed;top:1rem;right:1rem;z-index:9997;pointer-events:none}
+    .toast{background:#fff;border-radius:12px;padding:1rem 1.5rem;margin-bottom:.5rem;box-shadow:var(--shadow);border-left:4px solid var(--green);font-size:.875rem;font-weight:500;opacity:0;transform:translateX(100%);transition:all .3s;pointer-events:auto;max-width:320px}
+    .toast.show{opacity:1;transform:translateX(0)}
+    .toast.error{border-left-color:#EF4444;color:#991B1B}
+    .toast.success{border-left-color:var(--green);color:#166534}
+    header{background:#fff;border-bottom:1px solid var(--border);padding:1rem 2rem;position:sticky;top:0;z-index:1000}
+    .header-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
+    .logo{display:flex;align-items:center;gap:.5rem}
+    .logo h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}.logo-myq{color:var(--ink)}.logo-er{color:var(--red)}.logo-tm{color:var(--ink);font-size:.8em;vertical-align:super}.logo-hint{font-size:.75rem;color:var(--light-slate);font-style:italic;font-weight:400}
+    .header-controls{display:flex;align-items:center;gap:1rem}
+    #langSelector{position:relative;background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:.5rem 1rem;font-size:.875rem;cursor:pointer}
+    .lang-dropdown{position:absolute;top:100%;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);z-index:1001;min-width:120px;display:none}
+    .lang-dropdown button{width:100%;padding:.75rem 1rem;border:none;background:none;text-align:left;cursor:pointer;font-size:.875rem}
+    #netStatus{padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    #netStatus.online{background:#DCFCE7;color:var(--green)}#netStatus.offline{background:#FEF3C7;color:#D97706}
+    #btnSignOut{background:var(--red);color:#fff;border:none;border-radius:8px;padding:.75rem 1.5rem;font-weight:600;cursor:pointer}
+    #offlineBanner{background:#FEF3C7;color:#92400E;padding:.75rem 2rem;text-align:center;font-size:.875rem;font-weight:500;border-bottom:1px solid #F59E0B;display:none}
+    main{max-width:1200px;margin:0 auto;padding:2rem;display:grid;gap:2rem}
+    .card{background:var(--glass);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:24px;padding:3rem 3rem 3rem 4rem;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;margin-left:1rem}
+    .card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:6px;background:var(--gradient-green)}
+    .card.ice::before{background:var(--gradient-orange)}.card.critical::before,.card.emergency::before{background:var(--gradient-red)}
+    .ribbon{position:absolute;top:2rem;left:-.5rem;background:var(--gradient-green);color:#fff;padding:.75rem 1.5rem .75rem 2rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;border-radius:0 12px 12px 0}
+    .ribbon.ice{background:var(--gradient-orange)}.ribbon.critical,.ribbon.emergency{background:var(--gradient-red)}
+    .card-header{margin-bottom:1.5rem}.card-title{font-size:1.5rem;font-weight:700;color:var(--ink);margin-bottom:.5rem}.card-subtitle{color:var(--slate);font-size:.875rem}
+    .form-grid{display:grid;gap:1.5rem}.form-grid.two-col{grid-template-columns:1fr 1fr}
+    .form-group{display:flex;flex-direction:column;gap:.5rem}.form-group label{font-weight:600;color:var(--ink);font-size:.875rem}
+    .form-group input,.form-group select,.form-group textarea{padding:.75rem 1rem;border:2px solid var(--border);border-radius:12px;font-size:1rem;background:#fff}
+    .form-hint{font-size:.75rem;color:var(--light-slate)}
+    .checkbox-group{display:flex;align-items:center;gap:.75rem}.checkbox-group input{width:20px;height:20px;accent-color:var(--red)}
+    .save-button{background:var(--red);color:#fff;border:none;border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer;margin-top:1rem}
+    .status-msg{font-size:.875rem;margin-top:.5rem;padding:.5rem;border-radius:8px;display:none}.status-msg.success{background:#DCFCE7;color:var(--green)}.status-msg.error{background:#FEE2E2;color:#DC2626}
+    .triage-section{display:flex;align-items:center;gap:1rem;margin-top:1rem;padding:1rem;background:rgba(248,250,252,.5);border-radius:12px;border:1px solid var(--border)}
+    #triagePill{padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    #triagePill.green{background:#DCFCE7;color:var(--green)}#triagePill.amber{background:#FEF3C7;color:#D97706}#triagePill.red{background:#FEE2E2;color:#DC2626}#triagePill.black{background:#F1F5F9;color:var(--slate)}
+    .emergency-card{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15)}
+    .qr-section{display:grid;grid-template-columns:auto 1fr;gap:3rem;margin-top:2rem;align-items:start}
+    #qrSlot{position:relative;width:240px;height:240px;background:#fff;border:3px solid rgba(220,38,38,.1);border-radius:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(220,38,38,.1)}
+    .qr-placeholder{width:200px;height:200px;background:rgba(220,38,38,.05);border:2px dashed rgba(220,38,38,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:.875rem;text-align:center;font-weight:500}
+    #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
+    #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
+    .qr-url-section{background:rgba(220,38,38,.03);border:1px solid rgba(220,38,38,.1);border-radius:16px;padding:1.5rem}
+    #cardUrl{width:100%;padding:.75rem 1rem;border:1px solid rgba(220,38,38,.2);border-radius:8px;font-family:Monaco,Menlo,monospace;font-size:.875rem;background:#fff;color:var(--slate);margin-bottom:1rem}
+    .btn-secondary{background:#fff;color:var(--red);border:2px solid var(--red);border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer}
+    .download-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+    .ice-row{background:rgba(234,88,12,.03);border:1px solid rgba(234,88,12,.1);border-radius:16px;padding:2rem;margin-bottom:1.5rem}
+    .ice-contact-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
+    .contact-number{background:var(--gradient-orange);color:#fff;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem}
+    .ice-actions{display:flex;gap:.75rem;align-items:center}
+    .iceSaveBtn{background:var(--gradient-orange);color:#fff;border:none;border-radius:8px;padding:.5rem 1rem;font-size:.75rem;font-weight:600;cursor:pointer}
+    .iceDeleteBtn{background:none;border:none;color:#DC2626;cursor:pointer;font-size:1.25rem;padding:.5rem;border-radius:8px;width:36px;height:36px}
+    .delete-account{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15);margin-top:3rem}
+    .delete-form{background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.1);border-radius:16px;padding:2rem;margin-top:1.5rem}
+    .delete-button{background:#DC2626;color:#fff;border:none;border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer;margin-top:1rem;width:100%}
+    .disclaimers{max-width:1200px;margin:3rem auto 2rem;padding:0 2rem}
+    .disclaimer-content{background:rgba(148,163,184,.05);border:1px solid rgba(148,163,184,.1);border-radius:16px;padding:2rem;text-align:center}
+    .footer{background:#fff;border-top:1px solid var(--border);padding:2rem;margin-top:4rem}
+    .footer-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+    .footer-links{display:flex;gap:2rem}.footer-links a{color:var(--slate);text-decoration:none;font-size:.875rem;font-weight:500}
+    .hidden{display:none!important}
+    @media(max-width:768px){header{padding:1rem}.header-content{flex-direction:column;gap:1rem;align-items:stretch}
+      main{padding:1rem;gap:1.5rem}.card{padding:1.5rem 1.5rem 1.5rem 2rem;margin-left:.5rem}
+      .form-grid.two-col{grid-template-columns:1fr}.qr-section{grid-template-columns:1fr;gap:2rem;text-align:center}
+      #qrSlot{width:200px;height:200px;margin:0 auto}.download-grid{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
-    <!-- Loading State -->
-    <div id="loadingState">
-        <div class="spinner"></div>
-        <div class="loading-text" data-i18n="loading.dashboard">Loading your dashboard…</div>
-    </div>
+  <!-- Loading -->
+  <div id="loadingState"><div class="spinner"></div><div class="loading-text">Loading your dashboard…</div></div>
 
-    <!-- Error Box -->
-    <div id="errorBox">
-        <h3 data-i18n="error.title">Something went wrong</h3>
-        <div id="errorMsg"></div>
-        <div class="error-actions">
-            <button class="btn-secondary" onclick="location.reload()" data-i18n="error.retry">Try Again</button>
+  <!-- Error -->
+  <div id="errorBox">
+    <h3>Something went wrong</h3>
+    <div id="errorMsg"></div>
+    <div class="error-actions"><button class="btn-secondary" onclick="location.reload()">Try Again</button></div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toastArea" aria-live="polite"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-content">
+      <div class="logo">
+        <h1><span class="logo-myq">MYQ</span><span class="logo-er">ER</span><span class="logo-tm">™</span></h1>
+        <span class="logo-hint">pronounced "my care"</span>
+      </div>
+      <div class="header-controls">
+        <div style="position:relative">
+          <button id="langSelector" aria-haspopup="true" aria-expanded="false">EN</button>
+          <div class="lang-dropdown" id="langDropdown">
+            <button data-lang="en">English</button><button data-lang="es">Español</button>
+            <button data-lang="fr">Français</button><button data-lang="de">Deutsch</button>
+            <button data-lang="it">Italiano</button><button data-lang="pt">Português</button>
+            <button data-lang="ro">Română</button><button data-lang="ar">العربية</button>
+            <button data-lang="hi">हिन्दी</button><button data-lang="zh">中文</button>
+          </div>
         </div>
+        <div id="netStatus" class="online">Online</div>
+        <button id="btnSignOut">Logout</button>
+      </div>
     </div>
+  </header>
 
-    <!-- Toast Area -->
-    <div id="toastArea" aria-live="polite"></div>
+  <div id="offlineBanner">You're offline — QR still works with cached data.</div>
 
-    <!-- Header -->
-    <header>
-        <div class="header-content">
-            <div class="logo">
-                <h1><span class="logo-myq">MYQ</span><span class="logo-er">ER</span><span class="logo-tm">™</span></h1>
-                <span class="logo-hint" data-i18n="logo.hint">pronounced "my care"</span>
-            </div>
-            <div class="header-controls">
-                <div style="position: relative;">
-                    <button id="langSelector" aria-haspopup="true" aria-expanded="false">EN</button>
-                    <div class="lang-dropdown" id="langDropdown">
-                        <button data-lang="en">English</button>
-                        <button data-lang="es">Español</button>
-                        <button data-lang="fr">Français</button>
-                        <button data-lang="de">Deutsch</button>
-                        <button data-lang="it">Italiano</button>
-                        <button data-lang="pt">Português</button>
-                        <button data-lang="ro">Română</button>
-                        <button data-lang="ar">العربية</button>
-                        <button data-lang="hi">हिन्दी</button>
-                        <button data-lang="zh">中文</button>
-                    </div>
-                </div>
-                <div id="netStatus" class="online" data-i18n="status.online">Online</div>
-                <button id="btnSignOut" data-i18n="header.logout">Logout</button>
-            </div>
+  <main>
+    <!-- Identity -->
+    <section class="card identity">
+      <div class="ribbon">Identity</div>
+      <div class="card-header">
+        <h2 class="card-title">Identity — Personal Information</h2>
+        <p class="card-subtitle">These details help responders confirm who you are.</p>
+      </div>
+      <form class="form-grid two-col">
+        <div class="form-group">
+          <label for="profileFullName">Full Name</label>
+          <input id="profileFullName" type="text" placeholder="Enter your full legal name" required>
         </div>
-    </header>
+        <div class="form-group">
+          <label for="profileDob">Date of Birth</label>
+          <input id="profileDob" type="date" required>
+          <span class="form-hint">Format: YYYY-MM-DD</span>
+        </div>
+        <div class="form-group">
+          <label for="profileCountry">Country</label>
+          <select id="profileCountry" required>
+            <option value="">Select your country</option>
+            <option value="US">United States</option><option value="GB">United Kingdom</option>
+            <option value="CA">Canada</option><option value="DE">Germany</option>
+            <option value="FR">France</option><option value="ES">Spain</option>
+            <option value="IT">Italy</option><option value="PT">Portugal</option>
+            <option value="RO">Romania</option><option value="IN">India</option>
+            <option value="CN">China</option><option value="AU">Australia</option>
+            <option value="BR">Brazil</option><option value="MX">Mexico</option>
+            <option value="JP">Japan</option><option value="KR">South Korea</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="profileHealthId">National/Health ID (Optional)</label>
+          <input id="profileHealthId" type="text" placeholder="e.g., NHS number, SSN, etc.">
+          <span class="form-hint">Only visible to medical professionals</span>
+        </div>
+      </form>
+      <button class="save-button" id="saveProfile">Save Profile</button>
+      <div class="status-msg" id="profileMsg"></div>
+    </section>
 
-    <!-- Offline Banner -->
-    <div id="offlineBanner">
-        <span data-i18n="offline.message">You're offline — QR still works with cached data.</span>
+    <!-- Critical -->
+    <section class="card critical">
+      <div class="ribbon critical">Critical</div>
+      <div class="card-header">
+        <h2 class="card-title">CRITICAL — Medical & Health Details</h2>
+        <p class="card-subtitle">Keep this current. It appears on your emergency card.</p>
+      </div>
+      <form class="form-grid">
+        <div class="form-group">
+          <label for="hfBloodType">Blood Type</label>
+          <select id="hfBloodType">
+            <option value="">Select blood type</option>
+            <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
+            <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+            <option value="Unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="hfAllergies">Critical Allergies</label>
+          <textarea id="hfAllergies" placeholder="List any life-threatening allergies (medications, foods, etc.)"></textarea>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="hfDonor"><label for="hfDonor">I am an organ donor</label>
+        </div>
+        <div class="form-group">
+          <label for="hfConditions">Medical Conditions</label>
+          <textarea id="hfConditions" placeholder="Diabetes, heart disease, epilepsy, etc."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="hfMeds">Current Medications</label>
+          <textarea id="hfMeds" placeholder="List all current medications and dosages"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="hfImplants">Implants/Medical Devices</label>
+          <textarea id="hfImplants" placeholder="Pacemaker, insulin pump, metal implants, etc."></textarea>
+        </div>
+      </form>
+      <div class="triage-section">
+        <span class="triage-label">Triage:</span>
+        <div id="triagePill" class="green">GREEN</div>
+        <select id="triageOverride">
+          <option value="auto">Use auto</option>
+          <option value="green">Green</option><option value="amber">Amber</option>
+          <option value="red">Red</option><option value="black">Black</option>
+        </select>
+      </div>
+      <button class="save-button" id="saveHealth">Save Health</button>
+      <div class="status-msg" id="healthMsg"></div>
+    </section>
+
+    <!-- ICE -->
+    <section class="card ice">
+      <div class="ribbon ice">ICE</div>
+      <div class="card-header">
+        <h2 class="card-title" id="iceTitle">Emergency Contacts (ICE)</h2>
+        <p class="card-subtitle" id="iceHint">Add up to 3 trusted contacts.</p>
+      </div>
+      <div id="iceContactsList"></div>
+      <button id="addIce">+ Add Emergency Contact</button>
+      <button class="save-button" id="saveIce">Save ICE Contacts</button>
+      <div class="status-msg" id="iceMsg"></div>
+    </section>
+
+    <!-- Emergency Card -->
+    <section class="card emergency emergency-card">
+      <div class="ribbon emergency">Emergency</div>
+      <div class="card-header">
+        <h2 class="card-title" id="qrTitle">Emergency Card & QR</h2>
+        <p class="card-subtitle" id="qrExplainer">QR never changes; it always opens your latest info.</p>
+      </div>
+      <div class="qr-section">
+        <div>
+          <div id="qrSlot">
+            <!-- Use a div as container for qrcodejs -->
+            <div id="qrCanvas" aria-label="QR Code"></div>
+            <div class="qr-placeholder" id="qrPlaceholder"><span>QR Code will appear here<br>after saving your profile</span></div>
+          </div>
+          <p id="codeUnderQR"></p>
+          <p id="qrStatus" role="alert" hidden></p>
+        </div>
+        <div class="qr-controls">
+          <div class="qr-url-section">
+            <h4>Card URL</h4>
+            <input id="cardUrl" type="text" readonly placeholder="https://www.myqer.com/c/XXXX-XXXX">
+            <div class="url-actions">
+              <button class="btn-secondary" id="copyLink">Copy Link</button>
+              <button class="btn-secondary" id="openLink">Open Link</button>
+            </div>
+          </div>
+          <div class="qr-downloads">
+            <h4>Downloads</h4>
+            <div class="download-grid">
+              <button class="btn-secondary" id="dlPNG">PNG</button>
+              <button class="btn-secondary" id="dlSVG">SVG</button>
+              <button class="btn-secondary" id="printQR">Print</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Delete -->
+    <section class="card delete-account">
+      <div class="ribbon critical">Danger</div>
+      <div class="card-header">
+        <h2 class="card-title">Delete Account</h2>
+        <p class="card-subtitle">This action cannot be undone. All your data will be permanently deleted.</p>
+      </div>
+      <div class="delete-form">
+        <div class="form-group">
+          <label for="deletePhrase">Type "DELETE MY ACCOUNT" to confirm:</label>
+          <input id="deletePhrase" type="text" placeholder="DELETE MY ACCOUNT" autocomplete="off">
+          <span class="form-hint">This phrase must match exactly</span>
+        </div>
+        <button class="delete-button" id="deleteBtn" disabled>Delete My Account</button>
+        <div class="status-msg" id="deleteMsg"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="disclaimers"><div class="disclaimer-content">
+    <p>Informational only. Clinicians must confirm with official medical documents.</p>
+    <p>Data stays on your device unless you choose to share.</p>
+  </div></div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-links">
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+      </div>
+      <div class="footer-copyright">© 2024 MYQER™. All rights reserved.</div>
     </div>
+  </footer>
 
-    <!-- Main Content -->
-    <main>
-        <!-- Identity Section -->
-        <section class="card identity">
-            <div class="ribbon">Identity</div>
-            <div class="card-header">
-                <h2 class="card-title" data-i18n="identity.title">Identity — Personal Information</h2>
-                <p class="card-subtitle" data-i18n="identity.hint">These details help responders confirm who you are.</p>
-            </div>
-            <form class="form-grid two-col">
-                <div class="form-group">
-                    <label for="profileFullName" data-i18n="identity.fullName">Full Name</label>
-                    <input type="text" id="profileFullName" data-i18n-placeholder="identity.fullNamePlaceholder" placeholder="Enter your full legal name" required>
-                </div>
-                <div class="form-group">
-                    <label for="profileDob" data-i18n="identity.dob">Date of Birth</label>
-                    <input type="date" id="profileDob" required>
-                    <span class="form-hint" data-i18n="identity.dobHint">Format: YYYY-MM-DD</span>
-                </div>
-                <div class="form-group">
-                    <label for="profileCountry" data-i18n="identity.country">Country</label>
-                    <select id="profileCountry" required>
-                        <option value="" data-i18n="identity.selectCountry">Select your country</option>
-                        <option value="US">United States</option>
-                        <option value="CA">Canada</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="DE">Germany</option>
-                        <option value="FR">France</option>
-                        <option value="ES">Spain</option>
-                        <option value="IT">Italy</option>
-                        <option value="PT">Portugal</option>
-                        <option value="RO">Romania</option>
-                        <option value="IN">India</option>
-                        <option value="CN">China</option>
-                        <option value="AU">Australia</option>
-                        <option value="BR">Brazil</option>
-                        <option value="MX">Mexico</option>
-                        <option value="JP">Japan</option>
-                        <option value="KR">South Korea</option>
-                        <option value="OTHER">Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="profileHealthId" data-i18n="identity.healthId">National/Health ID (Optional)</label>
-                    <input type="text" id="profileHealthId" data-i18n-placeholder="identity.healthIdPlaceholder" placeholder="e.g., NHS number, SSN, etc.">
-                    <span class="form-hint" data-i18n="identity.healthIdHint">Only visible to medical professionals</span>
-                </div>
-            </form>
-            <button class="save-button" id="saveProfile" data-i18n="common.saveProfile">Save Profile</button>
-            <div class="status-msg" id="profileMsg"></div>
-        </section>
-
-        <!-- Critical Health Section -->
-        <section class="card critical">
-            <div class="ribbon critical">Critical</div>
-            <div class="card-header">
-                <h2 class="card-title" data-i18n="critical.title">CRITICAL — Medical & Health Details</h2>
-                <p class="card-subtitle" data-i18n="critical.hint">Keep this current. It appears on your emergency card.</p>
-            </div>
-            <form class="form-grid">
-                <div class="form-group">
-                    <label for="hfBloodType" data-i18n="critical.bloodType">Blood Type</label>
-                    <select id="hfBloodType">
-                        <option value="" data-i18n="critical.selectBloodType">Select blood type</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="Unknown" data-i18n="critical.unknown">Unknown</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="hfAllergies" data-i18n="critical.allergies">Critical Allergies</label>
-                    <textarea id="hfAllergies" data-i18n-placeholder="critical.allergiesPlaceholder" placeholder="List any life-threatening allergies (medications, foods, etc.)"></textarea>
-                </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="hfDonor">
-                    <label for="hfDonor" data-i18n="critical.organDonor">I am an organ donor</label>
-                </div>
-                <div class="form-group">
-                    <label for="hfConditions" data-i18n="critical.conditions">Medical Conditions</label>
-                    <textarea id="hfConditions" data-i18n-placeholder="critical.conditionsPlaceholder" placeholder="Diabetes, heart disease, epilepsy, etc."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="hfMeds" data-i18n="critical.medications">Current Medications</label>
-                    <textarea id="hfMeds" data-i18n-placeholder="critical.medicationsPlaceholder" placeholder="List all current medications and dosages"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="hfImplants" data-i18n="critical.implants">Implants/Medical Devices</label>
-                    <textarea id="hfImplants" data-i18n-placeholder="critical.implantsPlaceholder" placeholder="Pacemaker, insulin pump, metal implants, etc."></textarea>
-                </div>
-            </form>
-            
-            <!-- Triage Section -->
-            <div class="triage-section">
-                <span class="triage-label" data-i18n="triage.label">Triage:</span>
-                <div id="triagePill" class="green">GREEN</div>
-                <select id="triageOverride">
-                    <option value="auto" data-i18n="triage.useAuto">Use auto</option>
-                    <option value="green" data-i18n="triage.green">Green</option>
-                    <option value="amber" data-i18n="triage.amber">Amber</option>
-                    <option value="red" data-i18n="triage.red">Red</option>
-                    <option value="black" data-i18n="triage.black">Black</option>
-                </select>
-            </div>
-
-            <button class="save-button" id="saveHealth" data-i18n="common.saveHealth">Save Health</button>
-            <div class="status-msg" id="healthMsg"></div>
-        </section>
-
-        <!-- ICE Contacts Section -->
-        <section class="card ice">
-            <div class="ribbon ice">ICE</div>
-            <div class="card-header">
-                <h2 class="card-title" data-i18n="iceTitle">Emergency Contacts (ICE)</h2>
-                <p class="card-subtitle" data-i18n="iceHint">Add up to 3 trusted contacts.</p>
-            </div>
-            
-            <div id="iceContactsList">
-                <!-- ICE contacts will be dynamically added here -->
-            </div>
-            
-            <button id="addIce" data-i18n="ice.addContact">+ Add Emergency Contact</button>
-            <button class="save-button" id="saveIce" data-i18n="common.saveIce">Save ICE Contacts</button>
-            <div class="status-msg" id="iceMsg"></div>
-        </section>
-
-        <!-- Emergency Card & QR Section -->
-        <section class="card emergency emergency-card">
-            <div class="ribbon emergency">Emergency</div>
-            <div class="card-header">
-                <h2 class="card-title" id="qrTitle">Emergency Card & QR</h2>
-                <p class="card-subtitle" id="qrExplainer">QR never changes; it always opens your latest info.</p>
-            </div>
-            
-            <div class="qr-section">
-                <div>
-                    <div id="qrSlot">
-                        <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code" style="display: none;"></canvas>
-                        <div class="qr-placeholder" id="qrPlaceholder">
-                            <span>QR Code will appear here<br>after saving your profile</span>
-                        </div>
-                    </div>
-                    <p id="codeUnderQR" class="text-mono text-muted"></p>
-                    <p id="qrStatus" role="alert" hidden></p>
-                </div>
-                
-                <div class="qr-controls">
-                    <div class="qr-url-section">
-                        <h4>Card URL</h4>
-                        <input type="text" id="cardUrl" readonly placeholder="https://www.myqer.com/c/XXXX-XXXX">
-                        <div class="url-actions">
-                            <button class="btn-secondary" id="copyLink">Copy Link</button>
-                            <button class="btn-secondary" id="openLink">Open Link</button>
-                        </div>
-                    </div>
-                    
-                    <div class="qr-downloads">
-                        <h4>Downloads</h4>
-                        <div class="download-grid">
-                            <button class="btn-secondary" id="dlPNG">PNG</button>
-                            <button class="btn-secondary" id="dlSVG">SVG</button>
-                            <button class="btn-secondary" id="printQR">Print</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Delete Account Section -->
-        <section class="card delete-account">
-            <div class="ribbon critical">Danger</div>
-            <div class="card-header">
-                <h2 class="card-title" data-i18n="delete.title">Delete Account</h2>
-                <p class="card-subtitle" data-i18n="delete.warning">This action cannot be undone. All your data will be permanently deleted.</p>
-            </div>
-            <div class="delete-form">
-                <div class="form-group">
-                    <label for="deletePhrase" data-i18n="delete.confirmLabel">Type "DELETE MY ACCOUNT" to confirm:</label>
-                    <input type="text" id="deletePhrase" data-i18n-placeholder="delete.confirmPlaceholder" placeholder="DELETE MY ACCOUNT" autocomplete="off">
-                    <span class="form-hint" data-i18n="delete.confirmHint">This phrase must match exactly</span>
-                </div>
-                <button class="delete-button" id="deleteBtn" disabled data-i18n="delete.button">Delete My Account</button>
-                <div class="status-msg" id="deleteMsg"></div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Disclaimers -->
-    <div class="disclaimers">
-        <div class="disclaimer-content">
-            <p data-i18n="disclaimer.medical">Informational only. Clinicians must confirm with official medical documents.</p>
-            <p data-i18n="disclaimer.privacy">Data stays on your device unless you choose to share.</p>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-links">
-                <a href="/privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
-                <a href="/terms.html" data-i18n="footer.terms">Terms of Service</a>
-            </div>
-            <div class="footer-copyright">
-                <span data-i18n="footer.copyright">© 2024 MYQER™. All rights reserved.</span>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        // Global state
-        let currentLang = 'en';
-        let isOnline = navigator.onLine;
-        let userData = {};
-        let iceContacts = [];
-        let autoSaveTimeouts = {};
-  // ---- Safety net: surface errors + never get stuck on the loader ----
-console.log('🟢 dashboard.js booted');
-
-window.onerror = (message, source, lineno, colno, error) => {
-  console.error('JS error:', message, source, lineno, colno, error);
-  const loading = document.getElementById('loadingState');
-  const box = document.getElementById('errorBox');
-  const msg = document.getElementById('errorMsg');
-  if (loading) loading.style.display = 'none';
-  if (box && msg) {
-    box.style.display = 'block';
-    msg.textContent = String(message || 'Unexpected error. Please refresh.');
-  }
-};
-
-// If we’re still "loading" after 6s, show a friendly message instead of spinning forever
-setTimeout(() => {
-  const loading = document.getElementById('loadingState');
-  if (loading && loading.style.display !== 'none') {
-    console.warn('Still loading after 6s — showing fallback message.');
-    loading.style.display = 'none';
-    const box = document.getElementById('errorBox');
-    const msg = document.getElementById('errorMsg');
-    if (box && msg) {
-      box.style.display = 'block';
-      msg.textContent = 'Taking too long to load. Please refresh the page.';
-    }
-  }
-}, 6000);
-
-        // Supabase setup (same as landing page)
-        const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-        let supabase = null;
-        let isSupabaseAvailable = false;
-        // Helper: get current user's UUID from Supabase session
-const getUserId = async () => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.user?.id ?? null;
-  } catch {
-    return null;
-  }
-};
-
-        // Initialize Supabase
-        try {
-            if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                isSupabaseAvailable = true;
-                console.log('✅ Supabase initialized successfully');
-            }
-        } catch (error) {
-            console.warn('⚠️ Supabase initialization failed, running in demo mode:', error);
-            isSupabaseAvailable = false;
-        }
-
-        // Translation system
-        const LOCALES = {
-            en: {
-                "loading.dashboard": "Loading your dashboard…",
-                "error.title": "Something went wrong",
-                "error.retry": "Try Again",
-                "logo.hint": "pronounced \"my care\"",
-                "header.logout": "Logout",
-                "status.online": "Online",
-                "status.offline": "Offline",
-                "offline.message": "You're offline — QR still works with cached data.",
-                "identity.title": "Identity — Personal Information",
-                "identity.hint": "These details help responders confirm who you are.",
-                "identity.fullName": "Full Name",
-                "identity.fullNamePlaceholder": "Enter your full legal name",
-                "identity.dob": "Date of Birth",
-                "identity.dobHint": "Format: YYYY-MM-DD",
-                "identity.country": "Country",
-                "identity.selectCountry": "Select your country",
-                "identity.healthId": "National/Health ID (Optional)",
-                "identity.healthIdPlaceholder": "e.g., NHS number, SSN, etc.",
-                "identity.healthIdHint": "Only visible to medical professionals",
-                "critical.title": "CRITICAL — Medical & Health Details",
-                "critical.hint": "Keep this current. It appears on your emergency card.",
-                "critical.bloodType": "Blood Type",
-                "critical.selectBloodType": "Select blood type",
-                "critical.unknown": "Unknown",
-                "critical.allergies": "Critical Allergies",
-                "critical.allergiesPlaceholder": "List any life-threatening allergies (medications, foods, etc.)",
-                "critical.organDonor": "I am an organ donor",
-                "critical.conditions": "Medical Conditions",
-                "critical.conditionsPlaceholder": "Diabetes, heart disease, epilepsy, etc.",
-                "critical.medications": "Current Medications",
-                "critical.medicationsPlaceholder": "List all current medications and dosages",
-                "critical.implants": "Implants/Medical Devices",
-                "critical.implantsPlaceholder": "Pacemaker, insulin pump, metal implants, etc.",
-                "triage.label": "Triage:",
-                "triage.useAuto": "Use auto",
-                "triage.green": "Green",
-                "triage.amber": "Amber",
-                "triage.red": "Red",
-                "triage.black": "Black",
-                "iceTitle": "Emergency Contacts (ICE)",
-                "iceHint": "Add up to 3 trusted contacts.",
-                "ice.title": "ICE — Emergency Contacts",
-                "ice.hint": "In Case of Emergency contacts. Add up to 3 people.",
-                "ice.addContact": "+ Add Emergency Contact",
-                "ice.contactName": "Contact Name",
-                "ice.contactNamePlaceholder": "Full name",
-                "ice.relationship": "Relationship",
-                "ice.relationshipPlaceholder": "Spouse, Parent, Sibling, etc.",
-                "ice.phone": "Phone Number",
-                "ice.phonePlaceholder": "Primary phone number",
-                "ice.altPhone": "Alternative Phone (Optional)",
-                "ice.altPhonePlaceholder": "Secondary phone number",
-                "emergency.title": "Your Emergency Card & QR Code",
-                "emergency.hint": "This QR code contains your emergency information. Print it or save it to your phone.",
-                "emergency.qrPlaceholder": "QR Code will appear here\nafter saving your profile",
-                "emergency.download": "Download QR Code",
-                "emergency.print": "Print Emergency Card",
-                "emergency.share": "Share QR Code",
-                "emergency.preview": "Preview Card",
-                "common.saveProfile": "Save Profile",
-                "common.saveHealth": "Save Health",
-                "common.saveIce": "Save ICE Contacts",
-                "common.remove": "Remove",
-                "toast.profileSaved": "Profile saved successfully",
-                "toast.healthSaved": "Health information saved",
-                "toast.iceSaved": "Emergency contacts saved",
-                "toast.autoSaved": "Changes saved automatically",
-                "toast.offlineMode": "Working offline - changes saved locally",
-                "toast.backOnline": "Back online - syncing changes",
-                "delete.title": "Delete Account",
-                "delete.warning": "This action cannot be undone. All your data will be permanently deleted.",
-                "delete.confirmLabel": "Type \"DELETE MY ACCOUNT\" to confirm:",
-                "delete.confirmPlaceholder": "DELETE MY ACCOUNT",
-                "delete.confirmHint": "This phrase must match exactly",
-                "delete.button": "Delete My Account",
-                "disclaimer.medical": "Informational only. Clinicians must confirm with official medical documents.",
-                "disclaimer.privacy": "Data stays on your device unless you choose to share.",
-                "footer.privacy": "Privacy Policy",
-                "footer.terms": "Terms of Service",
-                "footer.copyright": "© 2024 MYQER™. All rights reserved."
-            },
-            es: {
-                "loading.dashboard": "Cargando tu panel…",
-                "error.title": "Algo salió mal",
-                "error.retry": "Intentar de nuevo",
-                "logo.hint": "pronunciado \"my care\"",
-                "header.logout": "Cerrar sesión",
-                "status.online": "En línea",
-                "status.offline": "Sin conexión",
-                "offline.message": "Estás sin conexión — el QR sigue funcionando con datos guardados.",
-                "identity.title": "Identidad — Información Personal",
-                "identity.hint": "Estos detalles ayudan a los socorristas a confirmar quién eres.",
-                "identity.fullName": "Nombre Completo",
-                "identity.fullNamePlaceholder": "Ingresa tu nombre legal completo",
-                "identity.dob": "Fecha de Nacimiento",
-                "identity.dobHint": "Formato: AAAA-MM-DD",
-                "identity.country": "País",
-                "identity.selectCountry": "Selecciona tu país",
-                "identity.healthId": "ID Nacional/de Salud (Opcional)",
-                "identity.healthIdPlaceholder": "ej., número NHS, SSN, etc.",
-                "identity.healthIdHint": "Solo visible para profesionales médicos",
-                "critical.title": "CRÍTICO — Detalles Médicos y de Salud",
-                "critical.hint": "Mantén esto actualizado. Aparece en tu tarjeta de emergencia.",
-                "critical.bloodType": "Tipo de Sangre",
-                "critical.selectBloodType": "Seleccionar tipo de sangre",
-                "critical.unknown": "Desconocido",
-                "critical.allergies": "Alergias Críticas",
-                "critical.allergiesPlaceholder": "Lista cualquier alergia mortal (medicamentos, alimentos, etc.)",
-                "critical.organDonor": "Soy donante de órganos",
-                "critical.conditions": "Condiciones Médicas",
-                "critical.conditionsPlaceholder": "Diabetes, enfermedad cardíaca, epilepsia, etc.",
-                "critical.medications": "Medicamentos Actuales",
-                "critical.medicationsPlaceholder": "Lista todos los medicamentos actuales y dosis",
-                "critical.implants": "Implantes/Dispositivos Médicos",
-                "critical.implantsPlaceholder": "Marcapasos, bomba de insulina, implantes metálicos, etc.",
-                "triage.label": "Triaje:",
-                "triage.useAuto": "Usar automático",
-                "triage.green": "Verde",
-                "triage.amber": "Ámbar",
-                "triage.red": "Rojo",
-                "triage.black": "Negro",
-                "ice.title": "ICE — Contactos de Emergencia",
-                "ice.hint": "Contactos En Caso de Emergencia. Agrega hasta 3 personas.",
-                "ice.addContact": "+ Agregar Contacto de Emergencia",
-                "ice.contactName": "Nombre del Contacto",
-                "ice.contactNamePlaceholder": "Nombre completo",
-                "ice.relationship": "Relación",
-                "ice.relationshipPlaceholder": "Cónyuge, Padre, Hermano, etc.",
-                "ice.phone": "Número de Teléfono",
-                "ice.phonePlaceholder": "Número de teléfono principal",
-                "ice.altPhone": "Teléfono Alternativo (Opcional)",
-                "ice.altPhonePlaceholder": "Número de teléfono secundario",
-                "emergency.title": "Tu Tarjeta de Emergencia y Código QR",
-                "emergency.hint": "Este código QR contiene tu información de emergencia. Imprímelo o guárdalo en tu teléfono.",
-                "emergency.qrPlaceholder": "El código QR aparecerá aquí\ndespués de guardar tu perfil",
-                "emergency.download": "Descargar Código QR",
-                "emergency.print": "Imprimir Tarjeta de Emergencia",
-                "emergency.share": "Compartir Código QR",
-                "emergency.preview": "Vista Previa de Tarjeta",
-                "common.saveProfile": "Guardar Perfil",
-                "common.saveHealth": "Guardar Salud",
-                "common.saveIce": "Guardar Contactos ICE",
-                "common.remove": "Eliminar",
-                "toast.profileSaved": "Perfil guardado exitosamente",
-                "toast.healthSaved": "Información de salud guardada",
-                "toast.iceSaved": "Contactos de emergencia guardados",
-                "toast.autoSaved": "Cambios guardados automáticamente",
-                "toast.offlineMode": "Trabajando sin conexión - cambios guardados localmente",
-                "toast.backOnline": "De vuelta en línea - sincronizando cambios",
-                "iceTitle": "Contactos de Emergencia (ICE)",
-                "iceHint": "Agrega hasta 3 contactos de confianza.",
-                "delete.title": "Eliminar Cuenta",
-                "delete.warning": "Esta acción no se puede deshacer. Todos tus datos serán eliminados permanentemente.",
-                "delete.confirmLabel": "Escribe \"DELETE MY ACCOUNT\" para confirmar:",
-                "delete.confirmPlaceholder": "DELETE MY ACCOUNT",
-                "delete.confirmHint": "Esta frase debe coincidir exactamente",
-                "delete.button": "Eliminar Mi Cuenta",
-                "disclaimer.medical": "Solo informativo. Los médicos deben confirmar con documentos médicos oficiales.",
-                "disclaimer.privacy": "Los datos permanecen en tu dispositivo a menos que elijas compartirlos.",
-                "footer.privacy": "Política de Privacidad",
-                "footer.terms": "Términos de Servicio",
-                "footer.copyright": "© 2024 MYQER™. Todos los derechos reservados."
-            },
-            // Add other languages following the same pattern...
-            fr: {
-                "loading.dashboard": "Chargement de votre tableau de bord…",
-                "error.title": "Quelque chose s'est mal passé",
-                "error.retry": "Réessayer",
-                "logo.hint": "prononcé \"my care\"",
-                "header.logout": "Déconnexion",
-                "status.online": "En ligne",
-                "status.offline": "Hors ligne",
-                "offline.message": "Vous êtes hors ligne — le QR fonctionne toujours avec les données mises en cache.",
-                "identity.title": "Identité — Informations Personnelles",
-                "identity.hint": "Ces détails aident les secours à confirmer qui vous êtes.",
-                "identity.fullName": "Nom Complet",
-                "identity.fullNamePlaceholder": "Entrez votre nom légal complet",
-                "identity.dob": "Date de Naissance",
-                "identity.dobHint": "Format: AAAA-MM-JJ",
-                "identity.country": "Pays",
-                "identity.selectCountry": "Sélectionnez votre pays",
-                "identity.healthId": "ID National/Santé (Optionnel)",
-                "identity.healthIdPlaceholder": "ex., numéro NHS, SSN, etc.",
-                "identity.healthIdHint": "Visible uniquement aux professionnels médicaux",
-                "critical.title": "CRITIQUE — Détails Médicaux et de Santé",
-                "critical.hint": "Gardez ceci à jour. Cela apparaît sur votre carte d'urgence.",
-                "critical.bloodType": "Groupe Sanguin",
-                "critical.selectBloodType": "Sélectionner le groupe sanguin",
-                "critical.unknown": "Inconnu",
-                "critical.allergies": "Allergies Critiques",
-                "critical.allergiesPlaceholder": "Listez toute allergie mortelle (médicaments, aliments, etc.)",
-                "critical.organDonor": "Je suis donneur d'organes",
-                "critical.conditions": "Conditions Médicales",
-                "critical.conditionsPlaceholder": "Diabète, maladie cardiaque, épilepsie, etc.",
-                "critical.medications": "Médicaments Actuels",
-                "critical.medicationsPlaceholder": "Listez tous les médicaments actuels et dosages",
-                "critical.implants": "Implants/Dispositifs Médicaux",
-                "critical.implantsPlaceholder": "Stimulateur cardiaque, pompe à insuline, implants métalliques, etc.",
-                "triage.label": "Triage:",
-                "triage.useAuto": "Utiliser auto",
-                "triage.green": "Vert",
-                "triage.amber": "Ambre",
-                "triage.red": "Rouge",
-                "triage.black": "Noir",
-                "ice.title": "ICE — Contacts d'Urgence",
-                "ice.hint": "Contacts En Cas d'Urgence. Ajoutez jusqu'à 3 personnes.",
-                "ice.addContact": "+ Ajouter Contact d'Urgence",
-                "ice.contactName": "Nom du Contact",
-                "ice.contactNamePlaceholder": "Nom complet",
-                "ice.relationship": "Relation",
-                "ice.relationshipPlaceholder": "Époux, Parent, Frère/Sœur, etc.",
-                "ice.phone": "Numéro de Téléphone",
-                "ice.phonePlaceholder": "Numéro de téléphone principal",
-                "ice.altPhone": "Téléphone Alternatif (Optionnel)",
-                "ice.altPhonePlaceholder": "Numéro de téléphone secondaire",
-                "emergency.title": "Votre Carte d'Urgence et Code QR",
-                "emergency.hint": "Ce code QR contient vos informations d'urgence. Imprimez-le ou sauvegardez-le sur votre téléphone.",
-                "emergency.qrPlaceholder": "Le code QR apparaîtra ici\naprès avoir sauvegardé votre profil",
-                "emergency.download": "Télécharger le Code QR",
-                "emergency.print": "Imprimer la Carte d'Urgence",
-                "emergency.share": "Partager le Code QR",
-                "emergency.preview": "Aperçu de la Carte",
-                "common.saveProfile": "Sauvegarder le Profil",
-                "common.saveHealth": "Sauvegarder la Santé",
-                "common.saveIce": "Sauvegarder les Contacts ICE",
-                "common.remove": "Supprimer",
-                "toast.profileSaved": "Profil sauvegardé avec succès",
-                "toast.healthSaved": "Informations de santé sauvegardées",
-                "toast.iceSaved": "Contacts d'urgence sauvegardés",
-                "toast.autoSaved": "Changements sauvegardés automatiquement",
-                "toast.offlineMode": "Travail hors ligne - changements sauvegardés localement",
-                "toast.backOnline": "De retour en ligne - synchronisation des changements",
-                "iceTitle": "Contacts d'Urgence (ICE)",
-                "iceHint": "Ajoutez jusqu'à 3 contacts de confiance.",
-                "delete.title": "Supprimer le Compte",
-                "delete.warning": "Cette action ne peut pas être annulée. Toutes vos données seront définitivement supprimées.",
-                "delete.confirmLabel": "Tapez \"DELETE MY ACCOUNT\" pour confirmer:",
-                "delete.confirmPlaceholder": "DELETE MY ACCOUNT",
-                "delete.confirmHint": "Cette phrase doit correspondre exactement",
-                "delete.button": "Supprimer Mon Compte",
-                "disclaimer.medical": "À titre informatif seulement. Les cliniciens doivent confirmer avec les documents médicaux officiels.",
-                "disclaimer.privacy": "Les données restent sur votre appareil sauf si vous choisissez de les partager.",
-                "footer.privacy": "Politique de Confidentialité",
-                "footer.terms": "Conditions d'Utilisation",
-                "footer.copyright": "© 2024 MYQER™. Tous droits réservés."
-            },
-            de: {
-                "loading.dashboard": "Dashboard wird geladen…",
-                "error.title": "Etwas ist schiefgelaufen",
-                "error.retry": "Erneut versuchen",
-                "logo.hint": "ausgesprochen \"my care\"",
-                "header.logout": "Abmelden",
-                "status.online": "Online",
-                "status.offline": "Offline",
-                "offline.message": "Sie sind offline — QR funktioniert weiterhin mit zwischengespeicherten Daten.",
-                "identity.title": "Identität — Persönliche Informationen",
-                "identity.hint": "Diese Details helfen Rettungskräften, Ihre Identität zu bestätigen.",
-                "identity.fullName": "Vollständiger Name",
-                "identity.fullNamePlaceholder": "Geben Sie Ihren vollständigen rechtlichen Namen ein",
-                "identity.dob": "Geburtsdatum",
-                "identity.dobHint": "Format: JJJJ-MM-TT",
-                "identity.country": "Land",
-                "identity.selectCountry": "Wählen Sie Ihr Land",
-                "identity.healthId": "Nationale/Gesundheits-ID (Optional)",
-                "identity.healthIdPlaceholder": "z.B. NHS-Nummer, SSN, etc.",
-                "identity.healthIdHint": "Nur für medizinisches Fachpersonal sichtbar",
-                "critical.title": "KRITISCH — Medizinische & Gesundheitsdetails",
-                "critical.hint": "Halten Sie dies aktuell. Es erscheint auf Ihrer Notfallkarte.",
-                "critical.bloodType": "Blutgruppe",
-                "critical.selectBloodType": "Blutgruppe auswählen",
-                "critical.unknown": "Unbekannt",
-                "critical.allergies": "Kritische Allergien",
-                "critical.allergiesPlaceholder": "Listen Sie lebensbedrohliche Allergien auf (Medikamente, Lebensmittel, etc.)",
-                "critical.organDonor": "Ich bin Organspender",
-                "critical.conditions": "Medizinische Bedingungen",
-                "critical.conditionsPlaceholder": "Diabetes, Herzkrankheit, Epilepsie, etc.",
-                "critical.medications": "Aktuelle Medikamente",
-                "critical.medicationsPlaceholder": "Listen Sie alle aktuellen Medikamente und Dosierungen auf",
-                "critical.implants": "Implantate/Medizinische Geräte",
-                "critical.implantsPlaceholder": "Herzschrittmacher, Insulinpumpe, Metallimplantate, etc.",
-                "triage.label": "Triage:",
-                "triage.useAuto": "Auto verwenden",
-                "triage.green": "Grün",
-                "triage.amber": "Gelb",
-                "triage.red": "Rot",
-                "triage.black": "Schwarz",
-                "iceTitle": "Notfallkontakte (ICE)",
-                "iceHint": "Fügen Sie bis zu 3 vertrauenswürdige Kontakte hinzu.",
-                "ice.title": "ICE — Notfallkontakte",
-                "ice.hint": "Im Notfall Kontakte. Fügen Sie bis zu 3 Personen hinzu.",
-                "ice.addContact": "+ Notfallkontakt hinzufügen",
-                "ice.contactName": "Kontaktname",
-                "ice.contactNamePlaceholder": "Vollständiger Name",
-                "ice.relationship": "Beziehung",
-                "ice.relationshipPlaceholder": "Ehepartner, Elternteil, Geschwister, etc.",
-                "ice.phone": "Telefonnummer",
-                "ice.phonePlaceholder": "Primäre Telefonnummer",
-                "ice.altPhone": "Alternative Telefonnummer (Optional)",
-                "ice.altPhonePlaceholder": "Sekundäre Telefonnummer",
-                "emergency.title": "Ihre Notfallkarte & QR-Code",
-                "emergency.hint": "Dieser QR-Code enthält Ihre Notfallinformationen. Drucken Sie ihn aus oder speichern Sie ihn auf Ihrem Telefon.",
-                "emergency.qrPlaceholder": "QR-Code wird hier angezeigt\nnach dem Speichern Ihres Profils",
-                "emergency.download": "QR-Code herunterladen",
-                "emergency.print": "Notfallkarte drucken",
-                "emergency.share": "QR-Code teilen",
-                "emergency.preview": "Karte vorschau",
-                "common.saveProfile": "Profil speichern",
-                "common.saveHealth": "Gesundheit speichern",
-                "common.saveIce": "ICE-Kontakte speichern",
-                "common.remove": "Entfernen",
-                "toast.profileSaved": "Profil erfolgreich gespeichert",
-                "toast.healthSaved": "Gesundheitsinformationen gespeichert",
-                "toast.iceSaved": "Notfallkontakte gespeichert",
-                "toast.autoSaved": "Änderungen automatisch gespeichert",
-                "toast.offlineMode": "Offline arbeiten - Änderungen lokal gespeichert",
-                "toast.backOnline": "Wieder online - Änderungen synchronisieren",
-                "delete.title": "Konto löschen",
-                "delete.warning": "Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Daten werden dauerhaft gelöscht.",
-                "delete.confirmLabel": "Geben Sie \"DELETE MY ACCOUNT\" zur Bestätigung ein:",
-                "delete.confirmPlaceholder": "DELETE MY ACCOUNT",
-                "delete.confirmHint": "Diese Phrase muss genau übereinstimmen",
-                "delete.button": "Mein Konto löschen",
-                "disclaimer.medical": "Nur zur Information. Kliniker müssen mit offiziellen medizinischen Dokumenten bestätigen.",
-                "disclaimer.privacy": "Daten bleiben auf Ihrem Gerät, es sei denn, Sie wählen das Teilen.",
-                "footer.privacy": "Datenschutzrichtlinie",
-                "footer.terms": "Nutzungsbedingungen",
-                "footer.copyright": "© 2024 MYQER™. Alle Rechte vorbehalten."
-            }
-        };
-
-        // Translation function
-        const t = (key) => {
-            return LOCALES[currentLang]?.[key] || LOCALES.en[key] || key;
-        };
-
-        // Update all translatable elements
-        const updateTranslations = () => {
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                el.textContent = t(key);
-            });
-
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                el.placeholder = t(key);
-            });
-
-            // Update ribbon text
-            document.querySelectorAll('.ribbon').forEach(ribbon => {
-                if (ribbon.textContent === 'Identity') ribbon.textContent = t('identity.title').split(' — ')[0];
-                if (ribbon.textContent === 'Critical') ribbon.textContent = t('critical.title').split(' — ')[0];
-                if (ribbon.textContent === 'ICE') ribbon.textContent = 'ICE';
-                if (ribbon.textContent === 'Emergency') ribbon.textContent = t('emergency.title').split(' ')[0];
-            });
-        };
-
-        // Language switching
-        const updateLanguage = (lang) => {
-            currentLang = lang;
-            
-            // Handle RTL for Arabic
-            document.documentElement.setAttribute('lang', lang);
-            document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-            
-            updateTranslations();
-            
-            // Update language selector
-            const langMap = {
-                'en': 'EN', 'es': 'ES', 'fr': 'FR', 'de': 'DE', 
-                'it': 'IT', 'pt': 'PT', 'ro': 'RO', 'ar': 'AR', 
-                'hi': 'HI', 'zh': 'ZH'
-            };
-            document.getElementById('langSelector').textContent = langMap[lang] || 'EN';
-            
-            console.log(`🌐 Language updated to: ${lang.toUpperCase()}`);
-        };
-
-        // Toast notification system
-        const showToast = (message, type = 'success', duration = 4000) => {
-            const toastArea = document.getElementById('toastArea');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            
-            toastArea.appendChild(toast);
-            
-            setTimeout(() => toast.classList.add('show'), 100);
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => {
-                    if (toastArea.contains(toast)) {
-                        toastArea.removeChild(toast);
-                    }
-                }, 300);
-            }, duration);
-        };
-
-        // Network status monitoring
-        const updateNetworkStatus = () => {
-            const netStatus = document.getElementById('netStatus');
-            const offlineBanner = document.getElementById('offlineBanner');
-            
-            if (navigator.onLine) {
-                netStatus.textContent = t('status.online');
-                netStatus.className = 'online';
-                offlineBanner.style.display = 'none';
-                if (!isOnline) {
-                    showToast(t('toast.backOnline'), 'success');
-                    isOnline = true;
-                }
-            } else {
-                netStatus.textContent = t('status.offline');
-                netStatus.className = 'offline';
-                offlineBanner.style.display = 'block';
-                if (isOnline) {
-                    showToast(t('toast.offlineMode'), 'info');
-                    isOnline = false;
-                }
-            }
-        };
-
-        // Auto-save functionality with 500ms debounce
-        const setupAutoSave = (fieldId, saveFunction) => {
-            const field = document.getElementById(fieldId);
-            if (!field) return;
-
-            field.addEventListener('input', () => {
-                // Clear existing timeout
-                if (autoSaveTimeouts[fieldId]) {
-                    clearTimeout(autoSaveTimeouts[fieldId]);
-                }
-
-                // Set new timeout with 500ms debounce
-                autoSaveTimeouts[fieldId] = setTimeout(async () => {
-                    try {
-                        await saveFunction();
-                        showFieldSaved(fieldId);
-                        showToast(t('toast.autoSaved'), 'success', 2000);
-                    } catch (error) {
-                        console.error('Auto-save error:', error);
-                        showToast('Auto-save failed', 'error');
-                    }
-                }, 500); // Auto-save after 500ms of no typing
-            });
-        };
-
-        const showFieldSaved = (fieldId) => {
-            const field = document.getElementById(fieldId);
-            if (!field) return;
-
-            field.classList.add('field-saved', 'show-check');
-            setTimeout(() => {
-                field.classList.remove('show-check');
-            }, 2000);
-        };
-
-        // ICE Contacts Management
-        const renderIceContacts = () => {
-            const container = document.getElementById('iceContactsList');
-            container.innerHTML = '';
-
-            iceContacts.forEach((contact, index) => {
-                const contactDiv = document.createElement('div');
-                contactDiv.className = 'ice-row';
-                contactDiv.setAttribute('data-index', index);
-                contactDiv.innerHTML = `
-                    <div class="ice-contact-header">
-                        <div class="contact-number">${index + 1}</div>
-                        <div class="ice-actions">
-                            <button class="iceSaveBtn" onclick="saveIndividualIceContact(${index})">Save</button>
-                            <button class="iceDeleteBtn" onclick="removeIceContact(${index})" aria-label="Delete contact">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="ice-form-grid">
-                        <div class="form-group">
-                            <label>Name</label>
-                            <input type="text" class="iceName" value="${contact.name || ''}" onchange="updateIceContact(${index}, 'name', this.value)" placeholder="Name">
-                        </div>
-                        <div class="form-group">
-                            <label>Relationship</label>
-                            <input type="text" class="iceRelation" value="${contact.relation || ''}" onchange="updateIceContact(${index}, 'relation', this.value)" placeholder="Spouse, Parent, etc.">
-                        </div>
-                        <div class="form-group">
-                            <label>Phone</label>
-                            <input type="tel" class="icePhone" value="${contact.phone || ''}" onchange="updateIceContact(${index}, 'phone', this.value)" placeholder="+1 (555) 123-4567">
-                        </div>
-                    </div>
-                `;
-                container.appendChild(contactDiv);
-            });
-
-            // Update add button state
-            const addButton = document.getElementById('addIce');
-            if (iceContacts.length >= 3) {
-                addButton.disabled = true;
-                addButton.textContent = 'Maximum 3 contacts reached';
-            } else {
-                addButton.disabled = false;
-                addButton.textContent = '+ Add Emergency Contact';
-            }
-        };
-
-        const addIceContact = () => {
-            if (iceContacts.length >= 3) {
-                showToast('Maximum 3 emergency contacts allowed', 'error');
-                return;
-            }
-            
-            iceContacts.push({
-                name: '',
-                relation: '',
-                phone: '',
-            });
-            renderIceContacts();
-        };
-
-   const saveIndividualIceContact = async (index) => {
-  try {
-    const contact = iceContacts[index];
-    if (!contact || !contact.name || !contact.phone) {
-      showToast('Name and phone are required', 'error');
-      return;
-    }
-
-    // 1) Save locally
-    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-    showToast(`Contact ${index + 1} saved locally`, 'success');
-
-    // 2) Sync to Supabase
-    if (isSupabaseAvailable && isOnline) {
-      const uid = await getUserId(); // <- uses your helper
-      if (uid) {
-        const row = {
-  user_id: uid,
-  name: contact.name || null,
-  // accept either "relation" (new) or "relationship" (old UI)
-  relation: (contact.relation && contact.relation.trim()) || '',
-  phone: contact.phone || null,
-  contact_order: index
-};
-
-        const { error } = await supabase
-          .from('ice_contacts')
-          .upsert(row, { onConflict: 'user_id,contact_order' }); // one row per slot
-
-        if (error) throw error;
-        showToast(`Contact ${index + 1} synced to server`, 'success');
-      }
-    }
-
-    generateQRCode();
-  } catch (err) {
-    console.error('Save ICE contact error:', err);
-    showToast('Error saving contact: ' + err.message, 'error');
-  }
-};
-
-        // Short code generation
-        const generateShortCode = () => {
-            // Check if user already has a short code
-            let shortCode = localStorage.getItem('myqer_shortcode');
-            if (shortCode) {
-                return shortCode;
-            }
-
-            // Generate new 8-character code (exclude confusing chars O,0,I,1)
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 8; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            
-            // Format as XXXX-XXXX
-            const formattedCode = code.substring(0, 4) + '-' + code.substring(4);
-            
-            // Store permanently
-            localStorage.setItem('myqer_shortcode', formattedCode);
-            return formattedCode;
-        };
-
-        const removeIceContact = (index) => {
-            iceContacts.splice(index, 1);
-            renderIceContacts();
-        };
-
-        const updateIceContact = (index, field, value) => {
-            if (iceContacts[index]) {
-                iceContacts[index][field] = value;
-            }
-        };
-            //calculateTriage
-       // Put this near your other top-level consts (above calculateTriage)
-
- const TRIAGE_KEYWORDS = [
-  // --- Very high risk (score 4) → likely RED
-  { re: /\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i, score: 4 },
-  { re: /\b(severe allergy|severe reaction)\b/i, score: 4 },
-  { re: /\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i, score: 4 },
-  { re: /\bventricular (tachy|fibrillation)|vfib|vtach\b/i, score: 4 },
-  { re: /\btransplant|immunosuppression(s)?\b/i, score: 4 },
-  { re: /\bsevere asthma|status asthmaticus\b/i, score: 4 },
-  { re: /\brespiratory failure|copd exacerbation\b/i, score: 4 },
-
-  // --- High risk (score 3) → often AMBER
-  { re: /\bpenicillin allergy|cephalosporin allergy\b/i, score: 3 },
-  { re: /\binsulin pump|type 1 diabetes|insulin dependent\b/i, score: 3 },
-  { re: /\bkidney failure|renal failure|dialysis|alport\b/i, score: 3 },
-  { re: /\bseizure disorder|epilepsy|epileptic\b/i, score: 3 },
-  { re: /\bstroke|cva|tia\b/i, score: 3 },
-  { re: /\bwarfarin|coumadin|anticoagulant|blood thinner\b/i, score: 3 },
-  { re: /\bpacemaker|defibrillator|icd\b/i, score: 3 },
-  { re: /\bbeta[-\s]?blocker allergy\b/i, score: 3 },
-  { re: /\bmajor surgery|bypass|open heart\b/i, score: 3 },
-
-  // --- Moderate risk (score 2)
-  { re: /\bdiabetes|type 2 diabetes|metformin|sulfonylurea\b/i, score: 2 },
-  { re: /\bhypertension|high blood pressure\b/i, score: 2 },
-  { re: /\basthma|respiratory disease\b/i, score: 2 },
-  { re: /\bchronic pain|opioid|morphine|fentanyl|oxycodone\b/i, score: 2 },
-  { re: /\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i, score: 2 },
-  { re: /\bmetal implant|joint replacement|hip replacement|stent(s)?\b/i, score: 2 },
-
-  // --- Mild (score 1)
-  { re: /\bpenicillin\b/i, score: 1 }, // catch general mention
-  { re: /\bcodeine\b/i, score: 1 },
-  { re: /\bmidazolam\b/i, score: 1 },
-  { re: /\bibu(profen)?\b/i, score: 1 },
-  { re: /\bparacetamol|acetaminophen\b/i, score: 1 }
-];
-
-// Replace your existing calculateTriage() with this
-function calculateTriage () {
-  const override = document.getElementById('triageOverride').value;
-  if (override !== 'auto') return updateTriagePill(override);
-
-  // Gather text from the 3 inputs (empty -> '')
-  const allergies  = (document.getElementById('hfAllergies').value || '').toString();
-  const conditions = (document.getElementById('hfConditions').value || '').toString();
-  const meds       = (document.getElementById('hfMeds').value || '').toString();
-
-  // Build a single searchable haystack
-  const haystack = [allergies, conditions, meds].join('\n');
-
-  // Score it
-  let score = 0;
-for (const k of TRIAGE_KEYWORDS) {
-  if (k.re.test(haystack)) score += k.score;
-}
-
-// decide level
-let level = 'green';
-if (score >= 6) level = 'red';
-else if (score >= 3) level = 'amber';
-
-updateTriagePill(level);
-} // end function
-        const updateTriagePill = (level) => {
-            const pill = document.getElementById('triagePill');
-            pill.className = level;
-            pill.textContent = level.toUpperCase();
-        };
-        
-      // Save Profile -> Supabase 'profiles' expects id (PK) and columns: full_name, dob, country, health_id
-const saveProfile = async () => {
-  const full_name = document.getElementById('profileFullName').value || null;
-  const dobRaw    = document.getElementById('profileDob').value || null;   // HTML date input is '' when empty
-  const country   = document.getElementById('profileCountry').value || null;
-  const health_id = document.getElementById('profileHealthId').value || null;
-
-  // Coerce empty string to null for a DATE column
-  const dob = dobRaw && dobRaw.trim() !== '' ? dobRaw : null;
-
-  try {
-    if (isSupabaseAvailable && isOnline) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      if (uid) {
-        // IMPORTANT: use id: uid (NOT user_id)
-        const { error } = await supabase
-          .from('profiles')
-          .upsert({ id: uid, full_name, dob, country, health_id }); // matches your DB schema
-        if (error) throw error;
-      }
-    }
-
-    // Save locally (your existing shape)
-    const profileData = {
-      fullName: full_name || '',
-      dob: dob || '',
-      country: country || '',
-      healthId: health_id || ''
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    // ---- boot guard + loader fallback ----
+    console.log('🟢 dashboard boot');
+    window.onerror = (m, s, l, c, e) => {
+      console.error('JS error:', m, s, l, c, e);
+      const loading = document.getElementById('loadingState');
+      const box = document.getElementById('errorBox');
+      const msg = document.getElementById('errorMsg');
+      if (loading) loading.style.display = 'none';
+      if (box && msg) { box.style.display = 'block'; msg.textContent = String(m || 'Unexpected error. Please refresh.'); }
     };
-    localStorage.setItem('myqer_profile', JSON.stringify(profileData));
-    userData.profile = profileData;
-
-    showToast(t('toast.profileSaved'), 'success');
-    const m = document.getElementById('profileMsg');
-    m.textContent = '✔ ' + t('toast.profileSaved');
-    m.className = 'status-msg success';
-    m.style.display = 'block';
-
-    generateQRCode();
-  } catch (error) {
-    console.error('Save profile error:', error);
-    showToast('Error saving profile: ' + (error.message || error), 'error');
-  }
-};
-
-       // Save health (Supabase + localStorage)
-const saveHealth = async () => {
-  // Grab values from the form
-  const healthData = {
-    blood_type: document.getElementById('hfBloodType').value || null,
-    allergies: document.getElementById('hfAllergies').value || null,
-    organ_donor: document.getElementById('hfDonor').checked,
-    conditions: document.getElementById('hfConditions').value || null,
-    medications: document.getElementById('hfMeds').value || null,
-    implants: document.getElementById('hfImplants').value || null,
-    triage_override: document.getElementById('triageOverride').value || 'auto'
-  };
-
-  try {
-    // 1) Save to localStorage (keeps current shape your UI already uses)
-    const localMirror = {
-      bloodType: healthData.blood_type,
-      allergies: healthData.allergies,
-      organDonor: healthData.organ_donor,
-      conditions: healthData.conditions,
-      medications: healthData.medications,
-      implants: healthData.implants,
-      triageOverride: healthData.triage_override
-    };
-    localStorage.setItem('myqer_health', JSON.stringify(localMirror));
-    userData.health = localMirror;
-
-    // 2) Save to Supabase (if available/online)
-    if (isSupabaseAvailable && isOnline) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        const row = { user_id: session.user.id, ...healthData };
-        const { error } = await supabase
-          .from('health_data')
-          .upsert(row, { onConflict: 'user_id' }); // exactly one row per user
-        if (error) throw error;
+    setTimeout(() => {
+      const loading = document.getElementById('loadingState');
+      if (loading && loading.style.display !== 'none') {
+        console.warn('Still loading after 6s — showing fallback.');
+        loading.style.display = 'none';
+        const box = document.getElementById('errorBox');
+        const msg = document.getElementById('errorMsg');
+        if (box && msg) { box.style.display = 'block'; msg.textContent = 'Taking too long to load. Please refresh the page.'; }
       }
-    }
+    }, 6000);
 
-    // Recompute triage + UI feedback
-    calculateTriage();
-
-    showToast(t('toast.healthSaved'), 'success');
-    const msg = document.getElementById('healthMsg');
-    msg.textContent = '✓ ' + t('toast.healthSaved');
-    msg.className = 'status-msg success';
-    msg.style.display = 'block';
-
-    generateQRCode();
-  } catch (err) {
-    console.error('Save health error:', err);
-    showToast('Error saving health data: ' + err.message, 'error');
-  }
-};
-
-        const saveIce = async () => {
-  try {
-    // 1) Save locally and update in-memory
-    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-    userData.ice = iceContacts;
-
-    // 2) Save to Supabase (bulk)
-    if (isSupabaseAvailable && isOnline) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        const rows = iceContacts.map((contact, index) => ({
-          user_id: session.user.id,
-          name: contact.name || null,
-          relation: (contact.relation ?? contact.relationship ?? '').toString().trim(),
-          phone: contact.phone || null,
-          contact_order: index
-        }));
-
-        const { error } = await supabase
-          .from('ice_contacts')
-          .upsert(rows, { onConflict: 'user_id, contact_order' });
-
-        if (error) throw error;
-      }
-    }
-
-    // 3) UI feedback
-    showToast(t('toast.iceSaved'), 'success');
-    const msg = document.getElementById('iceMsg');
-    msg.textContent = '✓ ' + t('toast.iceSaved');
-    msg.className = 'status-msg success';
-    msg.style.display = 'block';
-
-    generateQRCode();
-  } catch (error) {
-    console.error('Save ICE error:', error);
-    showToast('Error saving emergency contacts: ' + error.message, 'error');
-  }
-};
-
-     // QR Code generation
-const generateQRCode = () => {
-  const qrCanvasContainer = document.getElementById('qrCanvas');
-  const qrPlaceholder = document.getElementById('qrPlaceholder');
-  const codeUnderQR = document.getElementById('codeUnderQR');
-  const cardUrl = document.getElementById('cardUrl');
-  const qrStatus = document.getElementById('qrStatus');
-
-  // Check if we have enough data
-  const hasProfile = userData.profile && userData.profile.full_name;
-  const hasHealth = userData.health && (userData.health.bloodType || userData.health.allergies);
-  const hasIce = iceContacts && iceContacts.length > 0;
-
-  if (hasProfile || hasHealth || hasIce) {
-  const shortCode = generateShortCode();
-  const qrUrl = `https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card?code=${shortCode}`;
-
-  // Update UI
-  codeUnderQR.textContent = shortCode;
-  cardUrl.value = qrUrl;
-
-  qrPlaceholder.style.display = 'none';
-  qrCanvasContainer.innerHTML = '';
-
-  new QRCode(qrCanvasContainer, {
-    text: qrUrl,
-    width: 240,
-    height: 240,
-    correctLevel: QRCode.CorrectLevel.M
-  });
-
-  qrStatus.textContent = 'QR Code generated successfully';
-  qrStatus.style.background = 'rgba(5, 156, 105, 0.1)';
-  qrStatus.style.color = 'var(--green)';
-  qrStatus.hidden = false;
-}
-   
-  } else {
-    // Hide QR if not enough info
-    qrPlaceholder.style.display = 'flex';
-    qrCanvasContainer.innerHTML = "";
-    codeUnderQR.textContent = '';
-    cardUrl.value = '';
-    qrStatus.hidden = true;
-  }
-};
-        // Load user data with Supabase session guard
-// Load user data with Supabase session guard
-const loadUserData = async () => {
-  try {
-    // 1) Require an auth session
-const { data: { session }, error: sessErr } = await supabase.auth.getSession();
-if (sessErr) console.warn('Supabase session error:', sessErr);
-
-if (!session) {
-  console.warn('No Supabase session; staying on page.');
-  // Optional: show a visible hint instead of reloading forever
-  const box = document.getElementById('errorBox');
-  const msg = document.getElementById('errorMsg');
-  if (box && msg) {
-    box.style.display = 'block';
-    msg.textContent = 'Your session expired. Please refresh or log in again.';
-  }
-  return; // <- important: stop here, do NOT redirect
-}
-    }
-
-    // 2) Load from localStorage first (instant UI)
-    const profileLS = localStorage.getItem('myqer_profile');
-    const healthLS  = localStorage.getItem('myqer_health');
-    const iceLS     = localStorage.getItem('myqer_ice');
-
-    if (profileLS) {
-      userData.profile = JSON.parse(profileLS);
-      Object.keys(userData.profile).forEach((key) => {
-        const field = document.getElementById('profile' + key.charAt(0).toUpperCase() + key.slice(1));
-        if (field) {
-          field.value = userData.profile[key] || '';
-          if (userData.profile[key]) field.classList.add('field-saved');
-        }
-      });
-    }
-
-    if (healthLS) {
-      userData.health = JSON.parse(healthLS);
-      const healthFields = {
-        'hfBloodType': 'bloodType',
-        'hfAllergies': 'allergies',
-        'hfConditions': 'conditions',
-        'hfMeds': 'medications',
-        'hfImplants': 'implants',
-        'triageOverride': 'triageOverride'
-      };
-      Object.entries(healthFields).forEach(([fieldId, dataKey]) => {
-        const field = document.getElementById(fieldId);
-        if (!field) return;
-        if (fieldId === 'hfDonor') {
-          field.checked = !!userData.health.organDonor;
-        } else {
-          field.value = userData.health[dataKey] || '';
-          if (userData.health[dataKey]) field.classList.add('field-saved');
-        }
-      });
-      document.getElementById('hfDonor').checked = !!userData.health?.organDonor;
-      calculateTriage();
-    }
-
-    if (iceLS) {
-      iceContacts = JSON.parse(iceLS);
-      renderIceContacts();
-    }
-
-    // 3) Sync from Supabase (server wins), if online
-    if (isSupabaseAvailable && isOnline) {
-      const uid = session.user.id;
-
-      // profiles
-      const { data: serverProfile, error: profErr } = await supabase
-        .from('profiles')
-        .select('full_name, dob, country, health_id')
-        .eq('user_id', uid)
-        .single();
-
-      if (!profErr && serverProfile) {
-        userData.profile = {
-          ...userData.profile,
-          fullName: serverProfile.full_name || '',
-          dob: serverProfile.dob || '',
-          country: serverProfile.country || '',
-          healthId: serverProfile.health_id || ''
-        };
-        localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-        // reflect in form
-        const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
-        Object.entries(pfMap).forEach(([k, id]) => {
-          const el = document.getElementById(id);
-          if (el) el.value = userData.profile[k] || '';
-        });
-      }
-
-      // health_data
-      const { data: serverHealth, error: healthErr } = await supabase
-        .from('health_data')
-        .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
-        .eq('user_id', uid)
-        .single();
-
-      if (!healthErr && serverHealth) {
-        userData.health = {
-          ...userData.health,
-          bloodType: serverHealth.blood_type || '',
-          allergies: serverHealth.allergies || '',
-          organDonor: !!serverHealth.organ_donor,
-          conditions: serverHealth.conditions || '',
-          medications: serverHealth.medications || '',
-          implants: serverHealth.implants || '',
-          triageOverride: serverHealth.triage_override || 'auto'
-        };
-        localStorage.setItem('myqer_health', JSON.stringify(userData.health));
-
-        // reflect in form
-        document.getElementById('hfBloodType').value = userData.health.bloodType || '';
-        document.getElementById('hfAllergies').value = userData.health.allergies || '';
-        document.getElementById('hfDonor').checked = !!userData.health.organDonor;
-        document.getElementById('hfConditions').value = userData.health.conditions || '';
-        document.getElementById('hfMeds').value = userData.health.medications || '';
-        document.getElementById('hfImplants').value = userData.health.implants || '';
-        document.getElementById('triageOverride').value = userData.health.triageOverride || 'auto';
-        calculateTriage();
-      }
-
-      // ice_contacts
-      const { data: serverIce, error: iceErr } = await supabase
-        .from('ice_contacts')
-        .select('name, relation, phone, contact_order')
-        .eq('user_id', uid)
-        .order('contact_order', { ascending: true });
-
-      if (!iceErr && Array.isArray(serverIce) && serverIce.length) {
-        iceContacts = serverIce.map(r => ({
-          name: r.name || '',
-          relation: r.relation || '',
-          phone: r.phone || ''
-        }));
-        localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-        renderIceContacts();
-      }
-    }
-
-    // 4) Ensure QR reflects whatever we have
-    generateQRCode();
-    console.log('✅ User data loaded');
-  } catch (error) {
-    console.error('Load data error:', error);
-    showToast('Error loading data: ' + error.message, 'error');
-    const eb = document.getElementById('errorBox');
-    const em = document.getElementById('errorMsg');
-    if (eb && em) {
-      eb.style.display = 'block';
-      em.textContent = 'Failed to load your data. Please try refreshing the page.';
-    }
-  }
-};
-
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Initialize first
-            updateLanguage('en');
-            updateNetworkStatus();
-            
-            // Load user data
-            await loadUserData();
-            
-            // Smooth loading transition
-            setTimeout(() => {
-                const loadingState = document.getElementById('loadingState');
-                loadingState.style.opacity = '0';
-                loadingState.style.transition = 'opacity 0.5s ease';
-                
-                setTimeout(() => {
-                    loadingState.style.display = 'none';
-                    // Fade in main content
-                    document.body.style.opacity = '0';
-                    document.body.style.transition = 'opacity 0.5s ease';
-                    setTimeout(() => {
-                        document.body.style.opacity = '1';
-                    }, 100);
-                }, 500);
-            }, 800);
-
-            // Language selector
-            const langSelector = document.getElementById('langSelector');
-            const langDropdown = document.getElementById('langDropdown');
-
-            langSelector.addEventListener('click', () => {
-                const isOpen = langDropdown.style.display === 'block';
-                langDropdown.style.display = isOpen ? 'none' : 'block';
-                langSelector.setAttribute('aria-expanded', !isOpen);
-            });
-
-            langDropdown.addEventListener('click', (e) => {
-                if (e.target.dataset.lang) {
-                    updateLanguage(e.target.dataset.lang);
-                    langDropdown.style.display = 'none';
-                    langSelector.setAttribute('aria-expanded', 'false');
-                }
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!langSelector.contains(e.target) && !langDropdown.contains(e.target)) {
-                    langDropdown.style.display = 'none';
-                    langSelector.setAttribute('aria-expanded', 'false');
-                }
-            });
-
-            // Save button event listeners
-            document.getElementById('saveProfile').addEventListener('click', saveProfile);
-            document.getElementById('saveHealth').addEventListener('click', saveHealth);
-            document.getElementById('saveIce').addEventListener('click', saveIce);
-            
-            // ICE contact management
-            document.getElementById('addIce').addEventListener('click', addIceContact);
-            
-            // Triage override
-            document.getElementById('triageOverride').addEventListener('change', calculateTriage);
-            
-            // Auto-save setup
-            setupAutoSave('profileFullName', saveProfile);
-            setupAutoSave('profileDob', saveProfile);
-            setupAutoSave('profileCountry', saveProfile);
-            setupAutoSave('profileHealthId', saveProfile);
-            setupAutoSave('hfBloodType', saveHealth);
-            setupAutoSave('hfAllergies', saveHealth);
-            setupAutoSave('hfConditions', saveHealth);
-            setupAutoSave('hfMeds', saveHealth);
-            setupAutoSave('hfImplants', saveHealth);
-            
-            // QR control actions
-            document.getElementById('copyLink').addEventListener('click', async () => {
-                const cardUrl = document.getElementById('cardUrl').value;
-                if (cardUrl) {
-                    try {
-                        await navigator.clipboard.writeText(cardUrl);
-                        showToast('Link copied to clipboard', 'success');
-                    } catch (err) {
-                        showToast('Failed to copy link', 'error');
-                    }
-                } else {
-                    showToast('No link to copy', 'error');
-                }
-            });
-            
-            document.getElementById('openLink').addEventListener('click', () => {
-                const cardUrl = document.getElementById('cardUrl').value;
-                if (cardUrl) {
-                    window.open(cardUrl, '_blank');
-                } else {
-                    showToast('No link to open', 'error');
-                }
-            });
-            
-            document.getElementById('dlPNG').addEventListener('click', () => {
-                const canvas = document.getElementById('qrCanvas');
-                if (canvas.style.display !== 'none') {
-                    const link = document.createElement('a');
-                    link.download = 'myqer-emergency-qr.png';
-                    link.href = canvas.toDataURL();
-                    link.click();
-                    showToast('PNG downloaded', 'success');
-                } else {
-                    showToast('Generate QR code first', 'error');
-                }
-            });
-            
-            document.getElementById('dlSVG').addEventListener('click', () => {
-                showToast('SVG download feature coming soon', 'info');
-            });
-            
-            document.getElementById('printQR').addEventListener('click', () => {
-                const shortCode = document.getElementById('codeUnderQR').textContent;
-                if (shortCode) {
-                    // Create print-friendly version
-                    const printWindow = window.open('', '_blank');
-                    printWindow.document.write(`
-                        <html>
-                            <head><title>MYQER Emergency Card - ${shortCode}</title></head>
-                            <body style="font-family: Arial; text-align: center; padding: 2rem;">
-                                <h1>MYQER™ Emergency Card</h1>
-                                <p>Code: ${shortCode}</p>
-                                <canvas id="printCanvas" width="300" height="300"></canvas>
-                                <p>Scan this QR code for emergency information</p>
-                                <p style="font-size: 0.8em; color: #666;">www.myqer.com</p>
-                            </body>
-                        </html>
-                    `);
-                    printWindow.document.close();
-                    printWindow.print();
-                } else {
-                    showToast('Generate QR code first', 'error');
-                }
-            });
-            
-            // Delete account functionality
-            const deletePhrase = document.getElementById('deletePhrase');
-            const deleteBtn = document.getElementById('deleteBtn');
-            
-            deletePhrase.addEventListener('input', () => {
-                const isMatch = deletePhrase.value === 'DELETE MY ACCOUNT';
-                deleteBtn.disabled = !isMatch;
-                
-                if (isMatch) {
-                    deleteBtn.style.background = '#DC2626';
-                    deleteBtn.style.cursor = 'pointer';
-                } else {
-                    deleteBtn.style.background = 'var(--light-slate)';
-                    deleteBtn.style.cursor = 'not-allowed';
-                }
-            });
-            
-            deleteBtn.addEventListener('click', async () => {
-                if (deletePhrase.value !== 'DELETE MY ACCOUNT') {
-                    showToast('Please type the confirmation phrase exactly', 'error');
-                    return;
-                }
-                
-                const confirmed = confirm('Are you absolutely sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.');
-                
-                if (confirmed) {
-                    try {
-                        // Delete from Supabase if available
-                        if (isSupabaseAvailable && isOnline) {
-                            // Delete user data from all tables
-                            await supabase.from('profiles').delete().eq('user_id', 'current_user');
-                            await supabase.from('health_data').delete().eq('user_id', 'current_user');
-                            await supabase.from('ice_contacts').delete().eq('user_id', 'current_user');
-                        }
-                        
-                        // Clear all local data
-                        localStorage.clear();
-                        sessionStorage.clear();
-                        
-                        showToast('Account deleted successfully. Redirecting...', 'success');
-                        
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 2000);
-                        
-                    } catch (error) {
-                        console.error('Delete account error:', error);
-                        showToast('Error deleting account: ' + error.message, 'error');
-                    }
-                }
-            });
-
-            document.getElementById('btnSignOut').addEventListener('click', async () => {
-  if (confirm('Are you sure you want to logout?')) {
+    // ---- Supabase ----
+    const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+    let supabase = null, isSupabaseAvailable = false, isOnline = navigator.onLine;
     try {
-      // Sign out from Supabase session
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        isSupabaseAvailable = true;
+      }
+    } catch (e) { console.warn('Supabase init failed:', e); }
 
-      // Clear local storage/session just in case
-      localStorage.clear();
-      sessionStorage.clear();
+    const showToast = (msg, type='success', ms=4000) => {
+      const area = document.getElementById('toastArea');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = msg;
+      area.appendChild(el);
+      setTimeout(()=>el.classList.add('show'),100);
+      setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); }, ms);
+    };
 
-      // Redirect back to landing/login
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Logout error:', err);
-      alert('Logout failed, please try again');
+    const updateNetworkStatus = () => {
+      const net = document.getElementById('netStatus');
+      const banner = document.getElementById('offlineBanner');
+      if (navigator.onLine) {
+        net.textContent = 'Online'; net.className = 'online'; banner.style.display = 'none';
+        if (!isOnline) { showToast('Back online - syncing changes'); isOnline = true; }
+      } else {
+        net.textContent = 'Offline'; net.className = 'offline'; banner.style.display = 'block';
+        if (isOnline) { showToast('Working offline - changes saved locally', 'success'); isOnline = false; }
+      }
+    };
+
+    let userData = {}, iceContacts = [], autoSaveTimeouts = {};
+
+    const getUserId = async () => {
+      try { const { data:{ session } } = await supabase.auth.getSession(); return session?.user?.id ?? null; }
+      catch { return null; }
+    };
+
+    // ---- TRIAGE ----
+    const TRIAGE_KEYWORDS = [
+      { re:/\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i, score:4 }, { re:/\b(severe allergy|severe reaction)\b/i, score:4 },
+      { re:/\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i, score:4 },
+      { re:/\bventricular (tachy|fibrillation)|vfib|vtach\b/i, score:4 },
+      { re:/\btransplant|immunosuppression(s)?\b/i, score:4 }, { re:/\bsevere asthma|status asthmaticus\b/i, score:4 },
+      { re:/\brespiratory failure|copd exacerbation\b/i, score:4 },
+      { re:/\bpenicillin allergy|cephalosporin allergy\b/i, score:3 }, { re:/\binsulin pump|type 1 diabetes|insulin dependent\b/i, score:3 },
+      { re:/\bkidney failure|renal failure|dialysis\b/i, score:3 }, { re:/\bseizure disorder|epilepsy\b/i, score:3 },
+      { re:/\bstroke|cva|tia\b/i, score:3 }, { re:/\bwarfarin|anticoagulant|blood thinner\b/i, score:3 },
+      { re:/\bpacemaker|defibrillator|icd\b/i, score:3 }, { re:/\bbeta[-\s]?blocker allergy\b/i, score:3 },
+      { re:/\bdiabetes|type 2 diabetes|metformin\b/i, score:2 }, { re:/\bhypertension|high blood pressure\b/i, score:2 },
+      { re:/\basthma|respiratory disease\b/i, score:2 }, { re:/\bchronic pain|opioid|morphine|fentanyl|oxycodone\b/i, score:2 },
+      { re:/\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i, score:2 }, { re:/\bmetal implant|joint replacement|stent(s)?\b/i, score:2 },
+      { re:/\bpenicillin\b/i, score:1 }, { re:/\bcodeine\b/i, score:1 }, { re:/\bmidazolam\b/i, score:1 }, { re:/\bibu(profen)?\b/i, score:1 }, { re:/\b(paracetamol|acetaminophen)\b/i, score:1 }
+    ];
+
+    function updateTriagePill(level){
+      const pill = document.getElementById('triagePill');
+      pill.className = level; pill.textContent = level.toUpperCase();
     }
-  }
-});
+    function calculateTriage(){
+      const override = document.getElementById('triageOverride').value;
+      if (override !== 'auto') return updateTriagePill(override);
+      const allergies = (document.getElementById('hfAllergies').value||'')+'';
+      const conditions = (document.getElementById('hfConditions').value||'')+'';
+      const meds = (document.getElementById('hfMeds').value||'')+'';
+      const hay = [allergies,conditions,meds].join('\n');
+      let score=0; for(const k of TRIAGE_KEYWORDS){ if(k.re.test(hay)) score+=k.score; }
+      let level='green'; if(score>=6) level='red'; else if(score>=3) level='amber'; updateTriagePill(level);
+    }
 
-            console.log('🚀 MYQER Dashboard Initialized');
-        });
+    // ---- ICE UI helpers ----
+    const renderIceContacts = () => {
+      const container = document.getElementById('iceContactsList');
+      container.innerHTML = '';
+      iceContacts.forEach((c,i)=>{
+        const div=document.createElement('div'); div.className='ice-row'; div.setAttribute('data-index',i);
+        div.innerHTML=`
+          <div class="ice-contact-header">
+            <div class="contact-number">${i+1}</div>
+            <div class="ice-actions">
+              <button class="iceSaveBtn" onclick="saveIndividualIceContact(${i})">Save</button>
+              <button class="iceDeleteBtn" onclick="removeIceContact(${i})" aria-label="Delete contact">🗑️</button>
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <div class="form-group"><label>Name</label><input class="iceName" value="${c.name||''}" onchange="updateIceContact(${i},'name',this.value)" placeholder="Name"></div>
+            <div class="form-group"><label>Relationship</label><input class="iceRelation" value="${c.relation||''}" onchange="updateIceContact(${i},'relation',this.value)" placeholder="Spouse, Parent, etc."></div>
+            <div class="form-group" style="grid-column:1/-1"><label>Phone</label><input class="icePhone" value="${c.phone||''}" onchange="updateIceContact(${i},'phone',this.value)" placeholder="+1 (555) 123-4567"></div>
+          </div>`;
+        container.appendChild(div);
+      });
+      const addBtn=document.getElementById('addIce');
+      if(iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; }
+      else { addBtn.disabled=false; addBtn.textContent='+ Add Emergency Contact'; }
+    };
+    const addIceContact=()=>{ if(iceContacts.length>=3){showToast('Maximum 3 emergency contacts allowed','error');return;}
+      iceContacts.push({name:'',relation:'',phone:''}); renderIceContacts(); };
+    const removeIceContact=i=>{ iceContacts.splice(i,1); renderIceContacts(); };
+    const updateIceContact=(i,f,v)=>{ if(iceContacts[i]) iceContacts[i][f]=v; };
 
-        // Network status listeners
-        window.addEventListener('online', updateNetworkStatus);
-        window.addEventListener('offline', updateNetworkStatus);
+    async function saveIndividualIceContact(i){
+      try{
+        const c=iceContacts[i]; if(!c||!c.name||!c.phone){showToast('Name and phone are required','error');return;}
+        localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); showToast(`Contact ${i+1} saved locally`,'success');
+        if(isSupabaseAvailable && isOnline){
+          const uid = await getUserId();
+          if(uid){
+            const row={user_id:uid,name:c.name||null,relation:(c.relation||'').trim(),phone:c.phone||null,contact_order:i};
+            const {error}=await supabase.from('ice_contacts').upsert(row,{onConflict:'user_id,contact_order'});
+            if(error) throw error; showToast(`Contact ${i+1} synced to server`,'success');
+          }
+        }
+        generateQRCode();
+      }catch(err){ console.error(err); showToast('Error saving contact: '+err.message,'error'); }
+    }
 
-        // Make functions globally available
-        window.addIceContact = addIceContact;
-        window.removeIceContact = removeIceContact;
-        window.updateIceContact = updateIceContact;
-        window.saveIndividualIceContact = saveIndividualIceContact;
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97984376b004496e',t:'MTc1NjkzNDEzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    // ---- Short code + QR ----
+    const generateShortCode=()=>{
+      let sc=localStorage.getItem('myqer_shortcode'); if(sc) return sc;
+      const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let code=''; for(let i=0;i<8;i++) code+=chars[Math.floor(Math.random()*chars.length)];
+      sc = code.slice(0,4)+'-'+code.slice(4); localStorage.setItem('myqer_shortcode',sc); return sc;
+    };
+
+    function generateQRCode(){
+      const qrCanvasContainer=document.getElementById('qrCanvas');
+      const qrPlaceholder=document.getElementById('qrPlaceholder');
+      const codeUnderQR=document.getElementById('codeUnderQR');
+      const cardUrl=document.getElementById('cardUrl');
+      const qrStatus=document.getElementById('qrStatus');
+
+      const hasProfile = userData.profile && userData.profile.fullName;
+      const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies);
+      const hasIce     = iceContacts && iceContacts.length>0;
+
+      if (hasProfile || hasHealth || hasIce){
+        const shortCode = generateShortCode();
+        const qrUrl = `https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card?code=${shortCode}`;
+
+        codeUnderQR.textContent = shortCode;
+        cardUrl.value = qrUrl;
+
+        qrPlaceholder.style.display='none';
+        qrCanvasContainer.innerHTML='';
+
+        new QRCode(qrCanvasContainer,{text:qrUrl,width:240,height:240,correctLevel:QRCode.CorrectLevel.M});
+
+        qrStatus.textContent='QR Code generated successfully';
+        qrStatus.style.background='rgba(5,156,105,.1)';
+        qrStatus.style.color='var(--green)';
+        qrStatus.hidden=false;
+      } else {
+        qrPlaceholder.style.display='flex';
+        qrCanvasContainer.innerHTML='';
+        codeUnderQR.textContent='';
+        cardUrl.value='';
+        qrStatus.hidden=true;
+      }
+    }
+
+    // ---- Saves ----
+    async function saveProfile(){
+      const full_name = document.getElementById('profileFullName').value || null;
+      const dobRaw    = document.getElementById('profileDob').value || null;
+      const country   = document.getElementById('profileCountry').value || null;
+      const health_id = document.getElementById('profileHealthId').value || null;
+      const dob = dobRaw && dobRaw.trim()!=='' ? dobRaw : null;
+
+      try{
+        if(isSupabaseAvailable && isOnline){
+          const { data:{ session } } = await supabase.auth.getSession();
+          const uid=session?.user?.id;
+          if(uid){
+            const { error } = await supabase.from('profiles').upsert({ id: uid, full_name, dob, country, health_id });
+            if(error) throw error;
+          }
+        }
+        const profileData={ fullName: full_name||'', dob: dob||'', country: country||'', healthId: health_id||'' };
+        localStorage.setItem('myqer_profile',JSON.stringify(profileData));
+        userData.profile = profileData;
+
+        showToast('Profile saved successfully','success');
+        const m=document.getElementById('profileMsg'); m.textContent='✔ Profile saved successfully'; m.className='status-msg success'; m.style.display='block';
+        generateQRCode();
+      }catch(e){ console.error(e); showToast('Error saving profile: '+(e.message||e),'error'); }
+    }
+
+    async function saveHealth(){
+      const healthData={
+        blood_type: document.getElementById('hfBloodType').value || null,
+        allergies: document.getElementById('hfAllergies').value || null,
+        organ_donor: document.getElementById('hfDonor').checked,
+        conditions: document.getElementById('hfConditions').value || null,
+        medications: document.getElementById('hfMeds').value || null,
+        implants: document.getElementById('hfImplants').value || null,
+        triage_override: document.getElementById('triageOverride').value || 'auto'
+      };
+      try{
+        const localMirror = {
+          bloodType: healthData.blood_type, allergies: healthData.allergies, organDonor: healthData.organ_donor,
+          conditions: healthData.conditions, medications: healthData.medications, implants: healthData.implants,
+          triageOverride: healthData.triage_override
+        };
+        localStorage.setItem('myqer_health',JSON.stringify(localMirror)); userData.health = localMirror;
+
+        if(isSupabaseAvailable && isOnline){
+          const { data:{ session } } = await supabase.auth.getSession();
+          if(session?.user?.id){
+            const row={ user_id: session.user.id, ...healthData };
+            const { error } = await supabase.from('health_data').upsert(row,{onConflict:'user_id'});
+            if(error) throw error;
+          }
+        }
+        calculateTriage();
+        showToast('Health information saved','success');
+        const m=document.getElementById('healthMsg'); m.textContent='✓ Health information saved'; m.className='status-msg success'; m.style.display='block';
+        generateQRCode();
+      }catch(e){ console.error(e); showToast('Error saving health data: '+e.message,'error'); }
+    }
+
+    async function saveIce(){
+      try{
+        localStorage.setItem('myqer_ice',JSON.stringify(iceContacts));
+        userData.ice = iceContacts;
+        if(isSupabaseAvailable && isOnline){
+          const { data:{ session } } = await supabase.auth.getSession();
+          if(session?.user?.id){
+            const rows = iceContacts.map((c,i)=>({ user_id:session.user.id, name:c.name||null, relation:(c.relation||'').trim(), phone:c.phone||null, contact_order:i }));
+            const { error } = await supabase.from('ice_contacts').upsert(rows,{onConflict:'user_id, contact_order'});
+            if(error) throw error;
+          }
+        }
+        showToast('Emergency contacts saved','success');
+        const m=document.getElementById('iceMsg'); m.textContent='✓ Emergency contacts saved'; m.className='status-msg success'; m.style.display='block';
+        generateQRCode();
+      }catch(e){ console.error(e); showToast('Error saving emergency contacts: '+e.message,'error'); }
+    }
+
+    // ---- Load user data ----
+    async function loadUserData(){
+      try{
+        const { data:{ session }, error: sessErr } = await supabase.auth.getSession();
+        if (sessErr) console.warn('Supabase session error:', sessErr);
+
+        if (!session){
+          console.warn('No Supabase session; staying on page.');
+          const box=document.getElementById('errorBox'), msg=document.getElementById('errorMsg');
+          if(box&&msg){ box.style.display='block'; msg.textContent='Your session expired. Please refresh or log in again.'; }
+          return;
+        }
+
+        // local first
+        const profileLS=localStorage.getItem('myqer_profile');
+        const healthLS =localStorage.getItem('myqer_health');
+        const iceLS    =localStorage.getItem('myqer_ice');
+
+        if(profileLS){
+          userData.profile=JSON.parse(profileLS);
+          const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
+          Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
+        }
+        if(healthLS){
+          userData.health=JSON.parse(healthLS);
+          document.getElementById('hfBloodType').value=userData.health.bloodType||'';
+          document.getElementById('hfAllergies').value=userData.health.allergies||'';
+          document.getElementById('hfDonor').checked=!!userData.health.organDonor;
+          document.getElementById('hfConditions').value=userData.health.conditions||'';
+          document.getElementById('hfMeds').value=userData.health.medications||'';
+          document.getElementById('hfImplants').value=userData.health.implants||'';
+          document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
+          calculateTriage();
+        }
+        if(iceLS){ iceContacts=JSON.parse(iceLS); renderIceContacts(); }
+
+        // server wins
+        if (isSupabaseAvailable && isOnline){
+          const uid=session.user.id;
+
+          const { data: serverProfile } = await supabase.from('profiles')
+            .select('full_name, dob, country, health_id')
+            .eq('id', uid)   // IMPORTANT: primary key is id
+            .single();
+
+          if(serverProfile){
+            userData.profile={...userData.profile,
+              fullName:serverProfile.full_name||'', dob:serverProfile.dob||'',
+              country:serverProfile.country||'', healthId:serverProfile.health_id||''};
+            localStorage.setItem('myqer_profile',JSON.stringify(userData.profile));
+            const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
+            Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
+          }
+
+          const { data: serverHealth } = await supabase.from('health_data')
+            .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
+            .eq('user_id', uid).single();
+
+          if(serverHealth){
+            userData.health={ bloodType:serverHealth.blood_type||'', allergies:serverHealth.allergies||'',
+              organDonor:!!serverHealth.organ_donor, conditions:serverHealth.conditions||'',
+              medications:serverHealth.medications||'', implants:serverHealth.implants||'',
+              triageOverride:serverHealth.triage_override||'auto' };
+            localStorage.setItem('myqer_health',JSON.stringify(userData.health));
+            document.getElementById('hfBloodType').value=userData.health.bloodType||'';
+            document.getElementById('hfAllergies').value=userData.health.allergies||'';
+            document.getElementById('hfDonor').checked=!!userData.health.organDonor;
+            document.getElementById('hfConditions').value=userData.health.conditions||'';
+            document.getElementById('hfMeds').value=userData.health.medications||'';
+            document.getElementById('hfImplants').value=userData.health.implants||'';
+            document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
+            calculateTriage();
+          }
+
+          const { data: serverIce } = await supabase.from('ice_contacts')
+            .select('name, relation, phone, contact_order').eq('user_id', uid).order('contact_order',{ascending:true});
+          if (Array.isArray(serverIce) && serverIce.length){
+            iceContacts = serverIce.map(r=>({name:r.name||'', relation:r.relation||'', phone:r.phone||''}));
+            localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); renderIceContacts();
+          }
+        }
+
+        generateQRCode();
+        console.log('✅ User data loaded');
+      }catch(e){
+        console.error(e); showToast('Error loading data: '+e.message,'error');
+        const eb=document.getElementById('errorBox'), em=document.getElementById('errorMsg');
+        if(eb&&em){ eb.style.display='block'; em.textContent='Failed to load your data. Please try refreshing the page.'; }
+      }
+    }
+
+    // ---- Autosave debounce ----
+    function setupAutoSave(id, fn){
+      const el=document.getElementById(id); if(!el) return;
+      el.addEventListener('input', ()=>{
+        if(autoSaveTimeouts[id]) clearTimeout(autoSaveTimeouts[id]);
+        autoSaveTimeouts[id]=setTimeout(async ()=>{
+          try{ await fn(); showToast('Changes saved automatically','success',2000); }
+          catch(e){ console.error(e); showToast('Auto-save failed','error'); }
+        },500);
+      });
+    }
+
+    // ---- Events ----
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      updateNetworkStatus();
+      await loadUserData();
+
+      // hide loader
+      const loading = document.getElementById('loadingState');
+      loading.style.opacity='0'; loading.style.transition='opacity .5s';
+      setTimeout(()=>loading.style.display='none',500);
+
+      // Lang dropdown (simple)
+      const langSel=document.getElementById('langSelector'), langDd=document.getElementById('langDropdown');
+      langSel.addEventListener('click',()=>{ const open=langDd.style.display==='block'; langDd.style.display=open?'none':'block'; langSel.setAttribute('aria-expanded', String(!open)); });
+      langDd.addEventListener('click',(e)=>{ if(e.target.dataset.lang){ langSel.textContent=e.target.dataset.lang.toUpperCase(); langDd.style.display='none'; }});
+      document.addEventListener('click',(e)=>{ if(!langSel.contains(e.target) && !langDd.contains(e.target)) { langDd.style.display='none'; langSel.setAttribute('aria-expanded','false'); }});
+
+      // Buttons
+      document.getElementById('saveProfile').addEventListener('click', saveProfile);
+      document.getElementById('saveHealth').addEventListener('click', saveHealth);
+      document.getElementById('saveIce').addEventListener('click', saveIce);
+      document.getElementById('addIce').addEventListener('click', addIceContact);
+      document.getElementById('triageOverride').addEventListener('change', calculateTriage);
+
+      setupAutoSave('profileFullName', saveProfile);
+      setupAutoSave('profileDob', saveProfile);
+      setupAutoSave('profileCountry', saveProfile);
+      setupAutoSave('profileHealthId', saveProfile);
+      setupAutoSave('hfBloodType', saveHealth);
+      setupAutoSave('hfAllergies', saveHealth);
+      setupAutoSave('hfConditions', saveHealth);
+      setupAutoSave('hfMeds', saveHealth);
+      setupAutoSave('hfImplants', saveHealth);
+
+      // QR actions
+      document.getElementById('copyLink').addEventListener('click', async ()=>{
+        const url=document.getElementById('cardUrl').value; if(!url) return showToast('No link to copy','error');
+        try{ await navigator.clipboard.writeText(url); showToast('Link copied to clipboard','success'); }
+        catch{ showToast('Failed to copy link','error'); }
+      });
+      document.getElementById('openLink').addEventListener('click', ()=>{
+        const url=document.getElementById('cardUrl').value; if(!url) return showToast('No link to open','error');
+        window.open(url,'_blank');
+      });
+      document.getElementById('dlPNG').addEventListener('click', ()=>{
+        const canvasWrapper=document.getElementById('qrCanvas');
+        const img=canvasWrapper.querySelector('img'); // qrcodejs renders as <img>
+        if(img && img.src){
+          const a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=img.src; a.click(); showToast('PNG downloaded','success');
+        } else { showToast('Generate QR code first','error'); }
+      });
+      document.getElementById('dlSVG').addEventListener('click', ()=>showToast('SVG download coming soon','success'));
+      document.getElementById('printQR').addEventListener('click', ()=>{
+        const sc=document.getElementById('codeUnderQR').textContent; if(!sc) return showToast('Generate QR code first','error');
+        const img=document.getElementById('qrCanvas').querySelector('img');
+        const win=window.open('','_blank'); win.document.write(`<html><head><title>MYQER Emergency Card - ${sc}</title></head><body style="font-family:Arial;text-align:center;padding:2rem">
+          <h1>MYQER™ Emergency Card</h1><p>Code: ${sc}</p>${img?`<img src="${img.src}" width="300" height="300" />`:''}
+          <p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p></body></html>`); win.document.close(); win.print();
+      });
+
+      // Delete flow
+      const delPhrase=document.getElementById('deletePhrase'), delBtn=document.getElementById('deleteBtn');
+      delPhrase.addEventListener('input',()=>{ const ok=delPhrase.value==='DELETE MY ACCOUNT'; delBtn.disabled=!ok; });
+      delBtn.addEventListener('click', async ()=>{
+        if(delPhrase.value!=='DELETE MY ACCOUNT') return;
+        if(!confirm('This will permanently delete your data. Continue?')) return;
+        try{
+          if(isSupabaseAvailable && isOnline){
+            const uid=await getUserId();
+            if(uid){
+              await supabase.from('ice_contacts').delete().eq('user_id',uid);
+              await supabase.from('health_data').delete().eq('user_id',uid);
+              await supabase.from('profiles').delete().eq('id',uid);
+            }
+            await supabase.auth.signOut();
+          }
+          localStorage.clear(); sessionStorage.clear();
+          showToast('Account deleted. Redirecting…','success'); setTimeout(()=>location.href='/',1500);
+        }catch(e){ console.error(e); showToast('Error deleting account: '+e.message,'error'); }
+      });
+
+      document.getElementById('btnSignOut').addEventListener('click', async ()=>{
+        if(!confirm('Are you sure you want to logout?')) return;
+        try{ await supabase.auth.signOut(); localStorage.clear(); sessionStorage.clear(); location.href='/'; }
+        catch(e){ console.error(e); alert('Logout failed, please try again'); }
+      });
+
+      console.log('🚀 Dashboard ready');
+    });
+
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+
+    // expose few helpers
+    window.addIceContact=addIceContact; window.removeIceContact=removeIceContact;
+    window.updateIceContact=updateIceContact; window.saveIndividualIceContact=saveIndividualIceContact;
+  </script>
 </body>
 </html>
