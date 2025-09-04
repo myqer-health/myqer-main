@@ -145,78 +145,89 @@
     <footer>© 2025 MYQER™</footer>
   </div>
 
-  <script>
-    (function(){
-      // 1) Edge function base
-      const FN_BASE = 'https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card';
+<script>
+const FN_BASE = 'https://dmtnhmkncldgnufa jei.functions.supabase.co/functions/v1/card';
 
-      // 2) Read short code from /c/XXXX-XXXX
-      const parts = location.pathname.split('/').filter(Boolean);
-      const code = (parts[0] === 'c' && parts[1]) ? parts[1] : '';
+function setText(id, val, fallback = '—') {
+  const el = document.getElementById(id);
+  if (el) el.textContent = (val ?? '').toString().trim() || fallback;
+}
 
-      const $ = id => document.getElementById(id);
-      const set = (id, v, fallback='—') => { $(id).textContent = (v ?? '').toString().trim() || fallback; };
+function fmtDOB(d) {
+  if (!d) return '—';
+  try {
+    const date = new Date(d);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return d;
+  }
+}
 
-      const pill = $('triagePill');
-      function setTriage(level){
-        const lv = (level || 'green').toLowerCase();
-        const ok = ['green','amber','red'].includes(lv) ? lv : 'green';
-        pill.className = 'status-pill ' + ok;
-        pill.textContent = ok.toUpperCase();
-      }
-      function fmtDOB(d){
-        if(!d) return '—';
-        return new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-      }
+function setTriage(p, h) {
+  let level = "green";
 
-      // Show link + QR regardless so the card looks complete
-      if(!code){
-        const e = $('err'); e.hidden = false; e.textContent = 'Missing code in URL.';
-        return;
-      }
-      const prettyUrl = `https://www.myqer.com/c/${code}`;
-      $('cardUrl').textContent = prettyUrl;
-      $('qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + encodeURIComponent(prettyUrl);
+  // override always wins
+  if (p.triage_override === "red") {
+    level = "red";
+  } else if (h.allergies || h.conditions) {
+    level = "amber";
+  }
 
-      // 3) Load data
-      fetch(`${FN_BASE}?code=${encodeURIComponent(code)}`, { mode: 'cors' })
-        .then(r => r.json().then(j => ({ok:r.ok, j})))
-        .then(({ok, j}) => {
-          if(!ok || j.error) throw new Error(j.error || 'Failed to load card');
+  const pill = document.getElementById("triagePill");
+  pill.className = `status-pill ${level}`;
+  pill.textContent = level.toUpperCase();
+}
 
-          const p = j.profile || {};
-          const h = j.health || {};
-          const ice = Array.isArray(j.ice) ? j.ice : [];
+async function loadCard() {
+  try {
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const code = (pathParts[0] === 'c' && pathParts[1]) || null;
+    if (!code) throw new Error("Missing code in URL");
 
-          // meta time
-          const when = new Date(j.meta?.generated_at || Date.now())
-            .toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-          set('updated', 'Accessed today at ' + when);
+    const res = await fetch(`${FN_BASE}?code=${encodeURIComponent(code)}`);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Failed to load');
 
-          // personal
-          set('fullName', p.full_name);
-          set('dob', fmtDOB(p.dob));
-          set('blood', h.blood_type);
-          set('donor', h.organ_donor ? 'Yes' : 'No');
+    // meta
+    const generated = new Date(data.meta.generated_at);
+    document.getElementById('updated').textContent =
+      'Accessed today at ' + generated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-          // blocks
-          set('allergies',   h.allergies   || 'No known allergies');
-          set('conditions',  h.conditions  || 'No known conditions');
-          set('medications', h.medications || 'No current medications');
-          set('implants',    h.implants    || 'None reported');
+    // profile & health
+    const p = data.profile || {};
+    const h = data.health || {};
+    const ice = Array.isArray(data.ice) ? data.ice : [];
 
-          // triage (override first)
-          setTriage(h.triage_override || p.triage || 'green');
+    setText('fullName', p.full_name);
+    setText('dob', fmtDOB(p.dob));
+    setText('blood', h.blood_type);
+    setText('donor', h.organ_donor ? 'Yes' : 'No');
 
-          // ICE
-          $('emergencyContacts').innerHTML = ice.length
-            ? '<ul style="margin:0;padding-left:16px">'+ ice.map(c =>
-                `<li><strong>${(c.name||'')}</strong> — ${(c.relation||'')} — ${(c.phone||'')}</li>`
-              ).join('') + '</ul>'
-            : 'No contacts available';
-        })
-        .catch(err => { const e=$('err'); e.hidden=false; e.textContent = err.message; });
-    })();
-  </script>
+    setText('allergies', h.allergies, 'No known allergies');
+    setText('conditions', h.conditions, 'No known conditions');
+    setText('medications', h.medications, 'No current medications');
+    setText('implants', h.implants, 'None reported');
+
+    // triage pill
+    setTriage(p, h);
+
+    // ICE contacts
+    if (ice.length) {
+      document.getElementById('emergencyContacts').innerHTML = 
+        ice.map(c => `<strong>${c.name||''}</strong> — ${c.relation||''} — ${c.phone||''}`).join('<br>');
+    } else {
+      setText('emergencyContacts', null, 'No contacts available');
+    }
+
+    // QR URL
+    setText('cardUrl', `https://www.myqer.com/c/${code}`);
+  } catch (e) {
+    console.error(e);
+    document.getElementById('emergencyContacts').textContent = 'Error loading card.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadCard);
+</script>
 </body>
 </html>
