@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MYQER™ Emergency Card</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:24px;background:#fff}
+  .wrap{max-width:640px;margin:0 auto}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;color:#fff}
+  .pill.green{background:#22c55e}.pill.amber{background:#f59e0b}.pill.red{background:#ef4444}
+  .section{border:1px solid #eee;border-radius:12px;padding:16px;margin:12px 0}
+  h1{margin:0 0 12px 0;font-size:22px}
+  h2{margin:0 0 8px 0;font-size:16px;color:#555}
+  .muted{color:#777}
+  ul{margin:6px 0 0 20px}
+</style>
+<div class="wrap" id="root">
+  <p class="muted">Loading…</p>
+</div>
+<script>
+(async () => {
+  // 1) read code from /c/XXXX
+  const code = (location.pathname.split('/').filter(Boolean).pop() || '').toUpperCase();
+
+  // 2) fetch from your Supabase Edge Function
+  const endpoint = 'https://dmtmhnkncldgynufajei.supabase.co/functions/v1/card?code=' + encodeURIComponent(code);
+
+  let data;
+  try {
+    const res = await fetch(endpoint, { mode:'cors' });
+    data = await res.json();
+    if (!res.ok) throw new Error(data?.error || 'Failed');
+  } catch (e) {
+    document.getElementById('root').innerHTML =
+      `<p class="muted">Error loading card: ${String(e.message || e)}</p>`;
+    return;
+  }
+
+  // 3) render
+  const triage = (data.profile.triage || 'green').toLowerCase();
+  const li = arr => (Array.isArray(arr) ? arr : String(arr || '').split(','))
+                    .map(s => s.trim()).filter(Boolean).map(s=>`<li>${s}</li>`).join('') || '<li>None listed</li>';
+
+  document.getElementById('root').innerHTML = `
+    <h1>Emergency Card <span class="pill ${triage}">${triage.toUpperCase()}</span></h1>
+    <div class="section">
+      <h2>Identity</h2>
+      <div><strong>Name:</strong> ${data.profile.full_name || '-'}</div>
+      <div><strong>Country:</strong> ${data.profile.country || '-'}</div>
+      <div><strong>DOB:</strong> ${data.profile.dob || '-'}</div>
+      <div class="muted">Code: ${data.profile.code}</div>
+    </div>
+
+    <div class="section">
+      <h2>Medical</h2>
+      <div><strong>Blood Type:</strong> ${data.health.blood_type || '-'}</div>
+      <div><strong>Organ Donor:</strong> ${data.health.organ_donor ? 'Yes' : 'No/Unknown'}</div>
+      <div><strong>Life Support Preference:</strong> ${data.health.life_support_pref || '-'}</div>
+      <div><strong>Allergies:</strong><ul>${li(data.health.allergies)}</ul></div>
+      <div><strong>Conditions:</strong><ul>${li(data.health.conditions)}</ul></div>
+      <div><strong>Medications:</strong><ul>${li(data.health.meds)}</ul></div>
+      <div><strong>Implants/Devices:</strong><ul>${li(data.health.implants)}</ul></div>
+    </div>
+
+    <div class="section">
+      <h2>Emergency Contacts</h2>
+      ${
+        (data.ice||[]).length
+        ? data.ice.map((c,i)=>`<div><strong>${i+1}.</strong> ${c.name || '-'} — ${c.relation || '-'} — ${c.phone || '-'}</div>`).join('')
+        : '<div class="muted">No contacts listed</div>'
+      }
+    </div>
+
+    <p class="muted">${data.disclaimer || ''}</p>
+  `;
+})();
+</script>
