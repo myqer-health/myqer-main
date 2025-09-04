@@ -2062,39 +2062,50 @@ const getUserId = async () => {
             pill.className = level;
             pill.textContent = level.toUpperCase();
         };
-       // Save functions
+        
+      // Save Profile -> Supabase 'profiles' expects id (PK) and columns: full_name, dob, country, health_id
 const saveProfile = async () => {
-  const profileData = {
-    full_name: document.getElementById('profileFullName').value,
-    date_of_birth: document.getElementById('profileDob').value,
-    country: document.getElementById('profileCountry').value,
-    health_id: document.getElementById('profileHealthId').value
-  };
+  const full_name = document.getElementById('profileFullName').value || null;
+  const dobRaw    = document.getElementById('profileDob').value || null;   // HTML date input is '' when empty
+  const country   = document.getElementById('profileCountry').value || null;
+  const health_id = document.getElementById('profileHealthId').value || null;
+
+  // Coerce empty string to null for a DATE column
+  const dob = dobRaw && dobRaw.trim() !== '' ? dobRaw : null;
 
   try {
     if (isSupabaseAvailable && isOnline) {
-      // Save to Supabase
-      const userId = await getUserId(); // <-- helper from earlier
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({ user_id: userId, ...profileData });
-
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (uid) {
+        // IMPORTANT: use id: uid (NOT user_id)
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({ id: uid, full_name, dob, country, health_id }); // matches your DB schema
+        if (error) throw error;
+      }
     }
 
-    // Save locally
+    // Save locally (your existing shape)
+    const profileData = {
+      fullName: full_name || '',
+      dob: dob || '',
+      country: country || '',
+      healthId: health_id || ''
+    };
     localStorage.setItem('myqer_profile', JSON.stringify(profileData));
     userData.profile = profileData;
 
     showToast(t('toast.profileSaved'), 'success');
-    document.getElementById('profileMsg').textContent = '✔ ' + t('toast.profileSaved');
-    document.getElementById('profileMsg').className = 'status-msg success';
-    document.getElementById('profileMsg').style.display = 'block';
+    const m = document.getElementById('profileMsg');
+    m.textContent = '✔ ' + t('toast.profileSaved');
+    m.className = 'status-msg success';
+    m.style.display = 'block';
 
     generateQRCode();
   } catch (error) {
     console.error('Save profile error:', error);
-    showToast('Error saving profile: ' + error.message, 'error');
+    showToast('Error saving profile: ' + (error.message || error), 'error');
   }
 };
 
