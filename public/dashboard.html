@@ -1383,6 +1383,35 @@
         let userData = {};
         let iceContacts = [];
         let autoSaveTimeouts = {};
+  // ---- Safety net: surface errors + never get stuck on the loader ----
+console.log('🟢 dashboard.js booted');
+
+window.onerror = (message, source, lineno, colno, error) => {
+  console.error('JS error:', message, source, lineno, colno, error);
+  const loading = document.getElementById('loadingState');
+  const box = document.getElementById('errorBox');
+  const msg = document.getElementById('errorMsg');
+  if (loading) loading.style.display = 'none';
+  if (box && msg) {
+    box.style.display = 'block';
+    msg.textContent = String(message || 'Unexpected error. Please refresh.');
+  }
+};
+
+// If we’re still "loading" after 6s, show a friendly message instead of spinning forever
+setTimeout(() => {
+  const loading = document.getElementById('loadingState');
+  if (loading && loading.style.display !== 'none') {
+    console.warn('Still loading after 6s — showing fallback message.');
+    loading.style.display = 'none';
+    const box = document.getElementById('errorBox');
+    const msg = document.getElementById('errorMsg');
+    if (box && msg) {
+      box.style.display = 'block';
+      msg.textContent = 'Taking too long to load. Please refresh the page.';
+    }
+  }
+}, 6000);
 
         // Supabase setup (same as landing page)
         const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
