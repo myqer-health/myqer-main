@@ -2014,78 +2014,103 @@
             pill.className = level;
             pill.textContent = level.toUpperCase();
         };
-
+// Helper: get logged-in user's UUID
+const getUserId = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return data.user?.id;
+};
         // Save functions
-        const saveProfile = async () => {
-            const profileData = {
-                fullName: document.getElementById('profileFullName').value,
-                dob: document.getElementById('profileDob').value,
-                country: document.getElementById('profileCountry').value,
-                healthId: document.getElementById('profileHealthId').value
-            };
+       // Save functions
+const saveProfile = async () => {
+  const profileData = {
+    full_name: document.getElementById('profileFullName').value,
+    date_of_birth: document.getElementById('profileDob').value,
+    country: document.getElementById('profileCountry').value,
+    health_id: document.getElementById('profileHealthId').value
+  };
 
-            try {
-                if (isSupabaseAvailable && isOnline) {
-                    // Save to Supabase
-                    const { error } = await supabase
-                        .from('profiles')
-                        .upsert(profileData);
-                    
-                    if (error) throw error;
-                }
-                
-                // Save locally
-                localStorage.setItem('myqer_profile', JSON.stringify(profileData));
-                userData.profile = profileData;
-                
-                showToast(t('toast.profileSaved'), 'success');
-                document.getElementById('profileMsg').textContent = '✓ ' + t('toast.profileSaved');
-                document.getElementById('profileMsg').className = 'status-msg success';
-                document.getElementById('profileMsg').style.display = 'block';
-                
-                generateQRCode();
-            } catch (error) {
-                console.error('Save profile error:', error);
-                showToast('Error saving profile: ' + error.message, 'error');
-            }
-        };
+  try {
+    if (isSupabaseAvailable && isOnline) {
+      // Save to Supabase
+      const userId = await getUserId(); // <-- helper from earlier
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ user_id: userId, ...profileData });
 
-        const saveHealth = async () => {
-            const healthData = {
-                bloodType: document.getElementById('hfBloodType').value,
-                allergies: document.getElementById('hfAllergies').value,
-                organDonor: document.getElementById('hfDonor').checked,
-                conditions: document.getElementById('hfConditions').value,
-                medications: document.getElementById('hfMeds').value,
-                implants: document.getElementById('hfImplants').value,
-                triageOverride: document.getElementById('triageOverride').value
-            };
+      if (error) throw error;
+    }
 
-            try {
-                if (isSupabaseAvailable && isOnline) {
-                    const { error } = await supabase
-                        .from('health_data')
-                        .upsert(healthData);
-                    
-                    if (error) throw error;
-                }
-                
-                localStorage.setItem('myqer_health', JSON.stringify(healthData));
-                userData.health = healthData;
-                
-                calculateTriage();
-                
-                showToast(t('toast.healthSaved'), 'success');
-                document.getElementById('healthMsg').textContent = '✓ ' + t('toast.healthSaved');
-                document.getElementById('healthMsg').className = 'status-msg success';
-                document.getElementById('healthMsg').style.display = 'block';
-                
-                generateQRCode();
-            } catch (error) {
-                console.error('Save health error:', error);
-                showToast('Error saving health data: ' + error.message, 'error');
-            }
-        };
+    // Save locally
+    localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+    userData.profile = profileData;
+
+    showToast(t('toast.profileSaved'), 'success');
+    document.getElementById('profileMsg').textContent = '✔ ' + t('toast.profileSaved');
+    document.getElementById('profileMsg').className = 'status-msg success';
+    document.getElementById('profileMsg').style.display = 'block';
+
+    generateQRCode();
+  } catch (error) {
+    console.error('Save profile error:', error);
+    showToast('Error saving profile: ' + error.message, 'error');
+  }
+};
+
+       // Save health (Supabase + localStorage)
+const saveHealth = async () => {
+  // Grab values from the form
+  const healthData = {
+    blood_type: document.getElementById('hfBloodType').value || null,
+    allergies: document.getElementById('hfAllergies').value || null,
+    organ_donor: document.getElementById('hfDonor').checked,
+    conditions: document.getElementById('hfConditions').value || null,
+    medications: document.getElementById('hfMeds').value || null,
+    implants: document.getElementById('hfImplants').value || null,
+    triage_override: document.getElementById('triageOverride').value || 'auto'
+  };
+
+  try {
+    // 1) Save to localStorage (keeps current shape your UI already uses)
+    const localMirror = {
+      bloodType: healthData.blood_type,
+      allergies: healthData.allergies,
+      organDonor: healthData.organ_donor,
+      conditions: healthData.conditions,
+      medications: healthData.medications,
+      implants: healthData.implants,
+      triageOverride: healthData.triage_override
+    };
+    localStorage.setItem('myqer_health', JSON.stringify(localMirror));
+    userData.health = localMirror;
+
+    // 2) Save to Supabase (if available/online)
+    if (isSupabaseAvailable && isOnline) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const row = { user_id: session.user.id, ...healthData };
+        const { error } = await supabase
+          .from('health_data')
+          .upsert(row, { onConflict: 'user_id' }); // exactly one row per user
+        if (error) throw error;
+      }
+    }
+
+    // Recompute triage + UI feedback
+    calculateTriage();
+
+    showToast(t('toast.healthSaved'), 'success');
+    const msg = document.getElementById('healthMsg');
+    msg.textContent = '✓ ' + t('toast.healthSaved');
+    msg.className = 'status-msg success';
+    msg.style.display = 'block';
+
+    generateQRCode();
+  } catch (err) {
+    console.error('Save health error:', err);
+    showToast('Error saving health data: ' + err.message, 'error');
+  }
+};
 
         const saveIce = async () => {
             try {
@@ -2181,7 +2206,48 @@ const loadUserData = async () => {
       window.location.href = '/';
       return;
     }
+// Sync with server data (for this user only)
+const uid = await getUserId();
+if (uid) {
+  // PROFILES
+  const { data: serverProfile, error: profErr } = await supabase
+    .from('profiles')
+    .select('fullName, dob, country, healthId')
+    .eq('user_id', uid)
+    .maybeSingle();
+  if (profErr) console.warn('profiles fetch error:', profErr);
 
+  // HEALTH
+  const { data: serverHealth, error: healthErr } = await supabase
+    .from('health_data')
+    .select('bloodType, allergies, organDonor, conditions, medications, implants, triageOverride')
+    .eq('user_id', uid)
+    .maybeSingle();
+  if (healthErr) console.warn('health_data fetch error:', healthErr);
+
+  // ICE CONTACTS
+  const { data: serverIce, error: iceErr } = await supabase
+    .from('ice_contacts')
+    .select('name, relationship, phone, contact_order')
+    .eq('user_id', uid)
+    .order('contact_order', { ascending: true });
+  if (iceErr) console.warn('ice_contacts fetch error:', iceErr);
+
+  // Merge server → local
+  if (serverProfile) {
+    userData.profile = { ...userData.profile, ...serverProfile };
+    localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+  }
+  if (serverHealth) {
+    userData.health = { ...userData.health, ...serverHealth };
+    localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+  }
+  if (Array.isArray(serverIce) && serverIce.length > 0) {
+    iceContacts = serverIce.map(({ name, relationship, phone }) => ({ name, relationship, phone }));
+    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+    renderIceContacts();
+  }
+}
     // ...your existing code continues here (load from localStorage, sync, generateQRCode, etc.)
 
                 // Load from localStorage first (persistent across sessions)
