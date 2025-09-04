@@ -609,19 +609,36 @@
         if (isSupabaseAvailable && isOnline){
           const uid=session.user.id;
 
-          const { data: serverProfile } = await supabase.from('profiles')
-            .select('full_name, dob, country, health_id')
-            .eq('id', uid)   // IMPORTANT: primary key is id
-            .single();
+          const { data: serverProfile, error: profErr } = await supabase
+  .from('profiles')
+  .select('full_name, dob, country, health_id, code')
+  .eq('id', uid)
+  .maybeSingle();
 
-          if(serverProfile){
-            userData.profile={...userData.profile,
-              fullName:serverProfile.full_name||'', dob:serverProfile.dob||'',
-              country:serverProfile.country||'', healthId:serverProfile.health_id||''};
-            localStorage.setItem('myqer_profile',JSON.stringify(userData.profile));
-            const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
-            Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
-          }
+if (!profErr && serverProfile) {
+  userData.profile = {
+    ...userData.profile,
+    fullName: serverProfile.full_name || '',
+    dob: serverProfile.dob || '',
+    country: serverProfile.country || '',
+    healthId: serverProfile.health_id || ''
+  };
+  if (serverProfile.code) {
+    localStorage.setItem('myqer_shortcode', serverProfile.code); // keep same QR code
+  }
+  localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+
+  const pfMap = {
+    fullName: 'profileFullName',
+    dob: 'profileDob',
+    country: 'profileCountry',
+    healthId: 'profileHealthId'
+  };
+  Object.entries(pfMap).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = userData.profile[k] || '';
+  });
+}
 
           const { data: serverHealth } = await supabase.from('health_data')
             .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
