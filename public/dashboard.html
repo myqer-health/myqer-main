@@ -2298,12 +2298,20 @@ const generateQRCode = () => {
 const loadUserData = async () => {
   try {
     // 1) Require an auth session
-    const { data: { session }, error: sessErr } = await supabase.auth.getSession();
-    if (sessErr) console.warn('Supabase session error:', sessErr);
-    if (!session) {
-      console.log('❌ No Supabase session, redirecting to login');
-      window.location.href = '/';
-      return;
+const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+if (sessErr) console.warn('Supabase session error:', sessErr);
+
+if (!session) {
+  console.warn('No Supabase session; staying on page.');
+  // Optional: show a visible hint instead of reloading forever
+  const box = document.getElementById('errorBox');
+  const msg = document.getElementById('errorMsg');
+  if (box && msg) {
+    box.style.display = 'block';
+    msg.textContent = 'Your session expired. Please refresh or log in again.';
+  }
+  return; // <- important: stop here, do NOT redirect
+}
     }
 
     // 2) Load from localStorage first (instant UI)
