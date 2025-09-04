@@ -214,56 +214,93 @@
       setText('conditions', (h.conditions || '').trim(), 'No known conditions');
       setText('medications', (h.medications || h.meds || '').trim(), 'No current medications');
       setText('implants', (h.implants || '').trim(), 'None reported');
+    <!-- triage + ICE (REPLACE FROM HERE) -->
+    <script>
+      // helpers
+      const $ = (id) => document.getElementById(id);
+      const setText = (id, val, fallback='—') => { const el = $(id); if (el) el.textContent = (val ?? '').toString().trim() || fallback; };
+      const fmtDOB = (iso) => {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '—';
+        return new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'short', year:'numeric' }).format(d);
+      };
+      const setTriage = (raw) => {
+        const pill = $('triagePill'); if (!pill) return;
+        // normalize: allow 'green' | 'amber' | 'red' and map old words
+        const map = { yellow:'amber', standby:'green' };
+        const lv0 = (raw ?? 'green').toString().trim().toLowerCase();
+        const lv = map[lv0] ?? lv0;
+        const allowed = ['green','amber','red','black'];
+        const cls = allowed.includes(lv) ? lv : 'green';
+        pill.className = 'status-pill ' + cls;
+        pill.textContent = cls.toUpperCase();
+      };
 
-   // triage: only from health_data.triage_override; default green
-<script>
-  // ... keep the rest of your code
+      async function loadCard () {
+        // read code from path /c/XXXX-XXXX or ?code=…
+        const parts = location.pathname.split('/').filter(Boolean);
+        let code = (parts[0]==='c' && parts[1]) ? parts[1] : new URL(location.href).searchParams.get('code');
+        code = (code ?? '').trim();
 
-  const $ = (id) => document.getElementById(id);
-  const setText = (id, val, fallback='—') => { const el = $(id); if (el) el.textContent = (val ?? '').toString().trim() || fallback; };
+        // show hint if no code
+        if (!code) {
+          setText('cardUrl', 'myqer.com/c/XXXX-XXXX');
+          setText('updated', 'Accessed via QR scan');
+          return;
+        }
 
-  function setTriage(raw) {
-    const pill = $('triagePill');
-    if (!pill) return;
+        // set URL + QR
+        const cardUrl = `https://www.myqer.com/c/${encodeURIComponent(code)}`;
+        setText('cardUrl', cardUrl);
+        $('qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=76x76&data=' + encodeURIComponent(cardUrl);
 
-    // normalize incoming values
-    const map = { yellow: 'amber', standby: 'green' };
-    const lv0 = (raw ?? 'green').toString().trim().toLowerCase();
-    const lv  = map[lv0] || lv0;
+        // fetch JSON from Edge Function
+        const FN_BASE = 'https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card';
+        try {
+          const res = await fetch(FN_BASE + '?code=' + encodeURIComponent(code), { mode:'cors' });
+          const data = await res.json();
+          if (!res.ok || data.error) throw new Error(data.error || 'Failed to load card');
 
-    const allowed = ['green','amber','red','black'];
-    const cls = allowed.includes(lv) ? lv : 'green';
+          // profile + health
+          const p = data.profile || {};
+          const h = data.health  || {};
+          const ice = Array.isArray(data.ice) ? data.ice : [];
 
-    pill.className = 'status-pill ' + cls;
-    pill.textContent = cls.toUpperCase();
-  }
+          setText('fullName', p.full_name);
+          setText('dob',       fmtDOB(p.dob));
+          setText('blood',     h.blood_type);
+          setText('donor',     h.organ_donor ? 'Yes' : 'No');
 
-  async function loadCard() {
-    // ... your existing fetch and parsing
+          setText('allergies',   (h.allergies   || '').trim(), 'No known allergies');
+          setText('conditions',  (h.conditions  || '').trim(), 'No known conditions');
+          setText('medications', (h.medications || h.meds || '').trim(), 'No current medications');
+          setText('implants',    (h.implants    || '').trim(), 'None reported');
 
-    // after you have: const h = data.health || {};
-    setTriage(h.triage_override);   // <— use only health_data.triage_override
-  }
+          // triage from health_data.triage_override only
+          setTriage(h.triage_override);
 
-  document.addEventListener('DOMContentLoaded', loadCard);
-</script>
-      // ICE
-      if (ice.length) {
-        $('emergencyContacts').innerHTML =
-          '<ul style="margin:0;padding-left:16px">' +
-          ice.map(c => `<li><strong>${(c.name||'').toString()}</strong> — ${(c.relation||'').toString()} — ${(c.phone||'').toString()}</li>`).join('') +
-          '</ul>';
-      } else {
-        setText('emergencyContacts', 'No contacts available');
+          // updated timestamp
+          const ts = data?.meta?.generated_at ? new Date(data.meta.generated_at) : new Date();
+          setText('updated', 'Accessed today at ' + ts.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }));
+
+          // ICE list
+          if (ice.length) {
+            $('emergencyContacts').innerHTML =
+              '<ul style="margin:0;padding-left:16px">' +
+              ice.map(c => `<li><strong>${(c.name||'').toString()}</strong> — ${(c.relation||'').toString()} — ${(c.phone||'').toString()}</li>`).join('') +
+              '</ul>';
+          } else {
+            setText('emergencyContacts', 'No contacts available');
+          }
+        } catch (e) {
+          setText('emergencyContacts', 'Error loading card.');
+          console.error(e);
+        }
       }
-    } catch (e) {
-      setText('emergencyContacts', 'Error loading card.');
-      console.error(e);
-    }
-  }
 
-  document.addEventListener('DOMContentLoaded', loadCard);
-})();
-</script>
-</body>
+      document.addEventListener('DOMContentLoaded', loadCard);
+    </script>
+    <!-- /triage + ICE -->
+  </body>
 </html>
