@@ -2247,60 +2247,55 @@ const saveHealth = async () => {
   }
 };
 
-        // QR Code generation
-        const generateQRCode = () => {
-            const qrCanvas = document.getElementById('qrCanvas');
-            const qrPlaceholder = document.getElementById('qrPlaceholder');
-            const codeUnderQR = document.getElementById('codeUnderQR');
-            const cardUrl = document.getElementById('cardUrl');
-            const qrStatus = document.getElementById('qrStatus');
-            
-            // Check if we have enough data
-            const hasProfile = userData.profile && userData.profile.fullName;
-            const hasHealth = userData.health && (userData.health.bloodType || userData.health.allergies);
-            const hasIce = iceContacts.length > 0;
-            
-            if (hasProfile || hasHealth || hasIce) {
-                // Generate or get existing short code
-                const shortCode = generateShortCode();
-                const qrUrl = `https://www.myqer.com/c/${shortCode}`;
-                
-                // Update UI elements
-                codeUnderQR.textContent = shortCode;
-                cardUrl.value = qrUrl;
-                
-                // Show QR code (in real implementation, use QR library)
-                qrPlaceholder.style.display = 'none';
-                qrCanvas.style.display = 'block';
-                
-                // Draw placeholder QR pattern
-                const ctx = qrCanvas.getContext('2d');
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, 200, 200);
-                ctx.fillStyle = '#fff';
-                ctx.font = '14px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText('QR CODE', 100, 90);
-                ctx.fillText(shortCode, 100, 110);
-                ctx.fillText('Emergency Data', 100, 130);
-                
-                // Show success status
-                qrStatus.textContent = 'QR Code generated successfully';
-                qrStatus.style.background = 'rgba(5, 150, 105, 0.1)';
-                qrStatus.style.color = 'var(--green)';
-                qrStatus.hidden = false;
-                
-                console.log(`🔗 QR Code generated: ${qrUrl}`);
-            } else {
-                // Hide QR code
-                qrPlaceholder.style.display = 'flex';
-                qrCanvas.style.display = 'none';
-                codeUnderQR.textContent = '';
-                cardUrl.value = '';
-                qrStatus.hidden = true;
-            }
-        };
+     // QR Code generation
+const generateQRCode = () => {
+  const qrCanvasContainer = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeUnderQR = document.getElementById('codeUnderQR');
+  const cardUrl = document.getElementById('cardUrl');
+  const qrStatus = document.getElementById('qrStatus');
 
+  // Check if we have enough data
+  const hasProfile = userData.profile && userData.profile.full_name;
+  const hasHealth = userData.health && (userData.health.bloodType || userData.health.allergies);
+  const hasIce = iceContacts && iceContacts.length > 0;
+
+  if (hasProfile || hasHealth || hasIce) {
+    // Generate or get existing short code
+    const shortCode = generateShortCode();
+    const qrUrl = `https://www.myqer.com/c/${shortCode}`;
+
+    // Update UI elements
+    codeUnderQR.textContent = shortCode;
+    cardUrl.value = qrUrl;
+
+    // Clear any previous placeholder or QR
+    qrPlaceholder.style.display = 'none';
+    qrCanvasContainer.innerHTML = "";
+
+    // Generate real scannable QR
+    new QRCode(qrCanvasContainer, {
+      text: qrUrl,
+      width: 200,
+      height: 200
+    });
+
+    // Success status
+    qrStatus.textContent = 'QR Code generated successfully!';
+    qrStatus.style.background = 'rgba(5, 156, 105, 0.1)';
+    qrStatus.style.color = 'var(--green)';
+    qrStatus.hidden = false;
+
+    console.log("✅ QR Code generated:", qrUrl);
+  } else {
+    // Hide QR if not enough info
+    qrPlaceholder.style.display = 'flex';
+    qrCanvasContainer.innerHTML = "";
+    codeUnderQR.textContent = '';
+    cardUrl.value = '';
+    qrStatus.hidden = true;
+  }
+};
         // Load user data with Supabase session guard
 // Load user data with Supabase session guard
 const loadUserData = async () => {
