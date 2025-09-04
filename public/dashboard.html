@@ -448,14 +448,65 @@
       }catch(err){ console.error(err); showToast('Error saving contact: '+err.message,'error'); }
     }
 
-    // ---- Short code + QR ----
-    const generateShortCode=()=>{
-      let sc=localStorage.getItem('myqer_shortcode'); if(sc) return sc;
-      const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let code=''; for(let i=0;i<8;i++) code+=chars[Math.floor(Math.random()*chars.length)];
-      sc = code.slice(0,4)+'-'+code.slice(4); localStorage.setItem('myqer_shortcode',sc); return sc;
-    };
+   // Create or fetch a permanent short code, prefer server (profiles.code)
+const generateShortCode = async () => {
+  // 1) If we already have it locally, use it
+  let cached = localStorage.getItem('myqer_shortcode');
+  if (cached) return cached;
 
-    function generateQRCode(){
+  // 2) If we’re online + authenticated, try to read from profiles.code
+  try {
+    if (isSupabaseAvailable && isOnline && supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || null;
+
+      if (uid) {
+        // read existing code
+        const { data: p, error: pErr } = await supabase
+          .from('profiles')
+          .select('code')
+          .eq('id', uid)
+          .maybeSingle();
+
+        if (!pErr && p?.code) {
+          localStorage.setItem('myqer_shortcode', p.code);
+          return p.code;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read profiles.code, will generate:', e);
+  }
+
+  // 3) Generate a new code (offline-safe)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let raw = '';
+  for (let i = 0; i < 8; i++) raw += chars.charAt(Math.floor(Math.random() * chars.length));
+  const newCode = raw.slice(0, 4) + '-' + raw.slice(4);
+
+  // 4) Save locally immediately
+  localStorage.setItem('myqer_shortcode', newCode);
+
+  // 5) If online + authed, persist to profiles.code so QR is permanent
+  try {
+    if (isSupabaseAvailable && isOnline && supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || null;
+      if (uid) {
+        const { error: upErr } = await supabase
+          .from('profiles')
+          .update({ code: newCode })
+          .eq('id', uid);
+        if (upErr) console.warn('Could not persist profiles.code:', upErr);
+      }
+    }
+  } catch (e) {
+    console.warn('Persist profiles.code failed:', e);
+  }
+
+  return newCode;
+};
+   async function generateQRCode(){
       const qrCanvasContainer=document.getElementById('qrCanvas');
       const qrPlaceholder=document.getElementById('qrPlaceholder');
       const codeUnderQR=document.getElementById('codeUnderQR');
@@ -467,9 +518,8 @@
       const hasIce     = iceContacts && iceContacts.length>0;
 
       if (hasProfile || hasHealth || hasIce){
-        const shortCode = generateShortCode();
-        const qrUrl = `https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card?code=${shortCode}`;
-
+        const shortCode = await generateShortCode();
+const qrUrl = `https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card?code=${encodeURIComponent(shortCode)}`;
         codeUnderQR.textContent = shortCode;
         cardUrl.value = qrUrl;
 
