@@ -2025,34 +2025,72 @@ const getUserId = async () => {
                 iceContacts[index][field] = value;
             }
         };
+            //calculateTriage
+       // Put this near your other top-level consts (above calculateTriage)
 
-        // Triage calculation
-        const calculateTriage = () => {
-            const override = document.getElementById('triageOverride').value;
-            if (override !== 'auto') {
-                updateTriagePill(override);
-                return;
-            }
+ const TRIAGE_KEYWORDS = [
+  // --- Very high risk (score 4) → likely RED
+  { re: /\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i, score: 4 },
+  { re: /\b(severe allergy|severe reaction)\b/i, score: 4 },
+  { re: /\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i, score: 4 },
+  { re: /\bventricular (tachy|fibrillation)|vfib|vtach\b/i, score: 4 },
+  { re: /\btransplant|immunosuppression(s)?\b/i, score: 4 },
+  { re: /\bsevere asthma|status asthmaticus\b/i, score: 4 },
+  { re: /\brespiratory failure|copd exacerbation\b/i, score: 4 },
 
-            // Auto-calculate based on health data
-            let score = 0;
-            
-            // Check for critical conditions
-            const allergies = document.getElementById('hfAllergies').value.toLowerCase();
-            const conditions = document.getElementById('hfConditions').value.toLowerCase();
-            const meds = document.getElementById('hfMeds').value.toLowerCase();
-            
-            // High-risk indicators
-            if (allergies.includes('anaphylaxis') || allergies.includes('severe')) score += 3;
-            if (conditions.includes('heart') || conditions.includes('cardiac')) score += 2;
-            if (conditions.includes('diabetes') && meds.includes('insulin')) score += 2;
-            if (conditions.includes('epilepsy') || conditions.includes('seizure')) score += 2;
-            if (meds.includes('warfarin') || meds.includes('blood thinner')) score += 1;
-            
-            // Determine triage level
-            let level = 'green';
-            if (score >= 5) level = 'red';
-            else if (score >= 3) level = 'amber';
+  // --- High risk (score 3) → often AMBER
+  { re: /\bpenicillin allergy|cephalosporin allergy\b/i, score: 3 },
+  { re: /\binsulin pump|type 1 diabetes|insulin dependent\b/i, score: 3 },
+  { re: /\bkidney failure|renal failure|dialysis|alport\b/i, score: 3 },
+  { re: /\bseizure disorder|epilepsy|epileptic\b/i, score: 3 },
+  { re: /\bstroke|cva|tia\b/i, score: 3 },
+  { re: /\bwarfarin|coumadin|anticoagulant|blood thinner\b/i, score: 3 },
+  { re: /\bpacemaker|defibrillator|icd\b/i, score: 3 },
+  { re: /\bbeta[-\s]?blocker allergy\b/i, score: 3 },
+  { re: /\bmajor surgery|bypass|open heart\b/i, score: 3 },
+
+  // --- Moderate risk (score 2)
+  { re: /\bdiabetes|type 2 diabetes|metformin|sulfonylurea\b/i, score: 2 },
+  { re: /\bhypertension|high blood pressure\b/i, score: 2 },
+  { re: /\basthma|respiratory disease\b/i, score: 2 },
+  { re: /\bchronic pain|opioid|morphine|fentanyl|oxycodone\b/i, score: 2 },
+  { re: /\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i, score: 2 },
+  { re: /\bmetal implant|joint replacement|hip replacement|stent(s)?\b/i, score: 2 },
+
+  // --- Mild (score 1)
+  { re: /\bpenicillin\b/i, score: 1 }, // catch general mention
+  { re: /\bcodeine\b/i, score: 1 },
+  { re: /\bmidazolam\b/i, score: 1 },
+  { re: /\bibu(profen)?\b/i, score: 1 },
+  { re: /\bparacetamol|acetaminophen\b/i, score: 1 }
+];
+
+// Replace your existing calculateTriage() with this
+function calculateTriage () {
+  const override = document.getElementById('triageOverride').value;
+  if (override !== 'auto') return updateTriagePill(override);
+
+  // Gather text from the 3 inputs (empty -> '')
+  const allergies  = (document.getElementById('hfAllergies').value || '').toString();
+  const conditions = (document.getElementById('hfConditions').value || '').toString();
+  const meds       = (document.getElementById('hfMeds').value || '').toString();
+
+  // Build a single searchable haystack
+  const haystack = [allergies, conditions, meds].join('\n');
+
+  // Score it
+  let score = 0;
+  for (const k of TRIAGE_KEYWORDS) {
+    if (k.re.test(haystack)) score += k.score;
+  }
+
+  // Map score -> level (tweak thresholds as you like)
+  let level = 'green';
+  if (score >= 6) level = 'red';
+  else if (score >= 3) level = 'amber';
+
+  updateTriagePill(level);
+}
             
             updateTriagePill(level);
         };
