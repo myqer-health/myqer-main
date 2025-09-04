@@ -2217,170 +2217,154 @@ const saveHealth = async () => {
         };
 
         // Load user data with Supabase session guard
+// Load user data with Supabase session guard
 const loadUserData = async () => {
   try {
-    // Ask Supabase if we have a real session
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) console.warn('Supabase session error:', error);
-
+    // 1) Require an auth session
+    const { data: { session }, error: sessErr } = await supabase.auth.getSession();
+    if (sessErr) console.warn('Supabase session error:', sessErr);
     if (!session) {
       console.log('❌ No Supabase session, redirecting to login');
       window.location.href = '/';
       return;
     }
-// Sync with server data (for this user only)
-const uid = await getUserId();
-if (uid) {
-  // PROFILES
-  const { data: serverProfile, error: profErr } = await supabase
-    .from('profiles')
-    .select('fullName, dob, country, healthId')
-    .eq('user_id', uid)
-    .maybeSingle();
-  if (profErr) console.warn('profiles fetch error:', profErr);
 
-  // HEALTH
-  const { data: serverHealth, error: healthErr } = await supabase
-    .from('health_data')
-    .select('bloodType, allergies, organDonor, conditions, medications, implants, triageOverride')
-    .eq('user_id', uid)
-    .maybeSingle();
-  if (healthErr) console.warn('health_data fetch error:', healthErr);
+    // 2) Load from localStorage first (instant UI)
+    const profileLS = localStorage.getItem('myqer_profile');
+    const healthLS  = localStorage.getItem('myqer_health');
+    const iceLS     = localStorage.getItem('myqer_ice');
 
-  // ICE CONTACTS
-  const { data: serverIce, error: iceErr } = await supabase
-    .from('ice_contacts')
-    .select('name, relationship, phone, contact_order')
-    .eq('user_id', uid)
-    .order('contact_order', { ascending: true });
-  if (iceErr) console.warn('ice_contacts fetch error:', iceErr);
+    if (profileLS) {
+      userData.profile = JSON.parse(profileLS);
+      Object.keys(userData.profile).forEach((key) => {
+        const field = document.getElementById('profile' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (field) {
+          field.value = userData.profile[key] || '';
+          if (userData.profile[key]) field.classList.add('field-saved');
+        }
+      });
+    }
 
-  // Merge server → local
-  if (serverProfile) {
-    userData.profile = { ...userData.profile, ...serverProfile };
-    localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-  }
-  if (serverHealth) {
-    userData.health = { ...userData.health, ...serverHealth };
-    localStorage.setItem('myqer_health', JSON.stringify(userData.health));
-  }
-  if (Array.isArray(serverIce) && serverIce.length > 0) {
-    iceContacts = serverIce.map(({ name, relationship, phone }) => ({ name, relationship, phone }));
-    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-    renderIceContacts();
-  }
-}
-    // ...your existing code continues here (load from localStorage, sync, generateQRCode, etc.)
+    if (healthLS) {
+      userData.health = JSON.parse(healthLS);
+      const healthFields = {
+        'hfBloodType': 'bloodType',
+        'hfAllergies': 'allergies',
+        'hfConditions': 'conditions',
+        'hfMeds': 'medications',
+        'hfImplants': 'implants',
+        'triageOverride': 'triageOverride'
+      };
+      Object.entries(healthFields).forEach(([fieldId, dataKey]) => {
+        const field = document.getElementById(fieldId);
+        if (!field) return;
+        if (fieldId === 'hfDonor') {
+          field.checked = !!userData.health.organDonor;
+        } else {
+          field.value = userData.health[dataKey] || '';
+          if (userData.health[dataKey]) field.classList.add('field-saved');
+        }
+      });
+      document.getElementById('hfDonor').checked = !!userData.health?.organDonor;
+      calculateTriage();
+    }
 
-                // Load from localStorage first (persistent across sessions)
-                const profile = localStorage.getItem('myqer_profile');
-                const health = localStorage.getItem('myqer_health');
-                const ice = localStorage.getItem('myqer_ice');
-                
-                if (profile) {
-                    userData.profile = JSON.parse(profile);
-                    // Populate profile fields
-                    Object.keys(userData.profile).forEach(key => {
-                        const field = document.getElementById('profile' + key.charAt(0).toUpperCase() + key.slice(1));
-                        if (field) {
-                            field.value = userData.profile[key] || '';
-                            // Add visual indicator that field has saved data
-                            if (userData.profile[key]) {
-                                field.classList.add('field-saved');
-                            }
-                        }
-                    });
-                }
-                
-                if (health) {
-                    userData.health = JSON.parse(health);
-                    // Populate health fields
-                    const healthFields = {
-                        'hfBloodType': 'bloodType',
-                        'hfAllergies': 'allergies',
-                        'hfConditions': 'conditions',
-                        'hfMeds': 'medications',
-                        'hfImplants': 'implants',
-                        'triageOverride': 'triageOverride'
-                    };
-                    
-                    Object.entries(healthFields).forEach(([fieldId, dataKey]) => {
-                        const field = document.getElementById(fieldId);
-                        if (field) {
-                            if (fieldId === 'hfDonor') {
-                                field.checked = userData.health.organDonor || false;
-                            } else {
-                                field.value = userData.health[dataKey] || '';
-                                if (userData.health[dataKey]) {
-                                    field.classList.add('field-saved');
-                                }
-                            }
-                        }
-                    });
-                    
-                    document.getElementById('hfDonor').checked = userData.health.organDonor || false;
-                    calculateTriage();
-                }
-                
-                if (ice) {
-                    iceContacts = JSON.parse(ice);
-                    renderIceContacts();
-                }
-                
-                // Try to load from Supabase if available and online
-                if (isSupabaseAvailable && isOnline) {
-                    try {
-                        // Sync with server data
-                        const { data: serverProfile } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .single();
-                        
-                        const { data: serverHealth } = await supabase
-                            .from('health_data')
-                            .select('*')
-                            .single();
-                        
-                        const { data: serverIce } = await supabase
-                            .from('ice_contacts')
-                            .select('*')
-                            .order('contact_order');
-                        
-                        // Merge server data with local data (server takes precedence)
-                        if (serverProfile) {
-                            userData.profile = { ...userData.profile, ...serverProfile };
-                            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-                        }
-                        
-                        if (serverHealth) {
-                            userData.health = { ...userData.health, ...serverHealth };
-                            localStorage.setItem('myqer_health', JSON.stringify(userData.health));
-                        }
-                        
-                        if (serverIce && serverIce.length > 0) {
-                            iceContacts = serverIce;
-                            localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                            renderIceContacts();
-                        }
-                        
-                        console.log('✅ Data synced with server');
-                    } catch (syncError) {
-                        console.warn('⚠️ Server sync failed, using local data:', syncError);
-                    }
-                }
-                
-                generateQRCode();
-                console.log('✅ User data loaded successfully');
-                
-            } catch (error) {
-                console.error('Load data error:', error);
-                showToast('Error loading data: ' + error.message, 'error');
-                
-                // Show error state but don't redirect
-                document.getElementById('errorBox').style.display = 'block';
-                document.getElementById('errorMsg').textContent = 'Failed to load your data. Please try refreshing the page.';
-            }
+    if (iceLS) {
+      iceContacts = JSON.parse(iceLS);
+      renderIceContacts();
+    }
+
+    // 3) Sync from Supabase (server wins), if online
+    if (isSupabaseAvailable && isOnline) {
+      const uid = session.user.id;
+
+      // profiles
+      const { data: serverProfile, error: profErr } = await supabase
+        .from('profiles')
+        .select('full_name, dob, country, health_id')
+        .eq('user_id', uid)
+        .single();
+
+      if (!profErr && serverProfile) {
+        userData.profile = {
+          ...userData.profile,
+          fullName: serverProfile.full_name || '',
+          dob: serverProfile.dob || '',
+          country: serverProfile.country || '',
+          healthId: serverProfile.health_id || ''
         };
+        localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+        // reflect in form
+        const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
+        Object.entries(pfMap).forEach(([k, id]) => {
+          const el = document.getElementById(id);
+          if (el) el.value = userData.profile[k] || '';
+        });
+      }
+
+      // health_data
+      const { data: serverHealth, error: healthErr } = await supabase
+        .from('health_data')
+        .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
+        .eq('user_id', uid)
+        .single();
+
+      if (!healthErr && serverHealth) {
+        userData.health = {
+          ...userData.health,
+          bloodType: serverHealth.blood_type || '',
+          allergies: serverHealth.allergies || '',
+          organDonor: !!serverHealth.organ_donor,
+          conditions: serverHealth.conditions || '',
+          medications: serverHealth.medications || '',
+          implants: serverHealth.implants || '',
+          triageOverride: serverHealth.triage_override || 'auto'
+        };
+        localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+
+        // reflect in form
+        document.getElementById('hfBloodType').value = userData.health.bloodType || '';
+        document.getElementById('hfAllergies').value = userData.health.allergies || '';
+        document.getElementById('hfDonor').checked = !!userData.health.organDonor;
+        document.getElementById('hfConditions').value = userData.health.conditions || '';
+        document.getElementById('hfMeds').value = userData.health.medications || '';
+        document.getElementById('hfImplants').value = userData.health.implants || '';
+        document.getElementById('triageOverride').value = userData.health.triageOverride || 'auto';
+        calculateTriage();
+      }
+
+      // ice_contacts
+      const { data: serverIce, error: iceErr } = await supabase
+        .from('ice_contacts')
+        .select('name, relationship, phone, contact_order')
+        .eq('user_id', uid)
+        .order('contact_order', { ascending: true });
+
+      if (!iceErr && Array.isArray(serverIce) && serverIce.length) {
+        iceContacts = serverIce.map(r => ({
+          name: r.name || '',
+          relationship: r.relationship || '',
+          phone: r.phone || ''
+        }));
+        localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+        renderIceContacts();
+      }
+    }
+
+    // 4) Ensure QR reflects whatever we have
+    generateQRCode();
+    console.log('✅ User data loaded');
+  } catch (error) {
+    console.error('Load data error:', error);
+    showToast('Error loading data: ' + error.message, 'error');
+    const eb = document.getElementById('errorBox');
+    const em = document.getElementById('errorMsg');
+    if (eb && em) {
+      eb.style.display = 'block';
+      em.textContent = 'Failed to load your data. Please try refreshing the page.';
+    }
+  }
+};
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', async () => {
