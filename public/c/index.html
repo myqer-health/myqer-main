@@ -216,8 +216,37 @@
       setText('implants', (h.implants || '').trim(), 'None reported');
 
    // triage: only from health_data.triage_override; default green
-setTriage(h.triage_override || 'green');
+<script>
+  // ... keep the rest of your code
 
+  const $ = (id) => document.getElementById(id);
+  const setText = (id, val, fallback='—') => { const el = $(id); if (el) el.textContent = (val ?? '').toString().trim() || fallback; };
+
+  function setTriage(raw) {
+    const pill = $('triagePill');
+    if (!pill) return;
+
+    // normalize incoming values
+    const map = { yellow: 'amber', standby: 'green' };
+    const lv0 = (raw ?? 'green').toString().trim().toLowerCase();
+    const lv  = map[lv0] || lv0;
+
+    const allowed = ['green','amber','red','black'];
+    const cls = allowed.includes(lv) ? lv : 'green';
+
+    pill.className = 'status-pill ' + cls;
+    pill.textContent = cls.toUpperCase();
+  }
+
+  async function loadCard() {
+    // ... your existing fetch and parsing
+
+    // after you have: const h = data.health || {};
+    setTriage(h.triage_override);   // <— use only health_data.triage_override
+  }
+
+  document.addEventListener('DOMContentLoaded', loadCard);
+</script>
       // ICE
       if (ice.length) {
         $('emergencyContacts').innerHTML =
