@@ -144,90 +144,97 @@
 
     <footer>© 2025 MYQER™</footer>
   </div>
-
 <script>
-const FN_BASE = 'https://dmtnhmkncldgnufa jei.functions.supabase.co/functions/v1/card';
+(function () {
+  // 1) Your edge function URL (leave as-is if already correct)
+  const FN_BASE = 'https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card';
 
-function setText(id, val, fallback = '—') {
-  const el = document.getElementById(id);
-  if (el) el.textContent = (val ?? '').toString().trim() || fallback;
-}
-
-function fmtDOB(d) {
-  if (!d) return '—';
-  try {
-    const date = new Date(d);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch {
-    return d;
-  }
-}
-
-function setTriage(p, h) {
-  let level = "green";
-
-  // override always wins
-  if (p.triage_override === "red") {
-    level = "red";
-  } else if (h.allergies || h.conditions) {
-    level = "amber";
+  // 2) Read the short code from /c/XXXX-XXXX OR ?code=XXXX-XXXX
+  const parts = location.pathname.replace(/\/+$/,'').split('/'); // trim trailing slash
+  let code = (parts.length >= 3 && parts[1] === 'c' && parts[2]) ? parts[2] : '';
+  if (!code) {
+    const qp = new URLSearchParams(location.search).get('code');
+    if (qp) code = qp.trim();
   }
 
-  const pill = document.getElementById("triagePill");
-  pill.className = `status-pill ${level}`;
-  pill.textContent = level.toUpperCase();
-}
+  // tiny helpers
+  const $ = (id) => document.getElementById(id);
+  const setText = (id, v, fallback='—') => { const el = $(id); if (el) el.textContent = (v ?? '').toString().trim() || fallback; };
+  const fmtDOB = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    const fmt = new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    return fmt.format(d);
+  };
+  const setTriage = (level) => {
+    const pill = $('triagePill');
+    const lv = (level || 'green').toLowerCase();
+    const cls = ['green','amber','red'].includes(lv) ? lv : 'green';
+    pill.className = 'status-pill ' + cls;
+    pill.textContent = cls.toUpperCase();
+  };
 
-async function loadCard() {
-  try {
-    const pathParts = location.pathname.split('/').filter(Boolean);
-    const code = (pathParts[0] === 'c' && pathParts[1]) || null;
-    if (!code) throw new Error("Missing code in URL");
-
-    const res = await fetch(`${FN_BASE}?code=${encodeURIComponent(code)}`);
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Failed to load');
-
-    // meta
-    const generated = new Date(data.meta.generated_at);
-    document.getElementById('updated').textContent =
-      'Accessed today at ' + generated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-    // profile & health
-    const p = data.profile || {};
-    const h = data.health || {};
-    const ice = Array.isArray(data.ice) ? data.ice : [];
-
-    setText('fullName', p.full_name);
-    setText('dob', fmtDOB(p.dob));
-    setText('blood', h.blood_type);
-    setText('donor', h.organ_donor ? 'Yes' : 'No');
-
-    setText('allergies', h.allergies, 'No known allergies');
-    setText('conditions', h.conditions, 'No known conditions');
-    setText('medications', h.medications, 'No current medications');
-    setText('implants', h.implants, 'None reported');
-
-    // triage pill
-    setTriage(p, h);
-
-    // ICE contacts
-    if (ice.length) {
-      document.getElementById('emergencyContacts').innerHTML = 
-        ice.map(c => `<strong>${c.name||''}</strong> — ${c.relation||''} — ${c.phone||''}`).join('<br>');
-    } else {
-      setText('emergencyContacts', null, 'No contacts available');
+  async function loadCard() {
+    // If no code, show hint and stop
+    if (!code) {
+      setText('cardUrl', 'myqer.com/c/XXXX-XXXX');
+      setText('updated', 'Accessed via QR scan');
+      return;
     }
 
-    // QR URL
-    setText('cardUrl', `https://www.myqer.com/c/${code}`);
-  } catch (e) {
-    console.error(e);
-    document.getElementById('emergencyContacts').textContent = 'Error loading card.';
-  }
-}
+    const cardUrl = `https://www.myqer.com/c/${encodeURIComponent(code)}`;
+    setText('cardUrl', cardUrl);
+    // If your QR element is <img id="qr"> this sets the QR image:
+    const qrEl = $('qr');
+    if (qrEl && qrEl.tagName === 'IMG') {
+      qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + encodeURIComponent(cardUrl);
+    }
 
-document.addEventListener('DOMContentLoaded', loadCard);
+    try {
+      const res = await fetch(FN_BASE + '?code=' + encodeURIComponent(code), { mode: 'cors' });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Fetch failed');
+
+      // meta
+      const when = data.meta?.generated_at ? new Date(data.meta.generated_at) : new Date();
+      setText('updated', 'Accessed today at ' + when.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}));
+
+      // profile + health
+      const p = data.profile || {};
+      const h = data.health || {};
+      const ice = Array.isArray(data.ice) ? data.ice : [];
+
+      setText('fullName', p.full_name);
+      setText('dob', fmtDOB(p.dob));
+      setText('blood', h.blood_type);
+      setText('donor', h.organ_donor ? 'Yes' : 'No');
+
+      setText('allergies', (h.allergies || '').trim(), 'No known allergies');
+      setText('conditions', (h.conditions || '').trim(), 'No known conditions');
+      setText('medications', (h.medications || h.meds || '').trim(), 'No current medications');
+      setText('implants', (h.implants || '').trim(), 'None reported');
+
+      // triage: prefer profile.triage; fallback health.triage_override; default green
+      setTriage(p.triage || h.triage_override || 'green');
+
+      // ICE
+      if (ice.length) {
+        $('emergencyContacts').innerHTML =
+          '<ul style="margin:0;padding-left:16px">' +
+          ice.map(c => `<li><strong>${(c.name||'').toString()}</strong> — ${(c.relation||'').toString()} — ${(c.phone||'').toString()}</li>`).join('') +
+          '</ul>';
+      } else {
+        setText('emergencyContacts', 'No contacts available');
+      }
+    } catch (e) {
+      setText('emergencyContacts', 'Error loading card.');
+      console.error(e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadCard);
+})();
 </script>
 </body>
 </html>
