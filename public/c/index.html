@@ -108,13 +108,14 @@
 
 <script>
 (function () {
-  // ---- CONFIG ----
   const FN_BASE = 'https://dmntmhkncldgynufajei.functions.supabase.co/functions/v1/card';
-  const CANONICAL = 'https://www.myqer.com/c/';
 
-  // ---- helpers ----
-  const $ = id => document.getElementById(id);
-  const set = (id, val, fallback='—') => $(id).textContent = (val ?? '').toString().trim() || fallback;
+  // Read code from /c/XXXX-XXXX
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const code = (pathParts[0] === 'c' && pathParts[1]) ? pathParts[1] : '';
+
+  const $ = (id) => document.getElementById(id);
+  const setText = (id, val, fallback='—') => { $(id).textContent = (val ?? '').toString().trim() || fallback; };
 
   function setTriage(level) {
     const pill = $('triagePill');
@@ -123,72 +124,88 @@
     pill.textContent = (['green','amber','red','black'].includes(lv) ? lv : 'green').toUpperCase();
   }
 
-  function parseCodeFromUrl() {
-    const parts = location.pathname.split('/').filter(Boolean);
-    if (parts[0] === 'c' && parts[1]) return parts[1];
-    const u = new URL(location.href);
-    return (u.searchParams.get('code') || '').trim();
+  function fmtDOB(d) {
+    if (!d) return '—';
+    try {
+      // d is ISO (YYYY-MM-DD) from DB; pretty print
+      const date = new Date(d);
+      if (Number.isNaN(date.getTime())) return d;
+      return date.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'2-digit' });
+    } catch { return d; }
   }
 
-  async function loadCard() {
-    const code = parseCodeFromUrl();
-    if (!code) {
-      showError('Missing code in URL.');
-      return;
+  // Tiny QR for the orange card
+  function drawQR(url) {
+    const canvas = $('qr');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,50,50);
+    ctx.fillStyle = '#1d1d1f';
+    // Very small pattern proxy (not a scanning QR – just decorative)
+    const s = 2.5, n = 20;
+    for (let i=0;i<n;i++){
+      for (let j=0;j<n;j++){
+        const h = (url.charCodeAt((i+j) % url.length) + i*j + i + j) % 4;
+        if (h < 2) ctx.fillRect(i*s, j*s, s, s);
+      }
     }
+    // Corners
+    const c = s*3;
+    ctx.fillRect(0,0,c,c); ctx.fillStyle='#fff'; ctx.fillRect(s,s,s,s);
+    ctx.fillStyle='#1d1d1f'; ctx.fillRect(50-c,0,c,c); ctx.fillStyle='#fff'; ctx.fillRect(50-c+s,s,s,s);
+    ctx.fillStyle='#1d1d1f'; ctx.fillRect(0,50-c,c,c); ctx.fillStyle='#fff'; ctx.fillRect(s,50-c+s,s,s);
+  }
 
-    const cardUrl = CANONICAL + encodeURIComponent(code);
-    $('cardUrl').textContent = cardUrl;
-    $('qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(cardUrl);
+  async function load() {
+    const now = new Date();
+    $('updated').textContent = 'Accessed today at ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    if (!code) return; // page still renders with placeholder
+
+    const url = FN_BASE + '?code=' + encodeURIComponent(code);
+
+    // Decorative QR + URL strip
+    $('cardUrl').textContent = 'https://www.myqer.com/c/' + code;
+    drawQR(url);
 
     try {
-      const res = await fetch(FN_BASE + '?code=' + encodeURIComponent(code), { mode: 'cors' });
+      const res = await fetch(url, { mode: 'cors' });
       const data = await res.json();
 
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to load card');
 
-      // meta
-      const generated = data.meta?.generated_at ? new Date(data.meta.generated_at) : new Date();
-      $('updated').textContent = 'Accessed today at ' + generated.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-
-      // profile & health
       const p = data.profile || {};
-      const h = data.health  || {};
+      const h = data.health || {};
       const ice = Array.isArray(data.ice) ? data.ice : [];
 
-      set('fullName', p.full_name);
-      set('dob', p.dob);
-      set('blood', h.blood_type);
-      set('donor', h.organ_donor ? 'Yes' : 'No');
+      // Personal
+      setText('fullName', p.full_name);
+      setText('dob', fmtDOB(p.dob));                       // <-- DOB display
+      setText('blood', h.blood_type);
+      setText('donor', h.organ_donor ? 'Yes' : 'No');
 
-      set('allergies', h.allergies, 'No known allergies');
-      set('conditions', h.conditions, 'No known conditions');
-      set('medications', h.meds ?? h.medications, 'No current medications');
-      set('implants', h.implants, 'None reported');
+      // Blocks
+      setText('allergies', (h.allergies || 'No known allergies'));
+      setText('conditions', (h.conditions || 'No known conditions'));
+      setText('medications', (h.medications || 'No current medications'));
+      setText('implants', (h.implants || 'None reported'));
 
-      // triage from profile.triage or health.triage_override
-      setTriage(p.triage || h.triage_override || 'green');
+      // Triage pill
+      setTriage(p.triage || h.triage_override || 'green'); // <-- pill color + label
 
+      // ICE list
       if (ice.length) {
         $('emergencyContacts').innerHTML =
-          '<ul style="margin:0;padding-left:16px">'
-          + ice.map(c => `<li><strong>${(c.name||'').toString()}</strong> — ${(c.relation||'').toString()} — ${(c.phone||'').toString()}</li>`).join('')
-          + '</ul>';
+          ice.map(c => `• <strong>${(c.name||'').toString()}</strong> — ${(c.relation||'').toString()} — ${(c.phone||'').toString()}`)
+             .join('<br>');
       } else {
-        set('emergencyContacts', 'No contacts available');
+        $('emergencyContacts').textContent = 'No contacts available';
       }
     } catch (e) {
-      showError(e.message || 'Error loading card.');
+      // keep card visible; we already show placeholders
+      console.error(e);
     }
   }
 
-  function showError(msg) {
-    const el = $('error');
-    el.hidden = false;
-    el.textContent = msg;
-  }
-
-  document.addEventListener('DOMContentLoaded', loadCard);
+  document.addEventListener('DOMContentLoaded', load);
 })();
 </script>
 </body>
