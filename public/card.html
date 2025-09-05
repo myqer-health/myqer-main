@@ -1,263 +1,147 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Card</title>
-
-  <!-- Minimal styles (kept inline so the page still looks fine offline) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --bg:#fafafa; --ink:#222; --muted:#6b7280;
-      --red:#e53935; --amber:#fb8c00; --green:#43a047; --border:#e5e7eb;
-      --pill:#f3f4f6;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
-    .wrap{max-width:760px;margin:24px auto;padding:0 16px}
-    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-    .brand{font-weight:700;letter-spacing:0.5px}
-    .status{font-size:12px;padding:6px 10px;border-radius:999px;background:var(--pill);color:var(--muted);border:1px solid var(--border)}
-    .status[data-state="ONLINE"]{color:#0ea5e9;border-color:#bae6fd;background:#e0f2fe}
-    .status[data-state="OFFLINE"]{color:#ef4444;border-color:#fecaca;background:#fee2e2}
-    .status[data-state="CACHED"]{color:#f59e0b;border-color:#fde68a;background:#fef3c7}
-    .card{background:#fff;border:2px solid var(--border);border-radius:16px;overflow:hidden}
-    .card[data-triage="RED"]{border-color:var(--red)}
-    .card[data-triage="AMBER"]{border-color:var(--amber)}
-    .card[data-triage="GREEN"]{border-color:var(--green)}
-    .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:#fff}
-    .triage{font-weight:700;font-size:12px;border-radius:999px;padding:6px 10px;border:1px solid var(--border)}
-    .card[data-triage="RED"] .triage{color:#fff;background:var(--red);border-color:var(--red)}
-    .card[data-triage="AMBER"] .triage{color:#fff;background:var(--amber);border-color:var(--amber)}
-    .card[data-triage="GREEN"] .triage{color:#fff;background:var(--green);border-color:var(--green)}
-    .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted)}
-    .body{padding:16px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .row{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-    .label{min-width:140px;font-weight:600;color:#374151}
-    .val{flex:1}
-    .muted{color:var(--muted)}
-    .foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-    .tiny{font-size:12px;color:var(--muted)}
-    .btn{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer}
-    .btn:active{transform:translateY(1px)}
-    @media (max-width:680px){.grid{grid-template-columns:1fr}}
+    :root{--ink:#0f172a;--slate:#64748b;--border:#e2e8f0;--red:#dc2626;--amber:#d97706;--green:#059669}
+    *{box-sizing:border-box} body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;background:#f8fafc;color:var(--ink)}
+    .wrap{max-width:720px;margin:24px auto;padding:16px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 20px 8px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+    h1{font-size:1.25rem;margin:0 0 .25rem;font-weight:800} .sub{color:var(--slate);font-size:.9rem;margin:0 0 1rem}
+    .row{border:1px dashed #e5e7eb;border-radius:10px;padding:.6rem .75rem;margin:.4rem 0;display:flex;justify-content:space-between;gap:12px}
+    .label{color:var(--slate);font-weight:600} .val{font-weight:600}
+    .pill{display:inline-block;padding:.25rem .6rem;border-radius:999px;font-weight:800;font-size:.75rem;margin:.4rem 0}
+    .pill.GREEN{background:#dcfce7;color:var(--green)}
+    .pill.AMBER{background:#fef3c7;color:var(--amber)}
+    .pill.RED{background:#fee2e2;color:var(--red)}
+    .mute{color:#94a3b8}
+    .qr{margin:14px 0 6px;text-align:center}
+    .code{font-family:ui-monospace,Menlo,monospace;color:var(--slate);text-align:center;font-weight:700;letter-spacing:.12em}
+    #err{display:none;background:#fee2e2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:.75rem;margin-top:.75rem}
+    .foot{margin-top:14px;border-top:1px solid var(--border);padding-top:8px;text-align:center;color:var(--slate);font-size:.8rem}
+    pre{white-space:pre-wrap;background:#f8fafc;border:1px dashed var(--border);padding:.75rem;border-radius:12px}
   </style>
-
-  <!-- Supabase JS (v2) -->
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div class="brand">MYQER™ — Emergency Card</div>
-      <div id="netStatus" class="status" data-state="ONLINE">ONLINE</div>
-    </header>
+    <div class="card">
+      <h1>Emergency Profile</h1>
+      <p class="sub">Accessed via QR scan</p>
 
-    <section id="cardRoot" class="card" data-triage="GREEN" aria-live="polite">
-      <div class="bar">
-        <span id="triagePill" class="triage">GREEN</span>
-        <span class="code">Code: <span id="codeSpan">—</span></span>
+      <div class="row"><div class="label">Name</div><div id="v-name" class="val mute">—</div></div>
+      <div class="row"><div class="label">Date of Birth</div><div id="v-dob" class="val mute">—</div></div>
+      <div class="row"><div class="label">Blood Type</div><div id="v-blood" class="val mute">—</div></div>
+      <div class="row"><div class="label">Organ Donor</div><div id="v-donor" class="val mute">—</div></div>
+
+      <div class="row"><div class="label">Medical Allergies</div><div id="v-all" class="val mute">—</div></div>
+      <div class="row"><div class="label">Medical Conditions</div><div id="v-cond" class="val mute">—</div></div>
+      <div class="row"><div class="label">Current Medications</div><div id="v-meds" class="val mute">—</div></div>
+      <div class="row"><div class="label">Implants & Devices</div><div id="v-impl" class="val mute">—</div></div>
+      <div class="row"><div class="label">Emergency Contacts</div><div id="v-ice" class="val mute">—</div></div>
+
+      <div style="margin:.35rem 0">
+        <span class="label">Triage</span>
+        <span id="v-triage" class="pill GREEN">GREEN</span>
       </div>
 
-      <div class="body">
-        <div class="grid">
-          <div class="row"><div class="label">Name</div>             <div id="name"      class="val muted">—</div></div>
-          <div class="row"><div class="label">Date of Birth</div>    <div id="dob"       class="val muted">—</div></div>
-          <div class="row"><div class="label">Blood Type</div>       <div id="blood"     class="val muted">—</div></div>
-          <div class="row"><div class="label">Organ Donor</div>      <div id="donor"     class="val muted">—</div></div>
-          <div class="row"><div class="label">Allergies</div>        <div id="allergies" class="val muted">—</div></div>
-          <div class="row"><div class="label">Medical Conditions</div><div id="conditions" class="val muted">—</div></div>
-          <div class="row"><div class="label">Medications</div>      <div id="meds"      class="val muted">—</div></div>
-          <div class="row"><div class="label">Implants & Devices</div><div id="implants" class="val muted">—</div></div>
-          <div class="row"><div class="label">Emergency Contacts</div><div id="ice"      class="val muted">—</div></div>
-        </div>
-      </div>
+      <div class="qr"><div id="qr"></div></div>
+      <div class="code" id="code">—</div>
 
-      <div class="foot">
-        <div class="tiny">Last updated: <span id="updated">—</span></div>
-        <div class="actions">
-          <button class="btn" id="refreshBtn">Refresh</button>
-          <button class="btn" id="printBtn">Print</button>
-          <button class="btn" id="copyBtn">Copy URL</button>
-        </div>
-      </div>
-    </section>
+      <div id="err"></div>
 
-    <p class="tiny" style="margin-top:12px">
-      Read-only emergency info. Always verify clinically before treatment.
-    </p>
+      <details style="margin-top:10px">
+        <summary class="label">Offline snapshot (if available)</summary>
+        <pre id="offline">No cached snapshot.</pre>
+      </details>
+
+      <div class="foot">Read-only emergency information. Always verify clinically before treatment.</div>
+    </div>
   </div>
 
   <script>
-    // ---- Supabase client (your project) ----
+    // --- Supabase (your project) ---
     const SUPABASE_URL = "https://dmntmhkncldgynufajei.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ---- Helpers ----
-    const $ = (id)=>document.getElementById(id);
-    const cardRoot   = $("cardRoot");
-    const triagePill = $("triagePill");
-    const statusEl   = $("netStatus");
+    // --- helpers ---
+    const $ = (id) => document.getElementById(id);
+    const set = (id, val, empty='—') => {
+      const el = $(id);
+      const out = (val && String(val).trim()) ? String(val).trim() : empty;
+      el.textContent = out;
+      el.classList.toggle('mute', out===empty);
+    };
 
-    function getCodeFromURL(){
-      const u = new URL(window.location.href);
-      // support /c/CODE AND ?code=CODE
-      const q = u.searchParams.get("code");
-      if (q) return q.trim();
-      const parts = u.pathname.split("/").filter(Boolean);
-      // e.g. /c/CODE or /card/CODE
-      return (parts[0]==="c" || parts[0]==="card") ? (parts[1]||"").trim() : parts[parts.length-1] || "";
-    }
-    const CODE = getCodeFromURL();
-    $("codeSpan").textContent = CODE || "—";
-
-    const LS_KEY = (code)=>`myqer:snapshot:${(code||"").toUpperCase()}`;
-
-    function renderCard(card, source){
-      // Text fields
-      $("name").textContent       = card?.full_name      ?? "—";
-      $("dob").textContent        = card?.date_of_birth  ?? "—";
-      $("blood").textContent      = card?.blood_type     ?? "—";
-      $("donor").textContent      = card?.organ_donor ? "Yes" : "No";
-      $("allergies").textContent  = card?.allergies      ?? "—";
-      $("conditions").textContent = card?.conditions     ?? "—";
-      $("meds").textContent       = card?.meds           ?? "—";
-      $("implants").textContent   = card?.implants       ?? "—";
-      $("ice").textContent        = (card?.ice_contacts || "").trim() || "No contacts available";
-
-      // Triage
-      const triage = (card?.triage || "GREEN").toUpperCase();
-      cardRoot.dataset.triage = triage;
-      triagePill.textContent = triage;
-
-      // Updated at
-      const ts = card?.updated_at ? new Date(card.updated_at) : null;
-      $("updated").textContent = ts ? ts.toLocaleString() : "—";
-
-      // Status badge
-      if (source === "online"){
-        statusEl.dataset.state = "ONLINE";
-        statusEl.textContent = "ONLINE";
-      } else if (source === "cache"){
-        statusEl.dataset.state = "CACHED";
-        statusEl.textContent = "CACHED (offline snapshot)";
-      } else if (source === "offline"){
-        statusEl.dataset.state = "OFFLINE";
-        statusEl.textContent = "OFFLINE";
-      }
-      // mute placeholders vs real values
-      document.querySelectorAll(".val").forEach(el=>{
-        el.classList.toggle("muted", el.textContent.trim()==="—");
-      });
+    function codeFromPath() {
+      // supports /c/CDEB-EUED and /card.html?code=CDEB-EUED
+      const p = location.pathname.split('/').filter(Boolean);
+      const maybe = p[p.length-1];
+      const byQuery = new URLSearchParams(location.search).get('code');
+      return (p.length>=2 && p[p.length-2]==='c') ? maybe : byQuery;
     }
 
-    function cacheSnapshot(code, payload){
-      try{
-        const data = { saved_at: Date.now(), payload };
-        localStorage.setItem(LS_KEY(code), JSON.stringify(data));
-      }catch(e){ /* ignore quota */ }
-    }
-    function readSnapshot(code){
-      try{
-        const raw = localStorage.getItem(LS_KEY(code));
-        if (!raw) return null;
-        return JSON.parse(raw)?.payload || null;
-      }catch(_){ return null; }
-    }
-
-    async function fetchOnline(code){
-      const { data, error } = await sb.rpc("emergency_card_by_code", { p_code: code });
-      if (error) throw error;
-      const card = data?.[0] || null;
-      if (card) cacheSnapshot(code, card);
-      return card;
-    }
-
-    async function load(){
-      if (!CODE){
-        renderCard(null, "offline");
+    async function loadCard() {
+      const code = codeFromPath();
+      if (!code) {
+        const e = $('err'); e.style.display='block';
+        e.textContent = 'No code in the URL.';
         return;
       }
-      // Try cache immediately so the page is not blank offline
-      const cached = readSnapshot(CODE);
-      if (cached){
-        renderCard(cached, navigator.onLine ? "cache" : "offline");
-      }
 
-      // If we’re online, try to refresh from the backend
-      if (navigator.onLine){
-        try{
-          const fresh = await fetchOnline(CODE);
-          if (fresh) renderCard(fresh, "online");
-        }catch(e){
-          // if fetch fails but we had cache, keep showing cache
-          if (!cached) renderCard(null, "offline");
-          console.error("RPC error:", e);
-          statusEl.dataset.state = "CACHED";
-          statusEl.textContent = cached ? "CACHED (RPC error)" : "OFFLINE";
-        }
-      }else{
-        statusEl.dataset.state = cached ? "CACHED" : "OFFLINE";
-        statusEl.textContent = cached ? "CACHED (offline)" : "OFFLINE";
+      $('code').textContent = code;
+      new QRCode($('qr'), { text: location.href, width: 180, height: 180 });
+
+      // try online first
+      try {
+        const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
+        if (error) throw error;
+        const row = (data && data[0]) || null;
+        if (!row) throw new Error('Code not found');
+
+        bind(row);
+
+        // store a compact offline snapshot (optional)
+        const snap = [
+          `MYQER — Emergency Snapshot`,
+          `Name: ${row.full_name ?? '—'}`,
+          `DOB: ${row.date_of_birth ?? '—'}`,
+          `Blood: ${row.blood_type ?? '—'}`,
+          `Allergies: ${row.allergies ?? '—'}`,
+          `Conditions: ${row.conditions ?? '—'}`,
+          `Medications: ${row.meds ?? '—'}`,
+          `ICE: ${row.ice_contacts ?? '—'}`
+        ].join('\n');
+        $('offline').textContent = snap;
+      } catch (err) {
+        // fallback to any cached text we might have
+        $('err').style.display='block';
+        $('err').textContent = 'Live lookup failed: ' + (err.message || err);
+        $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
       }
     }
 
-    // Buttons
-    $("refreshBtn").addEventListener("click", async ()=>{
-      statusEl.dataset.state = "ONLINE";
-      statusEl.textContent = "ONLINE";
-      try{
-        const fresh = await fetchOnline(CODE);
-        if (fresh) renderCard(fresh, "online");
-      }catch(e){
-        console.error(e);
-        const cached = readSnapshot(CODE);
-        renderCard(cached, cached ? "cache" : "offline");
-      }
-    });
-    $("printBtn").addEventListener("click", ()=>window.print());
-    $("copyBtn").addEventListener("click", async ()=>{
-      try{
-        await navigator.clipboard.writeText(window.location.href);
-        $("copyBtn").textContent = "Copied!";
-        setTimeout(()=> $("copyBtn").textContent = "Copy URL", 1200);
-      }catch(_){ /* ignore */ }
-    });
+    function bind(card) {
+      set('v-name',  card.full_name);
+      set('v-dob',   card.date_of_birth);
+      set('v-blood', card.blood_type);
+      set('v-donor', card.organ_donor ? 'Yes' : 'No');
+      set('v-all',   card.allergies,  'No known allergies');
+      set('v-cond',  card.conditions, 'No known conditions');
+      set('v-meds',  card.meds,       'No current medications');
+      set('v-impl',  card.implants,   'None reported');
+      set('v-ice',   card.ice_contacts, 'No contacts available');
 
-    // Online/offline events update the pill
-    window.addEventListener("online",  ()=>{ statusEl.dataset.state="ONLINE";  statusEl.textContent="ONLINE";  });
-    window.addEventListener("offline", ()=>{ statusEl.dataset.state="OFFLINE"; statusEl.textContent="OFFLINE"; });
-
-    // Kick off
-    load();
-
-    // ---- Tiny service worker (inline) to cache this page for offline page-loads ----
-    // This keeps things in one file. It caches the current URL and serves it when offline.
-    if ("serviceWorker" in navigator) {
-      const swCode = `
-        const CACHE='myqer-card-v1';
-        self.addEventListener('install', e=>{
-          e.waitUntil(caches.open(CACHE).then(c=>c.addAll([self.location.href])));
-          self.skipWaiting();
-        });
-        self.addEventListener('activate', e=>self.clients.claim());
-        self.addEventListener('fetch', e=>{
-          const req=e.request;
-          // Network-first for everything; fallback to cache if offline.
-          e.respondWith(
-            fetch(req).catch(()=>caches.match(req,{ignoreSearch:true}).then(r=>r || caches.match(self.location.href)))
-          );
-        });
-      `;
-      const blob = new Blob([swCode], { type: "text/javascript" });
-      const swUrl = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swUrl).catch(()=>{});
+      const tri = (card.triage || 'GREEN').toUpperCase();
+      const pill = $('v-triage'); pill.textContent = tri; pill.className = 'pill ' + tri;
     }
+
+    loadCard();
   </script>
 </body>
 </html>
