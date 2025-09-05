@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How MYQER Works — Visual Emergency QR System Explained</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase
+        const SUPABASE_URL = "https://dmntmhkncldgynufajei.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ffffff 0%, #fef5f5 50%, #ffffff 100%);
+            color: black;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            text-decoration: none;
+            color: black;
+            cursor: pointer;
+        }
+
+        .myq {
+            color: black;
+        }
+
+        .er {
+            color: #d32f2f;
+        }
+
+        .tm {
+            color: black;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .language-dropdown {
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: black;
+        }
+
+        .menu {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 200px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .menu.active {
+            display: block;
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 0;
+            text-decoration: none;
+            color: black;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 400;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            color: #d32f2f;
+        }
+
+        /* Main Content */
+        .main {
+            padding-top: 100px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 80px 0;
+            margin-bottom: 60px;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #d32f2f, #666);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: #666;
+            font-weight: 400;
+            margin-bottom: 40px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero .description {
+            font-size: 1.1rem;
+            color: #999;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* Visual Flow Section */
+        .visual-flow {
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 32px;
+            padding: 80px 40px;
+            margin: 80px 0;
+        }
+
+        .flow-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 60px;
+            color: black;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.4s ease;
+        }
+
+        .flow-step:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+        }
+
+        .step-icon {
+            font-size: 3rem;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .step-content h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: black;
+        }
+
+        .step-content p {
+            font-size: 1.1rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .flow-arrow {
+            text-align: center;
+            font-size: 2rem;
+            color: #d32f2f;
+            margin: 20px 0;
+        }
+
+        /* Triage Pills */
+        .triage-pills {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .triage-pill {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+        }
+
+        .pill-green {
+            background: #4caf50;
+        }
+
+        .pill-amber {
+            background: #ff9800;
+        }
+
+        .pill-red {
+            background: #f44336;
+        }
+
+        /* Emergency Snapshot */
+        .emergency-snapshot {
+            background: rgba(211, 47, 47, 0.05);
+            border: 2px solid #d32f2f;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 40px 0;
+            font-family: 'Courier New', monospace;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .snapshot-header {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #d32f2f;
+            text-align: center;
+        }
+
+        .snapshot-content {
+            font-size: 1rem;
+            line-height: 1.8;
+            color: black;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin: 80px 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.4s ease;
+            text-align: center;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: black;
+        }
+
+        .feature-description {
+            font-size: 1.1rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            color: #666;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .feature-list li:before {
+            content: "•";
+            color: #d32f2f;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        /* Section Divider */
+        .section-divider {
+            text-align: center;
+            margin: 80px 0;
+            font-size: 2rem;
+            color: #d32f2f;
+        }
+
+        /* Why It Matters Section */
+        .why-matters {
+            background: rgba(211, 47, 47, 0.05);
+            border-radius: 32px;
+            padding: 80px 40px;
+            text-align: center;
+            margin: 80px 0;
+        }
+
+        .why-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: black;
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .why-item {
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .why-item h4 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: black;
+        }
+
+        .why-item p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Bridge Section */
+        .bridge-section {
+            text-align: center;
+            padding: 80px 40px;
+            margin: 80px 0;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 32px;
+        }
+
+        .bridge-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .bridge-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: black;
+        }
+
+        .bridge-subtitle {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .bridge-points {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .bridge-point {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .bridge-point strong {
+            color: #d32f2f;
+            font-weight: 700;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 32px;
+            padding: 80px 40px;
+            text-align: center;
+            margin: 80px 0;
+        }
+
+        .cta-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: black;
+        }
+
+        .cta-subtitle {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #d32f2f;
+            color: white;
+            box-shadow: 0 4px 20px rgba(211, 47, 47, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: #b71c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(211, 47, 47, 0.4);
+        }
+
+        /* Footer */
+        .footer {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 60px 0 40px;
+            margin-top: 100px;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            text-align: center;
+        }
+
+        .footer-brand {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: black;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .footer-link {
+            color: #666;
+            text-decoration: none;
+            font-weight: 400;
+        }
+
+        .footer-link:hover {
+            color: #d32f2f;
+        }
+
+        .footer-note {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .flow-step {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .step-icon {
+                min-width: auto;
+            }
+
+            .triage-pills {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .why-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .bridge-points {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .hero {
+                padding: 60px 0;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .visual-flow,
+            .why-matters,
+            .bridge-section,
+            .cta-section {
+                padding: 60px 20px;
+            }
+
+            .flow-title,
+            .why-title,
+            .bridge-title,
+            .cta-title {
+                font-size: 2rem;
+            }
+
+            .feature-card {
+                padding: 30px 20px;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #d32f2f;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn-cancel {
+            background: #f5f5f5;
+            color: #666;
+            flex: 1;
+        }
+
+        .btn-submit {
+            background: #d32f2f;
+            color: white;
+            flex: 2;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <a href="index.html" class="logo">
+            <span class="myq">MYQ</span><span class="er">ER</span><span class="tm">™</span>
+        </a>
+        <div class="header-controls">
+            <select class="language-dropdown" onchange="changeLanguage(this.value)">
+                <option value="en">🇬🇧 English</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="de">🇩🇪 Deutsch</option>
+                <option value="it">🇮🇹 Italiano</option>
+                <option value="pt">🇵🇹 Português</option>
+                <option value="ro">🇷🇴 Română</option>
+                <option value="ar">🇸🇦 العربية</option>
+                <option value="hi">🇮🇳 हिन्दी</option>
+                <option value="zh">🇨🇳 中文</option>
+            </select>
+            <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+            <div class="menu" id="menu">
+                <a href="index.html" class="menu-item" data-translate="home">Home</a>
+                <a href="about.html" class="menu-item" data-translate="about">About</a>
+                <a href="clinician.html" class="menu-item" data-translate="clinician">Clinician</a>
+                <a href="how-it-works.html" class="menu-item" data-translate="how-it-works">How It Works</a>
+                <a href="privacy.html" class="menu-item" data-translate="privacy">Privacy</a>
+                <a href="terms.html" class="menu-item" data-translate="terms">Terms</a>
+                <a href="contact.html" class="menu-item" data-translate="contact">Contact</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Hero Section -->
+            <section class="hero">
+                <h1 data-translate="how-title">How MYQER Works</h1>
+                <p class="subtitle" data-translate="how-subtitle">MYQER™ is a universal emergency QR card designed to support both individuals and responders.</p>
+                <p class="description" data-translate="how-description">It doesn't replace clinical records or professional judgment — it simply provides essential information, instantly accessible, to help bridge the gap when seconds matter and details are missing.</p>
+            </section>
+
+            <div class="section-divider">⸻</div>
+
+            <!-- Visual Flow Section -->
+            <section class="visual-flow">
+                <h2 class="flow-title" data-translate="visual-flow-title">How MYQER Works (Visual Flow)</h2>
+                
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="step-icon">📱</div>
+                        <div class="step-content">
+                            <h3 data-translate="step1-title">Step 1 — Scan</h3>
+                            <p data-translate="step1-description">A responder scans the MYQER code (on card, sticker, or device).</p>
+                        </div>
+                    </div>
+
+                    <div class="flow-arrow">⬇️</div>
+
+                    <div class="flow-step">
+                        <div class="step-icon">🚦</div>
+                        <div class="step-content">
+                            <h3 data-translate="step2-title">Step 2 — Triage Pill</h3>
+                            <p data-translate="step2-description">A quick status indicator appears to help responders prepare.</p>
+                            <div class="triage-pills">
+                                <span class="triage-pill pill-green" data-translate="triage-green">🟢 Green</span>
+                                <span class="triage-pill pill-amber" data-translate="triage-amber">🟠 Amber</span>
+                                <span class="triage-pill pill-red" data-translate="triage-red">🔴 Red</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-arrow">⬇️</div>
+
+                    <div class="flow-step">
+                        <div class="step-icon">📄</div>
+                        <div class="step-content">
+                            <h3 data-translate="step3-title">Step 3 — Emergency Snapshot (Offline)</h3>
+                            <p data-translate="step3-description">If no internet, a short text profile displays directly from the QR:</p>
+                            
+                            <div class="emergency-snapshot">
+                                <div class="snapshot-header" data-translate="snapshot-header">MYQER — Emergency Snapshot</div>
+                                <div class="snapshot-content">
+                                    <div data-translate="snapshot-name">Name: Jane Doe</div>
+                                    <div data-translate="snapshot-dob">DOB: 01 Jan 1990</div>
+                                    <div data-translate="snapshot-blood">Blood: O+</div>
+                                    <div data-translate="snapshot-allergies">Allergies: Penicillin</div>
+                                    <div data-translate="snapshot-conditions">Conditions: Asthma</div>
+                                    <div data-translate="snapshot-medications">Medications: None</div>
+                                    <div data-translate="snapshot-ice">ICE: John Doe — +44 7700 123456</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-arrow">⬇️</div>
+
+                    <div class="flow-step">
+                        <div class="step-icon">🌐</div>
+                        <div class="step-content">
+                            <h3 data-translate="step4-title">Step 4 — Full Profile (Online)</h3>
+                            <p data-translate="step4-description">If internet is available, the full, updated profile opens with comprehensive medical information.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider">⸻</div>
+
+            <!-- Key Features -->
+            <section class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🔄</span>
+                    <h3 class="feature-title" data-translate="one-qr-title">One QR. Always the same.</h3>
+                    <ul class="feature-list">
+                        <li data-translate="one-qr-point1">Every person receives a single QR code that never changes.</li>
+                        <li data-translate="one-qr-point2">Print it, carry it, or display it — the QR remains valid for life.</li>
+                        <li data-translate="one-qr-point3">Update your profile anytime; your QR will always point to the latest information.</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">📶</span>
+                    <h3 class="feature-title" data-translate="access-title">Online or Offline — Always Accessible</h3>
+                    <div class="feature-description">
+                        <p><strong data-translate="online-title">When scanned online:</strong></p>
+                        <ul class="feature-list">
+                            <li data-translate="online-point1">Name and Date of Birth</li>
+                            <li data-translate="online-point2">Blood Type and Organ Donor status</li>
+                            <li data-translate="online-point3">Allergies and Medical Conditions</li>
+                            <li data-translate="online-point4">Current Medications</li>
+                            <li data-translate="online-point5">Implants & Devices</li>
+                            <li data-translate="online-point6">Emergency Contacts (ICE)</li>
+                        </ul>
+                        <p><strong data-translate="offline-title">When scanned offline:</strong></p>
+                        <p data-translate="offline-description">The QR reveals a snapshot of core details directly, without internet.</p>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">🚨</span>
+                    <h3 class="feature-title" data-translate="triage-title">Triage at a Glance</h3>
+                    <p class="feature-description" data-translate="triage-description">Each card displays a simple triage pill as a visual prompt:</p>
+                    <ul class="feature-list">
+                        <li data-translate="triage-green-desc">🟢 Green — stable / standby</li>
+                        <li data-translate="triage-amber-desc">🟠 Amber — important considerations</li>
+                        <li data-translate="triage-red-desc">🔴 Red — critical attention required</li>
+                    </ul>
+                    <p class="feature-description" data-translate="triage-help">This quick indicator helps responders prepare before reviewing full details.</p>
+                </div>
+            </section>
+
+            <div class="section-divider">⸻</div>
+
+            <!-- Why It Matters -->
+            <section class="why-matters">
+                <h2 class="why-title" data-translate="why-matters-title">Why it Matters</h2>
+                
+                <div class="why-grid">
+                    <div class="why-item">
+                        <h4 data-translate="clarity-title">Clarity in uncertainty</h4>
+                        <p data-translate="clarity-description">Provides verified personal inputs when nothing else is available.</p>
+                    </div>
+                    
+                    <div class="why-item">
+                        <h4 data-translate="universal-title">Universal access</h4>
+                        <p data-translate="universal-description">Works worldwide, with or without internet.</p>
+                    </div>
+                    
+                    <div class="why-item">
+                        <h4 data-translate="privacy-title">Privacy-minded</h4>
+                        <p data-translate="privacy-description">Data stays under your control; responders only see what you choose to share.</p>
+                    </div>
+                    
+                    <div class="why-item">
+                        <h4 data-translate="complementary-title">Complementary</h4>
+                        <p data-translate="complementary-description">Designed to support, not replace, clinical assessment.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider">⸻</div>
+
+            <!-- Bridge Section -->
+            <section class="bridge-section">
+                <div class="bridge-content">
+                    <h2 class="bridge-title" data-translate="bridge-title">👉 MYQER exists to bridge the unknown.</h2>
+                    
+                    <div class="bridge-points">
+                        <div class="bridge-point">
+                            <strong data-translate="for-users">For users</strong>, <span data-translate="users-benefit">it's reassurance.</span>
+                        </div>
+                        <div class="bridge-point">
+                            <strong data-translate="for-responders">For responders</strong>, <span data-translate="responders-benefit">it's context.</span>
+                        </div>
+                        <div class="bridge-point">
+                            <strong data-translate="for-everyone">For everyone</strong>, <span data-translate="everyone-benefit">it's a clearer starting point.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA Section -->
+            <section class="cta-section">
+                <h2 class="cta-title" data-translate="get-started-title">Get Started with MYQER</h2>
+                <p class="cta-subtitle" data-translate="get-started-subtitle">Join thousands who trust MYQER for emergency medical information</p>
+                <button class="btn btn-primary" onclick="openModal('signup')" data-translate="start-free">Start Free</button>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">MYQER™ — <span data-translate="footer-tagline">Emergency Medical Information at Your Fingertips</span></div>
+                <div class="footer-links">
+                    <a href="privacy.html" class="footer-link" data-translate="privacy">Privacy Policy</a>
+                    <a href="terms.html" class="footer-link" data-translate="terms">Terms of Service</a>
+                    <a href="contact.html" class="footer-link" data-translate="contact">Contact</a>
+                    <a href="clinician.html" class="footer-link" data-translate="clinician">For Clinicians</a>
+                </div>
+                <div class="footer-note" data-translate="footer-note">GDPR/HIPAA-minded • Informational only</div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" data-translate="login">Login</h2>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" data-translate="email">Email</label>
+                    <input type="email" class="form-input" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" data-translate="password">Password</label>
+                    <input type="password" class="form-input" id="loginPassword" required>
+                </div>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="#" onclick="openResetModal()" style="color: #d32f2f; text-decoration: none; font-size: 0.9rem;" data-translate="forgot-password">Forgot Password?</a>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()" data-translate="cancel">Cancel</button>
+                    <button type="submit" class="btn btn-submit" data-translate="login">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="signupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" data-translate="create-account">Create Account</h2>
+            </div>
+            <form onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label class="form-label" data-translate="full-name">Full Name</label>
+                    <input type="text" class="form-input" id="signupName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" data-translate="email">Email</label>
+                    <input type="email" class="form-input" id="signupEmail" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" data-translate="password">Password</label>
+                    <input type="password" class="form-input" id="signupPassword" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()" data-translate="cancel">Cancel</button>
+                    <button type="submit" class="btn btn-submit" data-translate="create-account">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="resetModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" data-translate="reset-password">Reset Password</h2>
+            </div>
+            <form onsubmit="handleReset(event)">
+                <div class="form-group">
+                    <label class="form-label" data-translate="email">Email</label>
+                    <input type="email" class="form-input" id="resetEmail" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()" data-translate="cancel">Cancel</button>
+                    <button type="submit" class="btn btn-submit" data-translate="reset-password">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Complete translations for all languages
+        const translations = {
+            en: {
+                "how-title": "How MYQER Works",
+                "how-subtitle": "MYQER™ is a universal emergency QR card designed to support both individuals and responders.",
+                "how-description": "It doesn't replace clinical records or professional judgment — it simply provides essential information, instantly accessible, to help bridge the gap when seconds matter and details are missing.",
+                "visual-flow-title": "How MYQER Works (Visual Flow)",
+                "step1-title": "Step 1 — Scan",
+                "step1-description": "A responder scans the MYQER code (on card, sticker, or device).",
+                "step2-title": "Step 2 — Triage Pill",
+                "step2-description": "A quick status indicator appears to help responders prepare.",
+                "triage-green": "🟢 Green",
+                "triage-amber": "🟠 Amber",
+                "triage-red": "🔴 Red",
+                "step3-title": "Step 3 — Emergency Snapshot (Offline)",
+                "step3-description": "If no internet, a short text profile displays directly from the QR:",
+                "snapshot-header": "MYQER — Emergency Snapshot",
+                "snapshot-name": "Name: Jane Doe",
+                "snapshot-dob": "DOB: 01 Jan 1990",
+                "snapshot-blood": "Blood: O+",
+                "snapshot-allergies": "Allergies: Penicillin",
+                "snapshot-conditions": "Conditions: Asthma",
+                "snapshot-medications": "Medications: None",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Step 4 — Full Profile (Online)",
+                "step4-description": "If internet is available, the full, updated profile opens with comprehensive medical information.",
+                "one-qr-title": "One QR. Always the same.",
+                "one-qr-point1": "Every person receives a single QR code that never changes.",
+                "one-qr-point2": "Print it, carry it, or display it — the QR remains valid for life.",
+                "one-qr-point3": "Update your profile anytime; your QR will always point to the latest information.",
+                "access-title": "Online or Offline — Always Accessible",
+                "online-title": "When scanned online:",
+                "online-point1": "Name and Date of Birth",
+                "online-point2": "Blood Type and Organ Donor status",
+                "online-point3": "Allergies and Medical Conditions",
+                "online-point4": "Current Medications",
+                "online-point5": "Implants & Devices",
+                "online-point6": "Emergency Contacts (ICE)",
+                "offline-title": "When scanned offline:",
+                "offline-description": "The QR reveals a snapshot of core details directly, without internet.",
+                "triage-title": "Triage at a Glance",
+                "triage-description": "Each card displays a simple triage pill as a visual prompt:",
+                "triage-green-desc": "🟢 Green — stable / standby",
+                "triage-amber-desc": "🟠 Amber — important considerations",
+                "triage-red-desc": "🔴 Red — critical attention required",
+                "triage-help": "This quick indicator helps responders prepare before reviewing full details.",
+                "why-matters-title": "Why it Matters",
+                "clarity-title": "Clarity in uncertainty",
+                "clarity-description": "Provides verified personal inputs when nothing else is available.",
+                "universal-title": "Universal access",
+                "universal-description": "Works worldwide, with or without internet.",
+                "privacy-title": "Privacy-minded",
+                "privacy-description": "Data stays under your control; responders only see what you choose to share.",
+                "complementary-title": "Complementary",
+                "complementary-description": "Designed to support, not replace, clinical assessment.",
+                "bridge-title": "👉 MYQER exists to bridge the unknown.",
+                "for-users": "For users",
+                "users-benefit": "it's reassurance.",
+                "for-responders": "For responders",
+                "responders-benefit": "it's context.",
+                "for-everyone": "For everyone",
+                "everyone-benefit": "it's a clearer starting point.",
+                "get-started-title": "Get Started with MYQER",
+                "get-started-subtitle": "Join thousands who trust MYQER for emergency medical information",
+                "start-free": "Start Free",
+                "footer-tagline": "Emergency Medical Information at Your Fingertips",
+                "home": "Home",
+                "about": "About",
+                "clinician": "Clinician",
+                "how-it-works": "How It Works",
+                "privacy": "Privacy Policy",
+                "terms": "Terms of Service",
+                "contact": "Contact",
+                "footer-note": "GDPR/HIPAA-minded • Informational only",
+                "login": "Login",
+                "email": "Email",
+                "password": "Password",
+                "cancel": "Cancel",
+                "forgot-password": "Forgot Password?",
+                "reset-password": "Reset Password",
+                "full-name": "Full Name",
+                "create-account": "Create Account"
+            },
+            es: {
+                "how-title": "Cómo Funciona MYQER",
+                "how-subtitle": "MYQER™ es una tarjeta QR de emergencia universal diseñada para apoyar tanto a individuos como a socorristas.",
+                "how-description": "No reemplaza los registros clínicos o el juicio profesional — simplemente proporciona información esencial, accesible al instante, para ayudar a cerrar la brecha cuando los segundos importan y faltan detalles.",
+                "visual-flow-title": "Cómo Funciona MYQER (Flujo Visual)",
+                "step1-title": "Paso 1 — Escanear",
+                "step1-description": "Un socorrista escanea el código MYQER (en tarjeta, pegatina o dispositivo).",
+                "step2-title": "Paso 2 — Píldora de Triaje",
+                "step2-description": "Aparece un indicador de estado rápido para ayudar a los socorristas a prepararse.",
+                "triage-green": "🟢 Verde",
+                "triage-amber": "🟠 Ámbar",
+                "triage-red": "🔴 Rojo",
+                "step3-title": "Paso 3 — Instantánea de Emergencia (Sin conexión)",
+                "step3-description": "Si no hay internet, se muestra un perfil de texto corto directamente desde el QR:",
+                "snapshot-header": "MYQER — Instantánea de Emergencia",
+                "snapshot-name": "Nombre: Jane Doe",
+                "snapshot-dob": "FN: 01 Ene 1990",
+                "snapshot-blood": "Sangre: O+",
+                "snapshot-allergies": "Alergias: Penicilina",
+                "snapshot-conditions": "Condiciones: Asma",
+                "snapshot-medications": "Medicamentos: Ninguno",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Paso 4 — Perfil Completo (En línea)",
+                "step4-description": "Si hay internet disponible, se abre el perfil completo y actualizado con información médica integral.",
+                "one-qr-title": "Un QR. Siempre el mismo.",
+                "one-qr-point1": "Cada persona recibe un único código QR que nunca cambia.",
+                "one-qr-point2": "Imprímelo, llévalo o muéstralo — el QR permanece válido de por vida.",
+                "one-qr-point3": "Actualiza tu perfil en cualquier momento; tu QR siempre apuntará a la información más reciente.",
+                "access-title": "En línea o Sin conexión — Siempre Accesible",
+                "online-title": "Cuando se escanea en línea:",
+                "online-point1": "Nombre y Fecha de Nacimiento",
+                "online-point2": "Tipo de Sangre y estado de Donante de Órganos",
+                "online-point3": "Alergias y Condiciones Médicas",
+                "online-point4": "Medicamentos Actuales",
+                "online-point5": "Implantes y Dispositivos",
+                "online-point6": "Contactos de Emergencia (ICE)",
+                "offline-title": "Cuando se escanea sin conexión:",
+                "offline-description": "El QR revela una instantánea de detalles principales directamente, sin internet.",
+                "triage-title": "Triaje de un Vistazo",
+                "triage-description": "Cada tarjeta muestra una píldora de triaje simple como indicación visual:",
+                "triage-green-desc": "🟢 Verde — estable / en espera",
+                "triage-amber-desc": "🟠 Ámbar — consideraciones importantes",
+                "triage-red-desc": "🔴 Rojo — atención crítica requerida",
+                "triage-help": "Este indicador rápido ayuda a los socorristas a prepararse antes de revisar todos los detalles.",
+                "why-matters-title": "Por qué Importa",
+                "clarity-title": "Claridad en la incertidumbre",
+                "clarity-description": "Proporciona entradas personales verificadas cuando no hay nada más disponible.",
+                "universal-title": "Acceso universal",
+                "universal-description": "Funciona en todo el mundo, con o sin internet.",
+                "privacy-title": "Consciente de la privacidad",
+                "privacy-description": "Los datos permanecen bajo tu control; los socorristas solo ven lo que eliges compartir.",
+                "complementary-title": "Complementario",
+                "complementary-description": "Diseñado para apoyar, no reemplazar, la evaluación clínica.",
+                "bridge-title": "👉 MYQER existe para cerrar lo desconocido.",
+                "for-users": "Para usuarios",
+                "users-benefit": "es tranquilidad.",
+                "for-responders": "Para socorristas",
+                "responders-benefit": "es contexto.",
+                "for-everyone": "Para todos",
+                "everyone-benefit": "es un punto de partida más claro.",
+                "get-started-title": "Comienza con MYQER",
+                "get-started-subtitle": "Únete a miles que confían en MYQER para información médica de emergencia",
+                "start-free": "Comenzar Gratis",
+                "footer-tagline": "Información Médica de Emergencia al Alcance de tus Dedos",
+                "home": "Inicio",
+                "about": "Acerca de",
+                "clinician": "Clínico",
+                "how-it-works": "Cómo Funciona",
+                "privacy": "Política de Privacidad",
+                "terms": "Términos de Servicio",
+                "contact": "Contacto",
+                "footer-note": "Consciente de GDPR/HIPAA • Solo informativo",
+                "login": "Iniciar Sesión",
+                "email": "Correo Electrónico",
+                "password": "Contraseña",
+                "cancel": "Cancelar",
+                "forgot-password": "¿Olvidaste tu contraseña?",
+                "reset-password": "Restablecer Contraseña",
+                "full-name": "Nombre Completo",
+                "create-account": "Crear Cuenta"
+            },
+            fr: {
+                "how-title": "Comment MYQER Fonctionne",
+                "how-subtitle": "MYQER™ est une carte QR d'urgence universelle conçue pour soutenir à la fois les individus et les secouristes.",
+                "how-description": "Elle ne remplace pas les dossiers cliniques ou le jugement professionnel — elle fournit simplement des informations essentielles, accessibles instantanément, pour aider à combler le fossé quand les secondes comptent et que les détails manquent.",
+                "visual-flow-title": "Comment MYQER Fonctionne (Flux Visuel)",
+                "step1-title": "Étape 1 — Scanner",
+                "step1-description": "Un secouriste scanne le code MYQER (sur carte, autocollant ou appareil).",
+                "step2-title": "Étape 2 — Pilule de Triage",
+                "step2-description": "Un indicateur de statut rapide apparaît pour aider les secouristes à se préparer.",
+                "triage-green": "🟢 Vert",
+                "triage-amber": "🟠 Ambre",
+                "triage-red": "🔴 Rouge",
+                "step3-title": "Étape 3 — Instantané d'Urgence (Hors ligne)",
+                "step3-description": "S'il n'y a pas d'internet, un court profil texte s'affiche directement depuis le QR :",
+                "snapshot-header": "MYQER — Instantané d'Urgence",
+                "snapshot-name": "Nom: Jane Doe",
+                "snapshot-dob": "DDN: 01 Jan 1990",
+                "snapshot-blood": "Sang: O+",
+                "snapshot-allergies": "Allergies: Pénicilline",
+                "snapshot-conditions": "Conditions: Asthme",
+                "snapshot-medications": "Médicaments: Aucun",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Étape 4 — Profil Complet (En ligne)",
+                "step4-description": "Si internet est disponible, le profil complet et mis à jour s'ouvre avec des informations médicales complètes.",
+                "one-qr-title": "Un QR. Toujours le même.",
+                "one-qr-point1": "Chaque personne reçoit un code QR unique qui ne change jamais.",
+                "one-qr-point2": "Imprimez-le, portez-le ou affichez-le — le QR reste valide à vie.",
+                "one-qr-point3": "Mettez à jour votre profil à tout moment ; votre QR pointera toujours vers les dernières informations.",
+                "access-title": "En ligne ou Hors ligne — Toujours Accessible",
+                "online-title": "Quand scanné en ligne :",
+                "online-point1": "Nom et Date de Naissance",
+                "online-point2": "Groupe Sanguin et statut de Donneur d'Organes",
+                "online-point3": "Allergies et Conditions Médicales",
+                "online-point4": "Médicaments Actuels",
+                "online-point5": "Implants et Dispositifs",
+                "online-point6": "Contacts d'Urgence (ICE)",
+                "offline-title": "Quand scanné hors ligne :",
+                "offline-description": "Le QR révèle un instantané des détails principaux directement, sans internet.",
+                "triage-title": "Triage en un Coup d'Œil",
+                "triage-description": "Chaque carte affiche une pilule de triage simple comme indication visuelle :",
+                "triage-green-desc": "🟢 Vert — stable / en attente",
+                "triage-amber-desc": "🟠 Ambre — considérations importantes",
+                "triage-red-desc": "🔴 Rouge — attention critique requise",
+                "triage-help": "Cet indicateur rapide aide les secouristes à se préparer avant d'examiner tous les détails.",
+                "why-matters-title": "Pourquoi c'est Important",
+                "clarity-title": "Clarté dans l'incertitude",
+                "clarity-description": "Fournit des entrées personnelles vérifiées quand rien d'autre n'est disponible.",
+                "universal-title": "Accès universel",
+                "universal-description": "Fonctionne dans le monde entier, avec ou sans internet.",
+                "privacy-title": "Soucieux de la vie privée",
+                "privacy-description": "Les données restent sous votre contrôle ; les secouristes ne voient que ce que vous choisissez de partager.",
+                "complementary-title": "Complémentaire",
+                "complementary-description": "Conçu pour soutenir, pas remplacer, l'évaluation clinique.",
+                "bridge-title": "👉 MYQER existe pour combler l'inconnu.",
+                "for-users": "Pour les utilisateurs",
+                "users-benefit": "c'est la tranquillité d'esprit.",
+                "for-responders": "Pour les secouristes",
+                "responders-benefit": "c'est le contexte.",
+                "for-everyone": "Pour tous",
+                "everyone-benefit": "c'est un point de départ plus clair.",
+                "get-started-title": "Commencer avec MYQER",
+                "get-started-subtitle": "Rejoignez des milliers qui font confiance à MYQER pour les informations médicales d'urgence",
+                "start-free": "Commencer Gratuitement",
+                "footer-tagline": "Informations Médicales d'Urgence à Portée de Main",
+                "home": "Accueil",
+                "about": "À Propos",
+                "clinician": "Clinicien",
+                "how-it-works": "Comment Ça Marche",
+                "privacy": "Politique de Confidentialité",
+                "terms": "Conditions de Service",
+                "contact": "Contact",
+                "footer-note": "Conscient GDPR/HIPAA • Informatif seulement",
+                "login": "Se Connecter",
+                "email": "Email",
+                "password": "Mot de Passe",
+                "cancel": "Annuler",
+                "forgot-password": "Mot de passe oublié ?",
+                "reset-password": "Réinitialiser le Mot de Passe",
+                "full-name": "Nom Complet",
+                "create-account": "Créer un Compte"
+            },
+            de: {
+                "how-title": "Wie MYQER Funktioniert",
+                "how-subtitle": "MYQER™ ist eine universelle Notfall-QR-Karte, die sowohl Einzelpersonen als auch Ersthelfer unterstützt.",
+                "how-description": "Sie ersetzt keine klinischen Aufzeichnungen oder professionelles Urteilsvermögen — sie stellt einfach wesentliche Informationen bereit, sofort zugänglich, um die Lücke zu schließen, wenn Sekunden zählen und Details fehlen.",
+                "visual-flow-title": "Wie MYQER Funktioniert (Visueller Ablauf)",
+                "step1-title": "Schritt 1 — Scannen",
+                "step1-description": "Ein Ersthelfer scannt den MYQER-Code (auf Karte, Aufkleber oder Gerät).",
+                "step2-title": "Schritt 2 — Triage-Pille",
+                "step2-description": "Ein schneller Statusindikator erscheint, um Ersthelfern bei der Vorbereitung zu helfen.",
+                "triage-green": "🟢 Grün",
+                "triage-amber": "🟠 Gelb",
+                "triage-red": "🔴 Rot",
+                "step3-title": "Schritt 3 — Notfall-Schnappschuss (Offline)",
+                "step3-description": "Wenn kein Internet vorhanden ist, wird ein kurzes Textprofil direkt vom QR angezeigt:",
+                "snapshot-header": "MYQER — Notfall-Schnappschuss",
+                "snapshot-name": "Name: Jane Doe",
+                "snapshot-dob": "Geb.: 01 Jan 1990",
+                "snapshot-blood": "Blut: O+",
+                "snapshot-allergies": "Allergien: Penicillin",
+                "snapshot-conditions": "Bedingungen: Asthma",
+                "snapshot-medications": "Medikamente: Keine",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Schritt 4 — Vollständiges Profil (Online)",
+                "step4-description": "Wenn Internet verfügbar ist, öffnet sich das vollständige, aktualisierte Profil mit umfassenden medizinischen Informationen.",
+                "one-qr-title": "Ein QR. Immer derselbe.",
+                "one-qr-point1": "Jede Person erhält einen einzigen QR-Code, der sich nie ändert.",
+                "one-qr-point2": "Drucken Sie ihn, tragen Sie ihn oder zeigen Sie ihn — der QR bleibt lebenslang gültig.",
+                "one-qr-point3": "Aktualisieren Sie Ihr Profil jederzeit; Ihr QR zeigt immer auf die neuesten Informationen.",
+                "access-title": "Online oder Offline — Immer Zugänglich",
+                "online-title": "Beim Online-Scannen:",
+                "online-point1": "Name und Geburtsdatum",
+                "online-point2": "Blutgruppe und Organspender-Status",
+                "online-point3": "Allergien und Medizinische Bedingungen",
+                "online-point4": "Aktuelle Medikamente",
+                "online-point5": "Implantate und Geräte",
+                "online-point6": "Notfallkontakte (ICE)",
+                "offline-title": "Beim Offline-Scannen:",
+                "offline-description": "Der QR zeigt eine Momentaufnahme der wichtigsten Details direkt, ohne Internet.",
+                "triage-title": "Triage auf einen Blick",
+                "triage-description": "Jede Karte zeigt eine einfache Triage-Pille als visuelle Eingabeaufforderung:",
+                "triage-green-desc": "🟢 Grün — stabil / bereit",
+                "triage-amber-desc": "🟠 Gelb — wichtige Überlegungen",
+                "triage-red-desc": "🔴 Rot — kritische Aufmerksamkeit erforderlich",
+                "triage-help": "Dieser schnelle Indikator hilft Ersthelfern, sich vorzubereiten, bevor sie alle Details überprüfen.",
+                "why-matters-title": "Warum es Wichtig ist",
+                "clarity-title": "Klarheit in der Ungewissheit",
+                "clarity-description": "Bietet verifizierte persönliche Eingaben, wenn nichts anderes verfügbar ist.",
+                "universal-title": "Universeller Zugang",
+                "universal-description": "Funktioniert weltweit, mit oder ohne Internet.",
+                "privacy-title": "Datenschutzbewusst",
+                "privacy-description": "Daten bleiben unter Ihrer Kontrolle; Ersthelfer sehen nur, was Sie zu teilen wählen.",
+                "complementary-title": "Ergänzend",
+                "complementary-description": "Entwickelt, um klinische Bewertung zu unterstützen, nicht zu ersetzen.",
+                "bridge-title": "👉 MYQER existiert, um das Unbekannte zu überbrücken.",
+                "for-users": "Für Benutzer",
+                "users-benefit": "ist es Beruhigung.",
+                "for-responders": "Für Ersthelfer",
+                "responders-benefit": "ist es Kontext.",
+                "for-everyone": "Für alle",
+                "everyone-benefit": "ist es ein klarerer Ausgangspunkt.",
+                "get-started-title": "Mit MYQER Beginnen",
+                "get-started-subtitle": "Schließen Sie sich Tausenden an, die MYQER für Notfall-Medizininformationen vertrauen",
+                "start-free": "Kostenlos Starten",
+                "footer-tagline": "Notfall-Medizininformationen Griffbereit",
+                "home": "Startseite",
+                "about": "Über Uns",
+                "clinician": "Kliniker",
+                "how-it-works": "Wie Es Funktioniert",
+                "privacy": "Datenschutzrichtlinie",
+                "terms": "Nutzungsbedingungen",
+                "contact": "Kontakt",
+                "footer-note": "GDPR/HIPAA-bewusst • Nur informativ",
+                "login": "Anmelden",
+                "email": "E-Mail",
+                "password": "Passwort",
+                "cancel": "Abbrechen",
+                "forgot-password": "Passwort vergessen?",
+                "reset-password": "Passwort Zurücksetzen",
+                "full-name": "Vollständiger Name",
+                "create-account": "Konto Erstellen"
+            },
+            it: {
+                "how-title": "Come Funziona MYQER",
+                "how-subtitle": "MYQER™ è una carta QR di emergenza universale progettata per supportare sia individui che soccorritori.",
+                "how-description": "Non sostituisce i registri clinici o il giudizio professionale — fornisce semplicemente informazioni essenziali, accessibili istantaneamente, per aiutare a colmare il divario quando i secondi contano e mancano i dettagli.",
+                "visual-flow-title": "Come Funziona MYQER (Flusso Visivo)",
+                "step1-title": "Passo 1 — Scansiona",
+                "step1-description": "Un soccorritore scansiona il codice MYQER (su carta, adesivo o dispositivo).",
+                "step2-title": "Passo 2 — Pillola di Triage",
+                "step2-description": "Appare un indicatore di stato rapido per aiutare i soccorritori a prepararsi.",
+                "triage-green": "🟢 Verde",
+                "triage-amber": "🟠 Ambra",
+                "triage-red": "🔴 Rosso",
+                "step3-title": "Passo 3 — Istantanea di Emergenza (Offline)",
+                "step3-description": "Se non c'è internet, un breve profilo di testo viene visualizzato direttamente dal QR:",
+                "snapshot-header": "MYQER — Istantanea di Emergenza",
+                "snapshot-name": "Nome: Jane Doe",
+                "snapshot-dob": "DN: 01 Gen 1990",
+                "snapshot-blood": "Sangue: O+",
+                "snapshot-allergies": "Allergie: Penicillina",
+                "snapshot-conditions": "Condizioni: Asma",
+                "snapshot-medications": "Farmaci: Nessuno",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Passo 4 — Profilo Completo (Online)",
+                "step4-description": "Se internet è disponibile, si apre il profilo completo e aggiornato con informazioni mediche complete.",
+                "one-qr-title": "Un QR. Sempre lo stesso.",
+                "one-qr-point1": "Ogni persona riceve un singolo codice QR che non cambia mai.",
+                "one-qr-point2": "Stampalo, portalo o mostralo — il QR rimane valido per tutta la vita.",
+                "one-qr-point3": "Aggiorna il tuo profilo in qualsiasi momento; il tuo QR punterà sempre alle informazioni più recenti.",
+                "access-title": "Online o Offline — Sempre Accessibile",
+                "online-title": "Quando scansionato online:",
+                "online-point1": "Nome e Data di Nascita",
+                "online-point2": "Gruppo Sanguigno e stato di Donatore di Organi",
+                "online-point3": "Allergie e Condizioni Mediche",
+                "online-point4": "Farmaci Attuali",
+                "online-point5": "Impianti e Dispositivi",
+                "online-point6": "Contatti di Emergenza (ICE)",
+                "offline-title": "Quando scansionato offline:",
+                "offline-description": "Il QR rivela un'istantanea dei dettagli principali direttamente, senza internet.",
+                "triage-title": "Triage a Colpo d'Occhio",
+                "triage-description": "Ogni carta mostra una semplice pillola di triage come prompt visivo:",
+                "triage-green-desc": "🟢 Verde — stabile / in attesa",
+                "triage-amber-desc": "🟠 Ambra — considerazioni importanti",
+                "triage-red-desc": "🔴 Rosso — attenzione critica richiesta",
+                "triage-help": "Questo indicatore rapido aiuta i soccorritori a prepararsi prima di rivedere tutti i dettagli.",
+                "why-matters-title": "Perché è Importante",
+                "clarity-title": "Chiarezza nell'incertezza",
+                "clarity-description": "Fornisce input personali verificati quando non è disponibile nient'altro.",
+                "universal-title": "Accesso universale",
+                "universal-description": "Funziona in tutto il mondo, con o senza internet.",
+                "privacy-title": "Attento alla privacy",
+                "privacy-description": "I dati rimangono sotto il tuo controllo; i soccorritori vedono solo quello che scegli di condividere.",
+                "complementary-title": "Complementare",
+                "complementary-description": "Progettato per supportare, non sostituire, la valutazione clinica.",
+                "bridge-title": "👉 MYQER esiste per colmare l'ignoto.",
+                "for-users": "Per gli utenti",
+                "users-benefit": "è rassicurazione.",
+                "for-responders": "Per i soccorritori",
+                "responders-benefit": "è contesto.",
+                "for-everyone": "Per tutti",
+                "everyone-benefit": "è un punto di partenza più chiaro.",
+                "get-started-title": "Inizia con MYQER",
+                "get-started-subtitle": "Unisciti a migliaia che si fidano di MYQER per le informazioni mediche di emergenza",
+                "start-free": "Inizia Gratis",
+                "footer-tagline": "Informazioni Mediche di Emergenza a Portata di Mano",
+                "home": "Home",
+                "about": "Chi Siamo",
+                "clinician": "Clinico",
+                "how-it-works": "Come Funziona",
+                "privacy": "Politica sulla Privacy",
+                "terms": "Termini di Servizio",
+                "contact": "Contatto",
+                "footer-note": "Attento a GDPR/HIPAA • Solo informativo",
+                "login": "Accedi",
+                "email": "Email",
+                "password": "Password",
+                "cancel": "Annulla",
+                "forgot-password": "Password dimenticata?",
+                "reset-password": "Reimposta Password",
+                "full-name": "Nome Completo",
+                "create-account": "Crea Account"
+            },
+            pt: {
+                "how-title": "Como o MYQER Funciona",
+                "how-subtitle": "MYQER™ é um cartão QR de emergência universal projetado para apoiar tanto indivíduos quanto socorristas.",
+                "how-description": "Não substitui registros clínicos ou julgamento profissional — simplesmente fornece informações essenciais, acessíveis instantaneamente, para ajudar a preencher a lacuna quando segundos importam e detalhes estão faltando.",
+                "visual-flow-title": "Como o MYQER Funciona (Fluxo Visual)",
+                "step1-title": "Passo 1 — Escanear",
+                "step1-description": "Um socorrista escaneia o código MYQER (em cartão, adesivo ou dispositivo).",
+                "step2-title": "Passo 2 — Pílula de Triagem",
+                "step2-description": "Um indicador de status rápido aparece para ajudar os socorristas a se prepararem.",
+                "triage-green": "🟢 Verde",
+                "triage-amber": "🟠 Âmbar",
+                "triage-red": "🔴 Vermelho",
+                "step3-title": "Passo 3 — Instantâneo de Emergência (Offline)",
+                "step3-description": "Se não há internet, um perfil de texto curto é exibido diretamente do QR:",
+                "snapshot-header": "MYQER — Instantâneo de Emergência",
+                "snapshot-name": "Nome: Jane Doe",
+                "snapshot-dob": "DN: 01 Jan 1990",
+                "snapshot-blood": "Sangue: O+",
+                "snapshot-allergies": "Alergias: Penicilina",
+                "snapshot-conditions": "Condições: Asma",
+                "snapshot-medications": "Medicamentos: Nenhum",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Passo 4 — Perfil Completo (Online)",
+                "step4-description": "Se internet está disponível, o perfil completo e atualizado abre com informações médicas abrangentes.",
+                "one-qr-title": "Um QR. Sempre o mesmo.",
+                "one-qr-point1": "Cada pessoa recebe um único código QR que nunca muda.",
+                "one-qr-point2": "Imprima, carregue ou exiba — o QR permanece válido para toda a vida.",
+                "one-qr-point3": "Atualize seu perfil a qualquer momento; seu QR sempre apontará para as informações mais recentes.",
+                "access-title": "Online ou Offline — Sempre Acessível",
+                "online-title": "Quando escaneado online:",
+                "online-point1": "Nome e Data de Nascimento",
+                "online-point2": "Tipo Sanguíneo e status de Doador de Órgãos",
+                "online-point3": "Alergias e Condições Médicas",
+                "online-point4": "Medicamentos Atuais",
+                "online-point5": "Implantes e Dispositivos",
+                "online-point6": "Contatos de Emergência (ICE)",
+                "offline-title": "Quando escaneado offline:",
+                "offline-description": "O QR revela um instantâneo dos detalhes principais diretamente, sem internet.",
+                "triage-title": "Triagem de Relance",
+                "triage-description": "Cada cartão exibe uma pílula de triagem simples como prompt visual:",
+                "triage-green-desc": "🟢 Verde — estável / em espera",
+                "triage-amber-desc": "🟠 Âmbar — considerações importantes",
+                "triage-red-desc": "🔴 Vermelho — atenção crítica necessária",
+                "triage-help": "Este indicador rápido ajuda os socorristas a se prepararem antes de revisar todos os detalhes.",
+                "why-matters-title": "Por que Importa",
+                "clarity-title": "Clareza na incerteza",
+                "clarity-description": "Fornece entradas pessoais verificadas quando nada mais está disponível.",
+                "universal-title": "Acesso universal",
+                "universal-description": "Funciona mundialmente, com ou sem internet.",
+                "privacy-title": "Consciente da privacidade",
+                "privacy-description": "Os dados permanecem sob seu controle; socorristas veem apenas o que você escolhe compartilhar.",
+                "complementary-title": "Complementar",
+                "complementary-description": "Projetado para apoiar, não substituir, avaliação clínica.",
+                "bridge-title": "👉 MYQER existe para preencher o desconhecido.",
+                "for-users": "Para usuários",
+                "users-benefit": "é tranquilidade.",
+                "for-responders": "Para socorristas",
+                "responders-benefit": "é contexto.",
+                "for-everyone": "Para todos",
+                "everyone-benefit": "é um ponto de partida mais claro.",
+                "get-started-title": "Comece com MYQER",
+                "get-started-subtitle": "Junte-se a milhares que confiam no MYQER para informações médicas de emergência",
+                "start-free": "Começar Grátis",
+                "footer-tagline": "Informações Médicas de Emergência ao Seu Alcance",
+                "home": "Início",
+                "about": "Sobre",
+                "clinician": "Clínico",
+                "how-it-works": "Como Funciona",
+                "privacy": "Política de Privacidade",
+                "terms": "Termos de Serviço",
+                "contact": "Contato",
+                "footer-note": "Consciente de GDPR/HIPAA • Apenas informativo",
+                "login": "Entrar",
+                "email": "Email",
+                "password": "Senha",
+                "cancel": "Cancelar",
+                "forgot-password": "Esqueceu a senha?",
+                "reset-password": "Redefinir Senha",
+                "full-name": "Nome Completo",
+                "create-account": "Criar Conta"
+            },
+            ro: {
+                "how-title": "Cum Funcționează MYQER",
+                "how-subtitle": "MYQER™ este o carte QR de urgență universală concepută să sprijine atât indivizii, cât și salvatorii.",
+                "how-description": "Nu înlocuiește înregistrările clinice sau judecata profesională — pur și simplu oferă informații esențiale, accesibile instantaneu, pentru a ajuta la umplerea golului când secundele contează și lipsesc detaliile.",
+                "visual-flow-title": "Cum Funcționează MYQER (Flux Vizual)",
+                "step1-title": "Pasul 1 — Scanează",
+                "step1-description": "Un salvator scanează codul MYQER (pe carte, autocolant sau dispozitiv).",
+                "step2-title": "Pasul 2 — Pilula de Triaj",
+                "step2-description": "Apare un indicator rapid de stare pentru a ajuta salvatorii să se pregătească.",
+                "triage-green": "🟢 Verde",
+                "triage-amber": "🟠 Chihlimbar",
+                "triage-red": "🔴 Roșu",
+                "step3-title": "Pasul 3 — Instantaneu de Urgență (Offline)",
+                "step3-description": "Dacă nu există internet, un profil text scurt se afișează direct din QR:",
+                "snapshot-header": "MYQER — Instantaneu de Urgență",
+                "snapshot-name": "Nume: Jane Doe",
+                "snapshot-dob": "DN: 01 Ian 1990",
+                "snapshot-blood": "Sânge: O+",
+                "snapshot-allergies": "Alergii: Penicilină",
+                "snapshot-conditions": "Condiții: Astm",
+                "snapshot-medications": "Medicamente: Niciunul",
+                "snapshot-ice": "ICE: John Doe — +44 7700 123456",
+                "step4-title": "Pasul 4 — Profil Complet (Online)",
+                "step4-description": "Dacă internetul este disponibil, se deschide profilul complet și actualizat cu informații medicale cuprinzătoare.",
+                "one-qr-title": "Un QR. Mereu același.",
+                "one-qr-point1": "Fiecare persoană primește un singur cod QR care nu se schimbă niciodată.",
+                "one-qr-point2": "Tipărește-l, poartă-l sau afișează-l — QR-ul rămâne valabil pe viață.",
+                "one-qr-point3": "Actualizează-ți profilul oricând; QR-ul tău va indica mereu către informațiile cele mai recente.",
+                "access-title": "Online sau Offline — Mereu Accesibil",
+                "online-title": "Când este scanat online:",
+                "online-point1": "Nume și Data Nașterii",
+                "online-point2": "Grupa de Sânge și statutul de Donator de Organe",
+                "online-point3": "Alergii și Condiții Medicale",
+                "online-point4": "Medicamente Actuale",
+                "online-point5": "Implanturi și Dispozitive",
+                "online-point6": "Contacte de Urgență (ICE)",
+                "offline-title": "Când este scanat offline:",
+                "offline-description": "QR-ul dezvăluie un instantaneu al detaliilor principale direct, fără internet.",
+                "triage-title": "Triaj Dintr-o Privire",
+                "triage-description": "Fiecare carte afișează o pilulă de triaj simplă ca prompt vizual:",
+                "triage-green-desc": "🟢 Verde — stabil / în așteptare",
+                "triage-amber-desc": "🟠 Chihlimbar — considerații importante",
+                "triage-red-desc": "🔴 Roșu — atenție critică necesară",
+                "triage-help": "Acest indicator rapid ajută salvatorii să se pregătească înainte de a revizui toate detaliile.",
+                "why-matters-title": "De Ce Contează",
+                "clarity-title": "Claritate în incertitudine",
+                "clarity-description": "Oferă intrări personale verificate când nimic altceva nu este disponibil.",
+                "universal-title": "Acces universal",
+                "universal-description": "Funcționează în întreaga lume, cu sau fără internet.",
+                "privacy-title": "Conștient de confidențialitate",
+                "privacy-description": "Datele rămân sub controlul tău; salvatorii văd doar ce alegi să partajezi.",
+                "complementary-title": "Complementar",
+                "complementary-description": "Conceput să sprijine, nu să înlocuiască, evaluarea clinică.",
+                "bridge-title": "👉 MYQER există pentru a face legătura cu necunoscutul.",
+                "for-users": "Pentru utilizatori",
+                "users-benefit": "este liniște sufletească.",
+                "for-responders": "Pentru salvatori",
+                "responders-benefit": "este context.",
+                "for-everyone": "Pentru toți",
+                "everyone-benefit": "este un punct de plecare mai clar.",
+                "get-started-title": "Începe cu MYQER",
+                "get-started-subtitle": "Alătură-te miilor care au încredere în MYQER pentru informații medicale de urgență",
+                "start-free": "Începe Gratuit",
+                "footer-tagline": "Informații Medicale de Urgență la Îndemâna Ta",
+                "home": "Acasă",
+                "about": "Despre",
+                "clinician": "Clinician",
+                "how-it-works": "Cum Funcționează",
+                "privacy": "Politica de Confidențialitate",
+                "terms": "Termenii de Serviciu",
+                "contact": "Contact",
+                "footer-note": "Conștient de GDPR/HIPAA • Doar informativ",
+                "login": "Conectare",
+                "email": "Email",
+                "password": "Parolă",
+                "cancel": "Anulează",
+                "forgot-password": "Ai uitat parola?",
+                "reset-password": "Resetează Parola",
+                "full-name": "Nume Complet",
+                "create-account": "Creează Cont"
+            },
+            ar: {
+                "how-title": "كيف يعمل MYQER",
+                "how-subtitle": "MYQER™ هو بطاقة QR طوارئ عالمية مصممة لدعم الأفراد والمستجيبين على حد سواء.",
+                "how-description": "لا يحل محل السجلات السريرية أو الحكم المهني — بل يوفر ببساطة معلومات أساسية، يمكن الوصول إليها فوراً، للمساعدة في سد الفجوة عندما تكون الثواني مهمة والتفاصيل مفقودة.",
+                "visual-flow-title": "كيف يعمل MYQER (التدفق البصري)",
+                "step1-title": "الخطوة 1 — المسح",
+                "step1-description": "يقوم المستجيب بمسح رمز MYQER (على البطاقة أو الملصق أو الجهاز).",
+                "step2-title": "الخطوة 2 — حبة الفرز",
+                "step2-description": "يظهر مؤشر حالة سريع لمساعدة المستجيبين على الاستعداد.",
+                "triage-green": "🟢 أخضر",
+                "triage-amber": "🟠 كهرماني",
+                "triage-red": "🔴 أحمر",
+                "step3-title": "الخطوة 3 — لقطة الطوارئ (غير متصل)",
+                "step3-description": "إذا لم يكن هناك إنترنت، يتم عرض ملف نصي قصير مباشرة من QR:",
+                "snapshot-header": "MYQER — لقطة الطوارئ",
+                "snapshot-name": "الاسم: جين دو",
+                "snapshot-dob": "تاريخ الميلاد: 01 يناير 1990",
+                "snapshot-blood": "الدم: O+",
+                "snapshot-allergies": "الحساسية: البنسلين",
+                "snapshot-conditions": "الحالات: الربو",
+                "snapshot-medications": "الأدوية: لا يوجد",
+                "snapshot-ice": "ICE: جون دو — +44 7700 123456",
+                "step4-title": "الخطوة 4 — الملف الكامل (متصل)",
+                "step4-description": "إذا كان الإنترنت متاحاً، يفتح الملف الكامل والمحدث مع معلومات طبية شاملة.",
+                "one-qr-title": "QR واحد. دائماً نفسه.",
+                "one-qr-point1": "كل شخص يحصل على رمز QR واحد لا يتغير أبداً.",
+                "one-qr-point2": "اطبعه، احمله، أو اعرضه — يبقى QR صالحاً مدى الحياة.",
+                "one-qr-point3": "حدث ملفك الشخصي في أي وقت؛ سيشير QR الخاص بك دائماً إلى أحدث المعلومات.",
+                "access-title": "متصل أو غير متصل — دائماً متاح",
+                "online-title": "عند المسح متصلاً:",
+                "online-point1": "الاسم وتاريخ الميلاد",
+                "online-point2": "فصيلة الدم وحالة التبرع بالأعضاء",
+                "online-point3": "الحساسية والحالات الطبية",
+                "online-point4": "الأدوية الحالية",
+                "online-point5": "الزراعات والأجهزة",
+                "online-point6": "جهات الاتصال الطارئة (ICE)",
+                "offline-title": "عند المسح غير متصل:",
+                "offline-description": "يكشف QR لقطة من التفاصيل الأساسية مباشرة، بدون إنترنت.",
+                "triage-title": "الفرز في لمحة",
+                "triage-description": "كل بطاقة تعرض حبة فرز بسيطة كمؤشر بصري:",
+                "triage-green-desc": "🟢 أخضر — مستقر / في الانتظار",
+                "triage-amber-desc": "🟠 كهرماني — اعتبارات مهمة",
+                "triage-red-desc": "🔴 أحمر — انتباه حرج مطلوب",
+                "triage-help": "هذا المؤشر السريع يساعد المستجيبين على الاستعداد قبل مراجعة جميع التفاصيل.",
+                "why-matters-title": "لماذا يهم",
+                "clarity-title": "الوضوح في عدم اليقين",
+                "clarity-description": "يوفر مدخلات شخصية موثقة عندما لا يتوفر شيء آخر.",
+                "universal-title": "الوصول العالمي",
+                "universal-description": "يعمل في جميع أنحاء العالم، مع أو بدون إنترنت.",
+                "privacy-title": "واعي بالخصوصية",
+                "privacy-description": "البيانات تبقى تحت سيطرتك؛ المستجيبون يرون فقط ما تختار مشاركته.",
+                "complementary-title": "مكمل",
+                "complementary-description": "مصمم لدعم، وليس استبدال، التقييم السريري.",
+                "bridge-title": "👉 MYQER موجود لسد المجهول.",
+                "for-users": "للمستخدمين",
+                "users-benefit": "إنه طمأنينة.",
+                "for-responders": "للمستجيبين",
+                "responders-benefit": "إنه سياق.",
+                "for-everyone": "للجميع",
+                "everyone-benefit": "إنه نقطة انطلاق أوضح.",
+                "get-started-title": "ابدأ مع MYQER",
+                "get-started-subtitle": "انضم إلى الآلاف الذين يثقون في MYQER للمعلومات الطبية الطارئة",
+                "start-free": "ابدأ مجاناً",
+                "footer-tagline": "معلومات طبية طارئة في متناول يدك",
+                "home": "الرئيسية",
+                "about": "حول",
+                "clinician": "طبيب",
+                "how-it-works": "كيف يعمل",
+                "privacy": "سياسة الخصوصية",
+                "terms": "شروط الخدمة",
+                "contact": "اتصال",
+                "footer-note": "واعي بـ GDPR/HIPAA • معلوماتي فقط",
+                "login": "تسجيل الدخول",
+                "email": "البريد الإلكتروني",
+                "password": "كلمة المرور",
+                "cancel": "إلغاء",
+                "forgot-password": "نسيت كلمة المرور؟",
+                "reset-password": "إعادة تعيين كلمة المرور",
+                "full-name": "الاسم الكامل",
+                "create-account": "إنشاء حساب"
+            },
+            hi: {
+                "how-title": "MYQER कैसे काम करता है",
+                "how-subtitle": "MYQER™ एक सार्वभौमिक आपातकालीन QR कार्ड है जो व्यक्तियों और प्रतिक्रियाकर्ताओं दोनों का समर्थन करने के लिए डिज़ाइन किया गया है।",
+                "how-description": "यह नैदानिक रिकॉर्ड या पेशेवर निर्णय को प्रतिस्थापित नहीं करता — यह केवल आवश्यक जानकारी प्रदान करता है, तुरंत सुलभ, जब सेकंड मायने रखते हैं और विवरण गायब हैं तो अंतर को पाटने में मदद करने के लिए।",
+                "visual-flow-title": "MYQER कैसे काम करता है (दृश्य प्रवाह)",
+                "step1-title": "चरण 1 — स्कैन",
+                "step1-description": "एक प्रतिक्रियाकर्ता MYQER कोड स्कैन करता है (कार्ड, स्टिकर, या डिवाइस पर)।",
+                "step2-title": "चरण 2 — ट्राइएज पिल",
+                "step2-description": "प्रतिक्रियाकर्ताओं को तैयार करने में मदद के लिए एक त्वरित स्थिति संकेतक दिखाई देता है।",
+                "triage-green": "🟢 हरा",
+                "triage-amber": "🟠 एम्बर",
+                "triage-red": "🔴 लाल",
+                "step3-title": "चरण 3 — आपातकालीन स्नैपशॉट (ऑफलाइन)",
+                "step3-description": "यदि कोई इंटरनेट नहीं है, तो QR से सीधे एक छोटी टेक्स्ट प्रोफ़ाइल प्रदर्शित होती है:",
+                "snapshot-header": "MYQER — आपातकालीन स्नैपशॉट",
+                "snapshot-name": "नाम: जेन डो",
+                "snapshot-dob": "जन्म तिथि: 01 जन 1990",
+                "snapshot-blood": "रक्त: O+",
+                "snapshot-allergies": "एलर्जी: पेनिसिलिन",
+                "snapshot-conditions": "स्थितियां: अस्थमा",
+                "snapshot-medications": "दवाएं: कोई नहीं",
+                "snapshot-ice": "ICE: जॉन डो — +44 7700 123456",
+                "step4-title": "चरण 4 — पूर्ण प्रोफ़ाइल (ऑनलाइन)",
+                "step4-description": "यदि इंटरनेट उपलब्ध है, तो व्यापक चिकित्सा जानकारी के साथ पूर्ण, अद्यतन प्रोफ़ाइल खुलती है।",
+                "one-qr-title": "एक QR। हमेशा वही।",
+                "one-qr-point1": "हर व्यक्ति को एक एकल QR कोड मिलता है जो कभी नहीं बदलता।",
+                "one-qr-point2": "इसे प्रिंट करें, ले जाएं, या प्रदर्शित करें — QR जीवन भर वैध रहता है।",
+                "one-qr-point3": "अपनी प्रोफ़ाइल को कभी भी अपडेट करें; आपका QR हमेशा नवीनतम जानकारी की ओर इशारा करेगा।",
+                "access-title": "ऑनलाइन या ऑफलाइन — हमेशा सुलभ",
+                "online-title": "ऑनलाइन स्कैन करने पर:",
+                "online-point1": "नाम और जन्म तिथि",
+                "online-point2": "रक्त समूह और अंग दाता स्थिति",
+                "online-point3": "एलर्जी और चिकित्सा स्थितियां",
+                "online-point4": "वर्तमान दवाएं",
+                "online-point5": "प्रत्यारोपण और उपकरण",
+                "online-point6": "आपातकालीन संपर्क (ICE)",
+                "offline-title": "ऑफलाइन स्कैन करने पर:",
+                "offline-description": "QR बिना इंटरनेट के सीधे मुख्य विवरणों का स्नैपशॉट प्रकट करता है।",
+                "triage-title": "एक नज़र में ट्राइएज",
+                "triage-description": "प्रत्येक कार्ड एक दृश्य संकेत के रूप में एक सरल ट्राइएज पिल प्रदर्शित करता है:",
+                "triage-green-desc": "🟢 हरा — स्थिर / स्टैंडबाई",
+                "triage-amber-desc": "🟠 एम्बर — महत्वपूर्ण विचार",
+                "triage-red-desc": "🔴 लाल — गंभीर ध्यान आवश्यक",
+                "triage-help": "यह त्वरित संकेतक प्रतिक्रियाकर्ताओं को सभी विवरणों की समीक्षा करने से पहले तैयार करने में मदद करता है।",
+                "why-matters-title": "यह क्यों मायने रखता है",
+                "clarity-title": "अनिश्चितता में स्पष्टता",
+                "clarity-description": "जब कुछ और उपलब्ध नहीं है तो सत्यापित व्यक्तिगत इनपुट प्रदान करता है।",
+                "universal-title": "सार्वभौमिक पहुंच",
+                "universal-description": "इंटरनेट के साथ या बिना, दुनिया भर में काम करता है।",
+                "privacy-title": "गोपनीयता-सचेत",
+                "privacy-description": "डेटा आपके नियंत्रण में रहता है; प्रतिक्रियाकर्ता केवल वही देखते हैं जो आप साझा करना चुनते हैं।",
+                "complementary-title": "पूरक",
+                "complementary-description": "नैदानिक मूल्यांकन का समर्थन करने के लिए डिज़ाइन किया गया, प्रतिस्थापित करने के लिए नहीं।",
+                "bridge-title": "👉 MYQER अज्ञात को पाटने के लिए मौजूद है।",
+                "for-users": "उपयोगकर्ताओं के लिए",
+                "users-benefit": "यह आश्वासन है।",
+                "for-responders": "प्रतिक्रियाकर्ताओं के लिए",
+                "responders-benefit": "यह संदर्भ है।",
+                "for-everyone": "सभी के लिए",
+                "everyone-benefit": "यह एक स्पष्ट प्रारंभिक बिंदु है।",
+                "get-started-title": "MYQER के साथ शुरुआत करें",
+                "get-started-subtitle": "हजारों लोगों से जुड़ें जो आपातकालीन चिकित्सा जानकारी के लिए MYQER पर भरोसा करते हैं",
+                "start-free": "मुफ्त शुरू करें",
+                "footer-tagline": "आपातकालीन चिकित्सा जानकारी आपकी उंगलियों पर",
+                "home": "होम",
+                "about": "के बारे में",
+                "clinician": "चिकित्सक",
+                "how-it-works": "यह कैसे काम करता है",
+                "privacy": "गोपनीयता नीति",
+                "terms": "सेवा की शर्तें",
+                "contact": "संपर्क",
+                "footer-note": "GDPR/HIPAA-सचेत • केवल सूचनात्मक",
+                "login": "लॉगिन",
+                "email": "ईमेल",
+                "password": "पासवर्ड",
+                "cancel": "रद्द करें",
+                "forgot-password": "पासवर्ड भूल गए?",
+                "reset-password": "पासवर्ड रीसेट करें",
+                "full-name": "पूरा नाम",
+                "create-account": "खाता बनाएं"
+            },
+            zh: {
+                "how-title": "MYQER如何工作",
+                "how-subtitle": "MYQER™是一个通用紧急QR卡，旨在支持个人和应急人员。",
+                "how-description": "它不能替代临床记录或专业判断——它只是提供基本信息，可即时访问，帮助在秒秒必争且缺少详细信息时弥合差距。",
+                "visual-flow-title": "MYQER如何工作（视觉流程）",
+                "step1-title": "步骤1 — 扫描",
+                "step1-description": "应急人员扫描MYQER代码（在卡片、贴纸或设备上）。",
+                "step2-title": "步骤2 — 分诊标识",
+                "step2-description": "出现快速状态指示器以帮助应急人员准备。",
+                "triage-green": "🟢 绿色",
+                "triage-amber": "🟠 琥珀色",
+                "triage-red": "🔴 红色",
+                "step3-title": "步骤3 — 紧急快照（离线）",
+                "step3-description": "如果没有互联网，直接从QR显示简短的文本配置文件：",
+                "snapshot-header": "MYQER — 紧急快照",
+                "snapshot-name": "姓名：简·多伊",
+                "snapshot-dob": "出生日期：1990年1月1日",
+                "snapshot-blood": "血型：O+",
+                "snapshot-allergies": "过敏：青霉素",
+                "snapshot-conditions": "病症：哮喘",
+                "snapshot-medications": "药物：无",
+                "snapshot-ice": "ICE：约翰·多伊 — +44 7700 123456",
+                "step4-title": "步骤4 — 完整档案（在线）",
+                "step4-description": "如果有互联网，将打开包含全面医疗信息的完整、更新的档案。",
+                "one-qr-title": "一个QR。始终相同。",
+                "one-qr-point1": "每个人都会收到一个永不改变的单一QR代码。",
+                "one-qr-point2": "打印、携带或显示它——QR终身有效。",
+                "one-qr-point3": "随时更新您的档案；您的QR将始终指向最新信息。",
+                "access-title": "在线或离线——始终可访问",
+                "online-title": "在线扫描时：",
+                "online-point1": "姓名和出生日期",
+                "online-point2": "血型和器官捐献者状态",
+                "online-point3": "过敏和医疗状况",
+                "online-point4": "当前药物",
+                "online-point5": "植入物和设备",
+                "online-point6": "紧急联系人（ICE）",
+                "offline-title": "离线扫描时：",
+                "offline-description": "QR直接显示核心详细信息的快照，无需互联网。",
+                "triage-title": "一目了然的分诊",
+                "triage-description": "每张卡都显示一个简单的分诊标识作为视觉提示：",
+                "triage-green-desc": "🟢 绿色——稳定/待命",
+                "triage-amber-desc": "🟠 琥珀色——重要考虑",
+                "triage-red-desc": "🔴 红色——需要紧急关注",
+                "triage-help": "这个快速指示器帮助应急人员在查看所有详细信息之前做好准备。",
+                "why-matters-title": "为什么重要",
+                "clarity-title": "不确定性中的清晰度",
+                "clarity-description": "在没有其他可用信息时提供经过验证的个人输入。",
+                "universal-title": "通用访问",
+                "universal-description": "在全球范围内工作，有或没有互联网。",
+                "privacy-title": "注重隐私",
+                "privacy-description": "数据保持在您的控制之下；应急人员只能看到您选择分享的内容。",
+                "complementary-title": "补充性",
+                "complementary-description": "旨在支持而非替代临床评估。",
+                "bridge-title": "👉 MYQER存在是为了连接未知。",
+                "for-users": "对用户来说",
+                "users-benefit": "这是安心。",
+                "for-responders": "对应急人员来说",
+                "responders-benefit": "这是背景。",
+                "for-everyone": "对每个人来说",
+                "everyone-benefit": "这是一个更清晰的起点。",
+                "get-started-title": "开始使用MYQER",
+                "get-started-subtitle": "加入数千名信任MYQER提供紧急医疗信息的用户",
+                "start-free": "免费开始",
+                "footer-tagline": "紧急医疗信息触手可及",
+                "home": "首页",
+                "about": "关于",
+                "clinician": "临床医生",
+                "how-it-works": "工作原理",
+                "privacy": "隐私政策",
+                "terms": "服务条款",
+                "contact": "联系",
+                "footer-note": "GDPR/HIPAA意识 • 仅供参考",
+                "login": "登录",
+                "email": "邮箱",
+                "password": "密码",
+                "cancel": "取消",
+                "forgot-password": "忘记密码？",
+                "reset-password": "重置密码",
+                "full-name": "全名",
+                "create-account": "创建账户"
+            }
+        };
+
+        let currentLanguage = 'en';
+
+        // Translation function
+        function translatePage(language) {
+            const elements = document.querySelectorAll('[data-translate]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[language] && translations[language][key]) {
+                    element.textContent = translations[language][key];
+                }
+            });
+        }
+
+        // Language change handler
+        function changeLanguage(language) {
+            currentLanguage = language;
+            translatePage(language);
+            localStorage.setItem('selectedLanguage', language);
+        }
+
+        // Menu toggle
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            menu.classList.toggle('active');
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('menu');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            if (!menu.contains(event.target) && !menuToggle.contains(event.target)) {
+                menu.classList.remove('active');
+            }
+        });
+
+        // Modal functions
+        function openModal(type) {
+            closeModal(); // Close any open modal first
+            const modal = document.getElementById(type + 'Modal');
+            if (modal) {
+                modal.classList.add('active');
+            }
+        }
+
+        function closeModal() {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => modal.classList.remove('active'));
+        }
+
+        function openResetModal() {
+            closeModal();
+            openModal('reset');
+        }
+
+        // Authentication handlers
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const { data, error } = await sb.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                
+                alert('Login successful!');
+                closeModal();
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        async function handleSignup(event) {
+            event.preventDefault();
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            
+            try {
+                const { data, error } = await sb.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: name
+                        }
+                    }
+                });
+                
+                if (error) throw error;
+                
+                alert('Account created successfully! Please check your email for verification.');
+                closeModal();
+            } catch (error) {
+                alert('Signup failed: ' + error.message);
+            }
+        }
+
+        async function handleReset(event) {
+            event.preventDefault();
+            const email = document.getElementById('resetEmail').value;
+            
+            try {
+                const { error } = await sb.auth.resetPasswordForEmail(email);
+                
+                if (error) throw error;
+                
+                alert('Password reset email sent! Please check your inbox.');
+                closeModal();
+            } catch (error) {
+                alert('Reset failed: ' + error.message);
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved language preference
+            const savedLanguage = localStorage.getItem('selectedLanguage') || 'en';
+            const languageDropdown = document.querySelector('.language-dropdown');
+            if (languageDropdown) {
+                languageDropdown.value = savedLanguage;
+                changeLanguage(savedLanguage);
+            }
+
+            // Close modal when clicking outside
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97a52d73b2f4bee4',t:'MTc1NzA2OTU1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
