@@ -244,7 +244,6 @@
       <div class="qr-section">
         <div>
           <div id="qrSlot">
-            <!-- Use a div as container for qrcodejs -->
             <div id="qrCanvas" aria-label="QR Code"></div>
             <div class="qr-placeholder" id="qrPlaceholder"><span>QR Code will appear here<br>after saving your profile</span></div>
           </div>
@@ -268,6 +267,24 @@
               <button class="btn-secondary" id="printQR">Print</button>
             </div>
           </div>
+
+          <!-- Offline JSON QR panel will be injected right under the live QR -->
+          <div id="offlineQRwrap" style="display:none;margin-top:12px;border-radius:12px;padding:10px;background:#fafafa;border:1px solid #e5e7eb">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-weight:800;font-size:.9rem">Offline QR (JSON)</span>
+              <span style="display:inline-block;padding:.2rem .5rem;font-size:.7rem;border-radius:999px;background:#eef2ff;color:#475569;border:1px solid #e2e8f0">
+                First-scan works with no internet
+              </span>
+            </div>
+            <div id="offlineQRbox" style="display:flex;flex-direction:column;align-items:center;gap:6px"></div>
+            <div class="small" style="color:#64748b;font-size:.85rem;margin-top:6px">
+              Contains: name, DOB, blood, allergies, donor, first ICE, plus a live URL.
+            </div>
+            <div style="display:flex;justify-content:center;margin-top:8px">
+              <button id="btnSaveOfflineQR" type="button" class="btn-secondary">Download PNG</button>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
@@ -306,8 +323,10 @@
     </div>
   </footer>
 
-  <!-- Scripts -->
+  <!-- Libs -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <!-- App -->
   <script>
     // ---- boot guard + loader fallback ----
     console.log('🟢 dashboard boot');
@@ -363,6 +382,7 @@
       }
     };
 
+    // ---- App state ----
     let userData = {}, iceContacts = [], autoSaveTimeouts = {};
 
     const getUserId = async () => {
@@ -445,142 +465,144 @@
           }
         }
         generateQRCode();
+        renderOfflineJsonQR(); // update offline QR too
       }catch(err){ console.error(err); showToast('Error saving contact: '+err.message,'error'); }
     }
 
-   // Create or fetch a permanent short code, prefer server (profiles.code)
-const generateShortCode = async () => {
-  // 1) If we already have it locally, use it
-  let cached = localStorage.getItem('myqer_shortcode');
-  if (cached) return cached;
+    // ---- Permanent short code (server-preferred, offline-safe) ----
+    const generateShortCode = async () => {
+      // 1) Local cache first
+      let cached = localStorage.getItem('myqer_shortcode');
+      if (cached) return cached;
 
-  // 2) If we’re online + authenticated, try to read from profiles.code
-  try {
-    if (isSupabaseAvailable && isOnline && supabase) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || null;
-
-      if (uid) {
-        // read existing code
-        const { data: p, error: pErr } = await supabase
-          .from('profiles')
-          .select('code')
-          .eq('id', uid)
-          .maybeSingle();
-
-        if (!pErr && p?.code) {
-          localStorage.setItem('myqer_shortcode', p.code);
-          return p.code;
+      // 2) If online+authed, try profiles.code
+      try {
+        if (isSupabaseAvailable && isOnline && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const uid = session?.user?.id || null;
+          if (uid) {
+            const { data: p, error: pErr } = await supabase
+              .from('profiles')
+              .select('code')
+              .eq('id', uid)
+              .maybeSingle();
+            if (!pErr && p?.code) {
+              localStorage.setItem('myqer_shortcode', p.code);
+              return p.code;
+            }
+          }
         }
+      } catch (e) {
+        console.warn('Could not read profiles.code, will generate:', e);
       }
-    }
-  } catch (e) {
-    console.warn('Could not read profiles.code, will generate:', e);
-  }
-// --- HYBRID QR HELPERS ---
-function buildSnapshotForQR() { ... }
 
-function makeOfflineHTML({ snapshot, code, liveUrl }) { ... }
+      // 3) Generate new code (offline)
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let raw = '';
+      for (let i = 0; i < 8; i++) raw += chars.charAt(Math.floor(Math.random() * Math.random() * chars.length));
+      if (raw.length !== 8) { raw = ''; for (let i = 0; i < 8; i++) raw += chars.charAt(Math.floor(Math.random() * chars.length)); }
+      const newCode = raw.slice(0, 4) + '-' + raw.slice(4);
 
-function toDataUrl(html) { ... }
-  // 3) Generate a new code (offline-safe)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let raw = '';
-  for (let i = 0; i < 8; i++) raw += chars.charAt(Math.floor(Math.random() * chars.length));
-  const newCode = raw.slice(0, 4) + '-' + raw.slice(4);
+      // 4) Save locally
+      localStorage.setItem('myqer_shortcode', newCode);
 
-  // 4) Save locally immediately
-  localStorage.setItem('myqer_shortcode', newCode);
-
-  // 5) If online + authed, persist to profiles.code so QR is permanent
-  try {
-    if (isSupabaseAvailable && isOnline && supabase) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || null;
-      if (uid) {
-        const { error: upErr } = await supabase
-          .from('profiles')
-          .update({ code: newCode })
-          .eq('id', uid);
-        if (upErr) console.warn('Could not persist profiles.code:', upErr);
+      // 5) Persist to server when possible
+      try {
+        if (isSupabaseAvailable && isOnline && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const uid = session?.user?.id || null;
+          if (uid) {
+            const { error: upErr } = await supabase
+              .from('profiles')
+              .update({ code: newCode })
+              .eq('id', uid);
+            if (upErr) console.warn('Could not persist profiles.code:', upErr);
+          }
+        }
+      } catch (e) {
+        console.warn('Persist profiles.code failed:', e);
       }
+
+      return newCode;
+    };
+
+    // ---- Build compact OFFLINE JSON payload for QR ----
+    function buildOfflineJsonPayload(shortCode) {
+      const firstIce = (Array.isArray(iceContacts) && iceContacts.length)
+        ? { name: iceContacts[0].name || null, phone: iceContacts[0].phone || null }
+        : null;
+
+      const profile = userData.profile || {};
+      const health  = userData.health  || {};
+
+      const payload = {
+        code: (shortCode || '').toUpperCase(),
+        offline: {
+          name:  profile.fullName || null,
+          dob:   profile.dob || null,
+          blood: health.bloodType || null,
+          allergies: health.allergies || null,
+          donor: !!health.organDonor,
+          ice:   firstIce
+        },
+        url: shortCode ? `https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
+      };
+
+      const json = JSON.stringify(payload);
+      const bytes = new TextEncoder().encode(json).length;
+      if (bytes > 2000) console.warn('Offline QR payload is large:', bytes, 'bytes');
+      return json;
     }
-  } catch (e) {
-    console.warn('Persist profiles.code failed:', e);
-  }
 
-  return newCode;
-};
-   <script>
-async function generateQRCode() {
-  const qrCanvasContainer = document.getElementById('qrCanvas');
-  const qrPlaceholder     = document.getElementById('qrPlaceholder');
-  const codeUnderQR       = document.getElementById('codeUnderQR');
-  const cardUrl           = document.getElementById('cardUrl');
-  const qrStatus          = document.getElementById('qrStatus');
+    // ---- Main QR (hybrid) ----
+    async function generateQRCode() {
+      const qrCanvasContainer = document.getElementById('qrCanvas');
+      const qrPlaceholder     = document.getElementById('qrPlaceholder');
+      const codeUnderQR       = document.getElementById('codeUnderQR');
+      const cardUrl           = document.getElementById('cardUrl');
+      const qrStatus          = document.getElementById('qrStatus');
 
-  // Do we have any content to justify a QR?
-  const hasProfile = userData.profile && userData.profile.fullName;
-  const hasHealth  = userData.health && (
-    userData.health.bloodType || userData.health.allergies ||
-    userData.health.conditions || userData.health.medications ||
-    userData.health.implants || typeof userData.health.organDonor !== 'undefined'
-  );
-  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+      const hasProfile = userData.profile && userData.profile.fullName;
+      const hasHealth  = userData.health && (
+        userData.health.bloodType || userData.health.allergies ||
+        userData.health.conditions || userData.health.medications ||
+        userData.health.implants || typeof userData.health.organDonor !== 'undefined'
+      );
+      const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
-  if (!(hasProfile || hasHealth || hasIce)) {
-    qrPlaceholder.style.display = 'flex';
-    qrCanvasContainer.innerHTML = '';
-    codeUnderQR.textContent = '';
-    cardUrl.value = '';
-    qrStatus.hidden = true;
-    return;
-  }
+      if (!(hasProfile || hasHealth || hasIce)) {
+        qrPlaceholder.style.display = 'flex';
+        qrCanvasContainer.innerHTML = '';
+        codeUnderQR.textContent = '';
+        cardUrl.value = '';
+        qrStatus.hidden = true;
+        return;
+      }
 
-  // 1) Ensure we have a permanent short code
-  const shortCode = await generateShortCode();   // you already have this function in your file
-  const liveUrl   = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
+      const shortCode = await generateShortCode();
+      const json = buildOfflineJsonPayload(shortCode);
 
-  // 2) Build a tiny snapshot from current fields
-  const snapshot = buildSnapshotForQR();
+      qrPlaceholder.style.display = 'none';
+      qrCanvasContainer.innerHTML = '';
 
-  // 3) Build the offline HTML → data URL
-  const offlineHtml = makeOfflineHTML({ snapshot, code: shortCode, liveUrl });
-  const dataUrl     = toDataUrl(offlineHtml);
+      new QRCode(qrCanvasContainer, {
+        text: json,                 // the QR IS the JSON (offline-ready)
+        width: 240,
+        height: 240,
+        correctLevel: QRCode.CorrectLevel.M
+      });
 
-// 4) Render QR with the JSON payload (hybrid: includes essentials + live URL)
-const json = buildOfflineJsonPayload();
+      codeUnderQR.textContent = shortCode;
+      cardUrl.value = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
 
-qrPlaceholder.style.display = 'none';
-qrCanvasContainer.innerHTML = '';
+      qrStatus.textContent = 'Hybrid QR generated (works online & offline)';
+      qrStatus.style.background = 'rgba(5,156,105,.1)';
+      qrStatus.style.color = 'var(--green)';
+      qrStatus.hidden = false;
 
-new QRCode(qrCanvasContainer, {
-  text: json,                 // <<— the QR now *is* the JSON payload
-  width: 240,
-  height: 240,
-  correctLevel: QRCode.CorrectLevel.M
-});
-
-  // 5) UI under the QR still shows the live URL + code (for copy/open)
-  codeUnderQR.textContent = shortCode;
-  cardUrl.value = liveUrl;
-
-  qrStatus.textContent = 'Hybrid QR generated (works online & offline)';
-  qrStatus.style.background = 'rgba(5,156,105,.1)';
-  qrStatus.style.color = 'var(--green)';
-  qrStatus.hidden = false;
-}
-    <div id="offlineQrWrap" style="display:none;margin-top:16px">
-  <div style="font-weight:600;margin:4px 0">Offline QR (JSON)</div>
-  <div id="offlineQrBox"></div>
-  <div style="font-size:.85rem;color:#64748b;margin-top:6px">
-    Works totally offline (first scan). Contains essentials + your live URL.
-  </div>
-  <div style="margin-top:8px">
-    <button id="btnSaveOfflineQR" type="button">Download PNG</button>
-  </div>
-</div>
-</script>
+      // keep the offline panel in sync
+      renderOfflineJsonQR();
+    }
 
     // ---- Saves ----
     async function saveProfile(){
@@ -701,35 +723,29 @@ new QRCode(qrCanvasContainer, {
           const uid=session.user.id;
 
           const { data: serverProfile, error: profErr } = await supabase
-  .from('profiles')
-  .select('full_name, dob, country, health_id, code')
-  .eq('id', uid)
-  .maybeSingle();
+            .from('profiles')
+            .select('full_name, dob, country, health_id, code')
+            .eq('id', uid)
+            .maybeSingle();
 
-if (!profErr && serverProfile) {
-  userData.profile = {
-    ...userData.profile,
-    fullName: serverProfile.full_name || '',
-    dob: serverProfile.dob || '',
-    country: serverProfile.country || '',
-    healthId: serverProfile.health_id || ''
-  };
-  if (serverProfile.code) {
-    localStorage.setItem('myqer_shortcode', serverProfile.code); // keep same QR code
-  }
-  localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-
-  const pfMap = {
-    fullName: 'profileFullName',
-    dob: 'profileDob',
-    country: 'profileCountry',
-    healthId: 'profileHealthId'
-  };
-  Object.entries(pfMap).forEach(([k, id]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = userData.profile[k] || '';
-  });
-}
+          if (!profErr && serverProfile) {
+            userData.profile = {
+              ...userData.profile,
+              fullName: serverProfile.full_name || '',
+              dob: serverProfile.dob || '',
+              country: serverProfile.country || '',
+              healthId: serverProfile.health_id || ''
+            };
+            if (serverProfile.code) {
+              localStorage.setItem('myqer_shortcode', serverProfile.code); // keep same QR code
+            }
+            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+            const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
+            Object.entries(pfMap).forEach(([k, id]) => {
+              const el = document.getElementById(id);
+              if (el) el.value = userData.profile[k] || '';
+            });
+          }
 
           const { data: serverHealth } = await supabase.from('health_data')
             .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
@@ -759,13 +775,59 @@ if (!profErr && serverProfile) {
           }
         }
 
-        generateQRCode();
+        await generateQRCode();
         console.log('✅ User data loaded');
       }catch(e){
         console.error(e); showToast('Error loading data: '+e.message,'error');
         const eb=document.getElementById('errorBox'), em=document.getElementById('errorMsg');
         if(eb&&em){ eb.style.display='block'; em.textContent='Failed to load your data. Please try refreshing the page.'; }
       }
+    }
+
+    // ---- Offline JSON QR (addon, adjusted to your IDs/state) ----
+    function renderOfflineJsonQR(){
+      const wrap = document.getElementById('offlineQRwrap');
+      const box  = document.getElementById('offlineQRbox');
+      if (!wrap || !box) return;
+
+      // only show if we have something meaningful
+      const hasProfile = userData.profile && userData.profile.fullName;
+      const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies || typeof userData.health.organDonor !== 'undefined');
+      const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+      if (!(hasProfile || hasHealth || hasIce)) { wrap.style.display='none'; box.innerHTML=''; return; }
+
+      wrap.style.display = 'block';
+      box.innerHTML = '';
+
+      const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+      const json = buildOfflineJsonPayload(shortCode);
+
+      new QRCode(box, {
+        text: json,          // JSON inside QR (first-scan offline)
+        width: 240,
+        height: 240,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      const mark = document.createElement('div');
+      mark.textContent = 'MYQER™';
+      mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
+      box.appendChild(mark);
+    }
+
+    function wireOfflineDownload(){
+      const btn = document.getElementById('btnSaveOfflineQR');
+      if (!btn) return;
+      btn.onclick = () => {
+        const box = document.getElementById('offlineQRbox');
+        const img = box?.querySelector('img') || box?.querySelector('canvas');
+        if (!img) { showToast('Generate the offline QR first','error'); return; }
+        const url = img.tagName === 'IMG' ? img.src : img.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'myqer-offline-qr.png';
+        a.click();
+      };
     }
 
     // ---- Autosave debounce ----
@@ -783,35 +845,29 @@ if (!profErr && serverProfile) {
     // ---- Events ----
     document.addEventListener('DOMContentLoaded', async ()=>{
       updateNetworkStatus();
-      await loadUserData();
 
-      // hide loader
-      const loading = document.getElementById('loadingState');
-      loading.style.opacity='0'; loading.style.transition='opacity .5s';
-      setTimeout(()=>loading.style.display='none',500);
-
-      // Lang dropdown (simple)
+      // Basic UI
       const langSel=document.getElementById('langSelector'), langDd=document.getElementById('langDropdown');
       langSel.addEventListener('click',()=>{ const open=langDd.style.display==='block'; langDd.style.display=open?'none':'block'; langSel.setAttribute('aria-expanded', String(!open)); });
       langDd.addEventListener('click',(e)=>{ if(e.target.dataset.lang){ langSel.textContent=e.target.dataset.lang.toUpperCase(); langDd.style.display='none'; }});
       document.addEventListener('click',(e)=>{ if(!langSel.contains(e.target) && !langDd.contains(e.target)) { langDd.style.display='none'; langSel.setAttribute('aria-expanded','false'); }});
 
       // Buttons
-      document.getElementById('saveProfile').addEventListener('click', saveProfile);
-      document.getElementById('saveHealth').addEventListener('click', saveHealth);
-      document.getElementById('saveIce').addEventListener('click', saveIce);
-      document.getElementById('addIce').addEventListener('click', addIceContact);
-      document.getElementById('triageOverride').addEventListener('change', calculateTriage);
+      document.getElementById('saveProfile').addEventListener('click', async ()=>{ await saveProfile(); renderOfflineJsonQR(); });
+      document.getElementById('saveHealth').addEventListener('click', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
+      document.getElementById('saveIce').addEventListener('click', async ()=>{ await saveIce(); renderOfflineJsonQR(); });
+      document.getElementById('addIce').addEventListener('click', ()=>{ addIceContact(); renderOfflineJsonQR(); });
+      document.getElementById('triageOverride').addEventListener('change', ()=>{ calculateTriage(); });
 
-      setupAutoSave('profileFullName', saveProfile);
-      setupAutoSave('profileDob', saveProfile);
-      setupAutoSave('profileCountry', saveProfile);
-      setupAutoSave('profileHealthId', saveProfile);
-      setupAutoSave('hfBloodType', saveHealth);
-      setupAutoSave('hfAllergies', saveHealth);
-      setupAutoSave('hfConditions', saveHealth);
-      setupAutoSave('hfMeds', saveHealth);
-      setupAutoSave('hfImplants', saveHealth);
+      setupAutoSave('profileFullName', async ()=>{ await saveProfile(); renderOfflineJsonQR(); });
+      setupAutoSave('profileDob', async ()=>{ await saveProfile(); renderOfflineJsonQR(); });
+      setupAutoSave('profileCountry', async ()=>{ await saveProfile(); renderOfflineJsonQR(); });
+      setupAutoSave('profileHealthId', async ()=>{ await saveProfile(); renderOfflineJsonQR(); });
+      setupAutoSave('hfBloodType', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
+      setupAutoSave('hfAllergies', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
+      setupAutoSave('hfConditions', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
+      setupAutoSave('hfMeds', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
+      setupAutoSave('hfImplants', async ()=>{ await saveHealth(); renderOfflineJsonQR(); });
 
       // QR actions
       document.getElementById('copyLink').addEventListener('click', async ()=>{
@@ -866,6 +922,16 @@ if (!profErr && serverProfile) {
         catch(e){ console.error(e); alert('Logout failed, please try again'); }
       });
 
+      wireOfflineDownload();
+
+      // Load data last so UI is ready
+      await loadUserData();
+
+      // hide loader
+      const loading = document.getElementById('loadingState');
+      loading.style.opacity='0'; loading.style.transition='opacity .5s';
+      setTimeout(()=>loading.style.display='none',500);
+
       console.log('🚀 Dashboard ready');
     });
 
@@ -876,282 +942,6 @@ if (!profErr && serverProfile) {
     window.addIceContact=addIceContact; window.removeIceContact=removeIceContact;
     window.updateIceContact=updateIceContact;
     window.saveIndividualIceContact=saveIndividualIceContact;
-  <script>
-// --- helpers you already have, re-used here ---
-function getShortCodeSync() {
-  // You already persist the permanent code in localStorage/profiles.code.
-  // Reuse that here. (If you have an async generator, call it before this.)
-  return (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-}
-
-function currentFieldsFromForm() {
-  // Adjust the selectors to match your inputs (these are from your dashboard)
-  return {
-    full_name:     document.querySelector('#pi-name')?.value?.trim() || '',
-    date_of_birth: document.querySelector('#pi-dob')?.value?.trim() || '',
-    blood_type:    document.querySelector('#pi-blood')?.value?.trim() || '',
-    organ_donor:   !!document.querySelector('#pi-donor')?.checked,
-    allergies:     document.querySelector('#sec-allergies')?.value?.trim() || '',
-    conditions:    document.querySelector('#sec-conditions')?.value?.trim() || '',
-    meds:          document.querySelector('#sec-meds')?.value?.trim() || '',
-    implants:      document.querySelector('#sec-implants')?.value?.trim() || '',
-    ice_contacts:  document.querySelector('#sec-ice')?.value?.trim() || ''
-  };
-}
-
-// Build the *offline JSON* payload that goes INSIDE the QR.
-// Keep it tiny: only essentials + URL + code.
-function buildOfflineJsonPayload() {
-  const code = getShortCodeSync();
-  const f = currentFieldsFromForm();
-
-  // Only *critical* fields asked in your spec.
-  const offline = {
-    name: f.full_name || null,
-    dob: f.date_of_birth || null,
-    blood: f.blood_type || null,
-    allergies: (f.allergies || null),
-    ice: (f.ice_contacts || null),
-    donor: f.organ_donor ? true : false
-  };
-
-  const payload = {
-    code,
-    offline,
-    url: code ? `https://www.myqer.com/c/${encodeURIComponent(code)}` : null
-  };
-
-  // Compact JSON (no spaces) for smallest QR
-  const json = JSON.stringify(payload);
-
-  // Safety: keep it < ~2000 bytes to remain very scannable
-  const bytes = new TextEncoder().encode(json).length;
-  if (bytes > 2000) {
-    console.warn('Offline QR payload is large:', bytes, 'bytes');
-  }
-  return json;
-}
-
-// Render the QR with a tiny brand frame (black modules on white)
-function renderOfflineJsonQR() {
-  const wrap = document.getElementById('offlineQrWrap');
-  const box  = document.getElementById('offlineQrBox');
-  box.innerHTML = '';
-  wrap.style.display = 'block';
-
-  const json = buildOfflineJsonPayload();
-
-  // Draw the QR
-  const q = new QRCode(box, {
-    text: json,          // <-- the QR contains the JSON itself
-    width: 240,
-    height: 240,
-    correctLevel: QRCode.CorrectLevel.M
-  });
-
-  // Add a small MYQER mark below (brand note)
-  const mark = document.createElement('div');
-  mark.style.marginTop = '6px';
-  mark.style.textAlign = 'center';
-  mark.style.fontWeight = '700';
-  mark.style.fontSize = '.85rem';
-  mark.style.color = '#c62828'; // MYQER red
-  mark.textContent = 'MYQER™';
-  box.appendChild(mark);
-
-  // Save PNG button
-  const btn = document.getElementById('btnSaveOfflineQR');
-  if (btn) {
-    btn.onclick = () => {
-      // qrcodejs creates an <img> inside the container
-      const img = box.querySelector('img') || box.querySelector('canvas');
-if (!img) return;
-
-const url =
-  img.tagName === 'IMG'
-    ? img.src
-    : img.toDataURL('image/png');
-
-const link = document.createElement('a');
-link.download = 'myqer-offline-qr.png';
-link.href = url;
-link.click();
-    };
-  }
-}
-
-// Call this whenever the user presses “Generate Offline QR (JSON)”,
-// or automatically after they save health info.
-window.generateOfflineHybridQR = renderOfflineJsonQR;
-</script>
-  <!-- === MYQER OFFLINE JSON QR: Drop-in addon (non-destructive) === -->
-<script>
-(function(){
-
-  // 1) Ensure qrcodejs exists (you already include it; this is a soft check)
-  function hasQRCodeLib(){ return !!(window.QRCode && QRCode.CorrectLevel); }
-
-  // 2) Build (or reuse) the small “Offline QR” panel under your existing live-QR area
-  function ensureOfflinePanel(){
-    if (document.getElementById('offlineQRwrap')) return;
-
-    // Try to place it under your live QR panel; fall back near #qrCanvas
-    const liveHost = document.querySelector('#qrPanel, #qrBox, #qrCanvas') || document.body;
-
-    const wrap = document.createElement('div');
-    wrap.id = 'offlineQRwrap';
-    wrap.style.display = 'none';
-    wrap.style.marginTop = '12px';
-    wrap.style.borderRadius = '12px';
-    wrap.style.padding = '10px';
-    wrap.style.background = '#fafafa';
-    wrap.style.border = '1px solid #e5e7eb';
-
-    wrap.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-weight:800;font-size:.9rem">Offline QR (JSON)</span>
-        <span style="display:inline-block;padding:.2rem .5rem;font-size:.7rem;border-radius:999px;background:#eef2ff;color:#475569;border:1px solid #e2e8f0">
-          First-scan works with no internet
-        </span>
-      </div>
-      <div id="offlineQRbox" style="display:flex;flex-direction:column;align-items:center;gap:6px"></div>
-      <div class="small" style="color:#64748b;font-size:.85rem;margin-top:6px">
-        Contains: name, DOB, blood, allergies, donor, first ICE, plus a live URL.
-      </div>
-      <div style="display:flex;justify-content:center;margin-top:8px">
-        <button id="btnSaveOfflineQR" type="button"
-                style="appearance:none;border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:.5rem .8rem;font-weight:600;cursor:pointer">
-          Download PNG
-        </button>
-      </div>
-    `;
-    liveHost.parentNode.insertBefore(wrap, liveHost.nextSibling);
-  }
-
-  // 3) Read the permanent short code you already store
-  function getShortCode(){
-    return (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-  }
-
-  // 4) Read current form fields from your existing inputs (uses your ids)
-  function readFields(){
-    const $ = (sel) => document.querySelector(sel);
-    return {
-      full_name:   $('#pi-name')?.value?.trim() || '',
-      date_of_birth: $('#pi-dob')?.value || '',
-      blood_type:  $('#pi-blood')?.value || '',
-      organ_donor: !!$('#pi-donor')?.checked,
-      allergies:   $('#sec-allergies')?.value?.trim() || '',
-      conditions:  $('#sec-conditions')?.value?.trim() || '',
-      meds:        $('#sec-meds')?.value?.trim() || '',
-      implants:    $('#sec-implants')?.value?.trim() || '',
-      ice_contacts: $('#sec-ice')?.value?.trim() || ''
-    };
-  }
-
-  // 5) Build compact JSON that goes INSIDE the QR (keep <~2KB)
-  function buildOfflinePayload(){
-    const code = getShortCode();
-    const f = readFields();
-    const firstICE = (f.ice_contacts || '').split(/\n/)[0]?.trim() || null;
-
-    const payload = {
-      code,
-      offline: {
-        name:  f.full_name || null,
-        dob:   f.date_of_birth || null,
-        blood: f.blood_type || null,
-        allergies: f.allergies || null,
-        donor: !!f.organ_donor,
-        ice:   firstICE
-      },
-      url: code ? `https://www.myqer.com/c/${encodeURIComponent(code)}` : null
-    };
-
-    const json = JSON.stringify(payload);
-    // heads-up if someone pastes a novel into ICE 😅
-    const bytes = new TextEncoder().encode(json).length;
-    if (bytes > 2000) console.warn('Offline QR payload is large:', bytes, 'bytes');
-    return json;
-  }
-
-  // 6) Render the offline QR
-  function renderOfflineJsonQR(){
-    if (!hasQRCodeLib()) { console.warn('qrcodejs missing'); return; }
-    ensureOfflinePanel();
-
-    const wrap = document.getElementById('offlineQRwrap');
-    const box  = document.getElementById('offlineQRbox');
-    if (!wrap || !box) return;
-
-    wrap.style.display = 'block';
-    box.innerHTML = '';
-
-    const json = buildOfflinePayload();
-
-    new QRCode(box, {
-      text: json,                    // the QR contains the JSON itself (first-scan offline)
-      width: 240,
-      height: 240,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    // tiny red MYQER mark under the QR
-    const mark = document.createElement('div');
-    mark.textContent = 'MYQER™';
-    mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
-    box.appendChild(mark);
-  }
-
-  // 7) Wire the PNG download button
-  function wireDownload(){
-    const btn = document.getElementById('btnSaveOfflineQR');
-    if (!btn) return;
-    btn.addEventListener('click', ()=>{
-      const box = document.getElementById('offlineQRbox');
-      const img = box?.querySelector('img') || box?.querySelector('canvas');
-      if (!img) { alert('Generate the offline QR first'); return; }
-      const url = img.tagName === 'IMG' ? img.src : img.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'myqer-offline-qr.png';
-      a.click();
-    }, { once:false });
-  }
-
-  // 8) Re-render triggers (no changes to your code needed)
-  let t = null;
-  const schedule = () => { clearTimeout(t); t = setTimeout(()=>{ renderOfflineJsonQR(); wireDownload(); }, 250); };
-
-  function attachObservers(){
-    // Re-render when the live QR area changes or user edits fields
-    const live = document.querySelector('#qrCanvas') || document.querySelector('#qrBox') || document.body;
-    new MutationObserver(schedule).observe(live, { childList:true, subtree:true, characterData:true });
-
-    // Inputs
-    ['#pi-name','#pi-dob','#pi-blood','#pi-donor',
-     '#sec-allergies','#sec-conditions','#sec-meds','#sec-implants','#sec-ice'
-    ].forEach(sel => document.querySelector(sel)?.addEventListener('input', schedule));
-
-    // Your existing save buttons (names may vary; harmless if missing)
-    ['saveProfile','saveHealth','saveContacts','btnSaveProfile','btnSaveHealth','btnSaveICE']
-      .forEach(id => document.getElementById(id)?.addEventListener('click', schedule));
-  }
-
-  // 9) Boot
-  document.addEventListener('DOMContentLoaded', ()=>{
-    try {
-      ensureOfflinePanel();
-      renderOfflineJsonQR();
-      wireDownload();
-      attachObservers();
-    } catch(e){ console.warn('offline QR init failed', e); }
-    // Optional: expose a manual hook if you want to call it from elsewhere
-    window.renderOfflineJsonQR = renderOfflineJsonQR;
-  });
-
-})();
-</script>
-<!-- === /MYQER OFFLINE JSON QR addon === -->
+  </script>
 </body>
-</html> 
+</html>
