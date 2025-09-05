@@ -360,17 +360,23 @@
       }
     } catch (e) { console.warn('Supabase init failed:', e); }
 
-    const showToast = (msg, type='success', ms=4000) => {
+    // ---- UI helpers ----
+    function showToast(msg, type='success', ms=4000){
       const area = document.getElementById('toastArea');
       const el = document.createElement('div');
-      el.className = \`toast \${type}\`;
+      el.className = `toast ${type}`;
       el.textContent = msg;
       area.appendChild(el);
       setTimeout(()=>el.classList.add('show'),100);
       setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); }, ms);
-    };
-
-    const updateNetworkStatus = () => {
+    }
+    function finalizeBoot(){
+      const loading = document.getElementById('loadingState');
+      if (!loading) return;
+      loading.style.opacity='0'; loading.style.transition='opacity .5s';
+      setTimeout(()=>loading.style.display='none',500);
+    }
+    function updateNetworkStatus(){
       const net = document.getElementById('netStatus');
       const banner = document.getElementById('offlineBanner');
       if (navigator.onLine) {
@@ -378,9 +384,9 @@
         if (!isOnline) { showToast('Back online - syncing changes'); isOnline = true; }
       } else {
         net.textContent = 'Offline'; net.className = 'offline'; banner.style.display = 'block';
-        if (isOnline) { showToast('Working offline - changes saved locally', 'success'); isOnline = false; }
+        if (isOnline) { showToast('Working offline - changes saved locally'); isOnline = false; }
       }
-    };
+    }
 
     // ---- App state ----
     let userData = {}, iceContacts = [], autoSaveTimeouts = {};
@@ -392,21 +398,20 @@
 
     // ---- TRIAGE ----
     const TRIAGE_KEYWORDS = [
-      { re:/\\banaphylaxis|anaphylactic|epi[-\\s]?pen\\b/i, score:4 }, { re:/\\b(severe allergy|severe reaction)\\b/i, score:4 },
-      { re:/\\bheart attack|myocardial infarction|cardiac arrest|unstable angina\\b/i, score:4 },
-      { re:/\\bventricular (tachy|fibrillation)|vfib|vtach\\b/i, score:4 },
-      { re:/\\btransplant|immunosuppression(s)?\\b/i, score:4 }, { re:/\\bsevere asthma|status asthmaticus\\b/i, score:4 },
-      { re:/\\brespiratory failure|copd exacerbation\\b/i, score:4 },
-      { re:/\\bpenicillin allergy|cephalosporin allergy\\b/i, score:3 }, { re:/\\binsulin pump|type 1 diabetes|insulin dependent\\b/i, score:3 },
-      { re:/\\bkidney failure|renal failure|dialysis\\b/i, score:3 }, { re:/\\bseizure disorder|epilepsy\\b/i, score:3 },
-      { re:/\\bstroke|cva|tia\\b/i, score:3 }, { re:/\\bwarfarin|anticoagulant|blood thinner\\b/i, score:3 },
-      { re:/\\bpacemaker|defibrillator|icd\\b/i, score:3 }, { re:/\\bbeta[-\\s]?blocker allergy\\b/i, score:3 },
-      { re:/\\bdiabetes|type 2 diabetes|metformin\\b/i, score:2 }, { re:/\\bhypertension|high blood pressure\\b/i, score:2 },
-      { re:/\\basthma|respiratory disease\\b/i, score:2 }, { re:/\\bchronic pain|opioid|morphine|fentanyl|oxycodone\\b/i, score:2 },
-      { re:/\\bautoimmune|lupus|ms|crohn|ulcerative colitis\\b/i, score:2 }, { re:/\\bmetal implant|joint replacement|stent(s)?\\b/i, score:2 },
-      { re:/\\bpenicillin\\b/i, score:1 }, { re:/\\bcodeine\\b/i, score:1 }, { re:/\\bmidazolam\\b/i, score:1 }, { re:/\\bibu(profen)?\\b/i, score:1 }, { re:/\\b(paracetamol|acetaminophen)\\b/i, score:1 }
+      { re:/\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i, score:4 }, { re:/\b(severe allergy|severe reaction)\b/i, score:4 },
+      { re:/\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i, score:4 },
+      { re:/\bventricular (tachy|fibrillation)|vfib|vtach\b/i, score:4 },
+      { re:/\btransplant|immunosuppression(s)?\b/i, score:4 }, { re:/\bsevere asthma|status asthmaticus\b/i, score:4 },
+      { re:/\brespiratory failure|copd exacerbation\b/i, score:4 },
+      { re:/\bpenicillin allergy|cephalosporin allergy\b/i, score:3 }, { re:/\binsulin pump|type 1 diabetes|insulin dependent\b/i, score:3 },
+      { re:/\bkidney failure|renal failure|dialysis\b/i, score:3 }, { re:/\bseizure disorder|epilepsy\b/i, score:3 },
+      { re:/\bstroke|cva|tia\b/i, score:3 }, { re:/\bwarfarin|anticoagulant|blood thinner\b/i, score:3 },
+      { re:/\bpacemaker|defibrillator|icd\b/i, score:3 }, { re:/\bbeta[-\s]?blocker allergy\b/i, score:3 },
+      { re:/\bdiabetes|type 2 diabetes|metformin\b/i, score:2 }, { re:/\bhypertension|high blood pressure\b/i, score:2 },
+      { re:/\basthma|respiratory disease\b/i, score:2 }, { re:/\bchronic pain|opioid|morphine|fentanyl|oxycodone\b/i, score:2 },
+      { re:/\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i, score:2 }, { re:/\bmetal implant|joint replacement|stent(s)?\b/i, score:2 },
+      { re:/\bpenicillin\b/i, score:1 }, { re:/\bcodeine\b/i, score:1 }, { re:/\bmidazolam\b/i, score:1 }, { re:/\bibu(profen)?\b/i, score:1 }, { re:/\b(paracetamol|acetaminophen)\b/i, score:1 }
     ];
-
     function updateTriagePill(level){
       const pill = document.getElementById('triagePill');
       pill.className = level; pill.textContent = level.toUpperCase();
@@ -417,7 +422,7 @@
       const allergies = (document.getElementById('hfAllergies').value||'')+'';
       const conditions = (document.getElementById('hfConditions').value||'')+'';
       const meds = (document.getElementById('hfMeds').value||'')+'';
-      const hay = [allergies,conditions,meds].join('\\n');
+      const hay = [allergies,conditions,meds].join('\n');
       let score=0; for(const k of TRIAGE_KEYWORDS){ if(k.re.test(hay)) score+=k.score; }
       let level='green'; if(score>=6) level='red'; else if(score>=3) level='amber'; updateTriagePill(level);
     }
@@ -428,19 +433,19 @@
       container.innerHTML = '';
       iceContacts.forEach((c,i)=>{
         const div=document.createElement('div'); div.className='ice-row'; div.setAttribute('data-index',i);
-        div.innerHTML=\`
+        div.innerHTML=`
           <div class="ice-contact-header">
-            <div class="contact-number">\${i+1}</div>
+            <div class="contact-number">${i+1}</div>
             <div class="ice-actions">
-              <button class="iceSaveBtn" onclick="saveIndividualIceContact(\${i})">Save</button>
-              <button class="iceDeleteBtn" onclick="removeIceContact(\${i})" aria-label="Delete contact">🗑️</button>
+              <button class="iceSaveBtn" onclick="saveIndividualIceContact(${i})">Save</button>
+              <button class="iceDeleteBtn" onclick="removeIceContact(${i})" aria-label="Delete contact">🗑️</button>
             </div>
           </div>
           <div class="form-grid two-col">
-            <div class="form-group"><label>Name</label><input class="iceName" value="\${c.name||''}" onchange="updateIceContact(\${i},'name',this.value)" placeholder="Name"></div>
-            <div class="form-group"><label>Relationship</label><input class="iceRelation" value="\${c.relation||''}" onchange="updateIceContact(\${i},'relation',this.value)" placeholder="Spouse, Parent, etc."></div>
-            <div class="form-group" style="grid-column:1/-1"><label>Phone</label><input class="icePhone" value="\${c.phone||''}" onchange="updateIceContact(\${i},'phone',this.value)" placeholder="+1 (555) 123-4567"></div>
-          </div>\`;
+            <div class="form-group"><label>Name</label><input class="iceName" value="${c.name||''}" onchange="updateIceContact(${i},'name',this.value)" placeholder="Name"></div>
+            <div class="form-group"><label>Relationship</label><input class="iceRelation" value="${c.relation||''}" onchange="updateIceContact(${i},'relation',this.value)" placeholder="Spouse, Parent, etc."></div>
+            <div class="form-group" style="grid-column:1/-1"><label>Phone</label><input class="icePhone" value="${c.phone||''}" onchange="updateIceContact(${i},'phone',this.value)" placeholder="+1 (555) 123-4567"></div>
+          </div>`;
         container.appendChild(div);
       });
       const addBtn=document.getElementById('addIce');
@@ -455,13 +460,13 @@
     async function saveIndividualIceContact(i){
       try{
         const c=iceContacts[i]; if(!c||!c.name||!c.phone){showToast('Name and phone are required','error');return;}
-        localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); showToast(\`Contact \${i+1} saved locally\`,'success');
+        localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); showToast(`Contact ${i+1} saved locally`,'success');
         if(isSupabaseAvailable && isOnline){
           const uid = await getUserId();
           if(uid){
             const row={user_id:uid,name:c.name||null,relation:(c.relation||'').trim(),phone:c.phone||null,contact_order:i};
             const {error}=await supabase.from('ice_contacts').upsert(row,{onConflict:'user_id,contact_order'});
-            if(error) throw error; showToast(\`Contact \${i+1} synced to server\`,'success');
+            if(error) throw error; showToast(`Contact ${i+1} synced to server`,'success');
           }
         }
         generateQRCode();
@@ -469,7 +474,7 @@
       }catch(err){ console.error(err); showToast('Error saving contact: '+err.message,'error'); }
     }
 
-    // ---- Permanent short code (server-preferred, offline-safe) ----
+    // ---- Short code ----
     const generateShortCode = async () => {
       let cached = localStorage.getItem('myqer_shortcode');
       if (cached) return cached;
@@ -511,7 +516,7 @@
       return newCode;
     };
 
-    // --- Build human-friendly TEXT payload to embed in the QR (offline readable) ---
+    // --- Build human-friendly TEXT payload (offline readable) ---
     function buildOfflineTextPayload(shortCode) {
       const profile = (window.userData?.profile) || {};
       const health  = (window.userData?.health)  || {};
@@ -520,33 +525,33 @@
       const iceLines = ices
         .slice(0, 3)
         .filter(c => (c?.name || c?.phone))
-        .map((c, i) => \`ICE\${i+1}: \${[c.name, c.phone].filter(Boolean).join(' — ')}\`)
-        .join('\\n');
+        .map((c, i) => `ICE${i+1}: ${[c.name, c.phone].filter(Boolean).join(' — ')}`)
+        .join('\n');
 
       const lines = [
         'MYQER™ EMERGENCY CARD',
-        shortCode ? \`Code: \${shortCode}\` : null,
-        profile.fullName ? \`Name: \${profile.fullName}\` : null,
-        profile.dob ? \`DOB: \${profile.dob}\` : null,
-        health.bloodType ? \`Blood: \${health.bloodType}\` : null,
+        shortCode ? `Code: ${shortCode}` : null,
+        profile.fullName ? `Name: ${profile.fullName}` : null,
+        profile.dob ? `DOB: ${profile.dob}` : null,
+        health.bloodType ? `Blood: ${health.bloodType}` : null,
         (typeof health.allergies !== 'undefined')
-          ? \`Allergies: \${health.allergies || 'None reported'}\`
+          ? `Allergies: ${health.allergies || 'None reported'}`
           : null,
-        health.conditions ? \`Conditions: \${health.conditions}\` : null,
-        health.medications ? \`Meds: \${health.medications}\` : null,
-        health.implants ? \`Implants: \${health.implants}\` : null,
-        \`Donor: \${health.organDonor ? 'Yes' : 'No'}\`,
+        health.conditions ? `Conditions: ${health.conditions}` : null,
+        health.medications ? `Meds: ${health.medications}` : null,
+        health.implants ? `Implants: ${health.implants}` : null,
+        `Donor: ${health.organDonor ? 'Yes' : 'No'}`,
         iceLines || null,
-        shortCode ? \`URL: https://www.myqer.com/c/\${encodeURIComponent(shortCode)}\` : null
-      ].filter(Boolean).join('\\n');
+        shortCode ? `URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
+      ].filter(Boolean).join('\n');
 
       const limit = 2000;
       const enc = new TextEncoder();
       if (enc.encode(lines).length <= limit) return lines;
 
       const shrink = (label, text, maxChars) =>
-        text.replace(new RegExp(\`^(\\\${label}: )(.*)$\`, 'm'),
-          (_, p1, p2) => \`\${p1}\${p2.slice(0, maxChars).trim()}…\`);
+        text.replace(new RegExp(`^(${label}: )(.*)$`, 'm'),
+          (_, p1, p2) => `${p1}${p2.slice(0, maxChars).trim()}…`);
 
       let trimmed = lines;
       const steps = [
@@ -560,10 +565,10 @@
         trimmed = shrink(label, trimmed, cap);
       }
       while (enc.encode(trimmed).length > limit) trimmed = trimmed.slice(0, trimmed.length - 50);
-      return trimmed.replace(/\\s+$/,'') + '…';
+      return trimmed.replace(/\s+$/,'') + '…';
     }
 
-    // ---- Main QR (now human-readable text) ----
+    // ---- Main QR (human-readable text) ----
     async function generateQRCode() {
       const qrCanvasContainer = document.getElementById('qrCanvas');
       const qrPlaceholder     = document.getElementById('qrPlaceholder');
@@ -602,7 +607,7 @@
       });
 
       codeUnderQR.textContent = shortCode;
-      cardUrl.value = \`https://www.myqer.com/c/\${encodeURIComponent(shortCode)}\`;
+      cardUrl.value = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
 
       qrStatus.textContent = 'Offline-friendly text QR generated';
       qrStatus.style.background = 'rgba(5,156,105,.1)';
@@ -690,20 +695,18 @@
       }catch(e){ console.error(e); showToast('Error saving emergency contacts: '+e.message,'error'); }
     }
 
-    // ---- Load user data ----
+    // ---- Load user data (local-first; session optional) ----
     async function loadUserData(){
       try{
-        const { data:{ session }, error: sessErr } = await supabase.auth.getSession();
-        if (sessErr) console.warn('Supabase session error:', sessErr);
-
-        if (!session){
-          console.warn('No Supabase session; staying on page.');
-          const box=document.getElementById('errorBox'), msg=document.getElementById('errorMsg');
-          if(box&&msg){ box.style.display='block'; msg.textContent='Your session expired. Please refresh or log in again.'; }
-          return;
+        // read session if possible
+        let session = null;
+        if (isSupabaseAvailable) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) console.warn('Supabase session error:', error);
+          session = data?.session || null;
         }
 
-        // local first
+        // local-first hydration
         const profileLS=localStorage.getItem('myqer_profile');
         const healthLS =localStorage.getItem('myqer_health');
         const iceLS    =localStorage.getItem('myqer_ice');
@@ -712,7 +715,8 @@
           userData.profile=JSON.parse(profileLS);
           const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
           Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
-        }
+        } else { userData.profile={}; }
+
         if(healthLS){
           userData.health=JSON.parse(healthLS);
           document.getElementById('hfBloodType').value=userData.health.bloodType||'';
@@ -723,41 +727,47 @@
           document.getElementById('hfImplants').value=userData.health.implants||'';
           document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
           calculateTriage();
+        } else { userData.health={}; }
+
+        iceContacts = iceLS ? JSON.parse(iceLS) : [];
+        renderIceContacts();
+
+        // if no session → local-only mode
+        if (!session) {
+          console.warn('No Supabase session; running local-only mode.');
+          await generateQRCode();
+          renderOfflineTextQR();
+          return;
         }
-        if(iceLS){ iceContacts=JSON.parse(iceLS); renderIceContacts(); }
 
-        // server wins
-        if (isSupabaseAvailable && isOnline){
-          const uid=session.user.id;
+        // server sync (server wins)
+        const uid = session.user.id;
 
-          const { data: serverProfile, error: profErr } = await supabase
+        try {
+          const { data: serverProfile } = await supabase
             .from('profiles')
             .select('full_name, dob, country, health_id, code')
             .eq('id', uid)
             .maybeSingle();
 
-          if (!profErr && serverProfile) {
+          if (serverProfile) {
             userData.profile = {
-              ...userData.profile,
-              fullName: serverProfile.full_name || '',
-              dob: serverProfile.dob || '',
-              country: serverProfile.country || '',
-              healthId: serverProfile.health_id || ''
+              fullName: serverProfile.full_name || userData.profile.fullName || '',
+              dob:      serverProfile.dob       || userData.profile.dob      || '',
+              country:  serverProfile.country   || userData.profile.country  || '',
+              healthId: serverProfile.health_id || userData.profile.healthId || ''
             };
-            if (serverProfile.code) {
-              localStorage.setItem('myqer_shortcode', serverProfile.code);
-            }
+            if (serverProfile.code) localStorage.setItem('myqer_shortcode', serverProfile.code);
             localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
             const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
-            Object.entries(pfMap).forEach(([k, id]) => {
-              const el = document.getElementById(id);
-              if (el) el.value = userData.profile[k] || '';
-            });
+            Object.entries(pfMap).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.value = userData.profile[k] || ''; });
           }
+        } catch (e) { console.warn('Profile fetch failed:', e); }
 
+        try {
           const { data: serverHealth } = await supabase.from('health_data')
             .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
-            .eq('user_id', uid).single();
+            .eq('user_id', uid).maybeSingle();
 
           if(serverHealth){
             userData.health={ bloodType:serverHealth.blood_type||'', allergies:serverHealth.allergies||'',
@@ -774,21 +784,23 @@
             document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
             calculateTriage();
           }
+        } catch (e) { console.warn('Health fetch failed:', e); }
 
+        try {
           const { data: serverIce } = await supabase.from('ice_contacts')
             .select('name, relation, phone, contact_order').eq('user_id', uid).order('contact_order',{ascending:true});
           if (Array.isArray(serverIce) && serverIce.length){
             iceContacts = serverIce.map(r=>({name:r.name||'', relation:r.relation||'', phone:r.phone||''}));
             localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); renderIceContacts();
           }
-        }
+        } catch(e){ console.warn('ICE fetch failed:', e); }
 
         await generateQRCode();
-        console.log('✅ User data loaded');
+        renderOfflineTextQR();
       }catch(e){
         console.error(e); showToast('Error loading data: '+e.message,'error');
-        const eb=document.getElementById('errorBox'), em=document.getElementById('errorMsg');
-        if(eb&&em){ eb.style.display='block'; em.textContent='Failed to load your data. Please try refreshing the page.'; }
+      }finally{
+        finalizeBoot();
       }
     }
 
@@ -853,7 +865,17 @@
     document.addEventListener('DOMContentLoaded', async ()=>{
       updateNetworkStatus();
 
-      // Basic UI
+      // resync automatically if session appears after redirect
+      if (isSupabaseAvailable) {
+        supabase.auth.onAuthStateChange((_event, session) => {
+          if (session) {
+            console.log('Auth state changed → session present; syncing server data…');
+            loadUserData();
+          }
+        });
+      }
+
+      // Lang dropdown (simple)
       const langSel=document.getElementById('langSelector'), langDd=document.getElementById('langDropdown');
       langSel.addEventListener('click',()=>{ const open=langDd.style.display==='block'; langDd.style.display=open?'none':'block'; langSel.setAttribute('aria-expanded', String(!open)); });
       langDd.addEventListener('click',(e)=>{ if(e.target.dataset.lang){ langSel.textContent=e.target.dataset.lang.toUpperCase(); langDd.style.display='none'; }});
@@ -897,9 +919,9 @@
       document.getElementById('printQR').addEventListener('click', ()=>{
         const sc=document.getElementById('codeUnderQR').textContent; if(!sc) return showToast('Generate QR code first','error');
         const img=document.getElementById('qrCanvas').querySelector('img');
-        const win=window.open('','_blank'); win.document.write(\`<html><head><title>MYQER Emergency Card - \${sc}</title></head><body style="font-family:Arial;text-align:center;padding:2rem">
-          <h1>MYQER™ Emergency Card</h1><p>Code: \${sc}</p>\${img?`<img src="\${img.src}" width="300" height="300" />`:''}
-          <p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p></body></html>\`); win.document.close(); win.print();
+        const win=window.open('','_blank'); win.document.write(`<html><head><title>MYQER Emergency Card - ${sc}</title></head><body style="font-family:Arial;text-align:center;padding:2rem">
+          <h1>MYQER™ Emergency Card</h1><p>Code: ${sc}</p>${img?`<img src="${img.src}" width="300" height="300" />`:''}
+          <p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p></body></html>`); win.document.close(); win.print();
       });
 
       // Delete flow
@@ -931,13 +953,8 @@
 
       wireOfflineDownload();
 
-      // Load data last so UI is ready
+      // Kick off first load (works even if not logged in)
       await loadUserData();
-
-      // hide loader
-      const loading = document.getElementById('loadingState');
-      loading.style.opacity='0'; loading.style.transition='opacity .5s';
-      setTimeout(()=>loading.style.display='none',500);
 
       console.log('🚀 Dashboard ready');
     });
