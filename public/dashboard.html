@@ -567,6 +567,16 @@ async function generateQRCode() {
   qrStatus.style.color = 'var(--green)';
   qrStatus.hidden = false;
 }
+    <div id="offlineQrWrap" style="display:none;margin-top:16px">
+  <div style="font-weight:600;margin:4px 0">Offline QR (JSON)</div>
+  <div id="offlineQrBox"></div>
+  <div style="font-size:.85rem;color:#64748b;margin-top:6px">
+    Works totally offline (first scan). Contains essentials + your live URL.
+  </div>
+  <div style="margin-top:8px">
+    <button id="btnSaveOfflineQR" type="button">Download PNG</button>
+  </div>
+</div>
 </script>
 
     // ---- Saves ----
@@ -863,6 +873,108 @@ if (!profErr && serverProfile) {
     window.addIceContact=addIceContact; window.removeIceContact=removeIceContact;
     window.updateIceContact=updateIceContact;
     window.saveIndividualIceContact=saveIndividualIceContact;
+  <script>
+// --- helpers you already have, re-used here ---
+function getShortCodeSync() {
+  // You already persist the permanent code in localStorage/profiles.code.
+  // Reuse that here. (If you have an async generator, call it before this.)
+  return (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+}
+
+function currentFieldsFromForm() {
+  // Adjust the selectors to match your inputs (these are from your dashboard)
+  return {
+    full_name:     document.querySelector('#pi-name')?.value?.trim() || '',
+    date_of_birth: document.querySelector('#pi-dob')?.value?.trim() || '',
+    blood_type:    document.querySelector('#pi-blood')?.value?.trim() || '',
+    organ_donor:   !!document.querySelector('#pi-donor')?.checked,
+    allergies:     document.querySelector('#sec-allergies')?.value?.trim() || '',
+    conditions:    document.querySelector('#sec-conditions')?.value?.trim() || '',
+    meds:          document.querySelector('#sec-meds')?.value?.trim() || '',
+    implants:      document.querySelector('#sec-implants')?.value?.trim() || '',
+    ice_contacts:  document.querySelector('#sec-ice')?.value?.trim() || ''
+  };
+}
+
+// Build the *offline JSON* payload that goes INSIDE the QR.
+// Keep it tiny: only essentials + URL + code.
+function buildOfflineJsonPayload() {
+  const code = getShortCodeSync();
+  const f = currentFieldsFromForm();
+
+  // Only *critical* fields asked in your spec.
+  const offline = {
+    name: f.full_name || null,
+    dob: f.date_of_birth || null,
+    blood: f.blood_type || null,
+    allergies: (f.allergies || null),
+    ice: (f.ice_contacts || null),
+    donor: f.organ_donor ? true : false
+  };
+
+  const payload = {
+    code,
+    offline,
+    url: code ? `https://www.myqer.com/c/${encodeURIComponent(code)}` : null
+  };
+
+  // Compact JSON (no spaces) for smallest QR
+  const json = JSON.stringify(payload);
+
+  // Safety: keep it < ~2000 bytes to remain very scannable
+  const bytes = new TextEncoder().encode(json).length;
+  if (bytes > 2000) {
+    console.warn('Offline QR payload is large:', bytes, 'bytes');
+  }
+  return json;
+}
+
+// Render the QR with a tiny brand frame (black modules on white)
+function renderOfflineJsonQR() {
+  const wrap = document.getElementById('offlineQrWrap');
+  const box  = document.getElementById('offlineQrBox');
+  box.innerHTML = '';
+  wrap.style.display = 'block';
+
+  const json = buildOfflineJsonPayload();
+
+  // Draw the QR
+  const q = new QRCode(box, {
+    text: json,          // <-- the QR contains the JSON itself
+    width: 240,
+    height: 240,
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // Add a small MYQER mark below (brand note)
+  const mark = document.createElement('div');
+  mark.style.marginTop = '6px';
+  mark.style.textAlign = 'center';
+  mark.style.fontWeight = '700';
+  mark.style.fontSize = '.85rem';
+  mark.style.color = '#c62828'; // MYQER red
+  mark.textContent = 'MYQER™';
+  box.appendChild(mark);
+
+  // Save PNG button
+  const btn = document.getElementById('btnSaveOfflineQR');
+  if (btn) {
+    btn.onclick = () => {
+      // qrcodejs creates an <img> inside the container
+      const img = box.querySelector('img') || box.querySelector('canvas');
+      if (!img) return;
+      const link = document.createElement('a');
+      link.download = 'myqer-offline-qr.png';
+      link.href = img.src || img.toDataURL?.('image/png');
+      link.click();
+    };
+  }
+}
+
+// Call this whenever the user presses “Generate Offline QR (JSON)”,
+// or automatically after they save health info.
+window.generateOfflineHybridQR = renderOfflineJsonQR;
+</script>
 </script>
 </body>
 </html>
