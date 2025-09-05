@@ -349,14 +349,28 @@
       }
     }, 6000);
 
-    // ---- Supabase ----
+    // ---- Supabase (Safari-safe persistence) ----
     const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
     let supabase = null, isSupabaseAvailable = false, isOnline = navigator.onLine;
     try {
       if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            storage: window.localStorage,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        });
         isSupabaseAvailable = true;
+
+        // Redirect if signed out or token invalid
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_OUT' || !session) {
+            window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
+          }
+        });
       }
     } catch (e) { console.warn('Supabase init failed:', e); }
 
@@ -388,9 +402,24 @@
       }
     }
 
+    // ---- Strict auth gate ----
+    async function requireAuth() {
+      if (!isSupabaseAvailable) {
+        finalizeBoot();
+        window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
+        throw new Error('Supabase unavailable');
+      }
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data?.session) {
+        finalizeBoot();
+        window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
+        throw new Error('No session');
+      }
+      return data.session;
+    }
+
     // ---- App state ----
     let userData = {}, iceContacts = [], autoSaveTimeouts = {};
-
     const getUserId = async () => {
       try { const { data:{ session } } = await supabase.auth.getSession(); return session?.user?.id ?? null; }
       catch { return null; }
@@ -478,23 +507,16 @@
     const generateShortCode = async () => {
       let cached = localStorage.getItem('myqer_shortcode');
       if (cached) return cached;
-      try {
-        if (isSupabaseAvailable && isOnline && supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
-          const uid = session?.user?.id || null;
-          if (uid) {
-            const { data: p, error: pErr } = await supabase
-              .from('profiles')
-              .select('code')
-              .eq('id', uid)
-              .maybeSingle();
-            if (!pErr && p?.code) {
-              localStorage.setItem('myqer_shortcode', p.code);
-              return p.code;
-            }
-          }
-        }
-      } catch (e) { console.warn('Could not read profiles.code, will generate:', e); }
+
+      const { data } = await supabase.auth.getSession();
+      const uid = data?.session?.user?.id || null;
+
+      if (uid) {
+        try {
+          const { data: p } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
+          if (p?.code) { localStorage.setItem('myqer_shortcode', p.code); return p.code; }
+        } catch (e) { console.warn('profiles.code read failed:', e); }
+      }
 
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let raw = '';
@@ -502,17 +524,12 @@
       const newCode = raw.slice(0, 4) + '-' + raw.slice(4);
       localStorage.setItem('myqer_shortcode', newCode);
 
-      try {
-        if (isSupabaseAvailable && isOnline && supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
-          const uid = session?.user?.id || null;
-          if (uid) {
-            const { error: upErr } = await supabase.from('profiles').update({ code: newCode }).eq('id', uid);
-            if (upErr) console.warn('Could not persist profiles.code:', upErr);
-          }
-        }
-      } catch (e) { console.warn('Persist profiles.code failed:', e); }
-
+      if (uid) {
+        try {
+          const { error: upErr } = await supabase.from('profiles').update({ code: newCode }).eq('id', uid);
+          if (upErr) console.warn('Persist profiles.code failed:', upErr);
+        } catch (e) { console.warn('Persist profiles.code error:', e); }
+      }
       return newCode;
     };
 
@@ -568,7 +585,7 @@
       return trimmed.replace(/\s+$/,'') + '…';
     }
 
-    // ---- Main QR (human-readable text) ----
+    // ---- Main QR (text) ----
     async function generateQRCode() {
       const qrCanvasContainer = document.getElementById('qrCanvas');
       const qrPlaceholder     = document.getElementById('qrPlaceholder');
@@ -680,7 +697,6 @@
     async function saveIce(){
       try{
         localStorage.setItem('myqer_ice',JSON.stringify(iceContacts));
-        userData.ice = iceContacts;
         if(isSupabaseAvailable && isOnline){
           const { data:{ session } } = await supabase.auth.getSession();
           if(session?.user?.id){
@@ -695,30 +711,71 @@
       }catch(e){ console.error(e); showToast('Error saving emergency contacts: '+e.message,'error'); }
     }
 
-    // ---- Load user data (local-first; session optional) ----
+    // ---- Load user data (auth required) ----
     async function loadUserData(){
-      try{
-        // read session if possible
-        let session = null;
-        if (isSupabaseAvailable) {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) console.warn('Supabase session error:', error);
-          session = data?.session || null;
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+      const uid = session.user.id;
+
+      // Local-first for snappy UI
+      const profileLS=localStorage.getItem('myqer_profile');
+      const healthLS =localStorage.getItem('myqer_health');
+      const iceLS    =localStorage.getItem('myqer_ice');
+
+      if(profileLS){
+        userData.profile=JSON.parse(profileLS);
+        const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
+        Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
+      } else { userData.profile={}; }
+
+      if(healthLS){
+        userData.health=JSON.parse(healthLS);
+        document.getElementById('hfBloodType').value=userData.health.bloodType||'';
+        document.getElementById('hfAllergies').value=userData.health.allergies||'';
+        document.getElementById('hfDonor').checked=!!userData.health.organDonor;
+        document.getElementById('hfConditions').value=userData.health.conditions||'';
+        document.getElementById('hfMeds').value=userData.health.medications||'';
+        document.getElementById('hfImplants').value=userData.health.implants||'';
+        document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
+        calculateTriage();
+      } else { userData.health={}; }
+
+      iceContacts = iceLS ? JSON.parse(iceLS) : [];
+      renderIceContacts();
+
+      // Server wins
+      try {
+        const { data: serverProfile } = await supabase
+          .from('profiles')
+          .select('full_name, dob, country, health_id, code')
+          .eq('id', uid)
+          .maybeSingle();
+
+        if (serverProfile) {
+          userData.profile = {
+            fullName: serverProfile.full_name || userData.profile.fullName || '',
+            dob:      serverProfile.dob       || userData.profile.dob      || '',
+            country:  serverProfile.country   || userData.profile.country  || '',
+            healthId: serverProfile.health_id || userData.profile.healthId || ''
+          };
+          if (serverProfile.code) localStorage.setItem('myqer_shortcode', serverProfile.code);
+          localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+          const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
+          Object.entries(pfMap).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.value = userData.profile[k] || ''; });
         }
+      } catch (e) { console.warn('Profile fetch failed:', e); }
 
-        // local-first hydration
-        const profileLS=localStorage.getItem('myqer_profile');
-        const healthLS =localStorage.getItem('myqer_health');
-        const iceLS    =localStorage.getItem('myqer_ice');
+      try {
+        const { data: serverHealth } = await supabase.from('health_data')
+          .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
+          .eq('user_id', uid).maybeSingle();
 
-        if(profileLS){
-          userData.profile=JSON.parse(profileLS);
-          const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};
-          Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=userData.profile[k]||''; });
-        } else { userData.profile={}; }
-
-        if(healthLS){
-          userData.health=JSON.parse(healthLS);
+        if(serverHealth){
+          userData.health={ bloodType:serverHealth.blood_type||'', allergies:serverHealth.allergies||'',
+            organDonor:!!serverHealth.organ_donor, conditions:serverHealth.conditions||'',
+            medications:serverHealth.medications||'', implants:serverHealth.implants||'',
+            triageOverride:serverHealth.triage_override||'auto' };
+          localStorage.setItem('myqer_health',JSON.stringify(userData.health));
           document.getElementById('hfBloodType').value=userData.health.bloodType||'';
           document.getElementById('hfAllergies').value=userData.health.allergies||'';
           document.getElementById('hfDonor').checked=!!userData.health.organDonor;
@@ -727,81 +784,20 @@
           document.getElementById('hfImplants').value=userData.health.implants||'';
           document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
           calculateTriage();
-        } else { userData.health={}; }
-
-        iceContacts = iceLS ? JSON.parse(iceLS) : [];
-        renderIceContacts();
-
-        // if no session → local-only mode
-        if (!session) {
-          console.warn('No Supabase session; running local-only mode.');
-          await generateQRCode();
-          renderOfflineTextQR();
-          return;
         }
+      } catch (e) { console.warn('Health fetch failed:', e); }
 
-        // server sync (server wins)
-        const uid = session.user.id;
+      try {
+        const { data: serverIce } = await supabase.from('ice_contacts')
+          .select('name, relation, phone, contact_order').eq('user_id', uid).order('contact_order',{ascending:true});
+        if (Array.isArray(serverIce) && serverIce.length){
+          iceContacts = serverIce.map(r=>({name:r.name||'', relation:r.relation||'', phone:r.phone||''}));
+          localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); renderIceContacts();
+        }
+      } catch(e){ console.warn('ICE fetch failed:', e); }
 
-        try {
-          const { data: serverProfile } = await supabase
-            .from('profiles')
-            .select('full_name, dob, country, health_id, code')
-            .eq('id', uid)
-            .maybeSingle();
-
-          if (serverProfile) {
-            userData.profile = {
-              fullName: serverProfile.full_name || userData.profile.fullName || '',
-              dob:      serverProfile.dob       || userData.profile.dob      || '',
-              country:  serverProfile.country   || userData.profile.country  || '',
-              healthId: serverProfile.health_id || userData.profile.healthId || ''
-            };
-            if (serverProfile.code) localStorage.setItem('myqer_shortcode', serverProfile.code);
-            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-            const pfMap = { fullName:'profileFullName', dob:'profileDob', country:'profileCountry', healthId:'profileHealthId' };
-            Object.entries(pfMap).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.value = userData.profile[k] || ''; });
-          }
-        } catch (e) { console.warn('Profile fetch failed:', e); }
-
-        try {
-          const { data: serverHealth } = await supabase.from('health_data')
-            .select('blood_type, allergies, organ_donor, conditions, medications, implants, triage_override')
-            .eq('user_id', uid).maybeSingle();
-
-          if(serverHealth){
-            userData.health={ bloodType:serverHealth.blood_type||'', allergies:serverHealth.allergies||'',
-              organDonor:!!serverHealth.organ_donor, conditions:serverHealth.conditions||'',
-              medications:serverHealth.medications||'', implants:serverHealth.implants||'',
-              triageOverride:serverHealth.triage_override||'auto' };
-            localStorage.setItem('myqer_health',JSON.stringify(userData.health));
-            document.getElementById('hfBloodType').value=userData.health.bloodType||'';
-            document.getElementById('hfAllergies').value=userData.health.allergies||'';
-            document.getElementById('hfDonor').checked=!!userData.health.organDonor;
-            document.getElementById('hfConditions').value=userData.health.conditions||'';
-            document.getElementById('hfMeds').value=userData.health.medications||'';
-            document.getElementById('hfImplants').value=userData.health.implants||'';
-            document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';
-            calculateTriage();
-          }
-        } catch (e) { console.warn('Health fetch failed:', e); }
-
-        try {
-          const { data: serverIce } = await supabase.from('ice_contacts')
-            .select('name, relation, phone, contact_order').eq('user_id', uid).order('contact_order',{ascending:true});
-          if (Array.isArray(serverIce) && serverIce.length){
-            iceContacts = serverIce.map(r=>({name:r.name||'', relation:r.relation||'', phone:r.phone||''}));
-            localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); renderIceContacts();
-          }
-        } catch(e){ console.warn('ICE fetch failed:', e); }
-
-        await generateQRCode();
-        renderOfflineTextQR();
-      }catch(e){
-        console.error(e); showToast('Error loading data: '+e.message,'error');
-      }finally{
-        finalizeBoot();
-      }
+      await generateQRCode();
+      renderOfflineTextQR();
     }
 
     // ---- Offline Text QR (panel) ----
@@ -865,15 +861,8 @@
     document.addEventListener('DOMContentLoaded', async ()=>{
       updateNetworkStatus();
 
-      // resync automatically if session appears after redirect
-      if (isSupabaseAvailable) {
-        supabase.auth.onAuthStateChange((_event, session) => {
-          if (session) {
-            console.log('Auth state changed → session present; syncing server data…');
-            loadUserData();
-          }
-        });
-      }
+      // MUST be signed in (redirects to login if not)
+      try { await requireAuth(); } catch { return; }
 
       // Lang dropdown (simple)
       const langSel=document.getElementById('langSelector'), langDd=document.getElementById('langDropdown');
@@ -931,30 +920,33 @@
         if(delPhrase.value!=='DELETE MY ACCOUNT') return;
         if(!confirm('This will permanently delete your data. Continue?')) return;
         try{
-          if(isSupabaseAvailable && isOnline){
-            const uid=await getUserId();
-            if(uid){
-              await supabase.from('ice_contacts').delete().eq('user_id',uid);
-              await supabase.from('health_data').delete().eq('user_id',uid);
-              await supabase.from('profiles').delete().eq('id',uid);
-            }
-            await supabase.auth.signOut();
+          const uid=await getUserId();
+          if(uid){
+            await supabase.from('ice_contacts').delete().eq('user_id',uid);
+            await supabase.from('health_data').delete().eq('user_id',uid);
+            await supabase.from('profiles').delete().eq('id',uid);
           }
+          await supabase.auth.signOut();
           localStorage.clear(); sessionStorage.clear();
-          showToast('Account deleted. Redirecting…','success'); setTimeout(()=>location.href='/',1500);
+          window.location.replace('/login.html');
         }catch(e){ console.error(e); showToast('Error deleting account: '+e.message,'error'); }
       });
 
       document.getElementById('btnSignOut').addEventListener('click', async ()=>{
         if(!confirm('Are you sure you want to logout?')) return;
-        try{ await supabase.auth.signOut(); localStorage.clear(); sessionStorage.clear(); location.href='/'; }
-        catch(e){ console.error(e); alert('Logout failed, please try again'); }
+        try{
+          await supabase.auth.signOut();
+          localStorage.clear(); sessionStorage.clear();
+          window.location.replace('/login.html');
+        } catch(e){ console.error(e); alert('Logout failed, please try again'); }
       });
 
       wireOfflineDownload();
 
-      // Kick off first load (works even if not logged in)
-      await loadUserData();
+      // Load data (session guaranteed by requireAuth)
+      try { await loadUserData(); }
+      catch (e) { console.error(e); showToast('Failed to load your data','error'); }
+      finally { finalizeBoot(); }
 
       console.log('🚀 Dashboard ready');
     });
