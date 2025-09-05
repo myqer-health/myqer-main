@@ -548,15 +548,18 @@ async function generateQRCode() {
   const offlineHtml = makeOfflineHTML({ snapshot, code: shortCode, liveUrl });
   const dataUrl     = toDataUrl(offlineHtml);
 
-  // 4) Render QR with the data URL (hybrid: offline snapshot + live redirect if online)
-  qrPlaceholder.style.display = 'none';
-  qrCanvasContainer.innerHTML = '';
-  new QRCode(qrCanvasContainer, {
-    text: dataUrl,          // <-- the magic: QR contains a self-contained offline page
-    width: 240,
-    height: 240,
-    correctLevel: QRCode.CorrectLevel.M
-  });
+// 4) Render QR with the JSON payload (hybrid: includes essentials + live URL)
+const json = buildOfflineJsonPayload();
+
+qrPlaceholder.style.display = 'none';
+qrCanvasContainer.innerHTML = '';
+
+new QRCode(qrCanvasContainer, {
+  text: json,                 // <<— the QR now *is* the JSON payload
+  width: 240,
+  height: 240,
+  correctLevel: QRCode.CorrectLevel.M
+});
 
   // 5) UI under the QR still shows the live URL + code (for copy/open)
   codeUnderQR.textContent = shortCode;
