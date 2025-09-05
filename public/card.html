@@ -1,95 +1,115 @@
 <script>
-function readHashSnapshot() {
-  // parse #s=...&p=...
-  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
-  if (!hash) return null;
-  const params = new URLSearchParams(hash);
-  const s = params.get('s');  // signature (base64)
-  const p = params.get('p');  // payload (base64)
-  if (!s || !p) return null;
-  return { sig: s, payload: p };
-}
+  // Supabase
+  const SUPABASE_URL = "https://dmntmhkncldgynufajei.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// optional: verify signature client-side only if you want (needs public verifier).
-// For now we’ll trust the server signed it. If you want verify, expose a read-only
-// public key and switch to an asymmetric signature.
+  // helpers
+  const $ = (id) => document.getElementById(id);
+  const set = (id, val, empty='—') => {
+    const el = $(id);
+    const out = (val && String(val).trim()) ? String(val).trim() : empty;
+    el.textContent = out;
+    el.classList.toggle('mute', out===empty);
+  };
 
-function decodePayload(base64Text) {
-  try {
-    const json = atob(base64Text);
-    return JSON.parse(json);
-  } catch { return null; }
-}
-
-async function loadCard() {
-  const code = codeFromPath();
-  if (!code) { /* existing error UI */ return; }
-
-  $('code').textContent = code;
-  new QRCode($('qr'), { text: location.href, width: 180, height: 180 });
-
-  const useOfflineFirst = !navigator.onLine;
-  const hashSnap = readHashSnapshot();
-
-  if (useOfflineFirst && hashSnap) {
-    const data = decodePayload(hashSnap.payload);
-    if (data) {
-      bind({
-        full_name:      data.fn,
-        date_of_birth:  data.dob,
-        blood_type:     data.bt,
-        organ_donor:    data.od,
-        allergies:      data.al,
-        conditions:     data.cd,
-        meds:           data.md,
-        implants:       data.im,
-        ice_contacts:   data.ic,
-        triage:         'GREEN' // or compute, or include in payload
-      });
-      $('offline').textContent = [
-        'MYQER — Emergency Snapshot',
-        `Name: ${data.fn ?? '—'}`,
-        `DOB: ${data.dob ?? '—'}`,
-        `Blood: ${data.bt ?? '—'}`,
-        `Allergies: ${data.al ?? '—'}`,
-        `Conditions: ${data.cd ?? '—'}`,
-        `Medications: ${data.md ?? '—'}`,
-        `ICE: ${data.ic ?? '—'}`
-      ].join('\n');
-      return; // done
-    }
+  function codeFromPath() {
+    // supports /c/CODE and /card.html?code=CODE
+    const parts = location.pathname.split('/').filter(Boolean);
+    const fromRoute = (parts.length >= 2 && parts[parts.length-2] === 'c') ? parts[parts.length-1] : null;
+    const fromQuery = new URLSearchParams(location.search).get('code');
+    return (fromRoute || fromQuery || '').toUpperCase() || null;
   }
 
-  // ONLINE path (or fallback when offline decode not available)
-  try {
-    const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
-    if (error) throw error;
-    const row = data?.[0];
-    if (!row) throw new Error('Code not found');
+  // NEW: read a baked snapshot from the URL fragment (#s=...)
+  function bakedSnapshotFromHash() {
+    try {
+      const m = (location.hash || '').match(/[#&]s=([^&]+)/);
+      if (!m) return null;
+      // param was encodeURIComponent(btoa(json)); reverse it
+      const json = decodeURIComponent(atob(m[1]));
+      return JSON.parse(json);
+    } catch { return null; }
+  }
 
-    bind(row);
+  function bind(card) {
+    set('v-name',  card.full_name);
+    set('v-dob',   card.date_of_birth);
+    set('v-blood', card.blood_type);
+    set('v-donor', card.organ_donor ? 'Yes' : 'No');
+    set('v-all',   card.allergies,  'No known allergies');
+    set('v-cond',  card.conditions, 'No known conditions');
+    set('v-meds',  card.meds,       'No current medications');
+    set('v-impl',  card.implants,   'None reported');
+    set('v-ice',   card.ice_contacts, 'No contacts available');
 
-    // also refresh device-local snapshot for this browser
-    const snap = [
-      'MYQER — Emergency Snapshot',
+    const tri = (card.triage || 'GREEN').toUpperCase();
+    const pill = $('v-triage');
+    pill.textContent = tri;
+    pill.className = 'pill ' + tri;
+  }
+
+  function snapshotText(row, source){
+    return [
+      `MYQER — Emergency Snapshot (${source})`,
       `Name: ${row.full_name ?? '—'}`,
       `DOB: ${row.date_of_birth ?? '—'}`,
       `Blood: ${row.blood_type ?? '—'}`,
       `Allergies: ${row.allergies ?? '—'}`,
       `Conditions: ${row.conditions ?? '—'}`,
-      `Medications: ${row.meds ?? '—'}`,
+      `Meds: ${row.meds ?? '—'}`,
       `ICE: ${row.ice_contacts ?? '—'}`
     ].join('\n');
-    $('offline').textContent = snap;
-    localStorage.setItem('myqer:offline-snapshot', snap);
-  } catch (err) {
-    $('err').style.display = 'block';
-    $('err').textContent = 'Live lookup failed: ' + (err.message || err);
-
-    // last-ditch: device-local cache (if any)
-    $('offline').textContent =
-      localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
   }
-}
-loadCard();
+
+  async function loadCard(){
+    const code = codeFromPath();
+    if (!code) {
+      const e = $('err'); e.style.display='block';
+      e.textContent = 'No code in the URL.';
+      return;
+    }
+
+    // Show code + QR (preserve any baked #fragment so the printed QR re-encodes it)
+    $('code').textContent = code;
+    const url = `https://www.myqer.com/c/${encodeURIComponent(code)}${location.hash || ''}`;
+    new QRCode($('qr'), { text: url, width: 180, height: 180 });
+
+    // 1) If the QR contains a baked snapshot, show it immediately (works offline)
+    const baked = bakedSnapshotFromHash();
+    if (baked) {
+      bind(baked);
+      $('offline').textContent = snapshotText(baked, 'QR');
+    }
+
+    // 2) If we have internet, fetch the latest from Supabase and refresh the UI
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
+        if (error) throw error;
+        const row = (data && data[0]) || null;
+        if (!row) throw new Error('Code not found');
+
+        bind(row);
+        const snap = snapshotText(row, 'Live');
+        $('offline').textContent = snap;
+        localStorage.setItem('myqer:offline-snapshot', snap);
+      } catch (err) {
+        $('err').style.display='block';
+        $('err').textContent = 'Live lookup failed: ' + (err.message || err);
+        if (!baked) {
+          $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
+        }
+      }
+    } else {
+      // 3) Fully offline and no baked data: fall back to any cached snapshot
+      if (!baked) {
+        $('err').style.display='block';
+        $('err').textContent = 'Offline. Showing any cached snapshot below.';
+        $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
+      }
+    }
+  }
+
+  loadCard();
 </script>
