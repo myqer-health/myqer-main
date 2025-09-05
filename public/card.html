@@ -5,14 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Card</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
   <style>
-    :root{--ink:#0f172a;--slate:#64748b;--border:#e2e8f0;--red:#dc2626;--amber:#d97706;--green:#059669}
-    *{box-sizing:border-box} body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;background:#f8fafc;color:var(--ink)}
+    :root{
+      --ink:#0f172a;--slate:#64748b;--border:#e2e8f0;
+      --red:#dc2626;--amber:#d97706;--green:#059669
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;background:#f8fafc;color:var(--ink)}
     .wrap{max-width:720px;margin:24px auto;padding:16px}
     .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 20px 8px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-    h1{font-size:1.25rem;margin:0 0 .25rem;font-weight:800} .sub{color:var(--slate);font-size:.9rem;margin:0 0 1rem}
+    h1{font-size:1.25rem;margin:0 0 .25rem;font-weight:800}
+    .sub{color:var(--slate);font-size:.9rem;margin:0 0 1rem}
     .row{border:1px dashed #e5e7eb;border-radius:10px;padding:.6rem .75rem;margin:.4rem 0;display:flex;justify-content:space-between;gap:12px}
-    .label{color:var(--slate);font-weight:600} .val{font-weight:600}
+    .label{color:var(--slate);font-weight:600}
+    .val{font-weight:600}
     .pill{display:inline-block;padding:.25rem .6rem;border-radius:999px;font-weight:800;font-size:.75rem;margin:.4rem 0}
     .pill.GREEN{background:#dcfce7;color:var(--green)}
     .pill.AMBER{background:#fef3c7;color:var(--amber)}
@@ -24,6 +31,8 @@
     .foot{margin-top:14px;border-top:1px solid var(--border);padding-top:8px;text-align:center;color:var(--slate);font-size:.8rem}
     pre{white-space:pre-wrap;background:#f8fafc;border:1px dashed var(--border);padding:.75rem;border-radius:12px}
   </style>
+
+  <!-- libs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -79,51 +88,12 @@
     };
 
     function codeFromPath() {
-      // supports /c/CDEB-EUED and /card.html?code=CDEB-EUED
-      const p = location.pathname.split('/').filter(Boolean);
-      const maybe = p[p.length-1];
-      const byQuery = new URLSearchParams(location.search).get('code');
-      return (p.length>=2 && p[p.length-2]==='c') ? maybe : byQuery;
-    }
-
-    async function loadCard() {
-      const code = codeFromPath();
-      if (!code) {
-        const e = $('err'); e.style.display='block';
-        e.textContent = 'No code in the URL.';
-        return;
-      }
-
-      $('code').textContent = code;
-      new QRCode($('qr'), { text: location.href, width: 180, height: 180 });
-
-      // try online first
-      try {
-        const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
-        if (error) throw error;
-        const row = (data && data[0]) || null;
-        if (!row) throw new Error('Code not found');
-
-        bind(row);
-
-        // store a compact offline snapshot (optional)
-        const snap = [
-          `MYQER — Emergency Snapshot`,
-          `Name: ${row.full_name ?? '—'}`,
-          `DOB: ${row.date_of_birth ?? '—'}`,
-          `Blood: ${row.blood_type ?? '—'}`,
-          `Allergies: ${row.allergies ?? '—'}`,
-          `Conditions: ${row.conditions ?? '—'}`,
-          `Medications: ${row.meds ?? '—'}`,
-          `ICE: ${row.ice_contacts ?? '—'}`
-        ].join('\n');
-        $('offline').textContent = snap;
-      } catch (err) {
-        // fallback to any cached text we might have
-        $('err').style.display='block';
-        $('err').textContent = 'Live lookup failed: ' + (err.message || err);
-        $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
-      }
+      // supports /c/CODE and /card.html?code=CODE
+      const parts = location.pathname.split('/').filter(Boolean);
+      const fromRoute = (parts.length >= 2 && parts[parts.length-2] === 'c') ? parts[parts.length-1] : null;
+      const fromQuery = new URLSearchParams(location.search).get('code');
+      const raw = (fromRoute || fromQuery || '').trim();
+      return raw ? raw.toUpperCase() : null;
     }
 
     function bind(card) {
@@ -138,7 +108,50 @@
       set('v-ice',   card.ice_contacts, 'No contacts available');
 
       const tri = (card.triage || 'GREEN').toUpperCase();
-      const pill = $('v-triage'); pill.textContent = tri; pill.className = 'pill ' + tri;
+      const pill = $('v-triage');
+      pill.textContent = tri;
+      pill.className = 'pill ' + tri;
+    }
+
+    async function loadCard() {
+      const code = codeFromPath();
+      if (!code) {
+        const e = $('err'); e.style.display='block';
+        e.textContent = 'No code in the URL.';
+        return;
+      }
+
+      // show canonical code + QR (use /c/<CODE> as the target)
+      $('code').textContent = code;
+      const qrUrl = `https://www.myqer.com/c/${encodeURIComponent(code)}`;
+      new QRCode($('qr'), { text: qrUrl, width: 180, height: 180 });
+
+      try {
+        const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
+        if (error) throw error;
+        const row = data?.[0];
+        if (!row) throw new Error('Code not found');
+
+        bind(row);
+
+        // cache a compact snapshot for offline use
+        const snap = [
+          'MYQER — Emergency Snapshot',
+          `Name: ${row.full_name ?? '—'}`,
+          `DOB: ${row.date_of_birth ?? '—'}`,
+          `Blood: ${row.blood_type ?? '—'}`,
+          `Allergies: ${row.allergies ?? '—'}`,
+          `Conditions: ${row.conditions ?? '—'}`,
+          `Medications: ${row.meds ?? '—'}`,
+          `ICE: ${row.ice_contacts ?? '—'}`
+        ].join('\n');
+        $('offline').textContent = snap;
+        localStorage.setItem('myqer:offline-snapshot', snap);
+      } catch (err) {
+        $('err').style.display='block';
+        $('err').textContent = 'Live lookup failed: ' + (err.message || err);
+        $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
+      }
     }
 
     loadCard();
