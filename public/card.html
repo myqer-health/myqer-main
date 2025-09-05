@@ -1,160 +1,95 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MYQER — Emergency Card</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<script>
+function readHashSnapshot() {
+  // parse #s=...&p=...
+  const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const s = params.get('s');  // signature (base64)
+  const p = params.get('p');  // payload (base64)
+  if (!s || !p) return null;
+  return { sig: s, payload: p };
+}
 
-  <style>
-    :root{
-      --ink:#0f172a;--slate:#64748b;--border:#e2e8f0;
-      --red:#dc2626;--amber:#d97706;--green:#059669
+// optional: verify signature client-side only if you want (needs public verifier).
+// For now we’ll trust the server signed it. If you want verify, expose a read-only
+// public key and switch to an asymmetric signature.
+
+function decodePayload(base64Text) {
+  try {
+    const json = atob(base64Text);
+    return JSON.parse(json);
+  } catch { return null; }
+}
+
+async function loadCard() {
+  const code = codeFromPath();
+  if (!code) { /* existing error UI */ return; }
+
+  $('code').textContent = code;
+  new QRCode($('qr'), { text: location.href, width: 180, height: 180 });
+
+  const useOfflineFirst = !navigator.onLine;
+  const hashSnap = readHashSnapshot();
+
+  if (useOfflineFirst && hashSnap) {
+    const data = decodePayload(hashSnap.payload);
+    if (data) {
+      bind({
+        full_name:      data.fn,
+        date_of_birth:  data.dob,
+        blood_type:     data.bt,
+        organ_donor:    data.od,
+        allergies:      data.al,
+        conditions:     data.cd,
+        meds:           data.md,
+        implants:       data.im,
+        ice_contacts:   data.ic,
+        triage:         'GREEN' // or compute, or include in payload
+      });
+      $('offline').textContent = [
+        'MYQER — Emergency Snapshot',
+        `Name: ${data.fn ?? '—'}`,
+        `DOB: ${data.dob ?? '—'}`,
+        `Blood: ${data.bt ?? '—'}`,
+        `Allergies: ${data.al ?? '—'}`,
+        `Conditions: ${data.cd ?? '—'}`,
+        `Medications: ${data.md ?? '—'}`,
+        `ICE: ${data.ic ?? '—'}`
+      ].join('\n');
+      return; // done
     }
-    *{box-sizing:border-box}
-    body{font-family:Inter,system-ui,-apple-system,sans-serif;margin:0;background:#f8fafc;color:var(--ink)}
-    .wrap{max-width:720px;margin:24px auto;padding:16px}
-    .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 20px 8px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-    h1{font-size:1.25rem;margin:0 0 .25rem;font-weight:800}
-    .sub{color:var(--slate);font-size:.9rem;margin:0 0 1rem}
-    .row{border:1px dashed #e5e7eb;border-radius:10px;padding:.6rem .75rem;margin:.4rem 0;display:flex;justify-content:space-between;gap:12px}
-    .label{color:var(--slate);font-weight:600}
-    .val{font-weight:600}
-    .pill{display:inline-block;padding:.25rem .6rem;border-radius:999px;font-weight:800;font-size:.75rem;margin:.4rem 0}
-    .pill.GREEN{background:#dcfce7;color:var(--green)}
-    .pill.AMBER{background:#fef3c7;color:var(--amber)}
-    .pill.RED{background:#fee2e2;color:var(--red)}
-    .mute{color:#94a3b8}
-    .qr{margin:14px 0 6px;text-align:center}
-    .code{font-family:ui-monospace,Menlo,monospace;color:var(--slate);text-align:center;font-weight:700;letter-spacing:.12em}
-    #err{display:none;background:#fee2e2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:.75rem;margin-top:.75rem}
-    .foot{margin-top:14px;border-top:1px solid var(--border);padding-top:8px;text-align:center;color:var(--slate);font-size:.8rem}
-    pre{white-space:pre-wrap;background:#f8fafc;border:1px dashed var(--border);padding:.75rem;border-radius:12px}
-  </style>
+  }
 
-  <!-- libs -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Emergency Profile</h1>
-      <p class="sub">Accessed via QR scan</p>
+  // ONLINE path (or fallback when offline decode not available)
+  try {
+    const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
+    if (error) throw error;
+    const row = data?.[0];
+    if (!row) throw new Error('Code not found');
 
-      <div class="row"><div class="label">Name</div><div id="v-name" class="val mute">—</div></div>
-      <div class="row"><div class="label">Date of Birth</div><div id="v-dob" class="val mute">—</div></div>
-      <div class="row"><div class="label">Blood Type</div><div id="v-blood" class="val mute">—</div></div>
-      <div class="row"><div class="label">Organ Donor</div><div id="v-donor" class="val mute">—</div></div>
+    bind(row);
 
-      <div class="row"><div class="label">Medical Allergies</div><div id="v-all" class="val mute">—</div></div>
-      <div class="row"><div class="label">Medical Conditions</div><div id="v-cond" class="val mute">—</div></div>
-      <div class="row"><div class="label">Current Medications</div><div id="v-meds" class="val mute">—</div></div>
-      <div class="row"><div class="label">Implants & Devices</div><div id="v-impl" class="val mute">—</div></div>
-      <div class="row"><div class="label">Emergency Contacts</div><div id="v-ice" class="val mute">—</div></div>
+    // also refresh device-local snapshot for this browser
+    const snap = [
+      'MYQER — Emergency Snapshot',
+      `Name: ${row.full_name ?? '—'}`,
+      `DOB: ${row.date_of_birth ?? '—'}`,
+      `Blood: ${row.blood_type ?? '—'}`,
+      `Allergies: ${row.allergies ?? '—'}`,
+      `Conditions: ${row.conditions ?? '—'}`,
+      `Medications: ${row.meds ?? '—'}`,
+      `ICE: ${row.ice_contacts ?? '—'}`
+    ].join('\n');
+    $('offline').textContent = snap;
+    localStorage.setItem('myqer:offline-snapshot', snap);
+  } catch (err) {
+    $('err').style.display = 'block';
+    $('err').textContent = 'Live lookup failed: ' + (err.message || err);
 
-      <div style="margin:.35rem 0">
-        <span class="label">Triage</span>
-        <span id="v-triage" class="pill GREEN">GREEN</span>
-      </div>
-
-      <div class="qr"><div id="qr"></div></div>
-      <div class="code" id="code">—</div>
-
-      <div id="err"></div>
-
-      <details style="margin-top:10px">
-        <summary class="label">Offline snapshot (if available)</summary>
-        <pre id="offline">No cached snapshot.</pre>
-      </details>
-
-      <div class="foot">Read-only emergency information. Always verify clinically before treatment.</div>
-    </div>
-  </div>
-
-  <script>
-    // --- Supabase (your project) ---
-    const SUPABASE_URL = "https://dmntmhkncldgynufajei.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // --- helpers ---
-    const $ = (id) => document.getElementById(id);
-    const set = (id, val, empty='—') => {
-      const el = $(id);
-      const out = (val && String(val).trim()) ? String(val).trim() : empty;
-      el.textContent = out;
-      el.classList.toggle('mute', out===empty);
-    };
-
-    function codeFromPath() {
-      // supports /c/CODE and /card.html?code=CODE
-      const parts = location.pathname.split('/').filter(Boolean);
-      const fromRoute = (parts.length >= 2 && parts[parts.length-2] === 'c') ? parts[parts.length-1] : null;
-      const fromQuery = new URLSearchParams(location.search).get('code');
-      const raw = (fromRoute || fromQuery || '').trim();
-      return raw ? raw.toUpperCase() : null;
-    }
-
-    function bind(card) {
-      set('v-name',  card.full_name);
-      set('v-dob',   card.date_of_birth);
-      set('v-blood', card.blood_type);
-      set('v-donor', card.organ_donor ? 'Yes' : 'No');
-      set('v-all',   card.allergies,  'No known allergies');
-      set('v-cond',  card.conditions, 'No known conditions');
-      set('v-meds',  card.meds,       'No current medications');
-      set('v-impl',  card.implants,   'None reported');
-      set('v-ice',   card.ice_contacts, 'No contacts available');
-
-      const tri = (card.triage || 'GREEN').toUpperCase();
-      const pill = $('v-triage');
-      pill.textContent = tri;
-      pill.className = 'pill ' + tri;
-    }
-
-    async function loadCard() {
-      const code = codeFromPath();
-      if (!code) {
-        const e = $('err'); e.style.display='block';
-        e.textContent = 'No code in the URL.';
-        return;
-      }
-
-      // show canonical code + QR (use /c/<CODE> as the target)
-      $('code').textContent = code;
-      const qrUrl = `https://www.myqer.com/c/${encodeURIComponent(code)}`;
-      new QRCode($('qr'), { text: qrUrl, width: 180, height: 180 });
-
-      try {
-        const { data, error } = await sb.rpc('emergency_card_by_code', { p_code: code });
-        if (error) throw error;
-        const row = data?.[0];
-        if (!row) throw new Error('Code not found');
-
-        bind(row);
-
-        // cache a compact snapshot for offline use
-        const snap = [
-          'MYQER — Emergency Snapshot',
-          `Name: ${row.full_name ?? '—'}`,
-          `DOB: ${row.date_of_birth ?? '—'}`,
-          `Blood: ${row.blood_type ?? '—'}`,
-          `Allergies: ${row.allergies ?? '—'}`,
-          `Conditions: ${row.conditions ?? '—'}`,
-          `Medications: ${row.meds ?? '—'}`,
-          `ICE: ${row.ice_contacts ?? '—'}`
-        ].join('\n');
-        $('offline').textContent = snap;
-        localStorage.setItem('myqer:offline-snapshot', snap);
-      } catch (err) {
-        $('err').style.display='block';
-        $('err').textContent = 'Live lookup failed: ' + (err.message || err);
-        $('offline').textContent = localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
-      }
-    }
-
-    loadCard();
-  </script>
-</body>
-</html>
+    // last-ditch: device-local cache (if any)
+    $('offline').textContent =
+      localStorage.getItem('myqer:offline-snapshot') || 'No cached snapshot.';
+  }
+}
+loadCard();
+</script>
