@@ -477,7 +477,12 @@ const generateShortCode = async () => {
   } catch (e) {
     console.warn('Could not read profiles.code, will generate:', e);
   }
+// --- HYBRID QR HELPERS ---
+function buildSnapshotForQR() { ... }
 
+function makeOfflineHTML({ snapshot, code, liveUrl }) { ... }
+
+function toDataUrl(html) { ... }
   // 3) Generate a new code (offline-safe)
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let raw = '';
@@ -506,40 +511,63 @@ const generateShortCode = async () => {
 
   return newCode;
 };
-   async function generateQRCode(){
-      const qrCanvasContainer=document.getElementById('qrCanvas');
-      const qrPlaceholder=document.getElementById('qrPlaceholder');
-      const codeUnderQR=document.getElementById('codeUnderQR');
-      const cardUrl=document.getElementById('cardUrl');
-      const qrStatus=document.getElementById('qrStatus');
+   <script>
+async function generateQRCode() {
+  const qrCanvasContainer = document.getElementById('qrCanvas');
+  const qrPlaceholder     = document.getElementById('qrPlaceholder');
+  const codeUnderQR       = document.getElementById('codeUnderQR');
+  const cardUrl           = document.getElementById('cardUrl');
+  const qrStatus          = document.getElementById('qrStatus');
 
-      const hasProfile = userData.profile && userData.profile.fullName;
-      const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies);
-      const hasIce     = iceContacts && iceContacts.length>0;
+  // Do we have any content to justify a QR?
+  const hasProfile = userData.profile && userData.profile.fullName;
+  const hasHealth  = userData.health && (
+    userData.health.bloodType || userData.health.allergies ||
+    userData.health.conditions || userData.health.medications ||
+    userData.health.implants || typeof userData.health.organDonor !== 'undefined'
+  );
+  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
-      if (hasProfile || hasHealth || hasIce){
-        const shortCode = await generateShortCode();
-const qrUrl = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
-        codeUnderQR.textContent = shortCode;
-        cardUrl.value = qrUrl;
+  if (!(hasProfile || hasHealth || hasIce)) {
+    qrPlaceholder.style.display = 'flex';
+    qrCanvasContainer.innerHTML = '';
+    codeUnderQR.textContent = '';
+    cardUrl.value = '';
+    qrStatus.hidden = true;
+    return;
+  }
 
-        qrPlaceholder.style.display='none';
-        qrCanvasContainer.innerHTML='';
+  // 1) Ensure we have a permanent short code
+  const shortCode = await generateShortCode();   // you already have this function in your file
+  const liveUrl   = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
 
-        new QRCode(qrCanvasContainer,{text:qrUrl,width:240,height:240,correctLevel:QRCode.CorrectLevel.M});
+  // 2) Build a tiny snapshot from current fields
+  const snapshot = buildSnapshotForQR();
 
-        qrStatus.textContent='QR Code generated successfully';
-        qrStatus.style.background='rgba(5,156,105,.1)';
-        qrStatus.style.color='var(--green)';
-        qrStatus.hidden=false;
-      } else {
-        qrPlaceholder.style.display='flex';
-        qrCanvasContainer.innerHTML='';
-        codeUnderQR.textContent='';
-        cardUrl.value='';
-        qrStatus.hidden=true;
-      }
-    }
+  // 3) Build the offline HTML → data URL
+  const offlineHtml = makeOfflineHTML({ snapshot, code: shortCode, liveUrl });
+  const dataUrl     = toDataUrl(offlineHtml);
+
+  // 4) Render QR with the data URL (hybrid: offline snapshot + live redirect if online)
+  qrPlaceholder.style.display = 'none';
+  qrCanvasContainer.innerHTML = '';
+  new QRCode(qrCanvasContainer, {
+    text: dataUrl,          // <-- the magic: QR contains a self-contained offline page
+    width: 240,
+    height: 240,
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // 5) UI under the QR still shows the live URL + code (for copy/open)
+  codeUnderQR.textContent = shortCode;
+  cardUrl.value = liveUrl;
+
+  qrStatus.textContent = 'Hybrid QR generated (works online & offline)';
+  qrStatus.style.background = 'rgba(5,156,105,.1)';
+  qrStatus.style.color = 'var(--green)';
+  qrStatus.hidden = false;
+}
+</script>
 
     // ---- Saves ----
     async function saveProfile(){
