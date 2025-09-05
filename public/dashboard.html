@@ -984,5 +984,174 @@ link.click();
 // or automatically after they save health info.
 window.generateOfflineHybridQR = renderOfflineJsonQR;
 </script>
+  <!-- === MYQER OFFLINE JSON QR: Drop-in addon (non-destructive) === -->
+<script>
+(function(){
+
+  // 1) Ensure qrcodejs exists (you already include it; this is a soft check)
+  function hasQRCodeLib(){ return !!(window.QRCode && QRCode.CorrectLevel); }
+
+  // 2) Build (or reuse) the small “Offline QR” panel under your existing live-QR area
+  function ensureOfflinePanel(){
+    if (document.getElementById('offlineQRwrap')) return;
+
+    // Try to place it under your live QR panel; fall back near #qrCanvas
+    const liveHost = document.querySelector('#qrPanel, #qrBox, #qrCanvas') || document.body;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'offlineQRwrap';
+    wrap.style.display = 'none';
+    wrap.style.marginTop = '12px';
+    wrap.style.borderRadius = '12px';
+    wrap.style.padding = '10px';
+    wrap.style.background = '#fafafa';
+    wrap.style.border = '1px solid #e5e7eb';
+
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:800;font-size:.9rem">Offline QR (JSON)</span>
+        <span style="display:inline-block;padding:.2rem .5rem;font-size:.7rem;border-radius:999px;background:#eef2ff;color:#475569;border:1px solid #e2e8f0">
+          First-scan works with no internet
+        </span>
+      </div>
+      <div id="offlineQRbox" style="display:flex;flex-direction:column;align-items:center;gap:6px"></div>
+      <div class="small" style="color:#64748b;font-size:.85rem;margin-top:6px">
+        Contains: name, DOB, blood, allergies, donor, first ICE, plus a live URL.
+      </div>
+      <div style="display:flex;justify-content:center;margin-top:8px">
+        <button id="btnSaveOfflineQR" type="button"
+                style="appearance:none;border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:.5rem .8rem;font-weight:600;cursor:pointer">
+          Download PNG
+        </button>
+      </div>
+    `;
+    liveHost.parentNode.insertBefore(wrap, liveHost.nextSibling);
+  }
+
+  // 3) Read the permanent short code you already store
+  function getShortCode(){
+    return (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+  }
+
+  // 4) Read current form fields from your existing inputs (uses your ids)
+  function readFields(){
+    const $ = (sel) => document.querySelector(sel);
+    return {
+      full_name:   $('#pi-name')?.value?.trim() || '',
+      date_of_birth: $('#pi-dob')?.value || '',
+      blood_type:  $('#pi-blood')?.value || '',
+      organ_donor: !!$('#pi-donor')?.checked,
+      allergies:   $('#sec-allergies')?.value?.trim() || '',
+      conditions:  $('#sec-conditions')?.value?.trim() || '',
+      meds:        $('#sec-meds')?.value?.trim() || '',
+      implants:    $('#sec-implants')?.value?.trim() || '',
+      ice_contacts: $('#sec-ice')?.value?.trim() || ''
+    };
+  }
+
+  // 5) Build compact JSON that goes INSIDE the QR (keep <~2KB)
+  function buildOfflinePayload(){
+    const code = getShortCode();
+    const f = readFields();
+    const firstICE = (f.ice_contacts || '').split(/\n/)[0]?.trim() || null;
+
+    const payload = {
+      code,
+      offline: {
+        name:  f.full_name || null,
+        dob:   f.date_of_birth || null,
+        blood: f.blood_type || null,
+        allergies: f.allergies || null,
+        donor: !!f.organ_donor,
+        ice:   firstICE
+      },
+      url: code ? `https://www.myqer.com/c/${encodeURIComponent(code)}` : null
+    };
+
+    const json = JSON.stringify(payload);
+    // heads-up if someone pastes a novel into ICE 😅
+    const bytes = new TextEncoder().encode(json).length;
+    if (bytes > 2000) console.warn('Offline QR payload is large:', bytes, 'bytes');
+    return json;
+  }
+
+  // 6) Render the offline QR
+  function renderOfflineJsonQR(){
+    if (!hasQRCodeLib()) { console.warn('qrcodejs missing'); return; }
+    ensureOfflinePanel();
+
+    const wrap = document.getElementById('offlineQRwrap');
+    const box  = document.getElementById('offlineQRbox');
+    if (!wrap || !box) return;
+
+    wrap.style.display = 'block';
+    box.innerHTML = '';
+
+    const json = buildOfflinePayload();
+
+    new QRCode(box, {
+      text: json,                    // the QR contains the JSON itself (first-scan offline)
+      width: 240,
+      height: 240,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // tiny red MYQER mark under the QR
+    const mark = document.createElement('div');
+    mark.textContent = 'MYQER™';
+    mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
+    box.appendChild(mark);
+  }
+
+  // 7) Wire the PNG download button
+  function wireDownload(){
+    const btn = document.getElementById('btnSaveOfflineQR');
+    if (!btn) return;
+    btn.addEventListener('click', ()=>{
+      const box = document.getElementById('offlineQRbox');
+      const img = box?.querySelector('img') || box?.querySelector('canvas');
+      if (!img) { alert('Generate the offline QR first'); return; }
+      const url = img.tagName === 'IMG' ? img.src : img.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'myqer-offline-qr.png';
+      a.click();
+    }, { once:false });
+  }
+
+  // 8) Re-render triggers (no changes to your code needed)
+  let t = null;
+  const schedule = () => { clearTimeout(t); t = setTimeout(()=>{ renderOfflineJsonQR(); wireDownload(); }, 250); };
+
+  function attachObservers(){
+    // Re-render when the live QR area changes or user edits fields
+    const live = document.querySelector('#qrCanvas') || document.querySelector('#qrBox') || document.body;
+    new MutationObserver(schedule).observe(live, { childList:true, subtree:true, characterData:true });
+
+    // Inputs
+    ['#pi-name','#pi-dob','#pi-blood','#pi-donor',
+     '#sec-allergies','#sec-conditions','#sec-meds','#sec-implants','#sec-ice'
+    ].forEach(sel => document.querySelector(sel)?.addEventListener('input', schedule));
+
+    // Your existing save buttons (names may vary; harmless if missing)
+    ['saveProfile','saveHealth','saveContacts','btnSaveProfile','btnSaveHealth','btnSaveICE']
+      .forEach(id => document.getElementById(id)?.addEventListener('click', schedule));
+  }
+
+  // 9) Boot
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try {
+      ensureOfflinePanel();
+      renderOfflineJsonQR();
+      wireDownload();
+      attachObservers();
+    } catch(e){ console.warn('offline QR init failed', e); }
+    // Optional: expose a manual hook if you want to call it from elsewhere
+    window.renderOfflineJsonQR = renderOfflineJsonQR;
+  });
+
+})();
+</script>
+<!-- === /MYQER OFFLINE JSON QR addon === -->
 </body>
 </html> 
