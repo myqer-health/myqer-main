@@ -6,7 +6,7 @@
     <title>MYQER Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         /* Base styles and typography */
@@ -199,6 +199,36 @@
             border-color: #9ca3af;
         }
         
+        /* Success buttons - green */
+        .btn-success {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+            border: none;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+        }
+        .btn-success:hover {
+            background: linear-gradient(135deg, #047857, #059669);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+        }
+        
+        /* Warning buttons - amber */
+        .btn-warning {
+            background: linear-gradient(135deg, #d97706, #f59e0b);
+            color: white;
+            border: none;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #b45309, #d97706);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(217, 119, 6, 0.4);
+        }
+        
         /* Form inputs with focus states */
         .form-input {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -377,7 +407,12 @@
         <section class="glass-card rounded-3xl shadow-xl mb-8 overflow-hidden relative">
             <div class="ribbon-green w-2 h-full absolute left-0"></div>
             <div class="pl-8 pr-6 py-6">
-                <h2 class="text-xl font-semibold mb-6 text-gray-800" data-i18n="identity_title">Identity — Personal Information</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800" data-i18n="identity_title">Identity — Personal Information</h2>
+                    <button onclick="saveProfile()" class="btn-success px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_profile">
+                        Save Profile
+                    </button>
+                </div>
                 <div class="grid md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="full_name">Full Name</label>
@@ -417,6 +452,9 @@
                             <option value="black">Black</option>
                         </select>
                         <div id="triagePill" class="triage-pill triage-green">Green</div>
+                        <button onclick="saveHealth()" class="btn-warning px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_health">
+                            Save Health
+                        </button>
                     </div>
                 </div>
                 <div class="grid md:grid-cols-2 gap-6">
@@ -466,9 +504,14 @@
             <div class="pl-8 pr-6 py-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-semibold text-gray-800" data-i18n="ice_title">Emergency Contacts (ICE)</h2>
-                    <button id="addContactBtn" onclick="addContact()" class="btn-primary px-4 py-2 rounded-xl font-medium text-sm" data-i18n="add_ice">
-                        + Add Emergency Contact
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="addContactBtn" onclick="addContact()" class="btn-secondary px-4 py-2 rounded-xl font-medium text-sm" data-i18n="add_ice">
+                            + Add Emergency Contact
+                        </button>
+                        <button onclick="saveICE()" class="btn-warning px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_ice">
+                            Save ICE
+                        </button>
+                    </div>
                 </div>
                 <div id="iceContacts" class="space-y-4">
                     <!-- ICE contacts will be populated here -->
@@ -483,7 +526,7 @@
                 <h2 class="text-xl font-semibold mb-6 text-gray-800" data-i18n="emergency_title">Emergency Card & QR</h2>
                 <div class="text-center">
                     <div id="qrcode" class="inline-block p-4 bg-white rounded-2xl shadow-lg mb-4" style="width: 240px; height: 240px;"></div>
-                    <div id="qrCode" class="text-lg font-mono font-semibold text-gray-800 mb-2"></div>
+                    <div id="qrCodeText" class="text-lg font-mono font-semibold text-gray-800 mb-2"></div>
                     <div class="text-xs text-red-600 font-medium mb-4">MYQER™</div>
                     
                     <div class="mb-6">
@@ -605,7 +648,10 @@
                 delete_contact: "Delete",
                 offline_message: "You're offline. Changes will sync when connection is restored.",
                 back_online: "Back online – syncing changes",
-                svg_coming_soon: "SVG download coming soon"
+                svg_coming_soon: "SVG download coming soon",
+                save_profile: "Save Profile",
+                save_health: "Save Health",
+                save_ice: "Save ICE"
             },
             es: {
                 identity_title: "Identidad — Información Personal",
@@ -656,7 +702,10 @@
                 delete_contact: "Eliminar",
                 offline_message: "Estás desconectado. Los cambios se sincronizarán cuando se restaure la conexión.",
                 back_online: "De vuelta en línea – sincronizando cambios",
-                svg_coming_soon: "Descarga SVG próximamente"
+                svg_coming_soon: "Descarga SVG próximamente",
+                save_profile: "Guardar Perfil",
+                save_health: "Guardar Salud",
+                save_ice: "Guardar ICE"
             },
             fr: {
                 identity_title: "Identité — Informations Personnelles",
@@ -707,7 +756,10 @@
                 delete_contact: "Supprimer",
                 offline_message: "Vous êtes hors ligne. Les modifications se synchroniseront lorsque la connexion sera rétablie.",
                 back_online: "De retour en ligne – synchronisation des modifications",
-                svg_coming_soon: "Téléchargement SVG bientôt disponible"
+                svg_coming_soon: "Téléchargement SVG bientôt disponible",
+                save_profile: "Enregistrer le Profil",
+                save_health: "Enregistrer la Santé",
+                save_ice: "Enregistrer ICE"
             },
             de: {
                 identity_title: "Identität — Persönliche Informationen",
@@ -758,7 +810,10 @@
                 delete_contact: "Löschen",
                 offline_message: "Sie sind offline. Änderungen werden synchronisiert, wenn die Verbindung wiederhergestellt ist.",
                 back_online: "Wieder online – Änderungen werden synchronisiert",
-                svg_coming_soon: "SVG-Download demnächst verfügbar"
+                svg_coming_soon: "SVG-Download demnächst verfügbar",
+                save_profile: "Profil Speichern",
+                save_health: "Gesundheit Speichern",
+                save_ice: "ICE Speichern"
             },
             it: {
                 identity_title: "Identità — Informazioni Personali",
@@ -809,7 +864,10 @@
                 delete_contact: "Elimina",
                 offline_message: "Sei offline. Le modifiche si sincronizzeranno quando la connessione sarà ripristinata.",
                 back_online: "Di nuovo online – sincronizzazione delle modifiche",
-                svg_coming_soon: "Download SVG disponibile presto"
+                svg_coming_soon: "Download SVG disponibile presto",
+                save_profile: "Salva Profilo",
+                save_health: "Salva Salute",
+                save_ice: "Salva ICE"
             },
             pt: {
                 identity_title: "Identidade — Informações Pessoais",
@@ -860,7 +918,10 @@
                 delete_contact: "Excluir",
                 offline_message: "Você está offline. As alterações serão sincronizadas quando a conexão for restaurada.",
                 back_online: "De volta online – sincronizando alterações",
-                svg_coming_soon: "Download SVG em breve"
+                svg_coming_soon: "Download SVG em breve",
+                save_profile: "Salvar Perfil",
+                save_health: "Salvar Saúde",
+                save_ice: "Salvar ICE"
             },
             ro: {
                 identity_title: "Identitate — Informații Personale",
@@ -911,7 +972,10 @@
                 delete_contact: "Șterge",
                 offline_message: "Ești offline. Modificările se vor sincroniza când conexiunea va fi restabilită.",
                 back_online: "Înapoi online – sincronizez modificările",
-                svg_coming_soon: "Descărcarea SVG va fi disponibilă în curând"
+                svg_coming_soon: "Descărcarea SVG va fi disponibilă în curând",
+                save_profile: "Salvează Profilul",
+                save_health: "Salvează Sănătatea",
+                save_ice: "Salvează ICE"
             },
             ar: {
                 identity_title: "الهوية — المعلومات الشخصية",
@@ -962,7 +1026,10 @@
                 delete_contact: "حذف",
                 offline_message: "أنت غير متصل. ستتم مزامنة التغييرات عند استعادة الاتصال.",
                 back_online: "عاد الاتصال – جاري مزامنة التغييرات",
-                svg_coming_soon: "تحميل SVG قريباً"
+                svg_coming_soon: "تحميل SVG قريباً",
+                save_profile: "حفظ الملف الشخصي",
+                save_health: "حفظ الصحة",
+                save_ice: "حفظ ICE"
             },
             hi: {
                 identity_title: "पहचान — व्यक्तिगत जानकारी",
@@ -1013,7 +1080,10 @@
                 delete_contact: "हटाएं",
                 offline_message: "आप ऑफलाइन हैं। कनेक्शन बहाल होने पर परिवर्तन सिंक हो जाएंगे।",
                 back_online: "वापस ऑनलाइन – परिवर्तन सिंक कर रहे हैं",
-                svg_coming_soon: "SVG डाउनलोड जल्द आ रहा है"
+                svg_coming_soon: "SVG डाउनलोड जल्द आ रहा है",
+                save_profile: "प्रोफ़ाइल सहेजें",
+                save_health: "स्वास्थ्य सहेजें",
+                save_ice: "ICE सहेजें"
             },
             zh: {
                 identity_title: "身份 — 个人信息",
@@ -1064,7 +1134,10 @@
                 delete_contact: "删除",
                 offline_message: "您处于离线状态。连接恢复后将同步更改。",
                 back_online: "重新上线 – 正在同步更改",
-                svg_coming_soon: "SVG下载即将推出"
+                svg_coming_soon: "SVG下载即将推出",
+                save_profile: "保存档案",
+                save_health: "保存健康",
+                save_ice: "保存ICE"
             }
         };
 
@@ -1152,6 +1225,7 @@
         let idleTimer = null;
         let idleWarningTimer = null;
         let isOnline = navigator.onLine;
+        let initializationComplete = false;
 
         // Translation helper functions
         function t(key) {
@@ -1210,9 +1284,9 @@
             try {
                 // Re-save all data to ensure sync with server
                 await Promise.all([
-                    saveProfile(true),
-                    saveHealth(true),
-                    saveICE(true)
+                    saveProfileToServer(),
+                    saveHealthToServer(),
+                    saveICEToServer()
                 ]);
                 showToast(t('toast_auto_saved'), 'success');
             } catch (error) {
@@ -1273,10 +1347,16 @@
             let local = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
 
             // 1) server first
-            const { data: p } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
-            if (p?.code) { 
-                localStorage.setItem('myqer_shortcode', p.code.toUpperCase()); 
-                return p.code.toUpperCase(); 
+            if (isOnline) {
+                try {
+                    const { data: p } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
+                    if (p?.code) { 
+                        localStorage.setItem('myqer_shortcode', p.code.toUpperCase()); 
+                        return p.code.toUpperCase(); 
+                    }
+                } catch (error) {
+                    console.error('Error fetching code from server:', error);
+                }
             }
 
             // 2) generate if missing
@@ -1289,13 +1369,25 @@
             }
 
             // 3) try to persist once; don't error on immutability
-            await supabase.from('profiles').update({ code: local }).eq('id', uid).is('code', null);
+            if (isOnline) {
+                try {
+                    await supabase.from('profiles').update({ code: local }).eq('id', uid).is('code', null);
+                } catch (error) {
+                    console.error('Error persisting code to server:', error);
+                }
 
-            // 4) re-read to be sure
-            const { data: again } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
-            const finalCode = (again?.code || local).toUpperCase();
-            localStorage.setItem('myqer_shortcode', finalCode);
-            return finalCode;
+                // 4) re-read to be sure
+                try {
+                    const { data: again } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
+                    const finalCode = (again?.code || local).toUpperCase();
+                    localStorage.setItem('myqer_shortcode', finalCode);
+                    return finalCode;
+                } catch (error) {
+                    console.error('Error re-reading code from server:', error);
+                }
+            }
+
+            return local;
         }
 
         // Build offline text payload for QR code
@@ -1504,6 +1596,18 @@
             showToast(message, 'error');
         }
 
+        // Toast notification system
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
         // Get form data helpers
         function getProfileData() {
             return {
@@ -1548,60 +1652,47 @@
         }
 
         // Save functions with proper upsert logic
-        async function saveProfile(skipToast = false) {
+        async function saveProfileToServer() {
+            if (!isOnline || !currentUser) return;
+            
             const profileData = getProfileData();
             
-            // Save to localStorage for offline support
-            localStorage.setItem('myqer_profile', JSON.stringify(profileData));
-
-            // Save to server if online
-            if (isOnline) {
-                await supabase.from('profiles').upsert({
-                    id: currentUser.id,
-                    full_name: profileData.fullName,
-                    dob: profileData.dob,
-                    country: profileData.country,
-                    health_id: profileData.healthId
-                }, { onConflict: 'id' });
-            }
-
-            await generateQRCode();
-            await saveSnapshot();
+            await supabase.from('profiles').upsert({
+                id: currentUser.id,
+                full_name: profileData.fullName,
+                dob: profileData.dob,
+                country: profileData.country,
+                health_id: profileData.healthId
+            }, { onConflict: 'id' });
         }
 
-        async function saveHealth(skipToast = false) {
+        async function saveHealthToServer() {
+            if (!isOnline || !currentUser) return;
+            
             const healthData = getHealthData();
             
-            // Save to localStorage for offline support
-            localStorage.setItem('myqer_health', JSON.stringify(healthData));
-
-            // Save to server if online using proper upsert
-            if (isOnline) {
-                await supabase.from('health_data').upsert({
-                    user_id: currentUser.id,
-                    blood_type: healthData.bloodType,
-                    allergies: healthData.allergies,
-                    organ_donor: healthData.organDonor,
-                    conditions: healthData.conditions,
-                    medications: healthData.medications,
-                    implants: healthData.implants,
-                    triage_override: healthData.triageOverride
-                }, { onConflict: 'user_id' });
-            }
-
-            updateTriageRibbon();
-            await generateQRCode();
-            await saveSnapshot();
+            await supabase.from('health_data').upsert({
+                user_id: currentUser.id,
+                blood_type: healthData.bloodType,
+                allergies: healthData.allergies,
+                organ_donor: healthData.organDonor,
+                conditions: healthData.conditions,
+                medications: healthData.medications,
+                implants: healthData.implants,
+                triage_override: healthData.triageOverride
+            }, { onConflict: 'user_id' });
         }
 
-        async function saveICE(skipToast = false) {
+        async function saveICEToServer() {
+            if (!isOnline || !currentUser) return;
+            
             const iceData = getICEData();
             
-            // Save to localStorage for offline support
-            localStorage.setItem('myqer_ice', JSON.stringify(iceData));
-
-            // Save to server if online using array upsert with proper PK
-            if (isOnline) {
+            // Delete existing contacts first
+            await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
+            
+            // Insert new contacts
+            if (iceData.length > 0) {
                 const rows = iceData.slice(0, 3).map((c, i) => ({
                     user_id: currentUser.id,
                     contact_order: i,
@@ -1610,18 +1701,75 @@
                     phone: c.phone || null
                 }));
                 
-                await supabase.from('ice_contacts').upsert(rows, { 
-                    onConflict: 'user_id, contact_order' 
-                });
+                await supabase.from('ice_contacts').insert(rows);
             }
+        }
 
-            await generateQRCode();
-            await saveSnapshot();
+        // Main save functions that handle both local and server storage
+        async function saveProfile() {
+            try {
+                const profileData = getProfileData();
+                
+                // Save to localStorage for offline support
+                localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+
+                // Save to server if online
+                await saveProfileToServer();
+                
+                await generateQRCode();
+                await saveSnapshot();
+                
+                showToast(t('toast_saved'), 'success');
+            } catch (error) {
+                console.error('Save profile error:', error);
+                showErrorToast(t('toast_error'));
+            }
+        }
+
+        async function saveHealth() {
+            try {
+                const healthData = getHealthData();
+                
+                // Save to localStorage for offline support
+                localStorage.setItem('myqer_health', JSON.stringify(healthData));
+
+                // Save to server if online
+                await saveHealthToServer();
+
+                updateTriageRibbon();
+                await generateQRCode();
+                await saveSnapshot();
+                
+                showToast(t('toast_saved'), 'success');
+            } catch (error) {
+                console.error('Save health error:', error);
+                showErrorToast(t('toast_error'));
+            }
+        }
+
+        async function saveICE() {
+            try {
+                const iceData = getICEData();
+                
+                // Save to localStorage for offline support
+                localStorage.setItem('myqer_ice', JSON.stringify(iceData));
+
+                // Save to server if online
+                await saveICEToServer();
+
+                await generateQRCode();
+                await saveSnapshot();
+                
+                showToast(t('toast_saved'), 'success');
+            } catch (error) {
+                console.error('Save ICE error:', error);
+                showErrorToast(t('toast_error'));
+            }
         }
 
         // Save snapshot for history - non-blocking
         async function saveSnapshot() {
-            if (!isOnline) return; // Skip if offline
+            if (!isOnline || !currentUser) return; // Skip if offline
             
             try {
                 const profile = getProfileData();
@@ -1661,7 +1809,13 @@
                 const element = document.getElementById(id);
                 if (element) {
                     element.addEventListener('input', () => {
-                        debounceSave('profile', saveProfile);
+                        debounceSave('profile', async () => {
+                            const profileData = getProfileData();
+                            localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+                            await saveProfileToServer();
+                            await generateQRCode();
+                            await saveSnapshot();
+                        });
                     });
                 }
             });
@@ -1671,10 +1825,24 @@
                 const element = document.getElementById(id);
                 if (element) {
                     element.addEventListener('input', () => {
-                        debounceSave('health', saveHealth);
+                        debounceSave('health', async () => {
+                            const healthData = getHealthData();
+                            localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                            await saveHealthToServer();
+                            updateTriageRibbon();
+                            await generateQRCode();
+                            await saveSnapshot();
+                        });
                     });
                     element.addEventListener('change', () => {
-                        debounceSave('health', saveHealth);
+                        debounceSave('health', async () => {
+                            const healthData = getHealthData();
+                            localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                            await saveHealthToServer();
+                            updateTriageRibbon();
+                            await generateQRCode();
+                            await saveSnapshot();
+                        });
                     });
                 }
             });
@@ -1683,7 +1851,14 @@
             const organDonor = document.getElementById('organDonor');
             if (organDonor) {
                 organDonor.addEventListener('change', () => {
-                    debounceSave('health', saveHealth);
+                    debounceSave('health', async () => {
+                        const healthData = getHealthData();
+                        localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                        await saveHealthToServer();
+                        updateTriageRibbon();
+                        await generateQRCode();
+                        await saveSnapshot();
+                    });
                 });
             }
         }
@@ -1760,170 +1935,4 @@
                     document.getElementById('organDonor').checked = data.organ_donor || false;
                     document.getElementById('conditions').value = data.conditions || '';
                     document.getElementById('medications').value = data.medications || '';
-                    document.getElementById('implants').value = data.implants || '';
-                    document.getElementById('triageOverride').value = data.triage_override || 'auto';
-
-                    // Update localStorage with server data
-                    localStorage.setItem('myqer_health', JSON.stringify({
-                        bloodType: data.blood_type || '',
-                        allergies: data.allergies || '',
-                        organDonor: data.organ_donor || false,
-                        conditions: data.conditions || '',
-                        medications: data.medications || '',
-                        implants: data.implants || '',
-                        triageOverride: data.triage_override || 'auto'
-                    }));
-
-                    updateTriageRibbon();
-                }
-            } catch (error) {
-                console.error('Load health error:', error);
-            }
-        }
-
-        async function loadICEContacts() {
-            if (!isOnline) return;
-            
-            try {
-                const { data } = await supabase
-                    .from('ice_contacts')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .order('contact_order');
-
-                const contacts = data || [];
-                renderICEContacts(contacts);
-
-                // Update localStorage with server data
-                localStorage.setItem('myqer_ice', JSON.stringify(contacts));
-            } catch (error) {
-                console.error('Load ICE contacts error:', error);
-            }
-        }
-
-        // Render ICE contacts with proper event handling
-        function renderICEContacts(contacts) {
-            const container = document.getElementById('iceContacts');
-            container.innerHTML = '';
-
-            // Ensure we have at least one contact form
-            const contactsToRender = contacts.length > 0 ? contacts : [{ name: '', relation: '', phone: '' }];
-
-            contactsToRender.forEach((contact, index) => {
-                const contactDiv = document.createElement('div');
-                contactDiv.className = 'grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl';
-                contactDiv.innerHTML = `
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_name')}</label>
-                        <input type="text" data-field="name" value="${contact.name || ''}" class="form-input w-full px-3 py-2 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_relationship')}</label>
-                        <input type="text" data-field="relation" value="${contact.relation || ''}" class="form-input w-full px-3 py-2 rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_phone')}</label>
-                        <input type="tel" data-field="phone" value="${contact.phone || ''}" class="form-input w-full px-3 py-2 rounded-lg">
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <button onclick="deleteContact(${index})" class="btn-primary px-4 py-2 rounded-lg text-sm">${t('delete_contact')}</button>
-                    </div>
-                `;
-                container.appendChild(contactDiv);
-
-                // Add autosave listeners to inputs
-                const inputs = contactDiv.querySelectorAll('input');
-                inputs.forEach(input => {
-                    input.addEventListener('input', () => {
-                        debounceSave('ice', saveICE);
-                    });
-                });
-            });
-
-            updateAddContactButton();
-        }
-
-        // Add contact with limit of 3
-        function addContact() {
-            const container = document.getElementById('iceContacts');
-            if (container.children.length >= 3) {
-                showToast('Maximum 3 emergency contacts allowed', 'error');
-                return;
-            }
-
-            const index = container.children.length;
-            const contactDiv = document.createElement('div');
-            contactDiv.className = 'grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl';
-            contactDiv.innerHTML = `
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_name')}</label>
-                    <input type="text" data-field="name" class="form-input w-full px-3 py-2 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_relationship')}</label>
-                    <input type="text" data-field="relation" class="form-input w-full px-3 py-2 rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">${t('ice_phone')}</label>
-                    <input type="tel" data-field="phone" class="form-input w-full px-3 py-2 rounded-lg">
-                </div>
-                <div class="flex items-end gap-2">
-                    <button onclick="deleteContact(${index})" class="btn-primary px-4 py-2 rounded-lg text-sm">${t('delete_contact')}</button>
-                </div>
-            `;
-            container.appendChild(contactDiv);
-
-            // Add autosave listeners
-            const inputs = contactDiv.querySelectorAll('input');
-            inputs.forEach(input => {
-                input.addEventListener('input', () => {
-                    debounceSave('ice', saveICE);
-                });
-            });
-
-            updateAddContactButton();
-        }
-
-        // Delete contact and update indices
-        function deleteContact(index) {
-            const container = document.getElementById('iceContacts');
-            if (container.children[index]) {
-                container.children[index].remove();
-                updateAddContactButton();
-                debounceSave('ice', saveICE);
-            }
-        }
-
-        // Update add contact button visibility
-        function updateAddContactButton() {
-            const container = document.getElementById('iceContacts');
-            const addButton = document.getElementById('addContactBtn');
-            if (addButton) {
-                addButton.style.display = container.children.length >= 3 ? 'none' : 'inline-block';
-            }
-        }
-
-        // Generate QR code with hybrid approach
-        async function generateQRCode() {
-            try {
-                const code = await ensureShortCode();
-                if (!code) return;
-
-                // Set card URL
-                const cardUrl = `https://www.myqer.com/c/${code}`;
-                document.getElementById('cardUrl').value = cardUrl;
-                document.getElementById('qrCode').textContent = code;
-
-                // Build offline payload
-                const payload = buildOfflinePayload();
-                const compactedPayload = compactPayload(payload);
-
-                // Clear and generate QR with M→L correction level fallback
-                const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = '';
-                
-                try {
-                    // Try M correction level first
-                    new QRCode(qrContainer, {
-                        text: compactedPayload,
-                        <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97af26ab516b47cf',t:'MTc1NzE3NDEzMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+                    document.getElementById('implants').value = data.impl<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97af50cf43f2bee4',t:'MTc1NzE3NTg1Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
