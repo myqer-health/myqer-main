@@ -2232,14 +2232,18 @@ async function ensureShortCode(){
   return userCode;
 }
 
-/** -------- QR: Live + Offline Text -------- **/
 async function renderLiveQR(){
   if (!userCode) return;
   const url = `https://www.myqer.com/c/${userCode}`;
   const box = $("#qrcode");
   box.innerHTML = "";
+  const canvas = document.createElement("canvas");
+  box.appendChild(canvas);
   try {
-    await QRCode.toCanvas(box, url, { width: 240, margin: 1, errorCorrectionLevel: "M", color:{dark:"#0f172a", light:"#ffffff"} });
+    await QRCode.toCanvas(canvas, url, {
+      width: 240, margin: 1, errorCorrectionLevel: "M",
+      color:{dark:"#0f172a", light:"#ffffff"}
+    });
   } catch(e){
     console.error(e);
     toastRateLimited("error", tr("qr_fail"));
@@ -2247,7 +2251,6 @@ async function renderLiveQR(){
   $("#qrCodeText").textContent = userCode;
   $("#cardUrl").value = url;
 }
-
 function offlinePayloadLines(profile, health, iceList){
   const name = profile?.full_name || "";
   const dob  = profile?.dob || "";
