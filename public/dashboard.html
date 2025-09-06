@@ -6,15 +6,15 @@
   <title>MYQER™ Dashboard - Your Emergency Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     :root{
       --red:#DC2626;--green:#059669;--orange:#EA580C;--ink:#0F172A;--slate:#475569;--light-slate:#94A3B8;
       --bg:linear-gradient(135deg,#F8FAFC 0%,#F1F5F9 100%);--white:#fff;--glass:rgba(255,255,255,.95);
       --border:rgba(148,163,184,.15);--shadow:0 8px 32px rgba(15,23,42,.08);--shadow-lg:0 20px 64px rgba(15,23,42,.12);
-      --gradient-red:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);
-      --gradient-green:linear-gradient(135deg,#059669 0%,#047857 100%);
-      --gradient-orange:linear-gradient(135deg,#EA580C 0%,#C2410C 100%)
+      --shadow-xl:0 32px 80px rgba(15,23,42,.15);--gradient-red:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);
+      --gradient-green:linear-gradient(135deg,#059669 0%,#047857 100%);--gradient-orange:linear-gradient(135deg,#EA580C 0%,#C2410C 100%)
     }
     body{font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;min-height:100vh}
     #loadingState{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999}
@@ -65,8 +65,8 @@
     #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
     #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
     .qr-url-section{background:rgba(220,38,38,.03);border:1px solid rgba(220,38,38,.1);border-radius:16px;padding:1.5rem}
-    #cardUrl{width:100%;padding:.75rem 1rem;border:1px solid rgba(220,38,38,.2);border-radius:8px;font-family:Monaco,Menlo,monospace;font-size:.875rem;background:#fff;color:var(--slate);margin-bottom:1rem}
-    .btn-secondary{background:#fff;color:var(--red);border:2px solid var(--red);border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer}
+    #cardUrl{width:100%;padding:.75rem 1rem;border:1px solid rgba(220,38,38,.2);border-radius:8px;font-family:Monaco,Menlo,monospace;font-size:.875rem;background:#fff;color:#slate;margin-bottom:1rem}
+    .btn-secondary{background:#fff;color:#var(--red);border:2px solid var(--red);border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer}
     .download-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
     .ice-row{background:rgba(234,88,12,.03);border:1px solid rgba(234,88,12,.1);border-radius:16px;padding:2rem;margin-bottom:1.5rem}
     .ice-contact-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
@@ -128,8 +128,7 @@
   </header>
 
   <div id="offlineBanner">You're offline — QR still works with cached data.</div>
-
-  <main>
+    <main>
     <!-- Identity -->
     <section class="card identity">
       <div class="ribbon">Identity</div>
@@ -260,7 +259,6 @@
               <button class="btn-secondary" id="openLink">Open Link</button>
             </div>
           </div>
-
           <div class="qr-downloads">
             <h4>Downloads</h4>
             <div class="download-grid">
@@ -324,432 +322,142 @@
       <div class="footer-copyright">© 2024 MYQER™. All rights reserved.</div>
     </div>
   </footer>
+    <script>
+    // ---- boot guard + loader fallback ----
+    const hideLoader=()=>{const s=document.getElementById('loadingState');if(s){s.style.opacity='0';s.style.display='none';}}
+    window.onerror=(m,s,l,c,e)=>{console.error('JS error:',m,s,l,c,e);hideLoader();const box=document.getElementById('errorBox');const msg=document.getElementById('errorMsg');if(box&&msg){box.style.display='block';msg.textContent=String(m||'Unexpected error. Please refresh.');}};
+    setTimeout(()=>{const loading=document.getElementById('loadingState');if(loading&&loading.style.display!=='none'){hideLoader();const box=document.getElementById('errorBox');const msg=document.getElementById('errorMsg');if(box&&msg){box.style.display='block';msg.textContent='Taking too long to load. Please refresh the page.';}}},6000);
 
-  <!-- Idle warning modal -->
-  <div id="idleWarn" class="hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.35);z-index:99999;">
-    <div style="background:#fff;border:2px solid #F59E0B;border-radius:16px;box-shadow:0 20px 64px rgba(15,23,42,.18);max-width:420px;width:92%;padding:1.5rem;text-align:center">
-      <h3 style="margin:0 0 .5rem 0;color:#92400E;font-weight:800;font-size:1.1rem">Are you still there?</h3>
-      <p style="color:#475569;margin:.25rem 0 .75rem">You’ll be logged out for security in <span id="idleCountdown" style="font-weight:700">60</span>s.</p>
-      <div style="display:flex;gap:.5rem;justify-content:center">
-        <button id="staySignedIn" class="btn-secondary">Stay signed in</button>
-        <button id="logoutNow" class="delete-button" style="width:auto;margin:0">Logout now</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Libs -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
-    <!-- App -->
-  <script>
-  // ---- boot guard + loader fallback ----
-  console.log('🟢 dashboard boot');
-  window.onerror = (m, s, l, c, e) => {
-    console.error('JS error:', m, s, l, c, e);
-    const loading = document.getElementById('loadingState');
-    const box = document.getElementById('errorBox');
-    const msg = document.getElementById('errorMsg');
-    if (loading) loading.style.display = 'none';
-    if (box && msg) { box.style.display = 'block'; msg.textContent = String(m || 'Unexpected error. Please refresh.'); }
-  };
-  setTimeout(() => {
-    const loading = document.getElementById('loadingState');
-    if (loading && loading.style.display !== 'none') {
-      console.warn('Still loading after 6s — showing fallback.');
-      loading.style.display = 'none';
-      const box = document.getElementById('errorBox');
-      const msg = document.getElementById('errorMsg');
-      if (box && msg) { box.style.display = 'block'; msg.textContent = 'Taking too long to load. Please refresh the page.'; }
-    }
-  }, 6000);
-
-  // ---- Supabase (Safari-safe persistence) ----
-  const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-  let supabase = null, isSupabaseAvailable = false, isOnline = navigator.onLine;
-
-  // toasts + helpers
-  function showToast(msg, type='success', ms=4000){
-    const area = document.getElementById('toastArea');
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = msg;
-    area.appendChild(el);
-    setTimeout(()=>el.classList.add('show'),100);
-    setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); }, ms);
-  }
-  function finalizeBoot(){
-    const loading = document.getElementById('loadingState');
-    if (!loading) return;
-    loading.style.opacity='0'; loading.style.transition='opacity .5s';
-    setTimeout(()=>loading.style.display='none',500);
-  }
-  function updateNetworkStatus(){
-    const net = document.getElementById('netStatus');
-    const banner = document.getElementById('offlineBanner');
-    if (navigator.onLine) {
-      net.textContent = 'ONLINE'; net.className = 'online'; banner.style.display = 'none';
-      if (!isOnline) { showToast('Back online - syncing changes'); isOnline = true; }
-    } else {
-      net.textContent = 'OFFLINE'; net.className = 'offline'; banner.style.display = 'block';
-      if (isOnline) { showToast('Working offline - changes saved locally'); isOnline = false; }
-    }
-  }
-
-  // Supabase init
-  try {
-    if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: true,
-          storage: window.localStorage,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        }
-      });
-      isSupabaseAvailable = true;
-
-      // If completely signed out later, go to login
-      supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          window.location.replace('/index.html');
-        }
-      });
-    }
-  } catch (e) { console.warn('Supabase init failed:', e); }
-
-  // ---- Strict auth gate ----
-  async function requireAuth() {
-    if (!isSupabaseAvailable) {
-      finalizeBoot();
-      window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
-      throw new Error('Supabase unavailable');
-    }
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data?.session) {
-      finalizeBoot();
-      window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
-      throw new Error('No session');
-    }
-    return data.session;
-  }
-
-  // ---- Auto-logout (idle) ----
-  const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 min
-  const IDLE_WARN_MS  = 60 * 1000;      // warn last 60s
-  let idleTimer = null, warnTimer = null, warnTick = null;
-
-  async function performLogout(){
-    try { if (isSupabaseAvailable) await supabase.auth.signOut(); } catch(e){ console.warn('Signout error:', e); }
-    finally {
-      localStorage.clear(); sessionStorage.clear();
-      window.location.replace('/index.html'); // ✅ pretty logout
-    }
-  }
-  function resetIdleTimers(){
-    const modal = document.getElementById('idleWarn');
-    if (modal) modal.classList.add('hidden');
-    if (warnTimer) { clearTimeout(warnTimer); warnTimer=null; }
-    if (warnTick)  { clearInterval(warnTick); warnTick=null; }
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(()=>{
-      const modal = document.getElementById('idleWarn');
-      const cd = document.getElementById('idleCountdown');
-      if (modal && cd){
-        cd.textContent = String(IDLE_WARN_MS/1000);
-        modal.classList.remove('hidden');
-        let remaining = IDLE_WARN_MS/1000;
-        warnTick = setInterval(()=>{ remaining-=1; if (remaining>=0) cd.textContent = String(remaining); }, 1000);
-      }
-      warnTimer = setTimeout(()=>performLogout(), IDLE_WARN_MS);
-    }, IDLE_LIMIT_MS - IDLE_WARN_MS);
-  }
-  function wireIdleHandlers(){
-    const poke = ()=>resetIdleTimers();
-    ['mousemove','keydown','click','scroll','touchstart','visibilitychange'].forEach(evt=>document.addEventListener(evt, poke, {passive:true}));
-    document.getElementById('staySignedIn')?.addEventListener('click', ()=>{ resetIdleTimers(); showToast('Session extended','success',2000); });
-    document.getElementById('logoutNow')?.addEventListener('click', ()=>performLogout());
-  }
-
-  // ---- App state ----
-  let userData = {}, iceContacts = [], autoSaveTimeouts = {};
-  const getUserId = async () => {
-    try { const { data:{ session } } = await supabase.auth.getSession(); return session?.user?.id ?? null; }
-    catch { return null; }
-  };
-
-  // ---- Safety: never send long "code" fields to DB ----
-  function stripCodeField(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    if ('code' in obj && typeof obj.code === 'string' && obj.code.length > 12) {
-      const { code, ...rest } = obj; return rest;
-    }
-    return obj;
-  }
-
-  // ---- TRIAGE (unchanged logic) ----
-  const TRIAGE_KEYWORDS = [
-    { re:/\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i, score:4 }, { re:/\b(severe allergy|severe reaction)\b/i, score:4 },
-    { re:/\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i, score:4 },
-    { re:/\bventricular (tachy|fibrillation)|vfib|vtach\b/i, score:4 },
-    { re:/\btransplant|immunosuppression(s)?\b/i, score:4 }, { re:/\bsevere asthma|status asthmaticus\b/i, score:4 },
-    { re:/\brespiratory failure|copd exacerbation\b/i, score:4 },
-    { re:/\bpenicillin allergy|cephalosporin allergy\b/i, score:3 }, { re:/\binsulin pump|type 1 diabetes|insulin dependent\b/i, score:3 },
-    { re:/\bkidney failure|renal failure|dialysis\b/i, score:3 }, { re:/\bseizure disorder|epilepsy\b/i, score:3 },
-    { re:/\bstroke|cva|tia\b/i, score:3 }, { re:/\bwarfarin|anticoagulant|blood thinner\b/i, score:3 },
-    { re:/\bpacemaker|defibrillator|icd\b/i, score:3 }, { re:/\bbeta[-\s]?blocker allergy\b/i, score:3 },
-    { re:/\bdiabetes|type 2 diabetes|metformin\b/i, score:2 }, { re:/\bhypertension|high blood pressure\b/i, score:2 },
-    { re:/\basthma|respiratory disease\b/i, score:2 }, { re:/\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i, score:2 },
-    { re:/\bmetal implant|joint replacement|stent(s)?\b/i, score:2 },
-    { re:/\bpenicillin\b/i, score:1 }, { re:/\bcodeine\b/i, score:1 }, { re:/\bmidazolam\b/i, score:1 }, { re:/\bibu(profen)?\b/i, score:1 }, { re:/\b(paracetamol|acetaminophen)\b/i, score:1 }
-  ];
-  function updateTriagePill(level){
-    const pill = document.getElementById('triagePill');
-    pill.className = level; pill.textContent = level.toUpperCase();
-  }
-  function calculateTriage(returnOnly=false){
-    const override = document.getElementById('triageOverride').value;
-    if (override !== 'auto'){ if(returnOnly) return override; updateTriagePill(override); return override; }
-    const allergies = (document.getElementById('hfAllergies').value||'')+'';
-    const conditions = (document.getElementById('hfConditions').value||'')+'';
-    const meds = (document.getElementById('hfMeds').value||'')+'';
-    const hay = [allergies,conditions,meds].join('\n');
-    let score=0; for(const k of TRIAGE_KEYWORDS){ if(k.re.test(hay)) score+=k.score; }
-    let level='green'; if(score>=6) level='red'; else if(score>=3) level='amber';
-    if(returnOnly) return level; updateTriagePill(level); return level;
-  }
-
-  // ---- ICE UI helpers ----
-  const renderIceContacts = () => {
-    const container = document.getElementById('iceContactsList');
-    container.innerHTML = '';
-    iceContacts.forEach((c,i)=>{
-      const div=document.createElement('div'); div.className='ice-row'; div.setAttribute('data-index',i);
-      div.innerHTML=`
-        <div class="ice-contact-header">
-          <div class="contact-number">${i+1}</div>
-          <div class="ice-actions">
-            <button class="iceSaveBtn" onclick="saveIndividualIceContact(${i})">Save</button>
-            <button class="iceDeleteBtn" onclick="removeIceContact(${i})" aria-label="Delete contact">🗑️</button>
-          </div>
-        </div>
-        <div class="form-grid two-col">
-          <div class="form-group"><label>Name</label><input class="iceName" value="${c.name||''}" onchange="updateIceContact(${i},'name',this.value)" placeholder="Name"></div>
-          <div class="form-group"><label>Relationship</label><input class="iceRelation" value="${c.relation||''}" onchange="updateIceContact(${i},'relation',this.value)" placeholder="Spouse, Parent, etc."></div>
-          <div class="form-group" style="grid-column:1/-1"><label>Phone</label><input class="icePhone" value="${c.phone||''}" onchange="updateIceContact(${i},'phone',this.value)" placeholder="+1 (555) 123-4567"></div>
-        </div>`;
-      container.appendChild(div);
-    });
-    const addBtn=document.getElementById('addIce');
-    if(iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; }
-    else { addBtn.disabled=false; addBtn.textContent='+ Add Emergency Contact'; }
-  };
-  const addIceContact=()=>{ if(iceContacts.length>=3){showToast('Maximum 3 emergency contacts allowed','error');return;}
-    iceContacts.push({name:'',relation:'',phone:''}); renderIceContacts(); };
-  const removeIceContact=i=>{ iceContacts.splice(i,1); renderIceContacts(); };
-  const updateIceContact=(i,f,v)=>{ if(iceContacts[i]) iceContacts[i][f]=v; };
-
-  async function saveIndividualIceContact(i){
+    // ---- Supabase (Safari-safe persistence) ----
+    const SUPABASE_URL='https://dmntmhkncldgynufajei.supabase.co';
+    const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+    let supabase=null,isSupabaseAvailable=false,isOnline=navigator.onLine;
     try{
-      const c=iceContacts[i]; if(!c||!c.name||!c.phone){showToast('Name and phone are required','error');return;}
-      localStorage.setItem('myqer_ice',JSON.stringify(iceContacts)); showToast(`Contact ${i+1} saved locally`,'success');
-      if(isSupabaseAvailable && isOnline){
-        const uid = await getUserId();
-        if(uid){
-          const row=stripCodeField({user_id:uid,name:c.name||null,relation:(c.relation||'').trim(),phone:c.phone||null,contact_order:i});
-          const {error}=await supabase.from('ice_contacts').upsert(row,{onConflict:'user_id,contact_order'});
-          if(error) throw error; showToast(`Contact ${i+1} synced to server`,'success');
-        }
-      }
-      await generateQRCode(); renderOfflineTextQR(); await saveSnapshotForCurrentUser();
-    }catch(err){ console.error(err); showToast('Error saving contact: '+err.message,'error'); }
-  }
+      supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,storage:window.localStorage,autoRefreshToken:true,detectSessionInUrl:true}});
+      isSupabaseAvailable=true;
+      supabase.auth.onAuthStateChange((event,session)=>{ if(event==='SIGNED_OUT'||!session){ localStorage.clear();sessionStorage.clear(); window.location.replace('/'); }});
+    }catch(e){console.warn('Supabase init failed:',e);}
 
-  // ---- Short code (local only; never writes to DB) ----
-  async function generateShortCode() {
-    const cached = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-    if (cached && /^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(cached)) return cached;
-    const CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let raw = ''; for (let i = 0; i < 8; i++) raw += CH[Math.floor(Math.random() * CH.length)];
-    const newCode = `${raw.slice(0,4)}-${raw.slice(4)}`;
-    localStorage.setItem('myqer_shortcode', newCode);
-    return newCode;
-  }
+    // ---- UI helpers ----
+    function showToast(msg,type='success',ms=4000){const area=document.getElementById('toastArea');const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=msg;area.appendChild(el);setTimeout(()=>el.classList.add('show'),100);setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),300)},ms);}
+    function updateNetworkStatus(){const net=document.getElementById('netStatus');const banner=document.getElementById('offlineBanner');if(navigator.onLine){net.textContent='Online';net.className='online';banner.style.display='none';if(!isOnline){showToast('Back online - syncing changes');isOnline=true;}}else{net.textContent='Offline';net.className='offline';banner.style.display='block';if(isOnline){showToast('Working offline - changes saved locally');isOnline=false;}}}
+    window.addEventListener('online',updateNetworkStatus);window.addEventListener('offline',updateNetworkStatus);
 
-  // ---- Build + compact offline TEXT payload for QR ----
-  function u8len(str){ return new TextEncoder().encode(str).length; }
-  function buildTextLines(shortCode){
-    const profile = (window.userData?.profile) || {};
-    const health  = (window.userData?.health)  || {};
-    const ices    = Array.isArray(window.iceContacts) ? window.iceContacts : [];
-    const iceLines = ices.slice(0,3).filter(c => (c?.name || c?.phone))
-      .map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`);
-    const lines = [
-      'MYQER™ EMERGENCY CARD',
-      shortCode ? `Code: ${shortCode}` : null,
-      profile.fullName ? `Name: ${profile.fullName}` : null,
-      profile.dob ? `DOB: ${profile.dob}` : null,
-      health.bloodType ? `Blood: ${health.bloodType}` : null,
-      (typeof health.allergies !== 'undefined') ? `Allergies: ${health.allergies || 'None reported'}` : null,
-      health.conditions ? `Conditions: ${health.conditions}` : null,
-      health.medications ? `Meds: ${health.medications}` : null,
-      health.implants ? `Implants: ${health.implants}` : null,
-      `Donor: ${health.organDonor ? 'Yes' : 'No'}`,
-      ...iceLines,
-      shortCode ? `URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
-    ].filter(Boolean);
-    return lines;
-  }
-  function compactLinesToLimit(lines, byteLimit){
-    let work = [...lines];
-    const join = () => work.join('\n');
-    const shrink = (label, cap) => {
-      const i = work.findIndex(l => l.startsWith(label + ': '));
-      if (i === -1) return;
-      const [, value] = work[i].split(/:\s+/);
-      if (value && value.length > cap) work[i] = `${label}: ${value.slice(0, cap).trim()}…`;
-    };
-    const drop = (label) => { const i = work.findIndex(l => l.startsWith(label + ':')); if (i !== -1) work.splice(i,1); };
-    const dropICE = (n) => { const i = work.findIndex(l => l.startsWith(`ICE${n}:`)); if (i !== -1) work.splice(i,1); };
-    const phases = [
-      () => { shrink('Conditions', 300); shrink('Meds', 300); shrink('Implants', 220); shrink('Allergies', 220); },
-      () => { shrink('Conditions', 180); shrink('Meds', 180); shrink('Implants', 160); shrink('Allergies', 160); },
-      () => { shrink('Conditions', 120); shrink('Meds', 120); shrink('Implants', 120); shrink('Allergies', 120); },
-      () => { drop('Implants'); }, () => { drop('Meds'); }, () => { drop('Conditions'); },
-      () => { dropICE(3); }, () => { dropICE(2); }, () => { dropICE(1); },
-      () => { const i = work.findIndex(l => l.startsWith('URL: ')); if (i !== -1) work[i] = 'URL: myqer.com'; }
-    ];
-    for (const step of phases){ if (u8len(join()) <= byteLimit) break; step(); }
-    let out = join();
-    while (u8len(out) > byteLimit && out.length > 10){ out = out.slice(0, out.length - 50); }
-    return out.replace(/\s+$/,'');
-  }
-  function buildOfflineTextPayload(shortCode){
-    const lines = buildTextLines(shortCode);
-    const joined = lines.join('\n');
-    return (u8len(joined) <= 900) ? joined : compactLinesToLimit(lines, 900);
-  }
-  function safeRenderQR(container, text){
-    container.innerHTML = '';
-    let level = QRCode.CorrectLevel.M;
-    let limit = 900;
-    let payload = text;
-    if (u8len(payload) > limit) payload = compactLinesToLimit(text.split('\n'), limit);
-    try {
-      new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
-      return;
-    } catch(e1){
-      level = QRCode.CorrectLevel.L;
-      limit = 1100;
-      payload = compactLinesToLimit(text.split('\n'), limit);
-      container.innerHTML = '';
-      try {
-        new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
-        return;
-      } catch(e2){
-        const minimal = text.split('\n').filter(l =>
-          /^MYQER|^Code:|^Name:|^DOB:|^Blood:|^Allergies:|^Donor:|^ICE1:|^URL:/.test(l)
-        );
-        container.innerHTML = '';
-        new QRCode(container, { text: compactLinesToLimit(minimal, 800), width:240, height:240, correctLevel: QRCode.CorrectLevel.L });
-      }
+    // ---- Auth helpers ----
+    const getUserId=async()=>{try{const {data:{session}}=await supabase.auth.getSession();return session?.user?.id||null;}catch{return null;}};
+    async function requireAuth(){if(!isSupabaseAvailable){window.location.replace('/');throw new Error('Supabase unavailable');}const {data,error}=await supabase.auth.getSession();if(error||!data?.session){window.location.replace('/');throw new Error('No session');}return data.session;}
+    document.getElementById('btnSignOut').addEventListener('click',async()=>{if(!confirm('Are you sure you want to logout?'))return;try{await supabase.auth.signOut();}finally{localStorage.clear();sessionStorage.clear();window.location.replace('/');}});
+
+    // ---- App state ----
+    let userData={},iceContacts=[],autoSaveTimeouts={};
+
+    // ---- TRIAGE ----
+    const TRIAGE_KEYWORDS=[{re:/\banaphylaxis|anaphylactic|epi[-\s]?pen\b/i,score:4},{re:/\bheart attack|myocardial infarction|cardiac arrest|unstable angina\b/i,score:4},{re:/\bventricular (tachy|fibrillation)|vfib|vtach\b/i,score:4},{re:/\btransplant|immunosuppression(s)?\b/i,score:4},{re:/\bsevere asthma|status asthmaticus\b/i,score:4},{re:/\brespiratory failure|copd exacerbation\b/i,score:4},{re:/\bpenicillin allergy|cephalosporin allergy\b/i,score:3},{re:/\binsulin pump|type 1 diabetes|insulin dependent\b/i,score:3},{re:/\bkidney failure|renal failure|dialysis\b/i,score:3},{re:/\bseizure disorder|epilepsy\b/i,score:3},{re:/\bstroke|cva|tia\b/i,score:3},{re:/\bwarfarin|anticoagulant|blood thinner\b/i,score:3},{re:/\bpacemaker|defibrillator|icd\b/i,score:3},{re:/\bdiabetes|type 2 diabetes|metformin\b/i,score:2},{re:/\bhypertension|high blood pressure\b/i,score:2},{re:/\basthma|respiratory disease\b/i,score:2},{re:/\bchronic pain|opioid|morphine|fentanyl|oxycodone\b/i,score:2},{re:/\bautoimmune|lupus|ms|crohn|ulcerative colitis\b/i,score:2},{re:/\bmetal implant|joint replacement|stent(s)?\b/i,score:2},{re:/\bpenicillin\b/i,score:1},{re:/\bcodeine\b/i,score:1},{re:/\bmidazolam\b/i,score:1},{re:/\bibu(profen)?\b/i,score:1}];
+    function updateTriagePill(level){const pill=document.getElementById('triagePill');pill.className=level;pill.textContent=level.toUpperCase();}
+    function calculateTriage(returnOnly=false){const override=document.getElementById('triageOverride').value;if(override!=='auto'){if(returnOnly)return override;updateTriagePill(override);return override;}const allergies=(document.getElementById('hfAllergies').value||'')+'';const conditions=(document.getElementById('hfConditions').value||'')+'';const meds=(document.getElementById('hfMeds').value||'')+'';const hay=[allergies,conditions,meds].join('\n');let score=0;for(const k of TRIAGE_KEYWORDS){if(k.re.test(hay))score+=k.score;}let level='green';if(score>=6)level='red';else if(score>=3)level='amber';if(returnOnly)return level;updateTriagePill(level);return level;}
+
+    // ---- ICE UI helpers ----
+    const renderIceContacts=()=>{const container=document.getElementById('iceContactsList');container.innerHTML='';iceContacts.forEach((c,i)=>{const div=document.createElement('div');div.className='ice-row';div.setAttribute('data-index',i);div.innerHTML=`<div class="ice-contact-header"><div class="contact-number">${i+1}</div><div class="ice-actions"><button class="iceSaveBtn" onclick="saveIndividualIceContact(${i})">Save</button><button class="iceDeleteBtn" onclick="removeIceContact(${i})" aria-label="Delete contact">🗑️</button></div></div><div class="form-grid two-col"><div class="form-group"><label>Name</label><input class="iceName" value="${c.name||''}" onchange="updateIceContact(${i},'name',this.value)" placeholder="Name"></div><div class="form-group"><label>Relationship</label><input class="iceRelation" value="${c.relation||''}" onchange="updateIceContact(${i},'relation',this.value)" placeholder="Spouse, Parent, etc."></div><div class="form-group" style="grid-column:1/-1"><label>Phone</label><input class="icePhone" value="${c.phone||''}" onchange="updateIceContact(${i},'phone',this.value)" placeholder="+1 (555) 123-4567"></div></div>`;container.appendChild(div);});const addBtn=document.getElementById('addIce');if(iceContacts.length>=3){addBtn.disabled=true;addBtn.textContent='Maximum 3 contacts reached';}else{addBtn.disabled=false;addBtn.textContent='+ Add Emergency Contact';}};
+    const addIceContact=()=>{if(iceContacts.length>=3){showToast('Maximum 3 emergency contacts allowed','error');return;}iceContacts.push({name:'',relation:'',phone:''});renderIceContacts();};
+    const removeIceContact=i=>{iceContacts.splice(i,1);renderIceContacts();};
+    const updateIceContact=(i,f,v)=>{if(iceContacts[i])iceContacts[i][f]=v;};
+    async function saveIndividualIceContact(i){try{const c=iceContacts[i];if(!c||!c.name||!c.phone){showToast('Name and phone are required','error');return;}localStorage.setItem('myqer_ice',JSON.stringify(iceContacts));showToast(`Contact ${i+1} saved locally`,'success');if(isSupabaseAvailable&&isOnline){const uid=await getUserId();if(uid){const row={user_id:uid,name:c.name||null,relation:(c.relation||'').trim(),phone:c.phone||null,contact_order:i};const {error}=await supabase.from('ice_contacts').upsert(row,{onConflict:'user_id,contact_order'});if(error)throw error;showToast(`Contact ${i+1} synced to server`,'success');}}await generateQRCode();renderOfflineTextQR();await saveSnapshotForCurrentUser();}catch(err){console.error(err);showToast('Error saving contact: '+err.message,'error');}}
+
+    // ---- Short code ----
+    const generateShortCode=async()=>{let cached=localStorage.getItem('myqer_shortcode');if(cached)return cached;const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id||null;if(uid){try{const {data:p}=await supabase.from('profiles').select('code').eq('id',uid).maybeSingle();if(p?.code){localStorage.setItem('myqer_shortcode',p.code);return p.code;}}catch(e){console.warn('profiles.code read failed:',e);}}
+      const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let raw='';for(let i=0;i<8;i++)raw+=chars.charAt(Math.floor(Math.random()*chars.length));const newCode=raw.slice(0,4)+'-'+raw.slice(4);localStorage.setItem('myqer_shortcode',newCode);if(uid){try{await supabase.from('profiles').update({code:newCode}).eq('id',uid);}catch(e){console.warn('Persist profiles.code error:',e);}}return newCode;};
+
+    // ---------- QR SAFETY (no throws) ----------
+    function u8len(s){return new TextEncoder().encode(s).length;}
+    function buildTextLines(shortCode){
+      const profile=(window.userData?.profile)||{};const health=(window.userData?.health)||{};const ices=Array.isArray(window.iceContacts)?window.iceContacts:[];
+      const iceLines=ices.slice(0,3).filter(c=>(c?.name||c?.phone)).map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`);
+      return ['MYQER™ EMERGENCY CARD',shortCode?`Code: ${shortCode}`:null,profile.fullName?`Name: ${profile.fullName}`:null,profile.dob?`DOB: ${profile.dob}`:null,health.bloodType?`Blood: ${health.bloodType}`:null,(typeof health.allergies!=='undefined')?`Allergies: ${health.allergies||'None reported'}`:null,health.conditions?`Conditions: ${health.conditions}`:null,health.medications?`Meds: ${health.medications}`:null,health.implants?`Implants: ${health.implants}`:null,`Donor: ${health.organDonor?'Yes':'No'}`,...iceLines,shortCode?`URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}`:null].filter(Boolean);
     }
-  }
+    function compactLinesToLimit(lines,byteLimit){
+      let work=[...lines];const join=()=>work.join('\n');const shrink=(label,cap)=>{const i=work.findIndex(l=>l.startsWith(label+': '));if(i===-1)return;const [,value]=work[i].split(/:\s+/);if(!value)return;if(value.length>cap)work[i]=`${label}: ${value.slice(0,cap).trim()}…`;};const drop=label=>{const i=work.findIndex(l=>l.startsWith(label+':'));if(i!==-1)work.splice(i,1);};const dropICE=n=>{const i=work.findIndex(l=>l.startsWith(`ICE${n}:`));if(i!==-1)work.splice(i,1);};const phases=[()=>{shrink('Conditions',300);shrink('Meds',300);shrink('Implants',220);shrink('Allergies',220);},()=>{shrink('Conditions',180);shrink('Meds',180);shrink('Implants',160);shrink('Allergies',160);},()=>{shrink('Conditions',120);shrink('Meds',120);shrink('Implants',120);shrink('Allergies',120);},()=>{drop('Implants');},()=>{drop('Meds');},()=>{drop('Conditions');},()=>{dropICE(3);},()=>{dropICE(2);},()=>{dropICE(1);},()=>{const i=work.findIndex(l=>l.startsWith('URL: '));if(i!==-1)work[i]='URL: myqer.com';}];for(const step of phases){if(u8len(join())<=byteLimit)break;step();}let out=join();while(u8len(out)>byteLimit&&out.length>10){out=out.slice(0,out.length-50);}return out.replace(/\s+$/,'');}
+    function safeRenderQR(container,text){container.innerHTML='';let level=QRCode.CorrectLevel.M;let limit=900;let payload=text;if(u8len(payload)>limit)payload=compactLinesToLimit(text.split('\n'),limit);try{new QRCode(container,{text:payload,width:240,height:240,correctLevel:level});return;}catch{level=QRCode.CorrectLevel.L;limit=1100;payload=compactLinesToLimit(text.split('\n'),limit);container.innerHTML='';new QRCode(container,{text:payload,width:240,height:240,correctLevel:level});}}
+    function buildOfflineTextPayload(shortCode){const lines=buildTextLines(shortCode);const joined=lines.join('\n');return (u8len(joined)<=900)?joined:compactLinesToLimit(lines,900);}
+    function renderOfflineTextQR(){const wrap=document.getElementById('offlineQRwrap');const box=document.getElementById('offlineQRbox');if(!wrap||!box)return;const hasProfile=userData.profile&&userData.profile.fullName;const hasHealth=userData.health&&(userData.health.bloodType||userData.health.allergies||typeof userData.health.organDonor!=='undefined');const hasIce=Array.isArray(iceContacts)&&iceContacts.length>0;if(!(hasProfile||hasHealth||hasIce)){wrap.style.display='none';box.innerHTML='';return;}wrap.style.display='block';const sc=(localStorage.getItem('myqer_shortcode')||'').toUpperCase();const textCard=buildOfflineTextPayload(sc);box.innerHTML='';safeRenderQR(box,textCard);const mark=document.createElement('div');mark.textContent='MYQER™';mark.style.cssText='margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';box.appendChild(mark);}
 
-  // ---- Main QR (text) ----
-  async function generateQRCode() {
-    const qrCanvasContainer = document.getElementById('qrCanvas');
-    const qrPlaceholder     = document.getElementById('qrPlaceholder');
-    const codeUnderQR       = document.getElementById('codeUnderQR');
-    const cardUrl           = document.getElementById('cardUrl');
-    const qrStatus          = document.getElementById('qrStatus');
-
-    const hasProfile = userData.profile && userData.profile.fullName;
-    const hasHealth  = userData.health && (
-      userData.health.bloodType || userData.health.allergies ||
-      userData.health.conditions || userData.health.medications ||
-      userData.health.implants || typeof userData.health.organDonor !== 'undefined'
-    );
-    const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
-
-    if (!(hasProfile || hasHealth || hasIce)) {
-      qrPlaceholder.style.display = 'flex';
-      qrCanvasContainer.innerHTML = '';
-      codeUnderQR.textContent = '';
-      cardUrl.value = '';
-      qrStatus.hidden = true;
-      return;
+    async function generateQRCode(){
+      const qrCanvas=document.getElementById('qrCanvas');const qrPlaceholder=document.getElementById('qrPlaceholder');const codeUnderQR=document.getElementById('codeUnderQR');const cardUrl=document.getElementById('cardUrl');const qrStatus=document.getElementById('qrStatus');
+      const hasProfile=userData.profile&&userData.profile.fullName;const hasHealth=userData.health&&(userData.health.bloodType||userData.health.allergies||userData.health.conditions||userData.health.medications||userData.health.implants||typeof userData.health.organDonor!=='undefined');const hasIce=Array.isArray(iceContacts)&&iceContacts.length>0;
+      if(!(hasProfile||hasHealth||hasIce)){qrPlaceholder.style.display='flex';qrCanvas.innerHTML='';codeUnderQR.textContent='';cardUrl.value='';qrStatus.hidden=true;return;}
+      const scLocal=(localStorage.getItem('myqer_shortcode')||'').toUpperCase();const shortCode=scLocal||await generateShortCode();const textCard=buildOfflineTextPayload(shortCode);
+      qrPlaceholder.style.display='none';safeRenderQR(qrCanvas,textCard);codeUnderQR.textContent=shortCode;cardUrl.value=shortCode?`https://www.myqer.com/c/${encodeURIComponent(shortCode)}`:'';qrStatus.textContent='Offline-friendly text QR generated';qrStatus.style.background='rgba(5,156,105,.1)';qrStatus.style.color='var(--green)';qrStatus.hidden=false;renderOfflineTextQR();
     }
-          <p>Scan this QR code for emergency information</p>
-          <p style="font-size:.8em;color:#666">www.myqer.com</p>
-        </body></html>`);
-        win.document.close();
-        win.print();
-      });
 
-      // Delete flow
-      const delPhrase = document.getElementById('deletePhrase');
-      const delBtn    = document.getElementById('deleteBtn');
-      delPhrase.addEventListener('input', () => {
-        delBtn.disabled = delPhrase.value !== 'DELETE MY ACCOUNT';
-      });
-      delBtn.addEventListener('click', async () => {
-        if (delPhrase.value !== 'DELETE MY ACCOUNT') return;
-        if (!confirm('This will permanently delete your data. Continue?')) return;
-        try {
-          const { data:{ session } } = await supabase.auth.getSession();
-          const uid = session?.user?.id;
-          if (uid) {
-            await supabase.from('ice_contacts').delete().eq('user_id', uid);
-            await supabase.from('health_data').delete().eq('user_id', uid);
-            await supabase.from('profiles').delete().eq('id', uid);
-          }
-          await supabase.auth.signOut();
-          localStorage.clear(); sessionStorage.clear();
-          window.location.replace('/index.html');     <!-- redirect to home after logout/delete -->
-        } catch (e) {
-          console.error(e);
-          showToast('Error deleting account: ' + e.message, 'error');
-        }
-      });
+    // ---- SNAPSHOT (non-blocking) ----
+    function buildSnapshotObject(){const profile=userData.profile||{};const health=userData.health||{};const code=(localStorage.getItem('myqer_shortcode')||'').toUpperCase();return{name:profile.fullName||null,dob:profile.dob||null,blood:health.bloodType||null,allergies:typeof health.allergies!=='undefined'?(health.allergies||null):null,donor:!!health.organDonor,conditions:health.conditions||null,meds:health.medications||null,implants:health.implants||null,ice:(iceContacts||[]).slice(0,3).map(c=>`${c.name||''} (${c.relation||''}): ${c.phone||''}`),triage:calculateTriage(true),code};}
+    async function saveSnapshotForCurrentUser(){try{const {data:{session}}=await supabase.auth.getSession();const uid=session?.user?.id;if(!uid)return;const snapshot=buildSnapshotObject();await supabase.from('profile_snapshots').insert({user_id:uid,snapshot});}catch(e){/* non-blocking */}}
 
-      // Top-right “Logout” button
-      document.getElementById('btnSignOut').addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to logout?')) return;
-        try {
-          await supabase.auth.signOut();
-        } finally {
-          localStorage.clear(); sessionStorage.clear();
-          window.location.replace('/index.html');     <!-- redirect to home after logout -->
-        }
-      });
+    // ---- Saves ----
+    async function saveProfile(){const full_name=document.getElementById('profileFullName').value||null;const dobRaw=document.getElementById('profileDob').value||null;const country=document.getElementById('profileCountry').value||null;const health_id=document.getElementById('profileHealthId').value||null;const dob=dobRaw&&dobRaw.trim()!==''?dobRaw:null;try{if(isSupabaseAvailable&&isOnline){const {data:{session}}=await supabase.auth.getSession();const uid=session?.user?.id;if(uid){const {error}=await supabase.from('profiles').upsert({id:uid,full_name,dob,country,health_id});if(error)throw error;}}const profileData={fullName:full_name||'',dob:dob||'',country:country||'',healthId:health_id||''};localStorage.setItem('myqer_profile',JSON.stringify(profileData));userData.profile=profileData;showToast('Profile saved successfully','success');const m=document.getElementById('profileMsg');m.textContent='✔ Profile saved successfully';m.className='status-msg success';m.style.display='block';await generateQRCode();await saveSnapshotForCurrentUser();}catch(e){console.error(e);showToast('Error saving profile: '+(e.message||e),'error');}}
+    async function saveHealth(){const healthData={blood_type:document.getElementById('hfBloodType').value||null,allergies:document.getElementById('hfAllergies').value||null,organ_donor:document.getElementById('hfDonor').checked,conditions:document.getElementById('hfConditions').value||null,medications:document.getElementById('hfMeds').value||null,implants:document.getElementById('hfImplants').value||null,triage_override:document.getElementById('triageOverride').value||'auto'};try{const localMirror={bloodType:healthData.blood_type,allergies:healthData.allergies,organDonor:healthData.organ_donor,conditions:healthData.conditions,medications:healthData.medications,implants:healthData.implants,triageOverride:healthData.triage_override};localStorage.setItem('myqer_health',JSON.stringify(localMirror));userData.health=localMirror;if(isSupabaseAvailable&&isOnline){const {data:{session}}=await supabase.auth.getSession();if(session?.user?.id){const row={user_id:session.user.id,...healthData};const {error}=await supabase.from('health_data').upsert(row,{onConflict:'user_id'});if(error)throw error;}}calculateTriage();showToast('Health information saved','success');const m=document.getElementById('healthMsg');m.textContent='✓ Health information saved';m.className='status-msg success';m.style.display='block';await generateQRCode();await saveSnapshotForCurrentUser();}catch(e){console.error(e);showToast('Error saving health data: '+e.message,'error');}}
+    async function saveIce(){try{localStorage.setItem('myqer_ice',JSON.stringify(iceContacts));if(isSupabaseAvailable&&isOnline){const {data:{session}}=await supabase.auth.getSession();if(session?.user?.id){const rows=iceContacts.map((c,i)=>({user_id:session.user.id,name:c.name||null,relation:(c.relation||'').trim(),phone:c.phone||null,contact_order:i}));const {error}=await supabase.from('ice_contacts').upsert(rows,{onConflict:'user_id, contact_order'});if(error)throw error;}}showToast('Emergency contacts saved','success');const m=document.getElementById('iceMsg');m.textContent='✓ Emergency contacts saved';m.className='status-msg success';m.style.display='block';await generateQRCode();await saveSnapshotForCurrentUser();}catch(e){console.error(e);showToast('Error saving emergency contacts: '+e.message,'error');}}
 
-      wireOfflineDownload();
+    // ---- Load user data ----
+    async function loadUserData(){
+      const {data}=await supabase.auth.getSession();const uid=data?.session?.user?.id;
+      const profileLS=localStorage.getItem('myqer_profile');const healthLS=localStorage.getItem('myqer_health');const iceLS=localStorage.getItem('myqer_ice');
+      if(profileLS){userData.profile=JSON.parse(profileLS);const map={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};Object.entries(map).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=userData.profile[k]||'';});}else{userData.profile={};}
+      if(healthLS){userData.health=JSON.parse(healthLS);document.getElementById('hfBloodType').value=userData.health.bloodType||'';document.getElementById('hfAllergies').value=userData.health.allergies||'';document.getElementById('hfDonor').checked=!!userData.health.organDonor;document.getElementById('hfConditions').value=userData.health.conditions||'';document.getElementById('hfMeds').value=userData.health.medications||'';document.getElementById('hfImplants').value=userData.health.implants||'';document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';calculateTriage();}else{userData.health={};}
+      iceContacts=iceLS?JSON.parse(iceLS):[];renderIceContacts();
 
-      // Load data then hide loader
-      try { await loadUserData(); }
-      catch (e) { console.error(e); showToast('Failed to load your data', 'error'); }
-      finally { finalizeBoot(); }
+      try{const {data:serverProfile}=await supabase.from('profiles').select('full_name,dob,country,health_id,code').eq('id',uid).maybeSingle();if(serverProfile){userData.profile={fullName:serverProfile.full_name||userData.profile.fullName||'',dob:serverProfile.dob||userData.profile.dob||'',country:serverProfile.country||userData.profile.country||'',healthId:serverProfile.health_id||userData.profile.healthId||''};if(serverProfile.code)localStorage.setItem('myqer_shortcode',serverProfile.code);localStorage.setItem('myqer_profile',JSON.stringify(userData.profile));const pfMap={fullName:'profileFullName',dob:'profileDob',country:'profileCountry',healthId:'profileHealthId'};Object.entries(pfMap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=userData.profile[k]||'';});}}catch(e){console.warn('Profile fetch failed:',e);}
+      try{const {data:serverHealth}=await supabase.from('health_data').select('blood_type,allergies,organ_donor,conditions,medications,implants,triage_override').eq('user_id',uid).maybeSingle();if(serverHealth){userData.health={bloodType:serverHealth.blood_type||'',allergies:serverHealth.allergies||'',organDonor:!!serverHealth.organ_donor,conditions:serverHealth.conditions||'',medications:serverHealth.medications||'',implants:serverHealth.implants||'',triageOverride:serverHealth.triage_override||'auto'};localStorage.setItem('myqer_health',JSON.stringify(userData.health));document.getElementById('hfBloodType').value=userData.health.bloodType||'';document.getElementById('hfAllergies').value=userData.health.allergies||'';document.getElementById('hfDonor').checked=!!userData.health.organDonor;document.getElementById('hfConditions').value=userData.health.conditions||'';document.getElementById('hfMeds').value=userData.health.medications||'';document.getElementById('hfImplants').value=userData.health.implants||'';document.getElementById('triageOverride').value=userData.health.triageOverride||'auto';calculateTriage();}}catch(e){console.warn('Health fetch failed:',e);}
+      try{const {data:serverIce}=await supabase.from('ice_contacts').select('name,relation,phone,contact_order').eq('user_id',uid).order('contact_order',{ascending:true});if(Array.isArray(serverIce)&&serverIce.length){iceContacts=serverIce.map(r=>({name:r.name||'',relation:r.relation||'',phone:r.phone||''}));localStorage.setItem('myqer_ice',JSON.stringify(iceContacts));renderIceContacts();}}catch(e){console.warn('ICE fetch failed:',e);}
+      await generateQRCode();renderOfflineTextQR();
+    }
 
-      console.log('🚀 Dashboard ready');
+    // ---- Offline QR PNG button ----
+    (function wireOfflineDownload(){const btn=document.getElementById('btnSaveOfflineQR');if(!btn)return;btn.onclick=()=>{const box=document.getElementById('offlineQRbox');const img=box?.querySelector('img')||box?.querySelector('canvas');if(!img){showToast('Generate the offline QR first','error');return;}const url=img.tagName==='IMG'?img.src:img.toDataURL('image/png');const a=document.createElement('a');a.href=url;a.download='myqer-offline-qr.png';a.click();};})();
+
+    // ---- Autosave debounce ----
+    function setupAutoSave(id,fn){const el=document.getElementById(id);if(!el)return;el.addEventListener('input',()=>{if(autoSaveTimeouts[id])clearTimeout(autoSaveTimeouts[id]);autoSaveTimeouts[id]=setTimeout(async()=>{try{await fn();showToast('Changes saved automatically','success',2000);}catch(e){console.error(e);showToast('Auto-save failed','error');}},500);});}
+
+    // ---- Buttons & events ----
+    document.getElementById('copyLink').addEventListener('click',async()=>{const url=document.getElementById('cardUrl').value;if(!url)return showToast('No link to copy','error');try{await navigator.clipboard.writeText(url);showToast('Link copied to clipboard','success');}catch{showToast('Failed to copy link','error');}});
+    document.getElementById('openLink').addEventListener('click',()=>{const url=document.getElementById('cardUrl').value;if(!url)return showToast('No link to open','error');window.open(url,'_blank');});
+    document.getElementById('dlPNG').addEventListener('click',()=>{const img=document.getElementById('qrCanvas').querySelector('img');if(img&&img.src){const a=document.createElement('a');a.download='myqer-emergency-qr.png';a.href=img.src;a.click();showToast('PNG downloaded','success');}else{showToast('Generate QR code first','error');}});
+    document.getElementById('dlSVG').addEventListener('click',()=>showToast('SVG download coming soon','success'));
+    document.getElementById('printQR').addEventListener('click',()=>{const sc=document.getElementById('codeUnderQR').textContent;if(!sc)return showToast('Generate QR code first','error');const img=document.getElementById('qrCanvas').querySelector('img');const win=window.open('','_blank');win.document.write(`<html><head><title>MYQER Emergency Card - ${sc}</title></head><body style="font-family:Arial;text-align:center;padding:2rem"><h1>MYQER™ Emergency Card</h1><p>Code: ${sc}</p>${img?`<img src="${img.src}" width="300" height="300" />`:''}<p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p></body></html>`);win.document.close();win.print();});
+
+    // ---- Delete account flow ----
+    (function(){
+      const delPhrase=document.getElementById('deletePhrase');const delBtn=document.getElementById('deleteBtn');
+      delPhrase.addEventListener('input',()=>{delBtn.disabled=delPhrase.value!=='DELETE MY ACCOUNT';});
+      delBtn.addEventListener('click',async()=>{if(delPhrase.value!=='DELETE MY ACCOUNT')return;if(!confirm('This will permanently delete your data. Continue?'))return;try{const uid=await getUserId();if(uid){await supabase.from('ice_contacts').delete().eq('user_id',uid);await supabase.from('health_data').delete().eq('user_id',uid);await supabase.from('profiles').delete().eq('id',uid);}await supabase.auth.signOut();localStorage.clear();sessionStorage.clear();window.location.replace('/');}catch(e){console.error(e);showToast('Error deleting account: '+e.message,'error');}});
+    })();
+
+    // ---- Init (single) ----
+    document.addEventListener('DOMContentLoaded',async()=>{
+      updateNetworkStatus();
+      try{await requireAuth();}catch{hideLoader();return;}
+      // language dropdown
+      const langSel=document.getElementById('langSelector'),langDd=document.getElementById('langDropdown');
+      langSel.addEventListener('click',()=>{const open=langDd.style.display==='block';langDd.style.display=open?'none':'block';langSel.setAttribute('aria-expanded',String(!open));});
+      langDd.addEventListener('click',(e)=>{if(e.target.dataset.lang){langSel.textContent=e.target.dataset.lang.toUpperCase();langDd.style.display='none';}});
+      document.addEventListener('click',(e)=>{if(!langSel.contains(e.target)&&!langDd.contains(e.target)){langDd.style.display='none';langSel.setAttribute('aria-expanded','false');}});
+
+      // save buttons
+      document.getElementById('saveProfile').addEventListener('click',async()=>{await saveProfile();renderOfflineTextQR();});
+      document.getElementById('saveHealth').addEventListener('click',async()=>{await saveHealth();renderOfflineTextQR();});
+      document.getElementById('saveIce').addEventListener('click',async()=>{await saveIce();renderOfflineTextQR();});
+      document.getElementById('addIce').addEventListener('click',()=>{addIceContact();renderOfflineTextQR();});
+      document.getElementById('triageOverride').addEventListener('change',()=>{calculateTriage();});
+
+      // autosave
+      ['profileFullName','profileDob','profileCountry','profileHealthId','hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants']
+        .forEach(id=>setupAutoSave(id, async()=>{ if(id.startsWith('profile')) await saveProfile(); else await saveHealth(); renderOfflineTextQR(); }));
+
+      // load + first render
+      try{await loadUserData();}catch(e){console.error(e);showToast('Failed to load your data','error');}finally{hideLoader();}
     });
 
-    window.addEventListener('online',  updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
-
-    // expose helpers (needed by inline onclick handlers)
-    window.addIceContact             = addIceContact;
-    window.removeIceContact          = removeIceContact;
-    window.updateIceContact          = updateIceContact;
-    window.saveIndividualIceContact  = saveIndividualIceContact;
-    window.renderOfflineTextQR       = renderOfflineTextQR;
-  </script>
-
-  <!-- (optional) tiny logger; safe to keep or remove -->
-  <script>
-    window.DEBUG = true;
-    const log = (...a) => window.DEBUG && console.log('[MYQER]', ...a);
+    // expose small helpers for inline handlers
+    window.addIceContact=addIceContact;window.removeIceContact=removeIceContact;window.updateIceContact=updateIceContact;window.saveIndividualIceContact=saveIndividualIceContact;window.renderOfflineTextQR=renderOfflineTextQR;
   </script>
 </body>
 </html>
-   
