@@ -1070,43 +1070,30 @@
     window.renderOfflineTextQR=renderOfflineTextQR;
   </script>
 
-  <!-- tiny safety logger to prevent stuck loader after bfcache/back nav -->
-  <script>
-    window.DEBUG = true;
-    const log = (...a)=> window.DEBUG && console.log('[MYQER]', ...a);
-
-    function hideLoader() {
+<!-- tiny safety logger (guarded, no duplicate init) -->
+<script>
+  // Minimal helper: no second initialization, no calls to loadUserData/generateQRCode here.
+  // We only keep the net status pill updates and a loader failsafe.
+  (function(){
+    const hideLoader = () => {
       const s = document.getElementById('loadingState');
       if (s) { s.style.opacity = '0'; s.style.display = 'none'; }
-    }
+    };
 
-    async function safe(fn, label='task') {
-      try { return await fn(); }
-      catch (e) { console.error(`[MYQER] ${label} failed`, e); window.showToast?.(`${label} failed`, 'error'); }
-      finally { hideLoader(); }
-    }
+    // In case we ever get stuck on a loader due to bfcache/back nav:
+    window.addEventListener('pageshow', () => hideLoader());
 
-    if (!window.__myqerWired) {
-      window.__myqerWired = true;
-
-      document.addEventListener('DOMContentLoaded', () => {
-        safe(async () => {
-          await window.loadUserData?.();
-          await window.generateQRCode?.();
-          log('Dashboard ready');
-        }, 'initialization');
-      });
-
-      const updatePill = () => {
-        const pill = document.getElementById('netStatePill');
-        if (!pill) return;
-        pill.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
-        pill.className = navigator.onLine ? 'pill green' : 'pill amber';
-      };
-      window.addEventListener('online', updatePill);
-      window.addEventListener('offline', updatePill);
-      updatePill();
-    }
-  </script>
+    // Keep ONLINE/OFFLINE pill in sync (if present in your header)
+    const updatePill = () => {
+      const pill = document.getElementById('netStatePill');
+      if (!pill) return;
+      pill.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+      pill.className = navigator.onLine ? 'pill green' : 'pill amber';
+    };
+    window.addEventListener('online', updatePill);
+    window.addEventListener('offline', updatePill);
+    updatePill();
+  })();
+</script>
 </body>
 </html>
