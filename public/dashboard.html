@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MYQER Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -208,6 +207,549 @@
             .print-area, .print-area * { visibility: visible; }
             .print-area { position: absolute; left: 0; top: 0; }
         }
+        
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        .qr-container canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .ice-contact-row {
+            background: rgba(249, 250, 251, 0.8);
+            border: 1px solid rgba(229, 231, 235, 0.5);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+        
+        .ice-contact-row:hover {
+            background: rgba(243, 244, 246, 0.9);
+            border-color: rgba(209, 213, 219, 0.7);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(220, 38, 38, 0.2);
+            border-top: 4px solid #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        .error-state {
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .success-state {
+            color: #059669;
+            background: rgba(5, 150, 105, 0.1);
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .connection-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .connection-online {
+            background: rgba(5, 150, 105, 0.1);
+            color: #059669;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+        }
+        
+        .connection-offline {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+        
+        .connection-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .section-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .field-group {
+            margin-bottom: 20px;
+        }
+        
+        .field-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+        
+        .field-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: white;
+        }
+        
+        .field-input:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+        
+        .field-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .checkbox-field {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+        }
+        
+        .checkbox-input {
+            width: 18px;
+            height: 18px;
+            accent-color: #dc2626;
+        }
+        
+        .select-field {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 12px center;
+            background-repeat: no-repeat;
+            background-size: 16px;
+            padding-right: 40px;
+        }
+        
+        .action-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        .action-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .button-icon {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .card-section {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(229, 231, 235, 0.5);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-ribbon {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+        }
+        
+        .card-content {
+            margin-left: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            border: 1px solid rgba(229, 231, 235, 0.5);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .emergency-banner {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .qr-actions {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .url-field-group {
+            display: flex;
+            gap: 8px;
+            max-width: 600px;
+            margin: 0 auto 20px;
+        }
+        
+        .url-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+            font-family: monospace;
+            font-size: 13px;
+            color: #374151;
+        }
+        
+        .delete-section {
+            max-width: 400px;
+            margin: 40px auto 0;
+        }
+        
+        .delete-warning {
+            background: rgba(220, 38, 38, 0.05);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        .delete-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #dc2626;
+            margin-bottom: 12px;
+        }
+        
+        .delete-description {
+            color: #6b7280;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .delete-confirm-field {
+            margin-bottom: 20px;
+        }
+        
+        .delete-button {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 auto;
+        }
+        
+        .delete-button:hover {
+            background: linear-gradient(135deg, #b91c1c, #dc2626);
+            transform: translateY(-1px);
+        }
+        
+        .delete-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .footer-section {
+            background: rgba(255, 255, 255, 0.8);
+            border-top: 1px solid rgba(229, 231, 235, 0.5);
+            padding: 32px 0;
+            margin-top: 60px;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .footer-copyright {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .footer-link {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s ease;
+        }
+        
+        .footer-link:hover {
+            color: #dc2626;
+        }
+        
+        .language-selector {
+            position: relative;
+        }
+        
+        .language-select {
+            padding: 8px 32px 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        
+        .logout-button {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.2s ease;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+        }
+        
+        .logout-button:hover {
+            color: #dc2626;
+        }
+        
+        .header-section {
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+            padding: 16px 0;
+            margin-bottom: 32px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+        
+        .content-grid {
+            display: grid;
+            gap: 24px;
+        }
+        
+        .two-column {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .three-column {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .four-column {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        @media (max-width: 1024px) {
+            .two-column,
+            .three-column,
+            .four-column {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .header-actions {
+                justify-content: space-between;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 0 16px 60px;
+            }
+            
+            .header-content {
+                padding: 0 16px;
+            }
+            
+            .card-section {
+                padding: 16px;
+            }
+            
+            .card-content {
+                margin-left: 12px;
+            }
+            
+            .qr-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .url-field-group {
+                flex-direction: column;
+            }
+            
+            .action-button {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body class="gradient-bg">
@@ -220,26 +762,27 @@
     </div>
 
     <!-- Loading Screen -->
-    <div id="loadingScreen" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div class="text-center">
-            <div class="loader mx-auto mb-4"></div>
+    <div id="loadingScreen" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
             <h2 class="text-xl font-semibold text-gray-800 mb-2">Loading MYQER Dashboard</h2>
-            <p class="text-gray-600">Please wait while we load your emergency profile...</p>
+            <p class="text-gray-600">Please wait while we initialize your emergency profile...</p>
         </div>
     </div>
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" class="hidden">
         <!-- Header -->
-        <header class="glass-card shadow-lg mb-8">
-            <div class="max-w-6xl mx-auto px-6 py-4">
-                <div class="flex justify-between items-center mobile-header">
-                    <h1 class="text-2xl font-bold text-gray-800">MYQER Dashboard</h1>
-                    <div class="flex items-center gap-4">
-                        <div id="connectionStatus" class="text-sm font-medium px-3 py-1 rounded-full bg-green-100 text-green-800">
-                            Online
-                        </div>
-                        <select id="languageSelect" onchange="changeLanguage()" class="form-input px-3 py-2 rounded-lg text-sm">
+        <header class="header-section">
+            <div class="header-content">
+                <h1 class="header-title">MYQER Dashboard</h1>
+                <div class="header-actions">
+                    <div id="connectionStatus" class="connection-indicator connection-online">
+                        <div class="connection-dot"></div>
+                        <span>Online</span>
+                    </div>
+                    <div class="language-selector">
+                        <select id="languageSelect" class="language-select" onchange="changeLanguage()">
                             <option value="en">English</option>
                             <option value="es">Español</option>
                             <option value="fr">Français</option>
@@ -251,56 +794,60 @@
                             <option value="hi">हिन्दी</option>
                             <option value="zh">中文</option>
                         </select>
-                        <button onclick="logout()" class="text-gray-600 hover:text-red-600 font-medium transition-colors" data-i18n="logout">Logout</button>
-                        <div id="userEmail" class="text-sm text-gray-500"></div>
+                    </div>
+                    <div class="user-info">
+                        <span id="userEmail">demo@myqer.com</span>
+                        <button onclick="logout()" class="logout-button" data-i18n="logout">Logout</button>
                     </div>
                 </div>
             </div>
         </header>
 
-        <div class="max-w-6xl mx-auto px-6 pb-20">
+        <div class="main-content">
             <!-- Identity Section -->
-            <section class="glass-card rounded-3xl shadow-xl mb-8 overflow-hidden relative">
-                <div class="ribbon-green w-2 h-full absolute left-0"></div>
-                <div class="pl-8 pr-6 py-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-semibold text-gray-800" data-i18n="identity_title">Identity — Personal Information</h2>
-                        <button onclick="saveProfile()" class="btn-success px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_profile">
-                            Save Profile
-                        </button>
+            <section class="card-section">
+                <div class="card-ribbon ribbon-green"></div>
+                <div class="card-content">
+                    <div class="section-header">
+                        <h2 class="section-title" data-i18n="identity_title">Identity — Personal Information</h2>
+                        <div class="section-actions">
+                            <button onclick="saveProfile()" class="action-button btn-success" data-i18n="save_profile">
+                                Save Profile
+                            </button>
+                        </div>
                     </div>
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="fullName" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="full_name">Full Name</label>
-                            <input type="text" id="fullName" class="form-input w-full px-4 py-3 rounded-xl" aria-label="Full Name">
+                    <div class="content-grid two-column">
+                        <div class="field-group">
+                            <label for="fullName" class="field-label" data-i18n="full_name">Full Name</label>
+                            <input type="text" id="fullName" class="field-input" aria-label="Full Name">
                         </div>
-                        <div>
-                            <label for="dob" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="dob">Date of Birth</label>
-                            <input type="date" id="dob" class="form-input w-full px-4 py-3 rounded-xl" aria-label="Date of Birth">
+                        <div class="field-group">
+                            <label for="dob" class="field-label" data-i18n="dob">Date of Birth</label>
+                            <input type="date" id="dob" class="field-input" aria-label="Date of Birth">
                         </div>
-                        <div>
-                            <label for="country" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="country">Country</label>
-                            <select id="country" class="form-input w-full px-4 py-3 rounded-xl" aria-label="Country">
+                        <div class="field-group">
+                            <label for="country" class="field-label" data-i18n="country">Country</label>
+                            <select id="country" class="field-input select-field" aria-label="Country">
                                 <option value="" data-i18n="select_country">Select Country</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="healthId" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="health_id">National/Health ID (Optional)</label>
-                            <input type="text" id="healthId" class="form-input w-full px-4 py-3 rounded-xl" aria-label="National or Health ID">
+                        <div class="field-group">
+                            <label for="healthId" class="field-label" data-i18n="health_id">National/Health ID (Optional)</label>
+                            <input type="text" id="healthId" class="field-input" aria-label="National or Health ID">
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Medical Section -->
-            <section class="glass-card rounded-3xl shadow-xl mb-8 overflow-hidden relative">
-                <div id="medicalRibbon" class="ribbon-red w-2 h-full absolute left-0"></div>
-                <div class="pl-8 pr-6 py-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-semibold text-gray-800" data-i18n="critical_title">CRITICAL — Medical & Health Details</h2>
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm text-gray-600" data-i18n="triage">Triage:</span>
-                            <select id="triageOverride" onchange="updateTriageRibbon()" class="form-input px-3 py-1 rounded-lg text-sm">
+            <section class="card-section">
+                <div id="medicalRibbon" class="card-ribbon ribbon-red"></div>
+                <div class="card-content">
+                    <div class="section-header">
+                        <h2 class="section-title" data-i18n="critical_title">CRITICAL — Medical & Health Details</h2>
+                        <div class="section-actions">
+                            <span class="field-label" data-i18n="triage">Triage:</span>
+                            <select id="triageOverride" onchange="updateTriageRibbon()" class="field-input select-field" style="width: auto; min-width: 100px;">
                                 <option value="auto" data-i18n="use_auto">Use auto</option>
                                 <option value="green">Green</option>
                                 <option value="amber">Amber</option>
@@ -308,15 +855,15 @@
                                 <option value="black">Black</option>
                             </select>
                             <div id="triagePill" class="triage-pill triage-green">Green</div>
-                            <button onclick="saveHealth()" class="btn-warning px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_health">
+                            <button onclick="saveHealth()" class="action-button btn-warning" data-i18n="save_health">
                                 Save Health
                             </button>
                         </div>
                     </div>
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="bloodType" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="blood_type">Blood Type</label>
-                            <select id="bloodType" class="form-input w-full px-4 py-3 rounded-xl">
+                    <div class="content-grid two-column">
+                        <div class="field-group">
+                            <label for="bloodType" class="field-label" data-i18n="blood_type">Blood Type</label>
+                            <select id="bloodType" class="field-input select-field">
                                 <option value="" data-i18n="select_blood_type">Select Blood Type</option>
                                 <option value="A+">A+</option>
                                 <option value="A-">A-</option>
@@ -328,43 +875,43 @@
                                 <option value="O-">O-</option>
                             </select>
                         </div>
-                        <div>
-                            <label for="allergies" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="allergies">Critical Allergies</label>
-                            <input type="text" id="allergies" data-i18n-placeholder="allergies_placeholder" placeholder="e.g., Penicillin, Nuts" class="form-input w-full px-4 py-3 rounded-xl">
+                        <div class="field-group">
+                            <label for="allergies" class="field-label" data-i18n="allergies">Critical Allergies</label>
+                            <input type="text" id="allergies" data-i18n-placeholder="allergies_placeholder" placeholder="e.g., Penicillin, Nuts" class="field-input">
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="flex items-center gap-3">
-                                <input type="checkbox" id="organDonor" class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                                <span class="text-sm font-medium text-gray-700" data-i18n="donor">I am an organ donor</span>
-                            </label>
+                        <div class="field-group">
+                            <label for="conditions" class="field-label" data-i18n="conditions">Medical Conditions</label>
+                            <textarea id="conditions" rows="3" class="field-input field-textarea"></textarea>
                         </div>
-                        <div>
-                            <label for="conditions" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="conditions">Medical Conditions</label>
-                            <textarea id="conditions" rows="3" class="form-input w-full px-4 py-3 rounded-xl"></textarea>
+                        <div class="field-group">
+                            <label for="medications" class="field-label" data-i18n="meds">Current Medications</label>
+                            <textarea id="medications" rows="3" class="field-input field-textarea"></textarea>
                         </div>
-                        <div>
-                            <label for="medications" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="meds">Current Medications</label>
-                            <textarea id="medications" rows="3" class="form-input w-full px-4 py-3 rounded-xl"></textarea>
+                        <div class="field-group">
+                            <label for="implants" class="field-label" data-i18n="implants">Implants/Medical Devices</label>
+                            <input type="text" id="implants" data-i18n-placeholder="implants_placeholder" placeholder="e.g., Pacemaker, Hip replacement" class="field-input">
                         </div>
-                        <div class="md:col-span-2">
-                            <label for="implants" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="implants">Implants/Medical Devices</label>
-                            <input type="text" id="implants" data-i18n-placeholder="implants_placeholder" placeholder="e.g., Pacemaker, Hip replacement" class="form-input w-full px-4 py-3 rounded-xl">
+                        <div class="field-group">
+                            <div class="checkbox-field">
+                                <input type="checkbox" id="organDonor" class="checkbox-input">
+                                <label for="organDonor" class="field-label" data-i18n="donor">I am an organ donor</label>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- ICE Contacts Section -->
-            <section class="glass-card rounded-3xl shadow-xl mb-8 overflow-hidden relative">
-                <div class="ribbon-orange w-2 h-full absolute left-0"></div>
-                <div class="pl-8 pr-6 py-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-semibold text-gray-800" data-i18n="ice_title">Emergency Contacts (ICE)</h2>
-                        <div class="flex gap-2">
-                            <button id="addContactBtn" onclick="addContact()" class="btn-secondary px-4 py-2 rounded-xl font-medium text-sm" data-i18n="add_ice">
+            <section class="card-section">
+                <div class="card-ribbon ribbon-orange"></div>
+                <div class="card-content">
+                    <div class="section-header">
+                        <h2 class="section-title" data-i18n="ice_title">Emergency Contacts (ICE)</h2>
+                        <div class="section-actions">
+                            <button id="addContactBtn" onclick="addContact()" class="action-button btn-secondary" data-i18n="add_ice">
                                 + Add Emergency Contact
                             </button>
-                            <button onclick="saveICE()" class="btn-warning px-4 py-2 rounded-xl font-medium text-sm" data-i18n="save_ice">
+                            <button onclick="saveICE()" class="action-button btn-warning" data-i18n="save_ice">
                                 Save ICE
                             </button>
                         </div>
@@ -376,83 +923,72 @@
             </section>
 
             <!-- Emergency Card & QR Section -->
-            <section class="emergency-panel rounded-3xl shadow-xl mb-8 overflow-hidden relative">
-                <div class="ribbon-red w-2 h-full absolute left-0"></div>
-                <div class="pl-8 pr-6 py-6">
-                    <h2 class="text-xl font-semibold mb-6 text-gray-800" data-i18n="emergency_title">Emergency Card & QR</h2>
+            <section class="card-section emergency-panel">
+                <div class="card-ribbon ribbon-red"></div>
+                <div class="card-content">
+                    <h2 class="section-title" data-i18n="emergency_title">Emergency Card & QR</h2>
                     <div class="text-center">
-                        <div id="qrcode" class="inline-block p-4 bg-white rounded-2xl shadow-lg mb-4 print-area" style="width: 240px; height: 240px;"></div>
-                        <div id="qrCodeText" class="text-lg font-mono font-semibold text-gray-800 mb-2"></div>
-                        <div class="text-xs text-red-600 font-medium mb-4">MYQER™</div>
+                        <div class="qr-container print-area">
+                            <canvas id="qrCanvas" width="200" height="200"></canvas>
+                        </div>
+                        <div id="qrCodeText" class="text-lg font-mono font-semibold text-gray-800 mb-2 mt-4"></div>
+                        <div class="text-xs text-red-600 font-medium mb-6">MYQER™</div>
                         
-                        <div class="mb-6">
-                            <label for="cardUrl" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="card_url">Card URL</label>
-                            <div class="flex gap-2 max-w-2xl mx-auto">
-                                <input type="text" id="cardUrl" readonly class="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                                <button onclick="copyUrl()" class="btn-secondary px-4 py-3 rounded-xl text-sm" data-i18n="copy_link">Copy</button>
-                                <button onclick="openUrl()" class="btn-secondary px-4 py-3 rounded-xl text-sm" data-i18n="open_link">Open</button>
-                            </div>
+                        <div class="url-field-group">
+                            <input type="text" id="cardUrl" readonly class="url-input">
+                            <button onclick="copyUrl()" class="action-button btn-secondary" data-i18n="copy_link">Copy</button>
+                            <button onclick="openUrl()" class="action-button btn-secondary" data-i18n="open_link">Open</button>
                         </div>
                         
-                        <div class="flex justify-center gap-3">
-                            <button onclick="downloadQR('png')" class="btn-secondary px-4 py-2 rounded-xl text-sm" data-i18n="download_png">PNG</button>
-                            <button onclick="downloadQR('svg')" class="btn-secondary px-4 py-2 rounded-xl text-sm" data-i18n="download_svg">SVG</button>
-                            <button onclick="printQR()" class="btn-secondary px-4 py-2 rounded-xl text-sm" data-i18n="print">Print</button>
+                        <div class="qr-actions">
+                            <button onclick="downloadQR('png')" class="action-button btn-secondary" data-i18n="download_png">PNG</button>
+                            <button onclick="downloadQR('svg')" class="action-button btn-secondary" data-i18n="download_svg">SVG</button>
+                            <button onclick="printQR()" class="action-button btn-secondary" data-i18n="print">Print</button>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- Delete Account Section -->
-            <section class="max-w-md mx-auto">
-                <div class="delete-card rounded-3xl shadow-xl overflow-hidden relative">
-                    <div class="ribbon-red w-2 h-full absolute left-0"></div>
-                    <div class="pl-8 pr-6 py-8 text-center">
-                        <h2 class="text-xl font-semibold mb-4 text-red-600" data-i18n="delete_title">Delete Account</h2>
-                        <p class="text-gray-600 mb-6" data-i18n="delete_warning">This action cannot be undone. All your data will be permanently deleted.</p>
-                        <div class="mb-6">
-                            <label for="deleteConfirm" class="block text-sm font-medium text-gray-700 mb-2" data-i18n="delete_phrase_label">Type "DELETE MY ACCOUNT" to confirm:</label>
-                            <input type="text" id="deleteConfirm" class="form-input w-full px-4 py-3 rounded-xl">
-                        </div>
-                        <button onclick="deleteAccount()" class="btn-primary px-8 py-4 rounded-xl font-medium text-lg flex items-center justify-center gap-2 mx-auto">
-                            <div id="deleteLoader" class="loader hidden"></div>
-                            <span data-i18n="delete_button">Delete My Account</span>
-                        </button>
+            <div class="delete-section">
+                <div class="delete-warning">
+                    <h2 class="delete-title" data-i18n="delete_title">Delete Account</h2>
+                    <p class="delete-description" data-i18n="delete_warning">This action cannot be undone. All your data will be permanently deleted.</p>
+                    <div class="delete-confirm-field">
+                        <label for="deleteConfirm" class="field-label" data-i18n="delete_phrase_label">Type "DELETE MY ACCOUNT" to confirm:</label>
+                        <input type="text" id="deleteConfirm" class="field-input">
                     </div>
+                    <button onclick="deleteAccount()" class="delete-button">
+                        <div id="deleteLoader" class="loader hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span data-i18n="delete_button">Delete My Account</span>
+                    </button>
                 </div>
-            </section>
+            </div>
         </div>
 
         <!-- Footer -->
-        <footer class="glass-card mt-16">
-            <div class="max-w-6xl mx-auto px-6 py-8">
-                <div class="flex flex-wrap justify-between items-center">
-                    <div class="text-sm text-gray-600">
-                        © 2024 MYQER. All rights reserved.
-                    </div>
-                    <div class="flex gap-6 text-sm">
-                        <a href="#" class="text-gray-600 hover:text-red-600 transition-colors" data-i18n="privacy_policy">Privacy Policy</a>
-                        <a href="#" class="text-gray-600 hover:text-red-600 transition-colors" data-i18n="terms_service">Terms of Service</a>
-                        <a href="#" class="text-gray-600 hover:text-red-600 transition-colors" data-i18n="support">Support</a>
-                    </div>
+        <footer class="footer-section">
+            <div class="footer-content">
+                <div class="footer-copyright">
+                    © 2024 MYQER. All rights reserved.
+                </div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link" data-i18n="privacy_policy">Privacy Policy</a>
+                    <a href="#" class="footer-link" data-i18n="terms_service">Terms of Service</a>
+                    <a href="#" class="footer-link" data-i18n="support">Support</a>
                 </div>
             </div>
         </footer>
     </div>
 
     <script>
-        // Initialize Supabase client
-        const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-        
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: { 
-                persistSession: true, 
-                storage: window.localStorage, 
-                autoRefreshToken: true, 
-                detectSessionInUrl: true 
-            }
-        });
+        // Global state management
+        let currentUser = null;
+        let saveInProgress = {};
+        let lastErrorToast = 0;
+        let isOnline = navigator.onLine;
+        let initializationComplete = false;
+        let debounceTimers = {};
 
         // Comprehensive internationalization
         const I18N = {
@@ -491,6 +1027,7 @@
                 toast_saved: "Saved successfully",
                 toast_error: "Something went wrong",
                 toast_auto_saved: "Changes saved automatically",
+                toast_copied: "URL copied to clipboard",
                 logout: "Logout",
                 privacy_policy: "Privacy Policy",
                 terms_service: "Terms of Service",
@@ -504,7 +1041,11 @@
                 svg_coming_soon: "SVG download coming soon",
                 save_profile: "Save Profile",
                 save_health: "Save Health",
-                save_ice: "Save ICE"
+                save_ice: "Save ICE",
+                loading_dashboard: "Loading MYQER Dashboard",
+                loading_message: "Please wait while we initialize your emergency profile...",
+                connection_online: "Online",
+                connection_offline: "Offline"
             },
             es: {
                 identity_title: "Identidad — Información Personal",
@@ -541,6 +1082,7 @@
                 toast_saved: "Guardado exitosamente",
                 toast_error: "Algo salió mal",
                 toast_auto_saved: "Cambios guardados automáticamente",
+                toast_copied: "URL copiada al portapapeles",
                 logout: "Cerrar Sesión",
                 privacy_policy: "Política de Privacidad",
                 terms_service: "Términos de Servicio",
@@ -554,7 +1096,11 @@
                 svg_coming_soon: "Descarga SVG próximamente",
                 save_profile: "Guardar Perfil",
                 save_health: "Guardar Salud",
-                save_ice: "Guardar ICE"
+                save_ice: "Guardar ICE",
+                loading_dashboard: "Cargando Panel MYQER",
+                loading_message: "Por favor espere mientras inicializamos su perfil de emergencia...",
+                connection_online: "En línea",
+                connection_offline: "Desconectado"
             },
             fr: {
                 identity_title: "Identité — Informations Personnelles",
@@ -588,9 +1134,10 @@
                 delete_phrase_label: 'Tapez "DELETE MY ACCOUNT" pour confirmer:',
                 delete_button: "Supprimer Mon Compte",
                 delete_warning: "Cette action ne peut pas être annulée. Toutes vos données seront définitivement supprimées.",
-                toast_saved: "Enregistré avec succès",
+                toast_saved: "Sauvegardé avec succès",
                 toast_error: "Quelque chose s'est mal passé",
-                toast_auto_saved: "Modifications enregistrées automatiquement",
+                toast_auto_saved: "Modifications sauvegardées automatiquement",
+                toast_copied: "URL copiée dans le presse-papiers",
                 logout: "Déconnexion",
                 privacy_policy: "Politique de Confidentialité",
                 terms_service: "Conditions de Service",
@@ -602,445 +1149,92 @@
                 offline_message: "Vous êtes hors ligne. Les modifications se synchroniseront lorsque la connexion sera rétablie.",
                 back_online: "De retour en ligne – synchronisation des modifications",
                 svg_coming_soon: "Téléchargement SVG bientôt disponible",
-                save_profile: "Enregistrer le Profil",
-                save_health: "Enregistrer la Santé",
-                save_ice: "Enregistrer ICE"
-            },
-            de: {
-                identity_title: "Identität — Persönliche Informationen",
-                critical_title: "KRITISCH — Medizinische & Gesundheitsdetails",
-                ice_title: "Notfallkontakte (ICE)",
-                emergency_title: "Notfallkarte & QR",
-                delete_title: "Konto Löschen",
-                full_name: "Vollständiger Name",
-                dob: "Geburtsdatum",
-                country: "Land",
-                select_country: "Land Auswählen",
-                health_id: "National/Gesundheits-ID (Optional)",
-                blood_type: "Blutgruppe",
-                select_blood_type: "Blutgruppe Auswählen",
-                allergies: "Kritische Allergien",
-                allergies_placeholder: "z.B., Penicillin, Nüsse",
-                donor: "Ich bin Organspender",
-                conditions: "Medizinische Bedingungen",
-                meds: "Aktuelle Medikamente",
-                implants: "Implantate/Medizinische Geräte",
-                implants_placeholder: "z.B., Herzschrittmacher, Hüftprothese",
-                triage: "Triage",
-                use_auto: "Auto verwenden",
-                add_ice: "+ Notfallkontakt Hinzufügen",
-                card_url: "Karten-URL",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "Drucken",
-                copy_link: "Kopieren",
-                open_link: "Öffnen",
-                delete_phrase_label: 'Geben Sie "DELETE MY ACCOUNT" ein, um zu bestätigen:',
-                delete_button: "Mein Konto Löschen",
-                delete_warning: "Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Daten werden dauerhaft gelöscht.",
-                toast_saved: "Erfolgreich gespeichert",
-                toast_error: "Etwas ist schief gelaufen",
-                toast_auto_saved: "Änderungen automatisch gespeichert",
-                logout: "Abmelden",
-                privacy_policy: "Datenschutzrichtlinie",
-                terms_service: "Nutzungsbedingungen",
-                support: "Support",
-                ice_name: "Name",
-                ice_relationship: "Beziehung",
-                ice_phone: "Telefon",
-                delete_contact: "Löschen",
-                offline_message: "Sie sind offline. Änderungen werden synchronisiert, wenn die Verbindung wiederhergestellt ist.",
-                back_online: "Wieder online – Änderungen werden synchronisiert",
-                svg_coming_soon: "SVG-Download demnächst verfügbar",
-                save_profile: "Profil Speichern",
-                save_health: "Gesundheit Speichern",
-                save_ice: "ICE Speichern"
-            },
-            it: {
-                identity_title: "Identità — Informazioni Personali",
-                critical_title: "CRITICO — Dettagli Medici e di Salute",
-                ice_title: "Contatti di Emergenza (ICE)",
-                emergency_title: "Carta di Emergenza e QR",
-                delete_title: "Elimina Account",
-                full_name: "Nome Completo",
-                dob: "Data di Nascita",
-                country: "Paese",
-                select_country: "Seleziona Paese",
-                health_id: "ID Nazionale/Sanitario (Opzionale)",
-                blood_type: "Gruppo Sanguigno",
-                select_blood_type: "Seleziona Gruppo Sanguigno",
-                allergies: "Allergie Critiche",
-                allergies_placeholder: "es., Penicillina, Noci",
-                donor: "Sono un donatore di organi",
-                conditions: "Condizioni Mediche",
-                meds: "Farmaci Attuali",
-                implants: "Impianti/Dispositivi Medici",
-                implants_placeholder: "es., Pacemaker, Protesi dell'anca",
-                triage: "Triage",
-                use_auto: "Usa automatico",
-                add_ice: "+ Aggiungi Contatto di Emergenza",
-                card_url: "URL della Carta",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "Stampa",
-                copy_link: "Copia",
-                open_link: "Apri",
-                delete_phrase_label: 'Digita "DELETE MY ACCOUNT" per confermare:',
-                delete_button: "Elimina Il Mio Account",
-                delete_warning: "Questa azione non può essere annullata. Tutti i tuoi dati saranno eliminati permanentemente.",
-                toast_saved: "Salvato con successo",
-                toast_error: "Qualcosa è andato storto",
-                toast_auto_saved: "Modifiche salvate automaticamente",
-                logout: "Disconnetti",
-                privacy_policy: "Informativa sulla Privacy",
-                terms_service: "Termini di Servizio",
-                support: "Supporto",
-                ice_name: "Nome",
-                ice_relationship: "Relazione",
-                ice_phone: "Telefono",
-                delete_contact: "Elimina",
-                offline_message: "Sei offline. Le modifiche si sincronizzeranno quando la connessione sarà ripristinata.",
-                back_online: "Di nuovo online – sincronizzazione delle modifiche",
-                svg_coming_soon: "Download SVG disponibile presto",
-                save_profile: "Salva Profilo",
-                save_health: "Salva Salute",
-                save_ice: "Salva ICE"
-            },
-            pt: {
-                identity_title: "Identidade — Informações Pessoais",
-                critical_title: "CRÍTICO — Detalhes Médicos e de Saúde",
-                ice_title: "Contatos de Emergência (ICE)",
-                emergency_title: "Cartão de Emergência e QR",
-                delete_title: "Excluir Conta",
-                full_name: "Nome Completo",
-                dob: "Data de Nascimento",
-                country: "País",
-                select_country: "Selecionar País",
-                health_id: "ID Nacional/Saúde (Opcional)",
-                blood_type: "Tipo Sanguíneo",
-                select_blood_type: "Selecionar Tipo Sanguíneo",
-                allergies: "Alergias Críticas",
-                allergies_placeholder: "ex., Penicilina, Nozes",
-                donor: "Sou doador de órgãos",
-                conditions: "Condições Médicas",
-                meds: "Medicamentos Atuais",
-                implants: "Implantes/Dispositivos Médicos",
-                implants_placeholder: "ex., Marca-passo, Prótese de quadril",
-                triage: "Triagem",
-                use_auto: "Usar automático",
-                add_ice: "+ Adicionar Contato de Emergência",
-                card_url: "URL do Cartão",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "Imprimir",
-                copy_link: "Copiar",
-                open_link: "Abrir",
-                delete_phrase_label: 'Digite "DELETE MY ACCOUNT" para confirmar:',
-                delete_button: "Excluir Minha Conta",
-                delete_warning: "Esta ação não pode ser desfeita. Todos os seus dados serão excluídos permanentemente.",
-                toast_saved: "Salvo com sucesso",
-                toast_error: "Algo deu errado",
-                toast_auto_saved: "Alterações salvas automaticamente",
-                logout: "Sair",
-                privacy_policy: "Política de Privacidade",
-                terms_service: "Termos de Serviço",
-                support: "Suporte",
-                ice_name: "Nome",
-                ice_relationship: "Relacionamento",
-                ice_phone: "Telefone",
-                delete_contact: "Excluir",
-                offline_message: "Você está offline. As alterações serão sincronizadas quando a conexão for restaurada.",
-                back_online: "De volta online – sincronizando alterações",
-                svg_coming_soon: "Download SVG em breve",
-                save_profile: "Salvar Perfil",
-                save_health: "Salvar Saúde",
-                save_ice: "Salvar ICE"
-            },
-            ro: {
-                identity_title: "Identitate — Informații Personale",
-                critical_title: "CRITIC — Detalii Medicale și de Sănătate",
-                ice_title: "Contacte de Urgență (ICE)",
-                emergency_title: "Card de Urgență și QR",
-                delete_title: "Șterge Contul",
-                full_name: "Nume Complet",
-                dob: "Data Nașterii",
-                country: "Țara",
-                select_country: "Selectează Țara",
-                health_id: "ID Național/Sănătate (Opțional)",
-                blood_type: "Grupa Sanguină",
-                select_blood_type: "Selectează Grupa Sanguină",
-                allergies: "Alergii Critice",
-                allergies_placeholder: "ex., Penicilină, Nuci",
-                donor: "Sunt donator de organe",
-                conditions: "Condiții Medicale",
-                meds: "Medicamente Actuale",
-                implants: "Implanturi/Dispozitive Medicale",
-                implants_placeholder: "ex., Pacemaker, Proteză de șold",
-                triage: "Triaj",
-                use_auto: "Folosește automat",
-                add_ice: "+ Adaugă Contact de Urgență",
-                card_url: "URL Card",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "Printează",
-                copy_link: "Copiază",
-                open_link: "Deschide",
-                delete_phrase_label: 'Tastează "DELETE MY ACCOUNT" pentru a confirma:',
-                delete_button: "Șterge Contul Meu",
-                delete_warning: "Această acțiune nu poate fi anulată. Toate datele tale vor fi șterse permanent.",
-                toast_saved: "Salvat cu succes",
-                toast_error: "Ceva nu a mers bine",
-                toast_auto_saved: "Modificările au fost salvate automat",
-                logout: "Deconectare",
-                privacy_policy: "Politica de Confidențialitate",
-                terms_service: "Termenii Serviciului",
-                support: "Suport",
-                ice_name: "Nume",
-                ice_relationship: "Relația",
-                ice_phone: "Telefon",
-                delete_contact: "Șterge",
-                offline_message: "Ești offline. Modificările se vor sincroniza când conexiunea va fi restabilită.",
-                back_online: "Înapoi online – sincronizez modificările",
-                svg_coming_soon: "Descărcarea SVG va fi disponibilă în curând",
-                save_profile: "Salvează Profilul",
-                save_health: "Salvează Sănătatea",
-                save_ice: "Salvează ICE"
-            },
-            ar: {
-                identity_title: "الهوية — المعلومات الشخصية",
-                critical_title: "حرج — التفاصيل الطبية والصحية",
-                ice_title: "جهات الاتصال الطارئة (ICE)",
-                emergency_title: "بطاقة الطوارئ و QR",
-                delete_title: "حذف الحساب",
-                full_name: "الاسم الكامل",
-                dob: "تاريخ الميلاد",
-                country: "البلد",
-                select_country: "اختر البلد",
-                health_id: "الهوية الوطنية/الصحية (اختياري)",
-                blood_type: "فصيلة الدم",
-                select_blood_type: "اختر فصيلة الدم",
-                allergies: "الحساسيات الحرجة",
-                allergies_placeholder: "مثل، البنسلين، المكسرات",
-                donor: "أنا متبرع بالأعضاء",
-                conditions: "الحالات الطبية",
-                meds: "الأدوية الحالية",
-                implants: "الزراعات/الأجهزة الطبية",
-                implants_placeholder: "مثل، منظم ضربات القلب، استبدال الورك",
-                triage: "الفرز",
-                use_auto: "استخدم التلقائي",
-                add_ice: "+ إضافة جهة اتصال طارئة",
-                card_url: "رابط البطاقة",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "طباعة",
-                copy_link: "نسخ",
-                open_link: "فتح",
-                delete_phrase_label: 'اكتب "DELETE MY ACCOUNT" للتأكيد:',
-                delete_button: "حذف حسابي",
-                delete_warning: "لا يمكن التراجع عن هذا الإجراء. سيتم حذف جميع بياناتك نهائياً.",
-                toast_saved: "تم الحفظ بنجاح",
-                toast_error: "حدث خطأ ما",
-                toast_auto_saved: "تم حفظ التغييرات تلقائياً",
-                logout: "تسجيل الخروج",
-                privacy_policy: "سياسة الخصوصية",
-                terms_service: "شروط الخدمة",
-                support: "الدعم",
-                ice_name: "الاسم",
-                ice_relationship: "العلاقة",
-                ice_phone: "الهاتف",
-                delete_contact: "حذف",
-                offline_message: "أنت غير متصل. ستتم مزامنة التغييرات عند استعادة الاتصال.",
-                back_online: "عاد الاتصال – جاري مزامنة التغييرات",
-                svg_coming_soon: "تحميل SVG قريباً",
-                save_profile: "حفظ الملف الشخصي",
-                save_health: "حفظ الصحة",
-                save_ice: "حفظ ICE"
-            },
-            hi: {
-                identity_title: "पहचान — व्यक्तिगत जानकारी",
-                critical_title: "गंभीर — चिकित्सा और स्वास्थ्य विवरण",
-                ice_title: "आपातकालीन संपर्क (ICE)",
-                emergency_title: "आपातकालीन कार्ड और QR",
-                delete_title: "खाता हटाएं",
-                full_name: "पूरा नाम",
-                dob: "जन्म तिथि",
-                country: "देश",
-                select_country: "देश चुनें",
-                health_id: "राष्ट्रीय/स्वास्थ्य ID (वैकल्पिक)",
-                blood_type: "रक्त समूह",
-                select_blood_type: "रक्त समूह चुनें",
-                allergies: "गंभीर एलर्जी",
-                allergies_placeholder: "जैसे, पेनिसिलिन, नट्स",
-                donor: "मैं अंग दाता हूं",
-                conditions: "चिकित्सा स्थितियां",
-                meds: "वर्तमान दवाएं",
-                implants: "इम्प्लांट/चिकित्सा उपकरण",
-                implants_placeholder: "जैसे, पेसमेकर, हिप रिप्लेसमेंट",
-                triage: "ट्राइएज",
-                use_auto: "ऑटो का उपयोग करें",
-                add_ice: "+ आपातकालीन संपर्क जोड़ें",
-                card_url: "कार्ड URL",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "प्रिंट",
-                copy_link: "कॉपी",
-                open_link: "खोलें",
-                delete_phrase_label: 'पुष्टि के लिए "DELETE MY ACCOUNT" टाइप करें:',
-                delete_button: "मेरा खाता हटाएं",
-                delete_warning: "यह क्रिया पूर्ववत नहीं की जा सकती। आपका सारा डेटा स्थायी रूप से हटा दिया जाएगा।",
-                toast_saved: "सफलतापूर्वक सहेजा गया",
-                toast_error: "कुछ गलत हुआ",
-                toast_auto_saved: "परिवर्तन स्वचालित रूप से सहेजे गए",
-                logout: "लॉग आउट",
-                privacy_policy: "गोपनीयता नीति",
-                terms_service: "सेवा की शर्तें",
-                support: "सहायता",
-                ice_name: "नाम",
-                ice_relationship: "रिश्ता",
-                ice_phone: "फोन",
-                delete_contact: "हटाएं",
-                offline_message: "आप ऑफलाइन हैं। कनेक्शन बहाल होने पर परिवर्तन सिंक हो जाएंगे।",
-                back_online: "वापस ऑनलाइन – परिवर्तन सिंक कर रहे हैं",
-                svg_coming_soon: "SVG डाउनलोड जल्द आ रहा है",
-                save_profile: "प्रोफ़ाइल सहेजें",
-                save_health: "स्वास्थ्य सहेजें",
-                save_ice: "ICE सहेजें"
-            },
-            zh: {
-                identity_title: "身份 — 个人信息",
-                critical_title: "紧急 — 医疗和健康详情",
-                ice_title: "紧急联系人 (ICE)",
-                emergency_title: "紧急卡片和二维码",
-                delete_title: "删除账户",
-                full_name: "全名",
-                dob: "出生日期",
-                country: "国家",
-                select_country: "选择国家",
-                health_id: "国民/健康ID（可选）",
-                blood_type: "血型",
-                select_blood_type: "选择血型",
-                allergies: "严重过敏",
-                allergies_placeholder: "例如，青霉素，坚果",
-                donor: "我是器官捐献者",
-                conditions: "医疗状况",
-                meds: "当前药物",
-                implants: "植入物/医疗设备",
-                implants_placeholder: "例如，心脏起搏器，髋关节置换",
-                triage: "分诊",
-                use_auto: "使用自动",
-                add_ice: "+ 添加紧急联系人",
-                card_url: "卡片网址",
-                download_png: "PNG",
-                download_svg: "SVG",
-                print: "打印",
-                copy_link: "复制",
-                open_link: "打开",
-                delete_phrase_label: '输入 "DELETE MY ACCOUNT" 确认：',
-                delete_button: "删除我的账户",
-                delete_warning: "此操作无法撤销。您的所有数据将被永久删除。",
-                toast_saved: "保存成功",
-                toast_error: "出现错误",
-                toast_auto_saved: "更改已自动保存",
-                logout: "登出",
-                privacy_policy: "隐私政策",
-                terms_service: "服务条款",
-                support: "支持",
-                ice_name: "姓名",
-                ice_relationship: "关系",
-                ice_phone: "电话",
-                delete_contact: "删除",
-                offline_message: "您处于离线状态。连接恢复后将同步更改。",
-                back_online: "重新上线 – 正在同步更改",
-                svg_coming_soon: "SVG下载即将推出",
-                save_profile: "保存档案",
-                save_health: "保存健康",
-                save_ice: "保存ICE"
+                save_profile: "Sauvegarder le Profil",
+                save_health: "Sauvegarder la Santé",
+                save_ice: "Sauvegarder ICE",
+                loading_dashboard: "Chargement du Tableau de Bord MYQER",
+                loading_message: "Veuillez patienter pendant que nous initialisons votre profil d'urgence...",
+                connection_online: "En ligne",
+                connection_offline: "Hors ligne"
             }
         };
 
         // Countries with comprehensive translations
         const COUNTRIES = [
-            { value: "US", label: { en:"United States", es:"Estados Unidos", fr:"États-Unis", de:"Vereinigte Staaten", it:"Stati Uniti", pt:"Estados Unidos", ro:"Statele Unite", ar:"الولايات المتحدة", hi:"संयुक्त राज्य अमेरिका", zh:"美国" } },
-            { value: "CA", label: { en:"Canada", es:"Canadá", fr:"Canada", de:"Kanada", it:"Canada", pt:"Canadá", ro:"Canada", ar:"كندا", hi:"कनाडा", zh:"加拿大" } },
-            { value: "GB", label: { en:"United Kingdom", es:"Reino Unido", fr:"Royaume-Uni", de:"Vereinigtes Königreich", it:"Regno Unito", pt:"Reino Unido", ro:"Regatul Unit", ar:"المملكة المتحدة", hi:"यूनाइटेड किंगडम", zh:"英国" } },
-            { value: "AU", label: { en:"Australia", es:"Australia", fr:"Australie", de:"Australien", it:"Australia", pt:"Austrália", ro:"Australia", ar:"أستراليا", hi:"ऑस्ट्रेलिया", zh:"澳大利亚" } },
-            { value: "DE", label: { en:"Germany", es:"Alemania", fr:"Allemagne", de:"Deutschland", it:"Germania", pt:"Alemanha", ro:"Germania", ar:"ألمانيا", hi:"जर्मनी", zh:"德国" } },
-            { value: "FR", label: { en:"France", es:"Francia", fr:"France", de:"Frankreich", it:"Francia", pt:"França", ro:"Franța", ar:"فرنسا", hi:"फ्रांस", zh:"法国" } },
-            { value: "ES", label: { en:"Spain", es:"España", fr:"Espagne", de:"Spanien", it:"Spagna", pt:"Espanha", ro:"Spania", ar:"إسبانيا", hi:"स्पेन", zh:"西班牙" } },
-            { value: "IT", label: { en:"Italy", es:"Italia", fr:"Italie", de:"Italien", it:"Italia", pt:"Itália", ro:"Italia", ar:"إيطاليا", hi:"इटली", zh:"意大利" } },
-            { value: "NL", label: { en:"Netherlands", es:"Países Bajos", fr:"Pays-Bas", de:"Niederlande", it:"Paesi Bassi", pt:"Países Baixos", ro:"Olanda", ar:"هولندا", hi:"नीदरलैंड", zh:"荷兰" } },
-            { value: "BE", label: { en:"Belgium", es:"Bélgica", fr:"Belgique", de:"Belgien", it:"Belgio", pt:"Bélgica", ro:"Belgia", ar:"بلجيكا", hi:"बेल्जियम", zh:"比利时" } },
-            { value: "CH", label: { en:"Switzerland", es:"Suiza", fr:"Suisse", de:"Schweiz", it:"Svizzera", pt:"Suíça", ro:"Elveția", ar:"سويسرا", hi:"स्विट्जरलैंड", zh:"瑞士" } },
-            { value: "AT", label: { en:"Austria", es:"Austria", fr:"Autriche", de:"Österreich", it:"Austria", pt:"Áustria", ro:"Austria", ar:"النمسا", hi:"ऑस्ट्रिया", zh:"奥地利" } },
-            { value: "SE", label: { en:"Sweden", es:"Suecia", fr:"Suède", de:"Schweden", it:"Svezia", pt:"Suécia", ro:"Suedia", ar:"السويد", hi:"स्वीडन", zh:"瑞典" } },
-            { value: "NO", label: { en:"Norway", es:"Noruega", fr:"Norvège", de:"Norwegen", it:"Norvegia", pt:"Noruega", ro:"Norvegia", ar:"النرويج", hi:"नॉर्वे", zh:"挪威" } },
-            { value: "DK", label: { en:"Denmark", es:"Dinamarca", fr:"Danemark", de:"Dänemark", it:"Danimarca", pt:"Dinamarca", ro:"Danemarca", ar:"الدنمارك", hi:"डेनमार्क", zh:"丹麦" } },
-            { value: "FI", label: { en:"Finland", es:"Finlandia", fr:"Finlande", de:"Finnland", it:"Finlandia", pt:"Finlândia", ro:"Finlanda", ar:"فنلندا", hi:"फिनलैंड", zh:"芬兰" } },
-            { value: "IE", label: { en:"Ireland", es:"Irlanda", fr:"Irlande", de:"Irland", it:"Irlanda", pt:"Irlanda", ro:"Irlanda", ar:"أيرلندا", hi:"आयरलैंड", zh:"爱尔兰" } },
-            { value: "PT", label: { en:"Portugal", es:"Portugal", fr:"Portugal", de:"Portugal", it:"Portogallo", pt:"Portugal", ro:"Portugalia", ar:"البرتغال", hi:"पुर्तगाल", zh:"葡萄牙" } },
-            { value: "PL", label: { en:"Poland", es:"Polonia", fr:"Pologne", de:"Polen", it:"Polonia", pt:"Polônia", ro:"Polonia", ar:"بولندا", hi:"पोलैंड", zh:"波兰" } },
-            { value: "CZ", label: { en:"Czech Republic", es:"República Checa", fr:"République tchèque", de:"Tschechische Republik", it:"Repubblica Ceca", pt:"República Tcheca", ro:"Republica Cehă", ar:"جمهورية التشيك", hi:"चेक गणराज्य", zh:"捷克共和国" } },
-            { value: "HU", label: { en:"Hungary", es:"Hungría", fr:"Hongrie", de:"Ungarn", it:"Ungheria", pt:"Hungria", ro:"Ungaria", ar:"المجر", hi:"हंगरी", zh:"匈牙利" } },
-            { value: "RO", label: { en:"Romania", es:"Rumania", fr:"Roumanie", de:"Rumänien", it:"Romania", pt:"Romênia", ro:"România", ar:"رومانيا", hi:"रोमानिया", zh:"罗马尼亚" } },
-            { value: "BG", label: { en:"Bulgaria", es:"Bulgaria", fr:"Bulgarie", de:"Bulgarien", it:"Bulgaria", pt:"Bulgária", ro:"Bulgaria", ar:"بلغاريا", hi:"बुल्गारिया", zh:"保加利亚" } },
-            { value: "HR", label: { en:"Croatia", es:"Croacia", fr:"Croatie", de:"Kroatien", it:"Croazia", pt:"Croácia", ro:"Croația", ar:"كرواتيا", hi:"क्रोएशिया", zh:"克罗地亚" } },
-            { value: "SI", label: { en:"Slovenia", es:"Eslovenia", fr:"Slovénie", de:"Slowenien", it:"Slovenia", pt:"Eslovênia", ro:"Slovenia", ar:"سلوفينيا", hi:"स्लोवेनिया", zh:"斯洛文尼亚" } },
-            { value: "SK", label: { en:"Slovakia", es:"Eslovaquia", fr:"Slovaquie", de:"Slowakei", it:"Slovacchia", pt:"Eslováquia", ro:"Slovacia", ar:"سلوفاكيا", hi:"स्लोवाकिया", zh:"斯洛伐克" } },
-            { value: "EE", label: { en:"Estonia", es:"Estonia", fr:"Estonie", de:"Estland", it:"Estonia", pt:"Estônia", ro:"Estonia", ar:"إستونيا", hi:"एस्टोनिया", zh:"爱沙尼亚" } },
-            { value: "LV", label: { en:"Latvia", es:"Letonia", fr:"Lettonie", de:"Lettland", it:"Lettonia", pt:"Letônia", ro:"Letonia", ar:"لاتفيا", hi:"लातविया", zh:"拉脱维亚" } },
-            { value: "LT", label: { en:"Lithuania", es:"Lituania", fr:"Lituanie", de:"Litauen", it:"Lituania", pt:"Lituânia", ro:"Lituania", ar:"ليتوانيا", hi:"लिथुआनिया", zh:"立陶宛" } },
-            { value: "JP", label: { en:"Japan", es:"Japón", fr:"Japon", de:"Japan", it:"Giappone", pt:"Japão", ro:"Japonia", ar:"اليابان", hi:"जापान", zh:"日本" } },
-            { value: "KR", label: { en:"South Korea", es:"Corea del Sur", fr:"Corée du Sud", de:"Südkorea", it:"Corea del Sud", pt:"Coreia do Sul", ro:"Coreea de Sud", ar:"كوريا الجنوبية", hi:"दक्षिण कोरिया", zh:"韩国" } },
-            { value: "CN", label: { en:"China", es:"China", fr:"Chine", de:"China", it:"Cina", pt:"China", ro:"China", ar:"الصين", hi:"चीन", zh:"中国" } },
-            { value: "IN", label: { en:"India", es:"India", fr:"Inde", de:"Indien", it:"India", pt:"Índia", ro:"India", ar:"الهند", hi:"भारत", zh:"印度" } },
-            { value: "SG", label: { en:"Singapore", es:"Singapur", fr:"Singapour", de:"Singapur", it:"Singapore", pt:"Singapura", ro:"Singapore", ar:"سنغافورة", hi:"सिंगापुर", zh:"新加坡" } },
-            { value: "MY", label: { en:"Malaysia", es:"Malasia", fr:"Malaisie", de:"Malaysia", it:"Malesia", pt:"Malásia", ro:"Malaezia", ar:"ماليزيا", hi:"मलेशिया", zh:"马来西亚" } },
-            { value: "TH", label: { en:"Thailand", es:"Tailandia", fr:"Thaïlande", de:"Thailand", it:"Tailandia", pt:"Tailândia", ro:"Thailanda", ar:"تايلاند", hi:"थाईलैंड", zh:"泰国" } },
-            { value: "VN", label: { en:"Vietnam", es:"Vietnam", fr:"Vietnam", de:"Vietnam", it:"Vietnam", pt:"Vietnã", ro:"Vietnam", ar:"فيتنام", hi:"वियतनाम", zh:"越南" } },
-            { value: "PH", label: { en:"Philippines", es:"Filipinas", fr:"Philippines", de:"Philippinen", it:"Filippine", pt:"Filipinas", ro:"Filipine", ar:"الفلبين", hi:"फिलीपींस", zh:"菲律宾" } },
-            { value: "ID", label: { en:"Indonesia", es:"Indonesia", fr:"Indonésie", de:"Indonesien", it:"Indonesia", pt:"Indonésia", ro:"Indonezia", ar:"إندونيسيا", hi:"इंडोनेशिया", zh:"印度尼西亚" } },
-            { value: "BR", label: { en:"Brazil", es:"Brasil", fr:"Brésil", de:"Brasilien", it:"Brasile", pt:"Brasil", ro:"Brazilia", ar:"البرازيل", hi:"ब्राजील", zh:"巴西" } },
-            { value: "MX", label: { en:"Mexico", es:"México", fr:"Mexique", de:"Mexiko", it:"Messico", pt:"México", ro:"Mexic", ar:"المكسيك", hi:"मेक्सिको", zh:"墨西哥" } },
-            { value: "AR", label: { en:"Argentina", es:"Argentina", fr:"Argentine", de:"Argentinien", it:"Argentina", pt:"Argentina", ro:"Argentina", ar:"الأرجنتين", hi:"अर्जेंटीना", zh:"阿根廷" } },
-            { value: "CL", label: { en:"Chile", es:"Chile", fr:"Chili", de:"Chile", it:"Cile", pt:"Chile", ro:"Chile", ar:"تشيلي", hi:"चिली", zh:"智利" } },
-            { value: "CO", label: { en:"Colombia", es:"Colombia", fr:"Colombie", de:"Kolumbien", it:"Colombia", pt:"Colômbia", ro:"Columbia", ar:"كولومبيا", hi:"कोलंबिया", zh:"哥伦比亚" } },
-            { value: "PE", label: { en:"Peru", es:"Perú", fr:"Pérou", de:"Peru", it:"Perù", pt:"Peru", ro:"Peru", ar:"بيرو", hi:"पेरू", zh:"秘鲁" } },
-            { value: "UY", label: { en:"Uruguay", es:"Uruguay", fr:"Uruguay", de:"Uruguay", it:"Uruguay", pt:"Uruguai", ro:"Uruguay", ar:"أوروغواي", hi:"उरुग्वे", zh:"乌拉圭" } },
-            { value: "VE", label: { en:"Venezuela", es:"Venezuela", fr:"Venezuela", de:"Venezuela", it:"Venezuela", pt:"Venezuela", ro:"Venezuela", ar:"فنزويلا", hi:"वेनेजुएला", zh:"委内瑞拉" } },
-            { value: "ZA", label: { en:"South Africa", es:"Sudáfrica", fr:"Afrique du Sud", de:"Südafrika", it:"Sudafrica", pt:"África do Sul", ro:"Africa de Sud", ar:"جنوب أفريقيا", hi:"दक्षिण अफ्रीका", zh:"南非" } },
-            { value: "EG", label: { en:"Egypt", es:"Egipto", fr:"Égypte", de:"Ägypten", it:"Egitto", pt:"Egito", ro:"Egipt", ar:"مصر", hi:"मिस्र", zh:"埃及" } },
-            { value: "MA", label: { en:"Morocco", es:"Marruecos", fr:"Maroc", de:"Marokko", it:"Marocco", pt:"Marrocos", ro:"Maroc", ar:"المغرب", hi:"मोरक्को", zh:"摩洛哥" } },
-            { value: "NG", label: { en:"Nigeria", es:"Nigeria", fr:"Nigeria", de:"Nigeria", it:"Nigeria", pt:"Nigéria", ro:"Nigeria", ar:"نيجيريا", hi:"नाइजीरिया", zh:"尼日利亚" } },
-            { value: "KE", label: { en:"Kenya", es:"Kenia", fr:"Kenya", de:"Kenia", it:"Kenya", pt:"Quênia", ro:"Kenya", ar:"كينيا", hi:"केन्या", zh:"肯尼亚" } },
-            { value: "GH", label: { en:"Ghana", es:"Ghana", fr:"Ghana", de:"Ghana", it:"Ghana", pt:"Gana", ro:"Ghana", ar:"غانا", hi:"घाना", zh:"加纳" } },
-            { value: "IL", label: { en:"Israel", es:"Israel", fr:"Israël", de:"Israel", it:"Israele", pt:"Israel", ro:"Israel", ar:"إسرائيل", hi:"इज़राइल", zh:"以色列" } },
-            { value: "AE", label: { en:"United Arab Emirates", es:"Emiratos Árabes Unidos", fr:"Émirats arabes unis", de:"Vereinigte Arabische Emirate", it:"Emirati Arabi Uniti", pt:"Emirados Árabes Unidos", ro:"Emiratele Arabe Unite", ar:"الإمارات العربية المتحدة", hi:"संयुक्त अरब अमीरात", zh:"阿联酋" } },
-            { value: "SA", label: { en:"Saudi Arabia", es:"Arabia Saudita", fr:"Arabie saoudite", de:"Saudi-Arabien", it:"Arabia Saudita", pt:"Arábia Saudita", ro:"Arabia Saudită", ar:"المملكة العربية السعودية", hi:"सऊदी अरब", zh:"沙特阿拉伯" } },
-            { value: "QA", label: { en:"Qatar", es:"Catar", fr:"Qatar", de:"Katar", it:"Qatar", pt:"Catar", ro:"Qatar", ar:"قطر", hi:"कतर", zh:"卡塔尔" } },
-            { value: "KW", label: { en:"Kuwait", es:"Kuwait", fr:"Koweït", de:"Kuwait", it:"Kuwait", pt:"Kuwait", ro:"Kuweit", ar:"الكويت", hi:"कुवैत", zh:"科威特" } },
-            { value: "BH", label: { en:"Bahrain", es:"Baréin", fr:"Bahreïn", de:"Bahrain", it:"Bahrein", pt:"Bahrein", ro:"Bahrain", ar:"البحرين", hi:"बहरीन", zh:"巴林" } },
-            { value: "JO", label: { en:"Jordan", es:"Jordania", fr:"Jordanie", de:"Jordanien", it:"Giordania", pt:"Jordânia", ro:"Iordania", ar:"الأردن", hi:"जॉर्डन", zh:"约旦" } },
-            { value: "LB", label: { en:"Lebanon", es:"Líbano", fr:"Liban", de:"Libanon", it:"Libano", pt:"Líbano", ro:"Liban", ar:"لبنان", hi:"लेबनान", zh:"黎巴嫩" } },
-            { value: "TR", label: { en:"Turkey", es:"Turquía", fr:"Turquie", de:"Türkei", it:"Turchia", pt:"Turquia", ro:"Turcia", ar:"تركيا", hi:"तुर्की", zh:"土耳其" } },
-            { value: "IR", label: { en:"Iran", es:"Irán", fr:"Iran", de:"Iran", it:"Iran", pt:"Irã", ro:"Iran", ar:"إيران", hi:"ईरान", zh:"伊朗" } },
-            { value: "IQ", label: { en:"Iraq", es:"Irak", fr:"Irak", de:"Irak", it:"Iraq", pt:"Iraque", ro:"Irak", ar:"العراق", hi:"इराक", zh:"伊拉克" } },
-            { value: "RU", label: { en:"Russia", es:"Rusia", fr:"Russie", de:"Russland", it:"Russia", pt:"Rússia", ro:"Rusia", ar:"روسيا", hi:"रूस", zh:"俄罗斯" } },
-            { value: "UA", label: { en:"Ukraine", es:"Ucrania", fr:"Ukraine", de:"Ukraine", it:"Ucraina", pt:"Ucrânia", ro:"Ucraina", ar:"أوكرانيا", hi:"यूक्रेन", zh:"乌克兰" } },
-            { value: "BY", label: { en:"Belarus", es:"Bielorrusia", fr:"Biélorussie", de:"Belarus", it:"Bielorussia", pt:"Bielorrússia", ro:"Belarus", ar:"بيلاروسيا", hi:"बेलारूस", zh:"白俄罗斯" } },
-            { value: "KZ", label: { en:"Kazakhstan", es:"Kazajistán", fr:"Kazakhstan", de:"Kasachstan", it:"Kazakistan", pt:"Cazaquistão", ro:"Kazahstan", ar:"كازاخستان", hi:"कजाखस्तान", zh:"哈萨克斯坦" } },
-            { value: "UZ", label: { en:"Uzbekistan", es:"Uzbekistán", fr:"Ouzbékistan", de:"Usbekistan", it:"Uzbekistan", pt:"Uzbequistão", ro:"Uzbekistan", ar:"أوزبكستان", hi:"उज्बेकिस्तान", zh:"乌兹别克斯坦" } },
-            { value: "GE", label: { en:"Georgia", es:"Georgia", fr:"Géorgie", de:"Georgien", it:"Georgia", pt:"Geórgia", ro:"Georgia", ar:"جورجيا", hi:"जॉर्जिया", zh:"格鲁吉亚" } },
-            { value: "AM", label: { en:"Armenia", es:"Armenia", fr:"Arménie", de:"Armenien", it:"Armenia", pt:"Armênia", ro:"Armenia", ar:"أرمينيا", hi:"आर्मेनिया", zh:"亚美尼亚" } },
-            { value: "AZ", label: { en:"Azerbaijan", es:"Azerbaiyán", fr:"Azerbaïdjan", de:"Aserbaidschan", it:"Azerbaigian", pt:"Azerbaijão", ro:"Azerbaidjan", ar:"أذربيجان", hi:"अज़रबैजान", zh:"阿塞拜疆" } },
-            { value: "NZ", label: { en:"New Zealand", es:"Nueva Zelanda", fr:"Nouvelle-Zélande", de:"Neuseeland", it:"Nuova Zelanda", pt:"Nova Zelândia", ro:"Noua Zeelandă", ar:"نيوزيلندا", hi:"न्यूजीलैंड", zh:"新西兰" } }
+            { value: "US", label: { en:"United States", es:"Estados Unidos", fr:"États-Unis" } },
+            { value: "CA", label: { en:"Canada", es:"Canadá", fr:"Canada" } },
+            { value: "GB", label: { en:"United Kingdom", es:"Reino Unido", fr:"Royaume-Uni" } },
+            { value: "AU", label: { en:"Australia", es:"Australia", fr:"Australie" } },
+            { value: "DE", label: { en:"Germany", es:"Alemania", fr:"Allemagne" } },
+            { value: "FR", label: { en:"France", es:"Francia", fr:"France" } },
+            { value: "ES", label: { en:"Spain", es:"España", fr:"Espagne" } },
+            { value: "IT", label: { en:"Italy", es:"Italia", fr:"Italie" } },
+            { value: "NL", label: { en:"Netherlands", es:"Países Bajos", fr:"Pays-Bas" } },
+            { value: "BE", label: { en:"Belgium", es:"Bélgica", fr:"Belgique" } },
+            { value: "CH", label: { en:"Switzerland", es:"Suiza", fr:"Suisse" } },
+            { value: "AT", label: { en:"Austria", es:"Austria", fr:"Autriche" } },
+            { value: "SE", label: { en:"Sweden", es:"Suecia", fr:"Suède" } },
+            { value: "NO", label: { en:"Norway", es:"Noruega", fr:"Norvège" } },
+            { value: "DK", label: { en:"Denmark", es:"Dinamarca", fr:"Danemark" } },
+            { value: "FI", label: { en:"Finland", es:"Finlandia", fr:"Finlande" } },
+            { value: "IE", label: { en:"Ireland", es:"Irlanda", fr:"Irlande" } },
+            { value: "PT", label: { en:"Portugal", es:"Portugal", fr:"Portugal" } },
+            { value: "PL", label: { en:"Poland", es:"Polonia", fr:"Pologne" } },
+            { value: "CZ", label: { en:"Czech Republic", es:"República Checa", fr:"République Tchèque" } },
+            { value: "HU", label: { en:"Hungary", es:"Hungría", fr:"Hongrie" } },
+            { value: "RO", label: { en:"Romania", es:"Rumania", fr:"Roumanie" } },
+            { value: "BG", label: { en:"Bulgaria", es:"Bulgaria", fr:"Bulgarie" } },
+            { value: "HR", label: { en:"Croatia", es:"Croacia", fr:"Croatie" } },
+            { value: "SI", label: { en:"Slovenia", es:"Eslovenia", fr:"Slovénie" } },
+            { value: "SK", label: { en:"Slovakia", es:"Eslovaquia", fr:"Slovaquie" } },
+            { value: "EE", label: { en:"Estonia", es:"Estonia", fr:"Estonie" } },
+            { value: "LV", label: { en:"Latvia", es:"Letonia", fr:"Lettonie" } },
+            { value: "LT", label: { en:"Lithuania", es:"Lituania", fr:"Lituanie" } },
+            { value: "JP", label: { en:"Japan", es:"Japón", fr:"Japon" } },
+            { value: "KR", label: { en:"South Korea", es:"Corea del Sur", fr:"Corée du Sud" } },
+            { value: "CN", label: { en:"China", es:"China", fr:"Chine" } },
+            { value: "IN", label: { en:"India", es:"India", fr:"Inde" } },
+            { value: "SG", label: { en:"Singapore", es:"Singapur", fr:"Singapour" } },
+            { value: "MY", label: { en:"Malaysia", es:"Malasia", fr:"Malaisie" } },
+            { value: "TH", label: { en:"Thailand", es:"Tailandia", fr:"Thaïlande" } },
+            { value: "VN", label: { en:"Vietnam", es:"Vietnam", fr:"Vietnam" } },
+            { value: "PH", label: { en:"Philippines", es:"Filipinas", fr:"Philippines" } },
+            { value: "ID", label: { en:"Indonesia", es:"Indonesia", fr:"Indonésie" } },
+            { value: "BR", label: { en:"Brazil", es:"Brasil", fr:"Brésil" } },
+            { value: "MX", label: { en:"Mexico", es:"México", fr:"Mexique" } },
+            { value: "AR", label: { en:"Argentina", es:"Argentina", fr:"Argentine" } },
+            { value: "CL", label: { en:"Chile", es:"Chile", fr:"Chili" } },
+            { value: "CO", label: { en:"Colombia", es:"Colombia", fr:"Colombie" } },
+            { value: "PE", label: { en:"Peru", es:"Perú", fr:"Pérou" } },
+            { value: "UY", label: { en:"Uruguay", es:"Uruguay", fr:"Uruguay" } },
+            { value: "VE", label: { en:"Venezuela", es:"Venezuela", fr:"Venezuela" } },
+            { value: "ZA", label: { en:"South Africa", es:"Sudáfrica", fr:"Afrique du Sud" } },
+            { value: "EG", label: { en:"Egypt", es:"Egipto", fr:"Égypte" } },
+            { value: "MA", label: { en:"Morocco", es:"Marruecos", fr:"Maroc" } },
+            { value: "NG", label: { en:"Nigeria", es:"Nigeria", fr:"Nigeria" } },
+            { value: "KE", label: { en:"Kenya", es:"Kenia", fr:"Kenya" } },
+            { value: "GH", label: { en:"Ghana", es:"Ghana", fr:"Ghana" } },
+            { value: "IL", label: { en:"Israel", es:"Israel", fr:"Israël" } },
+            { value: "AE", label: { en:"United Arab Emirates", es:"Emiratos Árabes Unidos", fr:"Émirats Arabes Unis" } },
+            { value: "SA", label: { en:"Saudi Arabia", es:"Arabia Saudita", fr:"Arabie Saoudite" } },
+            { value: "QA", label: { en:"Qatar", es:"Catar", fr:"Qatar" } },
+            { value: "KW", label: { en:"Kuwait", es:"Kuwait", fr:"Koweït" } },
+            { value: "BH", label: { en:"Bahrain", es:"Baréin", fr:"Bahreïn" } },
+            { value: "JO", label: { en:"Jordan", es:"Jordania", fr:"Jordanie" } },
+            { value: "LB", label: { en:"Lebanon", es:"Líbano", fr:"Liban" } },
+            { value: "TR", label: { en:"Turkey", es:"Turquía", fr:"Turquie" } },
+            { value: "IR", label: { en:"Iran", es:"Irán", fr:"Iran" } },
+            { value: "IQ", label: { en:"Iraq", es:"Irak", fr:"Irak" } },
+            { value: "RU", label: { en:"Russia", es:"Rusia", fr:"Russie" } },
+            { value: "UA", label: { en:"Ukraine", es:"Ucrania", fr:"Ukraine" } },
+            { value: "BY", label: { en:"Belarus", es:"Bielorrusia", fr:"Biélorussie" } },
+            { value: "KZ", label: { en:"Kazakhstan", es:"Kazajistán", fr:"Kazakhstan" } },
+            { value: "UZ", label: { en:"Uzbekistan", es:"Uzbekistán", fr:"Ouzbékistan" } },
+            { value: "GE", label: { en:"Georgia", es:"Georgia", fr:"Géorgie" } },
+            { value: "AM", label: { en:"Armenia", es:"Armenia", fr:"Arménie" } },
+            { value: "AZ", label: { en:"Azerbaijan", es:"Azerbaiyán", fr:"Azerbaïdjan" } },
+            { value: "NZ", label: { en:"New Zealand", es:"Nueva Zelanda", fr:"Nouvelle-Zélande" } }
         ];
-
-        // Global state management
-        let currentUser = null;
-        let saveInProgress = {};
-        let lastErrorToast = 0;
-        let isOnline = navigator.onLine;
-        let initializationComplete = false;
 
         // Translation helper functions
         function t(key) {
@@ -1063,8 +1257,8 @@
                 const offlineText = document.getElementById('offlineText');
                 
                 if (online) {
-                    status.className = 'text-sm font-medium px-3 py-1 rounded-full bg-green-100 text-green-800';
-                    status.textContent = 'Online';
+                    status.className = 'connection-indicator connection-online';
+                    status.innerHTML = '<div class="connection-dot"></div><span>' + t('connection_online') + '</span>';
                     banner.classList.remove('show');
                     
                     if (banner.classList.contains('was-offline')) {
@@ -1075,8 +1269,8 @@
                         syncPendingChanges();
                     }
                 } else {
-                    status.className = 'text-sm font-medium px-3 py-1 rounded-full bg-red-100 text-red-800';
-                    status.textContent = 'Offline';
+                    status.className = 'connection-indicator connection-offline';
+                    status.innerHTML = '<div class="connection-dot"></div><span>' + t('connection_offline') + '</span>';
                     offlineText.textContent = t('offline_message');
                     banner.classList.add('show', 'was-offline');
                 }
@@ -1150,21 +1344,7 @@
 
         // Ensure short code exists and is persisted
         async function ensureShortCode() {
-            const { data: { session } } = await supabase.auth.getSession();
-            const uid = session?.user?.id;
             let local = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-
-            if (isOnline) {
-                try {
-                    const { data: p } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
-                    if (p?.code) { 
-                        localStorage.setItem('myqer_shortcode', p.code.toUpperCase()); 
-                        return p.code.toUpperCase(); 
-                    }
-                } catch (error) {
-                    console.error('Error fetching code from server:', error);
-                }
-            }
 
             if (!local) {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1172,23 +1352,6 @@
                 for (let i = 0; i < 8; i++) raw += chars[Math.floor(Math.random() * chars.length)];
                 local = (raw.slice(0, 4) + '-' + raw.slice(4)).toUpperCase();
                 localStorage.setItem('myqer_shortcode', local);
-            }
-
-            if (isOnline) {
-                try {
-                    await supabase.from('profiles').update({ code: local }).eq('id', uid).is('code', null);
-                } catch (error) {
-                    console.error('Error persisting code to server:', error);
-                }
-
-                try {
-                    const { data: again } = await supabase.from('profiles').select('code').eq('id', uid).maybeSingle();
-                    const finalCode = (again?.code || local).toUpperCase();
-                    localStorage.setItem('myqer_shortcode', finalCode);
-                    return finalCode;
-                } catch (error) {
-                    console.error('Error re-reading code from server:', error);
-                }
             }
 
             return local;
@@ -1227,67 +1390,12 @@
             let lines = text.split('\n');
             
             const getByteSize = (str) => encoder.encode(str).length;
-            const shrinkLine = (prefix, maxLength) => {
-                const index = lines.findIndex(l => l.startsWith(prefix + ': '));
-                if (index > -1) {
-                    const [label, ...valueParts] = lines[index].split(': ');
-                    const value = valueParts.join(': ');
-                    if (value.length > maxLength) {
-                        lines[index] = `${label}: ${value.slice(0, maxLength).trim()}…`;
-                    }
-                }
-            };
-            const dropLine = (prefix) => {
-                const index = lines.findIndex(l => l.startsWith(prefix + ':'));
-                if (index > -1) lines.splice(index, 1);
-            };
-            const dropICE = (num) => {
-                const index = lines.findIndex(l => l.startsWith(`ICE${num}:`));
-                if (index > -1) lines.splice(index, 1);
-            };
-
-            const phases = [
-                () => {
-                    shrinkLine('Conditions', 300);
-                    shrinkLine('Meds', 300);
-                    shrinkLine('Implants', 220);
-                    shrinkLine('Allergies', 220);
-                },
-                () => {
-                    shrinkLine('Conditions', 180);
-                    shrinkLine('Meds', 180);
-                    shrinkLine('Implants', 160);
-                    shrinkLine('Allergies', 160);
-                },
-                () => {
-                    shrinkLine('Conditions', 120);
-                    shrinkLine('Meds', 120);
-                    shrinkLine('Implants', 120);
-                    shrinkLine('Allergies', 120);
-                },
-                () => dropLine('Implants'),
-                () => dropLine('Meds'),
-                () => dropLine('Conditions'),
-                () => dropICE(3),
-                () => dropICE(2),
-                () => dropICE(1),
-                () => {
-                    const urlIndex = lines.findIndex(l => l.startsWith('URL: '));
-                    if (urlIndex > -1) lines[urlIndex] = 'URL: myqer.com';
-                }
-            ];
-
-            for (const phase of phases) {
-                if (getByteSize(lines.join('\n')) <= 900) break;
-                phase();
+            
+            while (getByteSize(lines.join('\n')) > 900 && lines.length > 5) {
+                lines.pop();
             }
 
-            let result = lines.join('\n');
-            while (getByteSize(result) > 900 && result.length > 10) {
-                result = result.slice(0, result.length - 50).trim();
-            }
-
-            return result;
+            return lines.join('\n');
         }
 
         // Calculate triage score with life-saving bias
@@ -1303,22 +1411,21 @@
             const allText = `${allergiesText} ${conditionsText} ${medsText} ${implantsText}`;
 
             // Hard-red allergies (≥6 points - life-saving bias)
-            const hardRedAllergies = ['anaphylaxis', 'anaphylactic', 'epi-pen', 'severe allergy', 'penicillin allergy', 'cephalosporin allergy'];
+            const hardRedAllergies = ['anaphylaxis', 'anaphylactic', 'epi-pen', 'severe allergy', 'penicillin allergy'];
             if (hardRedAllergies.some(term => allergiesText.includes(term))) {
                 score += 6;
             }
 
             // Severe allergens (+3 but maintain red if already red)
-            const severeAllergens = ['penicillin', 'peanut', 'shellfish', 'codeine', 'midazolam'];
+            const severeAllergens = ['penicillin', 'peanut', 'shellfish', 'codeine'];
             if (severeAllergens.some(term => allergiesText.includes(term))) {
                 score += 3;
             }
 
             // Life-threatening conditions (+4)
             const lifeThreatening = [
-                'stroke', 'cva', 'tia', 'seizure', 'epilepsy', 'heart attack', 'mi', 'cardiac arrest', 
-                'vfib', 'vtach', 'transplant', 'immunosuppression', 'dialysis', 'renal failure', 
-                'severe asthma', 'status asthmaticus'
+                'stroke', 'seizure', 'epilepsy', 'heart attack', 'cardiac arrest', 
+                'transplant', 'dialysis', 'severe asthma'
             ];
             if (lifeThreatening.some(term => allText.includes(term))) {
                 score += 4;
@@ -1326,8 +1433,7 @@
 
             // Moderate conditions (+2)
             const moderateConditions = [
-                'diabetes', 'hypertension', 'copd', 'autoimmune', 'lupus', 'ms', 'crohn', 
-                'ulcerative colitis', 'stent', 'metal implant'
+                'diabetes', 'hypertension', 'copd', 'autoimmune', 'lupus', 'ms'
             ];
             if (moderateConditions.some(term => allText.includes(term))) {
                 score += 2;
@@ -1354,34 +1460,26 @@
             const ribbon = document.getElementById('medicalRibbon');
             const pill = document.getElementById('triagePill');
             
-            ribbon.className = `ribbon-${color} w-2 h-full absolute left-0`;
+            ribbon.className = `card-ribbon ribbon-${color}`;
             pill.className = `triage-pill triage-${color}`;
             pill.textContent = color.charAt(0).toUpperCase() + color.slice(1);
         }
 
         // Generic debounced save function with 500ms delay
         function debounceSave(section, saveFn, delay = 500) {
-            if (saveInProgress[section]) {
-                saveInProgress[section].queueNext = true;
-                return;
+            if (debounceTimers[section]) {
+                clearTimeout(debounceTimers[section]);
             }
 
-            saveInProgress[section] = { queueNext: false };
-
-            setTimeout(async () => {
+            debounceTimers[section] = setTimeout(async () => {
                 try {
                     await saveFn();
                     showToast(t('toast_auto_saved'), 'success');
                 } catch (error) {
                     console.error(`Auto-save error for ${section}:`, error);
                     showErrorToast(t('toast_error'));
-                }
-
-                const shouldRunAgain = saveInProgress[section].queueNext;
-                delete saveInProgress[section];
-
-                if (shouldRunAgain) {
-                    debounceSave(section, saveFn, delay);
+                } finally {
+                    delete debounceTimers[section];
                 }
             }, delay);
         }
@@ -1451,54 +1549,18 @@
 
         // Save functions with proper upsert logic
         async function saveProfileToServer() {
-            if (!isOnline || !currentUser) return;
-            
-            const profileData = getProfileData();
-            
-            await supabase.from('profiles').upsert({
-                id: currentUser.id,
-                full_name: profileData.fullName,
-                dob: profileData.dob,
-                country: profileData.country,
-                health_id: profileData.healthId
-            }, { onConflict: 'id' });
+            // Demo mode - no actual server saves
+            console.log('Profile saved to demo storage');
         }
 
         async function saveHealthToServer() {
-            if (!isOnline || !currentUser) return;
-            
-            const healthData = getHealthData();
-            
-            await supabase.from('health_data').upsert({
-                user_id: currentUser.id,
-                blood_type: healthData.bloodType,
-                allergies: healthData.allergies,
-                organ_donor: healthData.organDonor,
-                conditions: healthData.conditions,
-                medications: healthData.medications,
-                implants: healthData.implants,
-                triage_override: healthData.triageOverride
-            }, { onConflict: 'user_id' });
+            // Demo mode - no actual server saves
+            console.log('Health data saved to demo storage');
         }
 
         async function saveICEToServer() {
-            if (!isOnline || !currentUser) return;
-            
-            const iceData = getICEData();
-            
-            await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-            
-            if (iceData.length > 0) {
-                const rows = iceData.slice(0, 3).map((c, i) => ({
-                    user_id: currentUser.id,
-                    contact_order: i,
-                    name: c.name || null,
-                    relation: (c.relation || '').trim(),
-                    phone: c.phone || null
-                }));
-                
-                await supabase.from('ice_contacts').insert(rows);
-            }
+            // Demo mode - no actual server saves
+            console.log('ICE contacts saved to demo storage');
         }
 
         // Main save functions
@@ -1508,7 +1570,6 @@
                 localStorage.setItem('myqer_profile', JSON.stringify(profileData));
                 await saveProfileToServer();
                 await generateQRCode();
-                await saveSnapshot();
                 showToast(t('toast_saved'), 'success');
             } catch (error) {
                 console.error('Save profile error:', error);
@@ -1523,7 +1584,6 @@
                 await saveHealthToServer();
                 updateTriageRibbon();
                 await generateQRCode();
-                await saveSnapshot();
                 showToast(t('toast_saved'), 'success');
             } catch (error) {
                 console.error('Save health error:', error);
@@ -1537,45 +1597,10 @@
                 localStorage.setItem('myqer_ice', JSON.stringify(iceData));
                 await saveICEToServer();
                 await generateQRCode();
-                await saveSnapshot();
                 showToast(t('toast_saved'), 'success');
             } catch (error) {
                 console.error('Save ICE error:', error);
                 showErrorToast(t('toast_error'));
-            }
-        }
-
-        // Save snapshot for history - non-blocking
-        async function saveSnapshot() {
-            if (!isOnline || !currentUser) return;
-            
-            try {
-                const profile = getProfileData();
-                const health = getHealthData();
-                const ices = getICEData();
-                const code = localStorage.getItem('myqer_shortcode') || '';
-                const triageColor = determineTriageColor();
-
-                const snapshot = {
-                    name: profile.fullName,
-                    dob: profile.dob,
-                    blood: health.bloodType,
-                    allergies: health.allergies,
-                    donor: health.organDonor,
-                    conditions: health.conditions,
-                    meds: health.medications,
-                    implants: health.implants,
-                    ice: ices.slice(0, 3).map(c => `${c.name || ''} (${c.relation || ''}): ${c.phone || ''}`),
-                    triage: triageColor,
-                    code
-                };
-
-                await supabase.from('profile_snapshots').insert({
-                    user_id: currentUser.id,
-                    snapshot
-                });
-            } catch (error) {
-                console.error('Snapshot save error:', error);
             }
         }
 
@@ -1590,7 +1615,6 @@
                             localStorage.setItem('myqer_profile', JSON.stringify(profileData));
                             await saveProfileToServer();
                             await generateQRCode();
-                            await saveSnapshot();
                         });
                     });
                 }
@@ -1606,19 +1630,20 @@
                             await saveHealthToServer();
                             updateTriageRibbon();
                             await generateQRCode();
-                            await saveSnapshot();
                         });
                     });
-                    element.addEventListener('change', () => {
-                        debounceSave('health', async () => {
-                            const healthData = getHealthData();
-                            localStorage.setItem('myqer_health', JSON.stringify(healthData));
-                            await saveHealthToServer();
-                            updateTriageRibbon();
-                            await generateQRCode();
-                            await saveSnapshot();
+                    
+                    if (element.tagName === 'SELECT') {
+                        element.addEventListener('change', () => {
+                            debounceSave('health', async () => {
+                                const healthData = getHealthData();
+                                localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                                await saveHealthToServer();
+                                updateTriageRibbon();
+                                await generateQRCode();
+                            });
                         });
-                    });
+                    }
                 }
             });
 
@@ -1631,7 +1656,6 @@
                         await saveHealthToServer();
                         updateTriageRibbon();
                         await generateQRCode();
-                        await saveSnapshot();
                     });
                 });
             }
@@ -1660,96 +1684,6 @@
             updateTriageRibbon();
         }
 
-        // Load data from server (server override)
-        async function loadProfile() {
-            if (!isOnline) return;
-            
-            try {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (data) {
-                    document.getElementById('fullName').value = data.full_name || '';
-                    document.getElementById('dob').value = data.dob || '';
-                    document.getElementById('country').value = data.country || '';
-                    document.getElementById('healthId').value = data.health_id || '';
-
-                    localStorage.setItem('myqer_profile', JSON.stringify({
-                        fullName: data.full_name || '',
-                        dob: data.dob || '',
-                        country: data.country || '',
-                        healthId: data.health_id || ''
-                    }));
-                }
-            } catch (error) {
-                console.error('Load profile error:', error);
-            }
-        }
-
-        async function loadHealth() {
-            if (!isOnline) return;
-            
-            try {
-                const { data } = await supabase
-                    .from('health_data')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .single();
-
-                if (data) {
-                    document.getElementById('bloodType').value = data.blood_type || '';
-                    document.getElementById('allergies').value = data.allergies || '';
-                    document.getElementById('organDonor').checked = data.organ_donor || false;
-                    document.getElementById('conditions').value = data.conditions || '';
-                    document.getElementById('medications').value = data.medications || '';
-                    document.getElementById('implants').value = data.implants || '';
-                    document.getElementById('triageOverride').value = data.triage_override || 'auto';
-
-                    localStorage.setItem('myqer_health', JSON.stringify({
-                        bloodType: data.blood_type || '',
-                        allergies: data.allergies || '',
-                        organDonor: data.organ_donor || false,
-                        conditions: data.conditions || '',
-                        medications: data.medications || '',
-                        implants: data.implants || '',
-                        triageOverride: data.triage_override || 'auto'
-                    }));
-
-                    updateTriageRibbon();
-                }
-            } catch (error) {
-                console.error('Load health error:', error);
-            }
-        }
-
-        async function loadICE() {
-            if (!isOnline) return;
-            
-            try {
-                const { data } = await supabase
-                    .from('ice_contacts')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .order('contact_order');
-
-                if (data) {
-                    const iceData = data.map(contact => ({
-                        name: contact.name || '',
-                        relation: contact.relation || '',
-                        phone: contact.phone || ''
-                    }));
-
-                    localStorage.setItem('myqer_ice', JSON.stringify(iceData));
-                    renderICEContacts(iceData);
-                }
-            } catch (error) {
-                console.error('Load ICE error:', error);
-            }
-        }
-
         // Render ICE contacts
         function renderICEContacts(contacts = []) {
             const container = document.getElementById('iceContacts');
@@ -1768,23 +1702,26 @@
         function addContactElement(contact = { name: '', relation: '', phone: '' }, index = 0) {
             const container = document.getElementById('iceContacts');
             const contactDiv = document.createElement('div');
-            contactDiv.className = 'grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl';
+            contactDiv.className = 'ice-contact-row';
             
             contactDiv.innerHTML = `
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="ice_name">${t('ice_name')}</label>
-                    <input type="text" data-field="name" value="${contact.name || ''}" class="form-input w-full px-3 py-2 rounded-lg text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="ice_relationship">${t('ice_relationship')}</label>
-                    <input type="text" data-field="relation" value="${contact.relation || ''}" class="form-input w-full px-3 py-2 rounded-lg text-sm">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="ice_phone">${t('ice_phone')}</label>
-                    <input type="tel" data-field="phone" value="${contact.phone || ''}" class="form-input w-full px-3 py-2 rounded-lg text-sm">
-                </div>
-                <div class="flex items-end">
-                    <button onclick="removeContact(this)" class="btn-secondary px-3 py-2 rounded-lg text-sm w-full" data-i18n="delete_contact">${t('delete_contact')}</button>
+                <div class="content-grid four-column">
+                    <div class="field-group">
+                        <label class="field-label" data-i18n="ice_name">${t('ice_name')}</label>
+                        <input type="text" data-field="name" value="${contact.name || ''}" class="field-input">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" data-i18n="ice_relationship">${t('ice_relationship')}</label>
+                        <input type="text" data-field="relation" value="${contact.relation || ''}" class="field-input">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" data-i18n="ice_phone">${t('ice_phone')}</label>
+                        <input type="tel" data-field="phone" value="${contact.phone || ''}" class="field-input">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">&nbsp;</label>
+                        <button onclick="removeContact(this)" class="action-button btn-secondary" style="width: 100%;" data-i18n="delete_contact">${t('delete_contact')}</button>
+                    </div>
                 </div>
             `;
 
@@ -1798,7 +1735,6 @@
                         localStorage.setItem('myqer_ice', JSON.stringify(iceData));
                         await saveICEToServer();
                         await generateQRCode();
-                        await saveSnapshot();
                     });
                 });
             });
@@ -1819,7 +1755,7 @@
         function removeContact(button) {
             const container = document.getElementById('iceContacts');
             if (container.children.length > 1) {
-                button.closest('.grid').remove();
+                button.closest('.ice-contact-row').remove();
                 updateAddContactButton();
                 
                 // Trigger autosave
@@ -1828,7 +1764,6 @@
                     localStorage.setItem('myqer_ice', JSON.stringify(iceData));
                     await saveICEToServer();
                     await generateQRCode();
-                    await saveSnapshot();
                 });
             }
         }
@@ -1841,7 +1776,7 @@
             if (container.children.length >= 3) {
                 addBtn.style.display = 'none';
             } else {
-                addBtn.style.display = 'inline-block';
+                addBtn.style.display = 'inline-flex';
             }
         }
 
@@ -1849,23 +1784,15 @@
         async function generateQRCode() {
             try {
                 const code = await ensureShortCode();
-                const qrContainer = document.getElementById('qrcode');
+                const qrCanvas = document.getElementById('qrCanvas');
                 const qrText = document.getElementById('qrCodeText');
                 const cardUrl = document.getElementById('cardUrl');
-                
-                qrContainer.innerHTML = '';
                 
                 // Live URL for QR
                 const liveUrl = `https://www.myqer.com/c/${code}`;
                 
-                // Offline payload as fallback
-                const offlinePayload = buildOfflinePayload();
-                const compactPayload = compactPayload(offlinePayload);
-                
-                // Generate QR with live URL (preferred) or offline payload
-                const qrData = liveUrl;
-                
-                await QRCode.toCanvas(qrContainer, qrData, {
+                // Generate QR with live URL using canvas
+                await QRCode.toCanvas(qrCanvas, liveUrl, {
                     width: 200,
                     height: 200,
                     margin: 2,
@@ -1885,9 +1812,9 @@
                 // Fallback to offline QR if live fails
                 try {
                     const offlinePayload = buildOfflinePayload();
-                    const compactPayload = compactPayload(offlinePayload);
+                    const compactedPayload = compactPayload(offlinePayload);
                     
-                    await QRCode.toCanvas(document.getElementById('qrcode'), compactPayload, {
+                    await QRCode.toCanvas(document.getElementById('qrCanvas'), compactedPayload, {
                         width: 200,
                         height: 200,
                         margin: 2,
@@ -1901,4 +1828,236 @@
                     document.getElementById('qrCodeText').textContent = 'OFFLINE';
                     document.getElementById('cardUrl').value = 'Offline mode - QR contains emergency data';
                 } catch (fallbackError) {
-                    console.error('Fallback QR generation<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97af5d2b5514134c',t:'MTc1NzE3NjM2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+                    console.error('Fallback QR generation error:', fallbackError);
+                }
+            }
+        }
+
+        // URL functions
+        function copyUrl() {
+            const cardUrl = document.getElementById('cardUrl');
+            cardUrl.select();
+            cardUrl.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                showToast(t('toast_copied'), 'success');
+            } catch (err) {
+                // Fallback for modern browsers
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(cardUrl.value).then(() => {
+                        showToast(t('toast_copied'), 'success');
+                    }).catch(() => {
+                        showErrorToast(t('toast_error'));
+                    });
+                } else {
+                    showErrorToast(t('toast_error'));
+                }
+            }
+        }
+
+        function openUrl() {
+            const cardUrl = document.getElementById('cardUrl').value;
+            if (cardUrl && cardUrl.startsWith('http')) {
+                window.open(cardUrl, '_blank', 'noopener,noreferrer');
+            }
+        }
+
+        // Download QR code
+        function downloadQR(format) {
+            if (format === 'svg') {
+                showToast(t('svg_coming_soon'), 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('qrCanvas');
+            if (canvas) {
+                try {
+                    const link = document.createElement('a');
+                    link.download = `myqer-emergency-card.${format}`;
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast(`QR code downloaded as ${format.toUpperCase()}`, 'success');
+                } catch (error) {
+                    console.error('Download error:', error);
+                    showErrorToast(t('toast_error'));
+                }
+            }
+        }
+
+        // Print QR code
+        function printQR() {
+            try {
+                window.print();
+            } catch (error) {
+                console.error('Print error:', error);
+                showErrorToast(t('toast_error'));
+            }
+        }
+
+        // Delete account
+        async function deleteAccount() {
+            const confirmText = document.getElementById('deleteConfirm').value;
+            if (confirmText !== 'DELETE MY ACCOUNT') {
+                showToast('Please type "DELETE MY ACCOUNT" to confirm', 'error');
+                return;
+            }
+
+            const loader = document.getElementById('deleteLoader');
+            const button = loader.parentElement;
+            
+            loader.classList.remove('hidden');
+            button.disabled = true;
+
+            try {
+                // Simulate deletion delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Clear all local storage
+                localStorage.removeItem('myqer_profile');
+                localStorage.removeItem('myqer_health');
+                localStorage.removeItem('myqer_ice');
+                localStorage.removeItem('myqer_shortcode');
+                localStorage.removeItem('myqer_lang');
+
+                showToast('Account deleted successfully', 'success');
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } catch (error) {
+                console.error('Delete account error:', error);
+                showErrorToast('Failed to delete account');
+            } finally {
+                loader.classList.add('hidden');
+                button.disabled = false;
+            }
+        }
+
+        // Logout function
+        function logout() {
+            try {
+                localStorage.clear();
+                showToast('Logged out successfully', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.reload();
+            }
+        }
+
+        // Initialize the dashboard
+        async function initializeDashboard() {
+            try {
+                console.log('Starting dashboard initialization...');
+                
+                // Set current user for demo
+                currentUser = { email: 'demo@myqer.com', id: 'demo-user' };
+                
+                // Set up network monitoring
+                setupNetworkMonitoring();
+
+                // Set up language
+                const savedLang = localStorage.getItem('myqer_lang') || 'en';
+                document.getElementById('languageSelect').value = savedLang;
+                
+                if (savedLang === 'ar') {
+                    document.documentElement.setAttribute('dir', 'rtl');
+                }
+
+                // Populate countries and update UI
+                populateCountries();
+                updateUI();
+
+                // Load data from localStorage first (local-first approach)
+                await loadFromLocalStorage();
+
+                // Ensure short code exists
+                await ensureShortCode();
+
+                // Generate initial QR code
+                await generateQRCode();
+
+                // Update triage display
+                updateTriageRibbon();
+
+                // Set up autosave
+                setupAutosave();
+
+                // Set demo user email
+                document.getElementById('userEmail').textContent = currentUser.email;
+
+                console.log('Dashboard initialization complete');
+                
+                // Hide loading screen and show dashboard
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+
+                initializationComplete = true;
+                
+            } catch (error) {
+                console.error('Dashboard initialization error:', error);
+                showErrorToast('Failed to initialize dashboard');
+                
+                // Still show the dashboard even if there are errors
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+            }
+        }
+
+        // Start initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, starting initialization...');
+            initializeDashboard();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && initializationComplete) {
+                // Refresh QR code when page becomes visible
+                generateQRCode();
+            }
+        });
+
+        // Handle beforeunload to save any pending changes
+        window.addEventListener('beforeunload', () => {
+            // Clear any pending debounce timers and save immediately
+            Object.keys(debounceTimers).forEach(key => {
+                if (debounceTimers[key]) {
+                    clearTimeout(debounceTimers[key]);
+                }
+            });
+            
+            // Save current state to localStorage
+            try {
+                localStorage.setItem('myqer_profile', JSON.stringify(getProfileData()));
+                localStorage.setItem('myqer_health', JSON.stringify(getHealthData()));
+                localStorage.setItem('myqer_ice', JSON.stringify(getICEData()));
+            } catch (error) {
+                console.error('Error saving on page unload:', error);
+            }
+        });
+
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            if (!initializationComplete) {
+                // If initialization hasn't completed, show the dashboard anyway
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+            }
+        });
+
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            event.preventDefault(); // Prevent the default browser behavior
+        });
+
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97af78f462daef1b',t:'MTc1NzE3NzUwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
