@@ -941,6 +941,208 @@
       setupAutoSave('hfConditions', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
       setupAutoSave('hfMeds', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
       setupAutoSave('hfImplants', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
+      <script>
+// ---------- QR SAFETY PATCH (compact & resilient) ----------
+
+// Build base lines for the offline text card (max info, human friendly)
+function buildTextLines(shortCode){
+  const profile = (window.userData?.profile) || {};
+  const health  = (window.userData?.health)  || {};
+  const ices    = Array.isArray(window.iceContacts) ? window.iceContacts : [];
+
+  const iceLines = ices.slice(0,3)
+    .filter(c => (c?.name || c?.phone))
+    .map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`);
+
+  const lines = [
+    'MYQER™ EMERGENCY CARD',
+    shortCode ? `Code: ${shortCode}` : null,
+    profile.fullName ? `Name: ${profile.fullName}` : null,
+    profile.dob ? `DOB: ${profile.dob}` : null,
+    health.bloodType ? `Blood: ${health.bloodType}` : null,
+    (typeof health.allergies !== 'undefined') ? `Allergies: ${health.allergies || 'None reported'}` : null,
+    health.conditions ? `Conditions: ${health.conditions}` : null,
+    health.medications ? `Meds: ${health.medications}` : null,
+    health.implants ? `Implants: ${health.implants}` : null,
+    `Donor: ${health.organDonor ? 'Yes' : 'No'}`,
+    ...iceLines,
+    shortCode ? `URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
+  ].filter(Boolean);
+
+  return lines;
+}
+
+// Return byte length (UTF-8)
+function u8len(str){ return new TextEncoder().encode(str).length; }
+
+// Compact the lines to fit within a byte limit (progressive fallback)
+function compactLinesToLimit(lines, byteLimit){
+  let work = [...lines];
+  const join = () => work.join('\n');
+
+  // helper truncate "Label: text"
+  const shrink = (label, cap) => {
+    const i = work.findIndex(l => l.startsWith(label + ': '));
+    if (i === -1) return;
+    const [_, value] = work[i].split(/:\s+/);
+    if (!value) return;
+    if (value.length > cap) work[i] = `${label}: ${value.slice(0, cap).trim()}…`;
+  };
+
+  // helper remove line starting with label
+  const drop = (label) => {
+    const i = work.findIndex(l => l.startsWith(label + ':'));
+    if (i !== -1) work.splice(i,1);
+  };
+
+  // helper remove a specific ICE line by index (1-based)
+  const dropICE = (n) => {
+    const i = work.findIndex(l => l.startsWith(`ICE${n}:`));
+    if (i !== -1) work.splice(i,1);
+  };
+
+  // Phase A: trim long paragraphs
+  const phases = [
+    () => { shrink('Conditions', 300); shrink('Meds', 300); shrink('Implants', 220); shrink('Allergies', 220); },
+    () => { shrink('Conditions', 180); shrink('Meds', 180); shrink('Implants', 160); shrink('Allergies', 160); },
+    () => { shrink('Conditions', 120); shrink('Meds', 120); shrink('Implants', 120); shrink('Allergies', 120); },
+    // Phase B: drop the least critical lines
+    () => { drop('Implants'); },
+    () => { drop('Meds'); },
+    () => { drop('Conditions'); },
+    // Phase C: keep only first ICE, then none
+    () => { dropICE(3); },
+    () => { dropICE(2); },
+    () => { dropICE(1); },
+    // Phase D: last-resort—shorten URL label (keep code; scanners still see full URL in card input)
+    () => {
+      const i = work.findIndex(l => l.startsWith('URL: '));
+      if (i !== -1) work[i] = 'URL: myqer.com';
+    }
+  ];
+
+  for (const step of phases){
+    if (u8len(join()) <= byteLimit) break;
+    step();
+  }
+
+  // Final hard cap, if needed
+  let out = join();
+  while (u8len(out) > byteLimit && out.length > 10){
+    out = out.slice(0, out.length - 50);
+  }
+  return out.replace(/\s+$/,'');
+}
+
+// Create a QR safely; if overflow, compact further & lower EC level
+function safeRenderQR(container, text){
+  container.innerHTML = '';
+  let level = QRCode.CorrectLevel.M;     // start at M
+  let limit = 900;                       // target bytes for M
+
+  let payload = text;
+  if (u8len(payload) > limit) payload = compactLinesToLimit(text.split('\n'), limit);
+
+  try {
+    new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
+    return;
+  } catch(e1){
+    // Fallback: lower EC level & shrink more
+    level = QRCode.CorrectLevel.L;
+    limit = 1100;
+    payload = compactLinesToLimit(text.split('\n'), limit);
+    container.innerHTML = '';
+    try {
+      new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
+      return;
+    } catch(e2){
+      console.warn('QR still too long, using minimal payload', e2);
+      // Minimal payload
+      const minimal = text.split('\n').filter(l =>
+        /^MYQER|^Code:|^Name:|^DOB:|^Blood:|^Allergies:|^Donor:|^ICE1:|^URL:/.test(l)
+      );
+      container.innerHTML = '';
+      new QRCode(container, { text: compactLinesToLimit(minimal, 800), width:240, height:240, correctLevel: QRCode.CorrectLevel.L });
+    }
+  }
+}
+
+// REPLACE your buildOfflineTextPayload with this wrapper
+function buildOfflineTextPayload(shortCode){
+  const lines = buildTextLines(shortCode);
+  // Aim for <=900 bytes on first pass (works with EC=M)
+  const joined = lines.join('\n');
+  return (u8len(joined) <= 900) ? joined : compactLinesToLimit(lines, 900);
+}
+
+// PATCH: renderOfflineTextQR uses the safe renderer
+function renderOfflineTextQR(){
+  const wrap = document.getElementById('offlineQRwrap');
+  const box  = document.getElementById('offlineQRbox');
+  if (!wrap || !box) return;
+
+  const hasProfile = userData.profile && userData.profile.fullName;
+  const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies || typeof userData.health.organDonor !== 'undefined');
+  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+  if (!(hasProfile || hasHealth || hasIce)) { wrap.style.display='none'; box.innerHTML=''; return; }
+
+  wrap.style.display = 'block';
+  const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+  const textCard  = buildOfflineTextPayload(shortCode);
+
+  box.innerHTML = '';
+  safeRenderQR(box, textCard);
+
+  const mark = document.createElement('div');
+  mark.textContent = 'MYQER™';
+  mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
+  box.appendChild(mark);
+}
+
+// PATCH: main generateQRCode also uses the safe renderer & never crashes
+async function generateQRCode() {
+  const qrCanvasContainer = document.getElementById('qrCanvas');
+  const qrPlaceholder     = document.getElementById('qrPlaceholder');
+  const codeUnderQR       = document.getElementById('codeUnderQR');
+  const cardUrl           = document.getElementById('cardUrl');
+  const qrStatus          = document.getElementById('qrStatus');
+
+  const hasProfile = userData.profile && userData.profile.fullName;
+  const hasHealth  = userData.health && (
+    userData.health.bloodType || userData.health.allergies ||
+    userData.health.conditions || userData.health.medications ||
+    userData.health.implants || typeof userData.health.organDonor !== 'undefined'
+  );
+  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+
+  if (!(hasProfile || hasHealth || hasIce)) {
+    qrPlaceholder.style.display = 'flex';
+    qrCanvasContainer.innerHTML = '';
+    codeUnderQR.textContent = '';
+    cardUrl.value = '';
+    qrStatus.hidden = true;
+    return;
+  }
+
+  const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase() || await (async()=>{ try{ return await generateShortCode(); }catch{return ''; }})();
+  const textCard  = buildOfflineTextPayload(shortCode);
+
+  qrPlaceholder.style.display = 'none';
+  safeRenderQR(qrCanvasContainer, textCard);
+
+  codeUnderQR.textContent = shortCode;
+  cardUrl.value = shortCode ? `https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : '';
+
+  qrStatus.textContent = 'Offline-friendly text QR generated';
+  qrStatus.style.background = 'rgba(5,156,105,.1)';
+  qrStatus.style.color = 'var(--green)';
+  qrStatus.hidden = false;
+
+  // also keep the side panel QR in sync
+  renderOfflineTextQR();
+}
+// ---------- /QR SAFETY PATCH ----------
+</script>
 
       // QR actions
       document.getElementById('copyLink').addEventListener('click', async ()=>{
