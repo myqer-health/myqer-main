@@ -911,9 +911,9 @@
                 </div>
                 <div class="qr-container">
                     <div class="qr-box">
-                        <canvas id="qrCanvas" width="200" height="200"></canvas>
+                        <div id="qrcode"></div>
                     </div>
-                    <div class="qr-code" id="qrCode">XXXX-XXXX</div>
+                    <div class="qr-code" id="qrCodeText">XXXX-XXXX</div>
                     <div class="qr-label">MYQER™</div>
                     
                     <div class="url-group">
@@ -981,7 +981,7 @@
 
     <script>
         let supabase;
-        let currentUser = { id: 'demo-user-' + Date.now(), email: 'user@example.com' };
+        let currentUser = null;
         let iceContacts = [];
         let idleTimer = null;
         let warningTimer = null;
@@ -1238,7 +1238,7 @@
                 stay_logged_in: "Rimani Connesso",
                 contact_name: "Nome",
                 contact_relationship: "Relazione",
-                contact_phone: "Telefono",
+                contact_phone: "Telefone",
                 remove: "Rimuovi",
                 no_contacts: "Nessun contatto di emergenza aggiunto ancora. Clicca \"Aggiungi Contatto\" per iniziare."
             },
@@ -1489,43 +1489,37 @@
             }
         };
 
-        const LIFE_THREATENING_CONDITIONS = [
-            'heart attack', 'cardiac arrest', 'stroke', 'anaphylaxis', 'severe asthma', 'diabetes type 1',
-            'epilepsy', 'seizure', 'hemophilia', 'severe allergy', 'pacemaker', 'defibrillator',
-            'insulin dependent', 'blood clotting disorder', 'severe bleeding disorder', 'aneurysm',
-            'heart failure', 'arrhythmia', 'atrial fibrillation', 'ventricular tachycardia',
-            'myocardial infarction', 'angina', 'coronary artery disease', 'pulmonary embolism',
-            'deep vein thrombosis', 'aortic stenosis', 'mitral valve prolapse', 'cardiomyopathy',
-            'heart disease', 'cardiac', 'coronary', 'myocardial', 'ventricular', 'atrial'
+        const FATAL_KEYWORDS = [
+            'anaphylaxis', 'anaphylactic', 'epi-pen', 'epipen', 'epinephrine', 'shock', 'cardiac arrest',
+            'heart attack', 'stroke', 'seizure', 'epilepsy', 'pacemaker', 'defibrillator', 'insulin pump',
+            'severe asthma', 'hemophilia', 'blood clotting', 'bleeding disorder', 'life threatening',
+            'critical', 'emergency', 'fatal', 'deadly'
         ];
 
-        const LIFE_THREATENING_ALLERGIES = [
-            'penicillin', 'shellfish', 'nuts', 'peanuts', 'bee sting', 'wasp sting', 'latex',
-            'contrast dye', 'iodine', 'aspirin', 'nsaid', 'sulfa', 'eggs', 'milk', 'soy',
-            'anaphylactic', 'severe allergy', 'epipen', 'epinephrine'
-        ];
-
-        const CRITICAL_IMPLANTS = [
-            'pacemaker', 'defibrillator', 'insulin pump', 'cochlear implant', 'neurostimulator',
-            'heart valve', 'stent', 'artificial heart', 'ventricular assist device', 'icd'
-        ];
-
+        // Auth + boot
         async function init() {
             try {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                // Check authentication
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                currentUser = session.user;
+                document.getElementById('userEmail').textContent = currentUser.email;
                 
                 setupOnlineDetection();
                 
                 const savedLanguage = localStorage.getItem('myqer_language') || 'en';
                 changeLanguage(savedLanguage);
                 
-                await loadProfile();
-                await loadHealth();
-                await loadICE();
+                await loadAll();
                 
                 setupAutosave();
                 setupIdleTimer();
-                await generateQR();
                 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
@@ -1536,6 +1530,269 @@
             }
         }
 
+        // Stable code
+        async function ensureShortCode() {
+            const { data: { session } } = await supabase.auth.getSession();
+            const uid = session?.user?.id;
+            if (!uid) throw new Error('No session');
+
+            // Ask backend for the same code every time
+            const { data, error } = await supabase.rpc('get_or_set_code', { uid });
+            if (error) throw error;
+
+            const code = String(data || '').toUpperCase();
+            localStorage.setItem('myqer_shortcode', code);
+            userCode = code;
+            return code;
+        }
+
+        // Data getters
+        function getProfileData() {
+            return {
+                fullName: document.getElementById('fullName').value.trim() || null,
+                dob: document.getElementById('dob').value || null,
+                country: document.getElementById('country').value || null,
+                healthId: document.getElementById('healthId').value.trim() || null
+            };
+        }
+
+        function getHealthData() {
+            return {
+                bloodType: document.getElementById('bloodType').value || null,
+                allergies: document.getElementById('allergies').value.trim() || null,
+                conditions: document.getElementById('conditions').value.trim() || null,
+                medications: document.getElementById('medications').value.trim() || null,
+                implants: document.getElementById('implants').value.trim() || null,
+                organDonor: document.getElementById('organDonor').checked,
+                triageOverride: document.getElementById('triageOverride').value || 'auto'
+            };
+        }
+
+        function getICEData() {
+            return iceContacts.map(contact => ({
+                name: contact.name?.trim() || null,
+                relation: contact.relation?.trim() || null,
+                phone: contact.phone?.trim() || null
+            }));
+        }
+
+        // Save functions using RPCs
+        async function saveProfileToServer() {
+            const p = getProfileData();
+            const uid = currentUser.id;
+            const { error } = await supabase.rpc('upsert_profile', {
+                p_id: uid,
+                p_full_name: p.fullName,
+                p_dob: p.dob,
+                p_country: p.country,
+                p_health_id: p.healthId
+            });
+            if (error) throw error;
+        }
+
+        async function saveHealthToServer() {
+            const h = getHealthData();
+            const uid = currentUser.id;
+            const { error } = await supabase.rpc('upsert_health', {
+                p_user_id: uid,
+                p_blood_type: h.bloodType,
+                p_allergies: h.allergies,
+                p_conditions: h.conditions,
+                p_medications: h.medications,
+                p_implants: h.implants,
+                p_organ_donor: !!h.organDonor,
+                p_triage_override: h.triageOverride
+            });
+            if (error) throw error;
+        }
+
+        async function saveICEToServer() {
+            const list = getICEData().slice(0, 3).map((c, i) => ({
+                contact_order: i,
+                name: c.name,
+                relation: c.relation,
+                phone: c.phone
+            }));
+            const { error } = await supabase.rpc('replace_ice', {
+                p_user_id: currentUser.id,
+                p_contacts: list
+            });
+            if (error) throw error;
+        }
+
+        // QR generation
+        async function generateQRCode() {
+            const code = await ensureShortCode(); // same code every session
+            const liveUrl = `https://www.myqer.com/c/${code}`;
+            const box = document.getElementById('qrcode');
+            box.innerHTML = '';
+            await QRCode.toCanvas(box, liveUrl, { width: 240, margin: 1 });
+            document.getElementById('qrCodeText').textContent = code;
+            document.getElementById('cardUrl').value = liveUrl;
+        }
+
+        // Load on init
+        async function loadAll() {
+            // profiles
+            let { data: p } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+            if (p) {
+                localStorage.setItem('myqer_profile', JSON.stringify({
+                    fullName: p.full_name || '',
+                    dob: p.dob || '',
+                    country: p.country || '',
+                    healthId: p.health_id || ''
+                }));
+            }
+            // health
+            let { data: h } = await supabase.from('health_data').select('*').eq('user_id', currentUser.id).maybeSingle();
+            if (h) {
+                localStorage.setItem('myqer_health', JSON.stringify({
+                    bloodType: h.blood_type || '',
+                    allergies: h.allergies || '',
+                    organDonor: !!h.organ_donor,
+                    conditions: h.conditions || '',
+                    medications: h.medications || '',
+                    implants: h.implants || '',
+                    triageOverride: h.triage_override || 'auto'
+                }));
+            }
+            // ice
+            let { data: ice } = await supabase.from('ice_contacts').select('*').eq('user_id', currentUser.id).order('contact_order');
+            if (ice) {
+                localStorage.setItem('myqer_ice', JSON.stringify(
+                    ice.map(i => ({ name: i.name || '', relation: i.relation || '', phone: i.phone || '' }))
+                ));
+            }
+            // reflect UI + ribbons + QR
+            await loadFromLocalStorage();
+            await ensureShortCode();
+            await generateQRCode();
+        }
+
+        async function loadFromLocalStorage() {
+            // Load profile
+            const profileData = localStorage.getItem('myqer_profile');
+            if (profileData) {
+                const data = JSON.parse(profileData);
+                document.getElementById('fullName').value = data.fullName || '';
+                document.getElementById('dob').value = data.dob || '';
+                document.getElementById('country').value = data.country || '';
+                document.getElementById('healthId').value = data.healthId || '';
+            }
+
+            // Load health
+            const healthData = localStorage.getItem('myqer_health');
+            if (healthData) {
+                const data = JSON.parse(healthData);
+                document.getElementById('bloodType').value = data.bloodType || '';
+                document.getElementById('allergies').value = data.allergies || '';
+                document.getElementById('conditions').value = data.conditions || '';
+                document.getElementById('medications').value = data.medications || '';
+                document.getElementById('implants').value = data.implants || '';
+                document.getElementById('organDonor').checked = !!data.organDonor;
+                document.getElementById('triageOverride').value = data.triageOverride || 'auto';
+            }
+
+            // Load ICE
+            const iceData = localStorage.getItem('myqer_ice');
+            if (iceData) {
+                iceContacts = JSON.parse(iceData);
+                renderICE();
+            }
+
+            updateTriage();
+        }
+
+        // Auto-triage with fixed logic
+        function updateTriage() {
+            const override = document.getElementById('triageOverride').value;
+            const pill = document.getElementById('triagePill');
+            const pillText = pill.querySelector('span:last-child');
+            
+            if (override !== 'auto') {
+                pill.className = `triage-pill triage-${override}`;
+                pillText.textContent = translations[currentLanguage][override];
+                return;
+            }
+            
+            const allergies = document.getElementById('allergies').value.toLowerCase();
+            const conditions = document.getElementById('conditions').value.toLowerCase();
+            const implants = document.getElementById('implants').value.toLowerCase();
+            
+            // Check for fatal keywords
+            let isFatal = false;
+            const allText = `${allergies} ${conditions} ${implants}`;
+            FATAL_KEYWORDS.forEach(keyword => {
+                if (allText.includes(keyword)) {
+                    isFatal = true;
+                }
+            });
+            
+            if (isFatal) {
+                pill.className = 'triage-pill triage-red';
+                pillText.textContent = translations[currentLanguage]['red'];
+            } else if (allergies.trim() || conditions.trim() || implants.trim()) {
+                // Any medical data = minimum AMBER
+                pill.className = 'triage-pill triage-amber';
+                pillText.textContent = translations[currentLanguage]['amber'];
+            } else {
+                pill.className = 'triage-pill triage-green';
+                pillText.textContent = translations[currentLanguage]['green'];
+            }
+        }
+
+        // Save functions
+        async function saveProfile() {
+            try {
+                const profileData = getProfileData();
+                localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+                
+                if (isOnline) {
+                    await saveProfileToServer();
+                }
+                
+                showToast('Profile saved successfully', 'success');
+                await generateQRCode();
+            } catch (error) {
+                console.error('Save profile error:', error);
+                showToast('Failed to save profile', 'error');
+            }
+        }
+
+        async function saveHealth() {
+            try {
+                const healthData = getHealthData();
+                localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                
+                if (isOnline) {
+                    await saveHealthToServer();
+                }
+                
+                showToast('Health data saved successfully', 'success');
+                updateTriage();
+                await generateQRCode();
+            } catch (error) {
+                console.error('Save health error:', error);
+                showToast('Failed to save health data', 'error');
+            }
+        }
+
+        async function saveICE() {
+            try {
+                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+                
+                if (isOnline) {
+                    await saveICEToServer();
+                }
+                
+                showToast('Emergency contacts saved successfully', 'success');
+                await generateQRCode();
+            } catch (error) {
+                console.error('Save ICE error:', error);
+                showToast('Failed to save emergency contacts', 'error');
+            }
+        }
+
         function setupOnlineDetection() {
             function updateOnlineStatus() {
                 isOnline = navigator.onLine;
@@ -1543,7 +1800,6 @@
                 
                 if (isOnline) {
                     banner.classList.remove('show');
-                    syncPendingChanges();
                 } else {
                     banner.classList.add('show');
                 }
@@ -1552,38 +1808,6 @@
             window.addEventListener('online', updateOnlineStatus);
             window.addEventListener('offline', updateOnlineStatus);
             updateOnlineStatus();
-        }
-
-        async function syncPendingChanges() {
-            try {
-                const profileData = localStorage.getItem('myqer_profile_pending');
-                if (profileData) {
-                    const data = JSON.parse(profileData);
-                    await supabase.from('profiles').upsert(data);
-                    localStorage.removeItem('myqer_profile_pending');
-                }
-                
-                const healthData = localStorage.getItem('myqer_health_pending');
-                if (healthData) {
-                    const data = JSON.parse(healthData);
-                    await supabase.from('health_data').upsert(data);
-                    localStorage.removeItem('myqer_health_pending');
-                }
-                
-                const iceData = localStorage.getItem('myqer_ice_pending');
-                if (iceData) {
-                    const data = JSON.parse(iceData);
-                    await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-                    if (data.length > 0) {
-                        await supabase.from('ice_contacts').insert(data);
-                    }
-                    localStorage.removeItem('myqer_ice_pending');
-                }
-                
-                showToast('Changes synced successfully', 'success');
-            } catch (error) {
-                console.error('Sync error:', error);
-            }
         }
 
         function toggleLanguageDropdown() {
@@ -1665,307 +1889,9 @@
             }
             
             debounceTimers[section] = setTimeout(() => {
-                if (section === 'profile') saveProfile(true);
-                else if (section === 'health') saveHealth(true);
+                if (section === 'profile') saveProfile();
+                else if (section === 'health') saveHealth();
             }, 1000);
-        }
-
-        function showSavingIndicator() {
-            const indicator = document.getElementById('savingIndicator');
-            indicator.classList.add('show');
-            
-            setTimeout(() => {
-                indicator.classList.remove('show');
-            }, 2000);
-        }
-
-        async function loadProfile() {
-            try {
-                const cached = localStorage.getItem('myqer_profile');
-                if (cached) {
-                    const data = JSON.parse(cached);
-                    fillProfileForm(data);
-                }
-                
-                if (isOnline) {
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', currentUser.id)
-                        .single();
-                    
-                    if (error && error.code !== 'PGRST116') throw error;
-                    
-                    if (data) {
-                        fillProfileForm(data);
-                        localStorage.setItem('myqer_profile', JSON.stringify(data));
-                        userCode = data.code;
-                    }
-                }
-            } catch (error) {
-                console.error('Load profile error:', error);
-            }
-        }
-
-        function fillProfileForm(data) {
-            if (data.full_name) document.getElementById('fullName').value = data.full_name;
-            if (data.dob) document.getElementById('dob').value = data.dob;
-            if (data.country) document.getElementById('country').value = data.country;
-            if (data.health_id) document.getElementById('healthId').value = data.health_id;
-            userCode = data.code;
-        }
-
-        async function loadHealth() {
-            try {
-                const cached = localStorage.getItem('myqer_health');
-                if (cached) {
-                    const data = JSON.parse(cached);
-                    fillHealthForm(data);
-                }
-                
-                if (isOnline) {
-                    const { data, error } = await supabase
-                        .from('health_data')
-                        .select('*')
-                        .eq('user_id', currentUser.id)
-                        .single();
-                    
-                    if (error && error.code !== 'PGRST116') throw error;
-                    
-                    if (data) {
-                        fillHealthForm(data);
-                        localStorage.setItem('myqer_health', JSON.stringify(data));
-                    }
-                }
-                
-                updateTriage();
-            } catch (error) {
-                console.error('Load health error:', error);
-            }
-        }
-
-        function fillHealthForm(data) {
-            if (data.blood_type) document.getElementById('bloodType').value = data.blood_type;
-            if (data.allergies) document.getElementById('allergies').value = data.allergies;
-            if (data.conditions) document.getElementById('conditions').value = data.conditions;
-            if (data.medications) document.getElementById('medications').value = data.medications;
-            if (data.implants) document.getElementById('implants').value = data.implants;
-            if (data.donor !== undefined) document.getElementById('organDonor').checked = data.donor;
-            if (data.triage_override) document.getElementById('triageOverride').value = data.triage_override;
-        }
-
-        async function loadICE() {
-            try {
-                const cached = localStorage.getItem('myqer_ice');
-                if (cached) {
-                    iceContacts = JSON.parse(cached);
-                    renderICE();
-                }
-                
-                if (isOnline) {
-                    const { data, error } = await supabase
-                        .from('ice_contacts')
-                        .select('*')
-                        .eq('user_id', currentUser.id)
-                        .order('contact_order');
-                    
-                    if (error) throw error;
-                    
-                    iceContacts = data || [];
-                    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                    renderICE();
-                }
-            } catch (error) {
-                console.error('Load ICE error:', error);
-            }
-        }
-
-        async function generateCode() {
-            if (userCode) return userCode;
-            
-            const cached = localStorage.getItem('myqer_profile');
-            if (cached) {
-                const data = JSON.parse(cached);
-                if (data.code) {
-                    userCode = data.code;
-                    return data.code;
-                }
-            }
-            
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let code = '';
-            for (let i = 0; i < 8; i++) {
-                if (i === 4) code += '-';
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            userCode = code;
-            return code;
-        }
-
-        async function saveProfile(isAutosave = false) {
-            try {
-                const code = await generateCode();
-                const profileData = {
-                    id: currentUser.id,
-                    full_name: document.getElementById('fullName').value || null,
-                    dob: document.getElementById('dob').value || null,
-                    country: document.getElementById('country').value || null,
-                    health_id: document.getElementById('healthId').value || null,
-                    code: code
-                };
-                
-                localStorage.setItem('myqer_profile', JSON.stringify(profileData));
-                
-                if (isAutosave) {
-                    showSavingIndicator();
-                }
-                
-                if (isOnline) {
-                    const { error } = await supabase
-                        .from('profiles')
-                        .upsert(profileData);
-                    
-                    if (error) throw error;
-                    
-                    localStorage.removeItem('myqer_profile_pending');
-                } else {
-                    localStorage.setItem('myqer_profile_pending', JSON.stringify(profileData));
-                }
-                
-                if (!isAutosave) {
-                    showToast('Profile saved successfully', 'success');
-                }
-                
-                await generateQR();
-                saveSnapshot();
-                
-            } catch (error) {
-                console.error('Save profile error:', error);
-                if (!isAutosave) {
-                    showToast('Failed to save profile', 'error');
-                }
-                
-                if (!isOnline) {
-                    const code = await generateCode();
-                    const profileData = {
-                        id: currentUser.id,
-                        full_name: document.getElementById('fullName').value || null,
-                        dob: document.getElementById('dob').value || null,
-                        country: document.getElementById('country').value || null,
-                        health_id: document.getElementById('healthId').value || null,
-                        code: code
-                    };
-                    localStorage.setItem('myqer_profile_pending', JSON.stringify(profileData));
-                }
-            }
-        }
-
-        async function saveHealth(isAutosave = false) {
-            try {
-                const healthData = {
-                    user_id: currentUser.id,
-                    blood_type: document.getElementById('bloodType').value || null,
-                    allergies: document.getElementById('allergies').value || null,
-                    conditions: document.getElementById('conditions').value || null,
-                    medications: document.getElementById('medications').value || null,
-                    implants: document.getElementById('implants').value || null,
-                    donor: document.getElementById('organDonor').checked,
-                    triage_override: document.getElementById('triageOverride').value
-                };
-                
-                localStorage.setItem('myqer_health', JSON.stringify(healthData));
-                
-                if (isAutosave) {
-                    showSavingIndicator();
-                }
-                
-                if (isOnline) {
-                    const { error } = await supabase
-                        .from('health_data')
-                        .upsert(healthData);
-                    
-                    if (error) throw error;
-                    
-                    localStorage.removeItem('myqer_health_pending');
-                } else {
-                    localStorage.setItem('myqer_health_pending', JSON.stringify(healthData));
-                }
-                
-                if (!isAutosave) {
-                    showToast('Health data saved successfully', 'success');
-                }
-                
-                updateTriage();
-                await generateQR();
-                saveSnapshot();
-                
-            } catch (error) {
-                console.error('Save health error:', error);
-                if (!isAutosave) {
-                    showToast('Failed to save health data', 'error');
-                }
-                
-                if (!isOnline) {
-                    const healthData = {
-                        user_id: currentUser.id,
-                        blood_type: document.getElementById('bloodType').value || null,
-                        allergies: document.getElementById('allergies').value || null,
-                        conditions: document.getElementById('conditions').value || null,
-                        medications: document.getElementById('medications').value || null,
-                        implants: document.getElementById('implants').value || null,
-                        donor: document.getElementById('organDonor').checked,
-                        triage_override: document.getElementById('triageOverride').value
-                    };
-                    localStorage.setItem('myqer_health_pending', JSON.stringify(healthData));
-                }
-            }
-        }
-
-        function updateTriage() {
-            const override = document.getElementById('triageOverride').value;
-            const pill = document.getElementById('triagePill');
-            const pillText = pill.querySelector('span:last-child');
-            
-            if (override !== 'auto') {
-                pill.className = `triage-pill triage-${override}`;
-                pillText.textContent = translations[currentLanguage][override];
-                return;
-            }
-            
-            const allergies = document.getElementById('allergies').value.toLowerCase();
-            const conditions = document.getElementById('conditions').value.toLowerCase();
-            const implants = document.getElementById('implants').value.toLowerCase();
-            
-            let isLifeThreatening = false;
-            
-            LIFE_THREATENING_ALLERGIES.forEach(allergy => {
-                if (allergies.includes(allergy)) {
-                    isLifeThreatening = true;
-                }
-            });
-            
-            LIFE_THREATENING_CONDITIONS.forEach(condition => {
-                if (conditions.includes(condition)) {
-                    isLifeThreatening = true;
-                }
-            });
-            
-            CRITICAL_IMPLANTS.forEach(implant => {
-                if (implants.includes(implant)) {
-                    isLifeThreatening = true;
-                }
-            });
-            
-            if (isLifeThreatening) {
-                pill.className = 'triage-pill triage-red';
-                pillText.textContent = translations[currentLanguage]['red'];
-            } else if (allergies || conditions || implants) {
-                pill.className = 'triage-pill triage-amber';
-                pillText.textContent = translations[currentLanguage]['amber'];
-            } else {
-                pill.className = 'triage-pill triage-green';
-                pillText.textContent = translations[currentLanguage]['green'];
-            }
         }
 
         function addContact() {
@@ -1977,9 +1903,8 @@
             const newContact = {
                 id: Date.now().toString(),
                 name: '',
-                relationship: '',
-                phone: '',
-                contact_order: iceContacts.length
+                relation: '',
+                phone: ''
             };
             
             iceContacts.push(newContact);
@@ -1988,9 +1913,6 @@
 
         function removeContact(id) {
             iceContacts = iceContacts.filter(contact => contact.id !== id);
-            iceContacts.forEach((contact, index) => {
-                contact.contact_order = index;
-            });
             renderICE();
         }
 
@@ -2003,28 +1925,28 @@
                 return;
             }
             
-            container.innerHTML = iceContacts.map(contact => `
+            container.innerHTML = iceContacts.map((contact, index) => `
                 <div class="ice-contact">
                     <div class="ice-header">
-                        <h4 class="ice-title">Emergency Contact ${contact.contact_order + 1}</h4>
+                        <h4 class="ice-title">Emergency Contact ${index + 1}</h4>
                         <button class="btn btn-danger" onclick="removeContact('${contact.id}')" data-i18n="remove">Remove</button>
                     </div>
                     <div class="ice-grid">
                         <div class="form-group">
                             <label class="form-label" data-i18n="contact_name">Name</label>
-                            <input type="text" class="form-input" value="${contact.name}" 
+                            <input type="text" class="form-input" value="${contact.name || ''}" 
                                    onchange="updateContact('${contact.id}', 'name', this.value)"
                                    placeholder="Full name">
                         </div>
                         <div class="form-group">
                             <label class="form-label" data-i18n="contact_relationship">Relationship</label>
-                            <input type="text" class="form-input" value="${contact.relationship}" 
-                                   onchange="updateContact('${contact.id}', 'relationship', this.value)"
+                            <input type="text" class="form-input" value="${contact.relation || ''}" 
+                                   onchange="updateContact('${contact.id}', 'relation', this.value)"
                                    placeholder="e.g., Spouse, Parent">
                         </div>
                         <div class="form-group">
                             <label class="form-label" data-i18n="contact_phone">Phone</label>
-                            <input type="tel" class="form-input" value="${contact.phone}" 
+                            <input type="tel" class="form-input" value="${contact.phone || ''}" 
                                    onchange="updateContact('${contact.id}', 'phone', this.value)"
                                    placeholder="+1 (555) 123-4567">
                         </div>
@@ -2040,118 +1962,7 @@
             if (contact) {
                 contact[field] = value;
                 localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                generateQR();
             }
-        }
-
-        async function saveICE() {
-            try {
-                const iceData = iceContacts.map(contact => ({
-                    user_id: currentUser.id,
-                    name: contact.name || null,
-                    relationship: contact.relationship || null,
-                    phone: contact.phone || null,
-                    contact_order: contact.contact_order
-                }));
-                
-                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                
-                if (isOnline) {
-                    await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-                    
-                    if (iceData.length > 0) {
-                        const { error } = await supabase.from('ice_contacts').insert(iceData);
-                        if (error) throw error;
-                    }
-                    
-                    localStorage.removeItem('myqer_ice_pending');
-                } else {
-                    localStorage.setItem('myqer_ice_pending', JSON.stringify(iceData));
-                }
-                
-                showToast('Emergency contacts saved successfully', 'success');
-                await generateQR();
-                saveSnapshot();
-                
-            } catch (error) {
-                console.error('Save ICE error:', error);
-                showToast('Failed to save emergency contacts', 'error');
-                
-                if (!isOnline) {
-                    const iceData = iceContacts.map(contact => ({
-                        user_id: currentUser.id,
-                        name: contact.name || null,
-                        relationship: contact.relationship || null,
-                        phone: contact.phone || null,
-                        contact_order: contact.contact_order
-                    }));
-                    localStorage.setItem('myqer_ice_pending', JSON.stringify(iceData));
-                }
-            }
-        }
-
-        async function generateQR() {
-            if (isGeneratingQR) return;
-            isGeneratingQR = true;
-            
-            try {
-                const code = await generateCode();
-                document.getElementById('qrCode').textContent = code;
-                
-                const url = `https://www.myqer.com/c/${code}`;
-                document.getElementById('cardUrl').value = url;
-                
-                const offlineData = createOfflinePayload();
-                
-                const canvas = document.getElementById('qrCanvas');
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                await QRCode.toCanvas(canvas, offlineData, {
-                    width: 200,
-                    margin: 2,
-                    color: {
-                        dark: '#0f172a',
-                        light: '#ffffff'
-                    }
-                });
-                
-            } catch (error) {
-                console.error('QR generation error:', error);
-            } finally {
-                isGeneratingQR = false;
-            }
-        }
-
-        function createOfflinePayload() {
-            const profile = JSON.parse(localStorage.getItem('myqer_profile') || '{}');
-            const health = JSON.parse(localStorage.getItem('myqer_health') || '{}');
-            const ice = JSON.parse(localStorage.getItem('myqer_ice') || '[]');
-            
-            let payload = `MYQER EMERGENCY CARD\n`;
-            payload += `Code: ${userCode || 'XXXX-XXXX'}\n`;
-            payload += `URL: https://www.myqer.com/c/${userCode || 'XXXX-XXXX'}\n\n`;
-            
-            if (profile.full_name) payload += `Name: ${profile.full_name}\n`;
-            if (profile.dob) payload += `DOB: ${profile.dob}\n`;
-            if (health.blood_type) payload += `Blood: ${health.blood_type}\n`;
-            if (health.allergies) payload += `Allergies: ${health.allergies}\n`;
-            if (health.conditions) payload += `Conditions: ${health.conditions}\n`;
-            if (health.medications) payload += `Medications: ${health.medications}\n`;
-            if (health.implants) payload += `Implants: ${health.implants}\n`;
-            if (health.donor) payload += `Organ Donor: Yes\n`;
-            
-            ice.slice(0, 3).forEach((contact, i) => {
-                if (contact.name && contact.phone) {
-                    payload += `ICE${i + 1}: ${contact.name} (${contact.relationship || 'Contact'}) ${contact.phone}\n`;
-                }
-            });
-            
-            if (payload.length > 900) {
-                payload = payload.substring(0, 897) + '...';
-            }
-            
-            return payload;
         }
 
         function copyUrl() {
@@ -2168,7 +1979,8 @@
 
         async function downloadQR(format) {
             try {
-                const canvas = document.getElementById('qrCanvas');
+                const canvas = document.querySelector('#qrcode canvas');
+                if (!canvas) return;
                 
                 if (format === 'png') {
                     const link = document.createElement('a');
@@ -2176,8 +1988,9 @@
                     link.href = canvas.toDataURL();
                     link.click();
                 } else if (format === 'svg') {
-                    const offlineData = createOfflinePayload();
-                    const svg = await QRCode.toString(offlineData, { type: 'svg' });
+                    const code = await ensureShortCode();
+                    const liveUrl = `https://www.myqer.com/c/${code}`;
+                    const svg = await QRCode.toString(liveUrl, { type: 'svg' });
                     const blob = new Blob([svg], { type: 'image/svg+xml' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
@@ -2195,9 +2008,11 @@
         }
 
         function printQR() {
-            const canvas = document.getElementById('qrCanvas');
-            const code = document.getElementById('qrCode').textContent;
+            const canvas = document.querySelector('#qrcode canvas');
+            const code = document.getElementById('qrCodeText').textContent;
             const url = document.getElementById('cardUrl').value;
+            
+            if (!canvas) return;
             
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`
@@ -2231,28 +2046,6 @@
             `);
             printWindow.document.close();
             printWindow.print();
-        }
-
-        async function saveSnapshot() {
-            try {
-                if (!isOnline) return;
-                
-                const profile = JSON.parse(localStorage.getItem('myqer_profile') || '{}');
-                const health = JSON.parse(localStorage.getItem('myqer_health') || '{}');
-                const ice = JSON.parse(localStorage.getItem('myqer_ice') || '[]');
-                
-                const snapshot = {
-                    user_id: currentUser.id,
-                    profile_data: profile,
-                    health_data: health,
-                    ice_contacts: ice,
-                    created_at: new Date().toISOString()
-                };
-                
-                await supabase.from('profile_snapshots').insert(snapshot);
-            } catch (error) {
-                console.error('Snapshot save error:', error);
-            }
         }
 
         function setupIdleTimer() {
@@ -2311,7 +2104,6 @@
                     await supabase.from('profiles').delete().eq('id', currentUser.id);
                     await supabase.from('health_data').delete().eq('user_id', currentUser.id);
                     await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
-                    await supabase.from('profile_snapshots').delete().eq('user_id', currentUser.id);
                 }
                 
                 localStorage.clear();
@@ -2352,5 +2144,5 @@
 
         document.addEventListener('DOMContentLoaded', init);
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b0325b25fb940d',t:'MTc1NzE4NTA5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b0657a6300c9aa',t:'MTc1NzE4NzE4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
