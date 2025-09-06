@@ -1198,5 +1198,48 @@ async function generateQRCode() {
     window.saveIndividualIceContact=saveIndividualIceContact;
     window.renderOfflineTextQR=renderOfflineTextQR;
   </script>
+  <script>
+// --- tiny logger you can toggle ---
+window.DEBUG = true;
+const log = (...a)=> window.DEBUG && console.log('[MYQER]', ...a);
+
+// ensure we never keep the spinner forever
+function hideLoader() {
+  const s = document.getElementById('loadingState');
+  if (s) { s.style.opacity = '0'; s.style.display = 'none'; }
+}
+
+// wrap any async with try/finally so UI recovers
+async function safe(fn, label='task') {
+  try { return await fn(); }
+  catch (e) { console.error(`[MYQER] ${label} failed`, e); window.showToast?.(`${label} failed`, 'error'); }
+  finally { hideLoader(); }
+}
+
+// avoid double-binding listeners after hot reloads / back-forward cache
+if (!window.__myqerWired) {
+  window.__myqerWired = true;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    safe(async () => {
+      // your original boot order, but guarded
+      await window.loadUserData?.();      // if defined, runs; otherwise ignored
+      await window.generateQRCode?.();    // draw live QR if you have it
+      log('Dashboard ready');
+    }, 'initialization');
+  });
+
+  // if you rely on online/offline badges, guard them
+  const updateNetworkStatus = () => {
+    const pill = document.getElementById('netStatePill');
+    if (!pill) return;
+    pill.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+    pill.className = navigator.onLine ? 'pill green' : 'pill amber';
+  };
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  updateNetworkStatus();
+}
+</script>
 </body>
 </html>
