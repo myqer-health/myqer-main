@@ -2778,40 +2778,53 @@ function setupInputs(){
     if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="q"){ e.preventDefault(); refreshQRCodes(); }
   });
 }
+// --- requireSession: only lets logged-in users proceed ---
+async function requireSession() {
+  try {
+    const { data: { session: s } } = await sb.auth.getSession();
+    if (!s || !s.user) return null;  // no session
+    session = s;
+    uid = s.user.id;
+    const email = s.user.email || "user";
+    $("#userEmail").textContent = email;
+    $("#userAvatar").textContent = (email[0]||"U").toUpperCase();
+    return s;
+  } catch (e) {
+    console.warn("getSession error:", e);
+    return null;
+  }
+}
 
-/** -------- Init -------- **/
-async function init(){
+// --- init: runs at page load, forces login if no session ---
+async function init() {
   const loader = $("#loadingScreen");
-  const main = $("#dashboard");
-  // language
+  const main   = $("#dashboard");
+
+  // language + setup
   const savedLang = localStorage.getItem("myqer_language");
-  setLanguage(savedLang || (navigator.language||"en").slice(0,2));
+  setLanguage(savedLang || (navigator.language || "en").slice(0,2));
   applyTranslations();
   setupOnlineBanner();
   setupInputs();
-  try{
-    await requireSession();
-  } catch { // redirect already handled
+
+  // must have valid session
+  const s = await requireSession();
+  if (!s) {
+    const next = encodeURIComponent("/dashboard.html");
+    window.location.replace(`/login.html?next=${next}`);
     return;
   }
-  // Load flow: local first, then server (server wins)
+
+  // load cached, then server
   await loadFromLocalFirst();
   await fetchServerData();
 
-  // Show UI
-  setTimeout(()=>{
-    loader.classList.add("hidden");
-    main.classList.remove("hidden");
-  }, 300);
+  // show dashboard
+  loader.classList.add("hidden");
+  main.classList.remove("hidden");
 
   setupIdleTimer();
-
-  // Wire buttons already in HTML
-  window.generateQRCode = async ()=>{ // keep button but do NOT change code (immutable); just re-render
-    await refreshQRCodes();
-  };
-
-  // Initial QR render done
+  window.generateQRCode = async () => { await refreshQRCodes(); };
 }
 
 /** -------- Expose save buttons to HTML (already hooked via onclick) -------- **/
