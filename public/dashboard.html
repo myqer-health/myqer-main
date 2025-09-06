@@ -580,12 +580,16 @@
       return newCode;
     };
 
-    // --- Build human-friendly TEXT payload (offline readable) ---
-    function buildOfflineTextPayload(shortCode) {
+    // ---------- QR SAFETY (global) ----------
+    function buildTextLines(shortCode){
       const profile = (window.userData?.profile) || {};
       const health  = (window.userData?.health)  || {};
       const ices    = Array.isArray(window.iceContacts) ? window.iceContacts : [];
-      const iceLines = ices.slice(0,3).filter(c => (c?.name || c?.phone)).map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`).join('\n');
+
+      const iceLines = ices.slice(0,3)
+        .filter(c => (c?.name || c?.phone))
+        .map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`);
+
       const lines = [
         'MYQER™ EMERGENCY CARD',
         shortCode ? `Code: ${shortCode}` : null,
@@ -597,22 +601,98 @@
         health.medications ? `Meds: ${health.medications}` : null,
         health.implants ? `Implants: ${health.implants}` : null,
         `Donor: ${health.organDonor ? 'Yes' : 'No'}`,
-        iceLines || null,
+        ...iceLines,
         shortCode ? `URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
-      ].filter(Boolean).join('\n');
+      ].filter(Boolean);
 
-      const enc = new TextEncoder(); const limit = 2000;
-      if (enc.encode(lines).length <= limit) return lines;
-      const shrink=(label,text,max)=>text.replace(new RegExp(`^(${label}: )(.*)$`,'m'),(_,p1,p2)=>`${p1}${p2.slice(0,max).trim()}…`);
-      let trimmed = lines;
-      [['Conditions',400],['Meds',400],['Implants',300],['Allergies',300]].forEach(([lab,cap])=>{
-        if (enc.encode(trimmed).length>limit) trimmed = shrink(lab,trimmed,cap);
-      });
-      while (enc.encode(trimmed).length>limit) trimmed = trimmed.slice(0,trimmed.length-50);
-      return trimmed.replace(/\s+$/,'')+'…';
+      return lines;
     }
-
-    // ---- Main QR (text) ----
+    function u8len(str){ return new TextEncoder().encode(str).length; }
+    function compactLinesToLimit(lines, byteLimit){
+      let work = [...lines];
+      const join = () => work.join('\n');
+      const shrink = (label, cap) => {
+        const i = work.findIndex(l => l.startsWith(label + ': '));
+        if (i === -1) return;
+        const [, value] = work[i].split(/:\s+/);
+        if (!value) return;
+        if (value.length > cap) work[i] = `${label}: ${value.slice(0, cap).trim()}…`;
+      };
+      const drop = (label) => {
+        const i = work.findIndex(l => l.startsWith(label + ':'));
+        if (i !== -1) work.splice(i,1);
+      };
+      const dropICE = (n) => {
+        const i = work.findIndex(l => l.startsWith(`ICE${n}:`));
+        if (i !== -1) work.splice(i,1);
+      };
+      const phases = [
+        () => { shrink('Conditions', 300); shrink('Meds', 300); shrink('Implants', 220); shrink('Allergies', 220); },
+        () => { shrink('Conditions', 180); shrink('Meds', 180); shrink('Implants', 160); shrink('Allergies', 160); },
+        () => { shrink('Conditions', 120); shrink('Meds', 120); shrink('Implants', 120); shrink('Allergies', 120); },
+        () => { drop('Implants'); },
+        () => { drop('Meds'); },
+        () => { drop('Conditions'); },
+        () => { dropICE(3); },
+        () => { dropICE(2); },
+        () => { dropICE(1); },
+        () => { const i = work.findIndex(l => l.startsWith('URL: ')); if (i !== -1) work[i] = 'URL: myqer.com'; }
+      ];
+      for (const step of phases){ if (u8len(join()) <= byteLimit) break; step(); }
+      let out = join();
+      while (u8len(out) > byteLimit && out.length > 10){ out = out.slice(0, out.length - 50); }
+      return out.replace(/\s+$/,'');
+    }
+    function safeRenderQR(container, text){
+      container.innerHTML = '';
+      let level = QRCode.CorrectLevel.M;
+      let limit = 900;
+      let payload = text;
+      if (u8len(payload) > limit) payload = compactLinesToLimit(text.split('\n'), limit);
+      try {
+        new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
+        return;
+      } catch(e1){
+        level = QRCode.CorrectLevel.L;
+        limit = 1100;
+        payload = compactLinesToLimit(text.split('\n'), limit);
+        container.innerHTML = '';
+        try {
+          new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
+          return;
+        } catch(e2){
+          console.warn('QR still too long, using minimal payload', e2);
+          const minimal = text.split('\n').filter(l =>
+            /^MYQER|^Code:|^Name:|^DOB:|^Blood:|^Allergies:|^Donor:|^ICE1:|^URL:/.test(l)
+          );
+          container.innerHTML = '';
+          new QRCode(container, { text: compactLinesToLimit(minimal, 800), width:240, height:240, correctLevel: QRCode.CorrectLevel.L });
+        }
+      }
+    }
+    function buildOfflineTextPayload(shortCode){
+      const lines = buildTextLines(shortCode);
+      const joined = lines.join('\n');
+      return (u8len(joined) <= 900) ? joined : compactLinesToLimit(lines, 900);
+    }
+    function renderOfflineTextQR(){
+      const wrap = document.getElementById('offlineQRwrap');
+      const box  = document.getElementById('offlineQRbox');
+      if (!wrap || !box) return;
+      const hasProfile = userData.profile && userData.profile.fullName;
+      const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies || typeof userData.health.organDonor !== 'undefined');
+      const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+      if (!(hasProfile || hasHealth || hasIce)) { wrap.style.display='none'; box.innerHTML=''; return; }
+      wrap.style.display = 'block';
+      const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+      const textCard  = buildOfflineTextPayload(shortCode);
+      box.innerHTML = '';
+      safeRenderQR(box, textCard);
+      const mark = document.createElement('div');
+      mark.textContent = 'MYQER™';
+      mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
+      box.appendChild(mark);
+    }
     async function generateQRCode() {
       const qrCanvasContainer = document.getElementById('qrCanvas');
       const qrPlaceholder     = document.getElementById('qrPlaceholder');
@@ -637,21 +717,15 @@
         return;
       }
 
-      const shortCode = await generateShortCode();
-      const textCard = buildOfflineTextPayload(shortCode);
+      const scLocal = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
+      const shortCode = scLocal || await generateShortCode();
+      const textCard  = buildOfflineTextPayload(shortCode);
 
       qrPlaceholder.style.display = 'none';
-      qrCanvasContainer.innerHTML = '';
-
-      new QRCode(qrCanvasContainer, {
-        text: textCard,
-        width: 240,
-        height: 240,
-        correctLevel: QRCode.CorrectLevel.M
-      });
+      safeRenderQR(qrCanvasContainer, textCard);
 
       codeUnderQR.textContent = shortCode;
-      cardUrl.value = `https://www.myqer.com/c/${encodeURIComponent(shortCode)}`;
+      cardUrl.value = shortCode ? `https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : '';
 
       qrStatus.textContent = 'Offline-friendly text QR generated';
       qrStatus.style.background = 'rgba(5,156,105,.1)';
@@ -660,6 +734,7 @@
 
       renderOfflineTextQR();
     }
+    // ---------- /QR SAFETY ----------
 
     // ---- SNAPSHOT helpers (save to profile_snapshots) ----
     function buildSnapshotObject(){
@@ -856,35 +931,7 @@
       await generateQRCode(); renderOfflineTextQR();
     }
 
-    // ---- Offline Text QR (panel) ----
-    function renderOfflineTextQR(){
-      const wrap = document.getElementById('offlineQRwrap');
-      const box  = document.getElementById('offlineQRbox');
-      if (!wrap || !box) return;
-
-      const hasProfile = userData.profile && userData.profile.fullName;
-      const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies || typeof userData.health.organDonor !== 'undefined');
-      const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
-      if (!(hasProfile || hasHealth || hasIce)) { wrap.style.display='none'; box.innerHTML=''; return; }
-
-      wrap.style.display = 'block';
-      box.innerHTML = '';
-
-      const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-      const textCard = buildOfflineTextPayload(shortCode);
-
-      new QRCode(box, {
-        text: textCard,
-        width: 240,
-        height: 240,
-        correctLevel: QRCode.CorrectLevel.M
-      });
-
-      const mark = document.createElement('div');
-      mark.textContent = 'MYQER™';
-      mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
-      box.appendChild(mark);
-    }
+    // ---- Offline download button ----
     function wireOfflineDownload(){
       const btn = document.getElementById('btnSaveOfflineQR');
       if (!btn) return;
@@ -941,193 +988,8 @@
       setupAutoSave('hfConditions', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
       setupAutoSave('hfMeds', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
       setupAutoSave('hfImplants', async ()=>{ await saveHealth(); renderOfflineTextQR(); });
-      // ---------- QR SAFETY PATCH (compact & resilient) ----------
 
-// Build base lines for the offline text card (max info, human friendly)
-function buildTextLines(shortCode){
-  const profile = (window.userData?.profile) || {};
-  const health  = (window.userData?.health)  || {};
-  const ices    = Array.isArray(window.iceContacts) ? window.iceContacts : [];
-
-  const iceLines = ices.slice(0,3)
-    .filter(c => (c?.name || c?.phone))
-    .map((c,i)=>`ICE${i+1}: ${[c.name,c.phone].filter(Boolean).join(' — ')}`);
-
-  const lines = [
-    'MYQER™ EMERGENCY CARD',
-    shortCode ? `Code: ${shortCode}` : null,
-    profile.fullName ? `Name: ${profile.fullName}` : null,
-    profile.dob ? `DOB: ${profile.dob}` : null,
-    health.bloodType ? `Blood: ${health.bloodType}` : null,
-    (typeof health.allergies !== 'undefined') ? `Allergies: ${health.allergies || 'None reported'}` : null,
-    health.conditions ? `Conditions: ${health.conditions}` : null,
-    health.medications ? `Meds: ${health.medications}` : null,
-    health.implants ? `Implants: ${health.implants}` : null,
-    `Donor: ${health.organDonor ? 'Yes' : 'No'}`,
-    ...iceLines,
-    shortCode ? `URL: https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : null
-  ].filter(Boolean);
-
-  return lines;
-}
-
-// Return byte length (UTF-8)
-function u8len(str){ return new TextEncoder().encode(str).length; }
-
-// Compact the lines to fit within a byte limit (progressive fallback)
-function compactLinesToLimit(lines, byteLimit){
-  let work = [...lines];
-  const join = () => work.join('\n');
-
-  const shrink = (label, cap) => {
-    const i = work.findIndex(l => l.startsWith(label + ': '));
-    if (i === -1) return;
-    const [, value] = work[i].split(/:\s+/);
-    if (!value) return;
-    if (value.length > cap) work[i] = `${label}: ${value.slice(0, cap).trim()}…`;
-  };
-  const drop = (label) => {
-    const i = work.findIndex(l => l.startsWith(label + ':'));
-    if (i !== -1) work.splice(i,1);
-  };
-  const dropICE = (n) => {
-    const i = work.findIndex(l => l.startsWith(`ICE${n}:`));
-    if (i !== -1) work.splice(i,1);
-  };
-
-  const phases = [
-    () => { shrink('Conditions', 300); shrink('Meds', 300); shrink('Implants', 220); shrink('Allergies', 220); },
-    () => { shrink('Conditions', 180); shrink('Meds', 180); shrink('Implants', 160); shrink('Allergies', 160); },
-    () => { shrink('Conditions', 120); shrink('Meds', 120); shrink('Implants', 120); shrink('Allergies', 120); },
-    () => { drop('Implants'); },
-    () => { drop('Meds'); },
-    () => { drop('Conditions'); },
-    () => { dropICE(3); },
-    () => { dropICE(2); },
-    () => { dropICE(1); },
-    () => {
-      const i = work.findIndex(l => l.startsWith('URL: '));
-      if (i !== -1) work[i] = 'URL: myqer.com';
-    }
-  ];
-
-  for (const step of phases){
-    if (u8len(join()) <= byteLimit) break;
-    step();
-  }
-
-  let out = join();
-  while (u8len(out) > byteLimit && out.length > 10){
-    out = out.slice(0, out.length - 50);
-  }
-  return out.replace(/\s+$/,'');
-}
-
-// Create a QR safely; if overflow, compact further & lower EC level
-function safeRenderQR(container, text){
-  container.innerHTML = '';
-  let level = QRCode.CorrectLevel.M;
-  let limit = 900;
-
-  let payload = text;
-  if (u8len(payload) > limit) payload = compactLinesToLimit(text.split('\n'), limit);
-
-  try {
-    new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
-    return;
-  } catch(e1){
-    level = QRCode.CorrectLevel.L;
-    limit = 1100;
-    payload = compactLinesToLimit(text.split('\n'), limit);
-    container.innerHTML = '';
-    try {
-      new QRCode(container, { text: payload, width:240, height:240, correctLevel: level });
-      return;
-    } catch(e2){
-      console.warn('QR still too long, using minimal payload', e2);
-      const minimal = text.split('\n').filter(l =>
-        /^MYQER|^Code:|^Name:|^DOB:|^Blood:|^Allergies:|^Donor:|^ICE1:|^URL:/.test(l)
-      );
-      container.innerHTML = '';
-      new QRCode(container, { text: compactLinesToLimit(minimal, 800), width:240, height:240, correctLevel: QRCode.CorrectLevel.L });
-    }
-  }
-}
-
-// Replace buildOfflineTextPayload
-function buildOfflineTextPayload(shortCode){
-  const lines = buildTextLines(shortCode);
-  const joined = lines.join('\n');
-  return (u8len(joined) <= 900) ? joined : compactLinesToLimit(lines, 900);
-}
-
-// Replace renderOfflineTextQR
-function renderOfflineTextQR(){
-  const wrap = document.getElementById('offlineQRwrap');
-  const box  = document.getElementById('offlineQRbox');
-  if (!wrap || !box) return;
-
-  const hasProfile = userData.profile && userData.profile.fullName;
-  const hasHealth  = userData.health && (userData.health.bloodType || userData.health.allergies || typeof userData.health.organDonor !== 'undefined');
-  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
-  if (!(hasProfile || hasHealth || hasIce)) { wrap.style.display='none'; box.innerHTML=''; return; }
-
-  wrap.style.display = 'block';
-  const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase();
-  const textCard  = buildOfflineTextPayload(shortCode);
-
-  box.innerHTML = '';
-  safeRenderQR(box, textCard);
-
-  const mark = document.createElement('div');
-  mark.textContent = 'MYQER™';
-  mark.style.cssText = 'margin-top:6px;text-align:center;font-weight:700;font-size:.85rem;color:#c62828';
-  box.appendChild(mark);
-}
-
-// Replace generateQRCode
-async function generateQRCode() {
-  const qrCanvasContainer = document.getElementById('qrCanvas');
-  const qrPlaceholder     = document.getElementById('qrPlaceholder');
-  const codeUnderQR       = document.getElementById('codeUnderQR');
-  const cardUrl           = document.getElementById('cardUrl');
-  const qrStatus          = document.getElementById('qrStatus');
-
-  const hasProfile = userData.profile && userData.profile.fullName;
-  const hasHealth  = userData.health && (
-    userData.health.bloodType || userData.health.allergies ||
-    userData.health.conditions || userData.health.medications ||
-    userData.health.implants || typeof userData.health.organDonor !== 'undefined'
-  );
-  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
-
-  if (!(hasProfile || hasHealth || hasIce)) {
-    qrPlaceholder.style.display = 'flex';
-    qrCanvasContainer.innerHTML = '';
-    codeUnderQR.textContent = '';
-    cardUrl.value = '';
-    qrStatus.hidden = true;
-    return;
-  }
-
-  const shortCode = (localStorage.getItem('myqer_shortcode') || '').toUpperCase() || await (async()=>{ try{ return await generateShortCode(); }catch{return ''; }})();
-  const textCard  = buildOfflineTextPayload(shortCode);
-
-  qrPlaceholder.style.display = 'none';
-  safeRenderQR(qrCanvasContainer, textCard);
-
-  codeUnderQR.textContent = shortCode;
-  cardUrl.value = shortCode ? `https://www.myqer.com/c/${encodeURIComponent(shortCode)}` : '';
-
-  qrStatus.textContent = 'Offline-friendly text QR generated';
-  qrStatus.style.background = 'rgba(5,156,105,.1)';
-  qrStatus.style.color = 'var(--green)';
-  qrStatus.hidden = false;
-
-  renderOfflineTextQR();
-}
-// ---------- /QR SAFETY PATCH ----------
-        // QR actions
+      // QR actions
       document.getElementById('copyLink').addEventListener('click', async ()=>{
         const url=document.getElementById('cardUrl').value; if(!url) return showToast('No link to copy','error');
         try{ await navigator.clipboard.writeText(url); showToast('Link copied to clipboard','success'); }
@@ -1148,98 +1010,120 @@ async function generateQRCode() {
         const img=document.getElementById('qrCanvas').querySelector('img');
         const win=window.open('','_blank'); win.document.write(`<html><head><title>MYQER Emergency Card - ${sc}</title></head><body style="font-family:Arial;text-align:center;padding:2rem">
           <h1>MYQER™ Emergency Card</h1><p>Code: ${sc}</p>${img?`<img src="${img.src}" width="300" height="300" />`:''}
-          <p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p></body></html>`); win.document.close(); win.print();
+                    <p>Scan this QR code for emergency information</p>
+          <p style="font-size:.8em;color:#666">www.myqer.com</p>
+        </body></html>`);
+        win.document.close();
+        win.print();
       });
 
       // Delete flow
-      const delPhrase=document.getElementById('deletePhrase'), delBtn=document.getElementById('deleteBtn');
-      delPhrase.addEventListener('input',()=>{ const ok=delPhrase.value==='DELETE MY ACCOUNT'; delBtn.disabled=!ok; });
-      delBtn.addEventListener('click', async ()=>{
-        if(delPhrase.value!=='DELETE MY ACCOUNT') return;
-        if(!confirm('This will permanently delete your data. Continue?')) return;
-        try{
-          const uid=await getUserId();
-          if(uid){
-            await supabase.from('ice_contacts').delete().eq('user_id',uid);
-            await supabase.from('health_data').delete().eq('user_id',uid);
-            await supabase.from('profiles').delete().eq('id',uid);
+      const delPhrase = document.getElementById('deletePhrase');
+      const delBtn    = document.getElementById('deleteBtn');
+
+      delPhrase.addEventListener('input', () => {
+        const ok = delPhrase.value === 'DELETE MY ACCOUNT';
+        delBtn.disabled = !ok;
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (delPhrase.value !== 'DELETE MY ACCOUNT') return;
+        if (!confirm('This will permanently delete your data. Continue?')) return;
+        try {
+          const uid = await getUserId();
+          if (uid) {
+            await supabase.from('ice_contacts').delete().eq('user_id', uid);
+            await supabase.from('health_data').delete().eq('user_id', uid);
+            await supabase.from('profiles').delete().eq('id', uid);
           }
           await supabase.auth.signOut();
           localStorage.clear(); sessionStorage.clear();
           window.location.replace('/login.html');
-        }catch(e){ console.error(e); showToast('Error deleting account: '+e.message,'error'); }
+        } catch (e) {
+          console.error(e);
+          showToast('Error deleting account: ' + e.message, 'error');
+        }
       });
 
-      document.getElementById('btnSignOut').addEventListener('click', async ()=>{
-        if(!confirm('Are you sure you want to logout?')) return;
-        try{
+      // Logout
+      document.getElementById('btnSignOut').addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to logout?')) return;
+        try {
           await supabase.auth.signOut();
           localStorage.clear(); sessionStorage.clear();
           window.location.replace('/login.html');
-        } catch(e){ console.error(e); alert('Logout failed, please try again'); }
+        } catch (e) {
+          console.error(e);
+          alert('Logout failed, please try again');
+        }
       });
 
+      // Offline QR save button
       wireOfflineDownload();
 
-      // Load data
+      // Load data -> hide loader no matter what
       try { await loadUserData(); }
-      catch (e) { console.error(e); showToast('Failed to load your data','error'); }
+      catch (e) { console.error(e); showToast('Failed to load your data', 'error'); }
       finally { finalizeBoot(); }
 
       console.log('🚀 Dashboard ready');
     });
 
+    // Network badges
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
-    // expose few helpers
-    window.addIceContact=addIceContact; window.removeIceContact=removeIceContact;
-    window.updateIceContact=updateIceContact;
-    window.saveIndividualIceContact=saveIndividualIceContact;
-    window.renderOfflineTextQR=renderOfflineTextQR;
+    // expose helpers (used by inline handlers in ICE rows)
+    window.addIceContact              = addIceContact;
+    window.removeIceContact           = removeIceContact;
+    window.updateIceContact           = updateIceContact;
+    window.saveIndividualIceContact   = saveIndividualIceContact;
+    window.renderOfflineTextQR        = renderOfflineTextQR;
   </script>
+
+  <!-- tiny logger & safety boot guard (keeps spinner from sticking if anything throws late) -->
   <script>
-// --- tiny logger you can toggle ---
-window.DEBUG = true;
-const log = (...a)=> window.DEBUG && console.log('[MYQER]', ...a);
+    // --- tiny logger you can toggle ---
+    window.DEBUG = true;
+    const log = (...a) => window.DEBUG && console.log('[MYQER]', ...a);
 
-// ensure we never keep the spinner forever
-function hideLoader() {
-  const s = document.getElementById('loadingState');
-  if (s) { s.style.opacity = '0'; s.style.display = 'none'; }
-}
+    // ensure we never keep the spinner forever
+    function hideLoader() {
+      const s = document.getElementById('loadingState');
+      if (s) { s.style.opacity = '0'; s.style.display = 'none'; }
+    }
 
-// wrap any async with try/finally so UI recovers
-async function safe(fn, label='task') {
-  try { return await fn(); }
-  catch (e) { console.error(`[MYQER] ${label} failed`, e); window.showToast?.(`${label} failed`, 'error'); }
-  finally { hideLoader(); }
-}
+    // wrap any async with try/finally so UI recovers
+    async function safe(fn, label='task') {
+      try { return await fn(); }
+      catch (e) { console.error(`[MYQER] ${label} failed`, e); window.showToast?.(`${label} failed`, 'error'); }
+      finally { hideLoader(); }
+    }
 
-// avoid double-binding listeners after hot reloads / back-forward cache
-if (!window.__myqerWired) {
-  window.__myqerWired = true;
+    // avoid double-binding listeners after hot reloads / back-forward cache
+    if (!window.__myqerWired) {
+      window.__myqerWired = true;
 
-  document.addEventListener('DOMContentLoaded', () => {
-    safe(async () => {
-      // your original boot order, but guarded
-      await window.loadUserData?.();      // if defined, runs; otherwise ignored
-      await window.generateQRCode?.();    // draw live QR if you have it
-      log('Dashboard ready');
-    }, 'initialization');
-  });
+      document.addEventListener('DOMContentLoaded', () => {
+        safe(async () => {
+          // if these exist, run; otherwise ignored
+          await window.loadUserData?.();
+          await window.generateQRCode?.();
+          log('Dashboard ready');
+        }, 'initialization');
+      });
 
-  // if you rely on online/offline badges, guard them
-  const updateNetworkStatus = () => {
-    const pill = document.getElementById('netStatePill');
-    if (!pill) return;
-    pill.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
-    pill.className = navigator.onLine ? 'pill green' : 'pill amber';
-  };
-  window.addEventListener('online', updateNetworkStatus);
-  window.addEventListener('offline', updateNetworkStatus);
-  updateNetworkStatus();
-}
-</script>
+      // simple network pill example (if you add #netStatePill somewhere)
+      const updateNetworkStatusPill = () => {
+        const pill = document.getElementById('netStatePill');
+        if (!pill) return;
+        pill.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+        pill.className   = navigator.onLine ? 'pill green' : 'pill amber';
+      };
+      window.addEventListener('online',  updateNetworkStatusPill);
+      window.addEventListener('offline', updateNetworkStatusPill);
+      updateNetworkStatusPill();
+    }
+  </script>
 </body>
 </html>
