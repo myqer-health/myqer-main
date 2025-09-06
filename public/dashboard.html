@@ -364,109 +364,95 @@
     }, 6000);
     <!-- ==== Supabase (robust init + loop-proof auth gate) ==== -->
 <script>
-  const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+/* =========================
+   Supabase auth (loop-proof)
+   ========================= */
+const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
 
-  let supabase = null;
-  let isSupabaseAvailable = false;
-  let isOnline = navigator.onLine;
+let supabase = null;
+let isSupabaseAvailable = false;
 
-  try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        storage: window.localStorage,
-        autoRefreshToken: true,
-        // detectSessionInUrl true is fine for login.html; not required here
-      }
-    });
-    isSupabaseAvailable = true;
-  } catch (e) {
-    console.warn('Supabase init failed:', e);
+/* ——— One-shot redirect guard: prevents infinite loops ——— */
+const REDIRECT_FLAG_KEY = 'myqer_redirecting';
+function beginRedirectOnce() {
+  const was = sessionStorage.getItem(REDIRECT_FLAG_KEY) === '1';
+  if (was) return false;
+  sessionStorage.setItem(REDIRECT_FLAG_KEY, '1');
+  return true;
+}
+function clearRedirectFlag() {
+  sessionStorage.removeItem(REDIRECT_FLAG_KEY);
+}
+
+try {
+  // For dashboard: DO NOT parse URL hash (magic link) here.
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      storage: window.localStorage,
+      autoRefreshToken: true,
+      detectSessionInUrl: false, // <- important on dashboard
+    },
+  });
+  isSupabaseAvailable = true;
+} catch (e) {
+  console.warn('Supabase createClient failed:', e);
+}
+
+/* ——— wait for session restore (iOS/Safari can be slow) ——— */
+async function waitForSession(msTotal = 4500) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < msTotal) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) return data.session;
+    } catch {}
+    await new Promise(r => setTimeout(r, 250));
   }
+  return null;
+}
 
-  // One-shot redirect guard (prevents bounce loops)
-  const REDIRECT_FLAG_KEY = 'myqer_redirecting';
-  function beginRedirectOnce() {
-    if (sessionStorage.getItem(REDIRECT_FLAG_KEY) === '1') return false;
-    sessionStorage.setItem(REDIRECT_FLAG_KEY, '1');
-    return true;
-  }
-  function clearRedirectFlag() {
-    sessionStorage.removeItem(REDIRECT_FLAG_KEY);
-  }
-
-  // Wait up to ~4s for a session to appear (Safari restoration can be slow)
-  async function waitForSession(maxMs = 4000) {
-    const started = Date.now();
-    while (Date.now() - started < maxMs) {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session) return data.session;
-      } catch {}
-      await new Promise(r => setTimeout(r, 200));
-    }
+/* ——— Strict gate used by the page ——— */
+async function requireAuth() {
+  if (!isSupabaseAvailable) {
+    finalizeBoot?.();
+    if (beginRedirectOnce()) window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
     return null;
   }
 
-  // Strict auth gate with graceful wait + one-shot redirect
-  async function requireAuth() {
-    if (!isSupabaseAvailable) {
-      // hide loader so user sees the navigation
-      finalizeBoot?.();
-      if (beginRedirectOnce()) {
-        window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
-      }
-      throw new Error('Supabase unavailable');
-    }
-
-    // 1) immediate check
-    let { data, error } = await supabase.auth.getSession();
-    if (data?.session && !error) { clearRedirectFlag(); return data.session; }
-
-    // 2) wait briefly for restoration
-    const sess = await waitForSession();
-    if (sess) { clearRedirectFlag(); return sess; }
-
-    // 3) redirect only once
+  // give Safari a moment to restore the session
+  const session = await waitForSession();
+  if (!session) {
     finalizeBoot?.();
-    if (beginRedirectOnce()) {
-      window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
-    }
-    throw new Error('No session');
+    if (beginRedirectOnce()) window.location.replace('/login.html?next=' + encodeURIComponent(location.pathname));
+    return null;
   }
+  // we are signed in; ensure future redirects aren’t blocked
+  clearRedirectFlag();
+  return session;
+}
 
-  // Don’t redirect on every auth state change; only react on SIGNED_OUT.
-  supabase?.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT' || !session) {
-      // go to home (prevents 404s)
-      localStorage.clear(); sessionStorage.clear();
-      window.location.replace('/index.html');
-    }
-    // clear loop flag if we’re signed in
-    if (session) clearRedirectFlag();
-  });
-
-  // network badge helper you already have
-  function updateNetworkStatus(){
-    const net = document.getElementById('netStatus');
-    const banner = document.getElementById('offlineBanner');
-    if (navigator.onLine) {
-      net?.classList?.remove('offline'); net?.classList?.add('online');
-      if (net) net.textContent = 'ONLINE';
-      if (banner) banner.style.display = 'none';
-      if (!isOnline) { showToast?.('Back online - syncing changes'); isOnline = true; }
-    } else {
-      net?.classList?.remove('online'); net?.classList?.add('offline');
-      if (net) net.textContent = 'OFFLINE';
-      if (banner) banner.style.display = 'block';
-      if (isOnline) { showToast?.('Working offline - changes saved locally'); isOnline = false; }
-    }
+/* ——— React to state changes exactly once ——— */
+supabase?.auth.onAuthStateChange((event, session) => {
+  console.log('[auth]', event, !!session);
+  if (event === 'SIGNED_IN' && session) {
+    clearRedirectFlag();                // we’re good now
+    return;
   }
-  window.addEventListener('online',  updateNetworkStatus);
-  window.addEventListener('offline', updateNetworkStatus);
+  if ((event === 'SIGNED_OUT' || !session)) {
+    // user explicitly signed out or session expired → go home
+    localStorage.clear();
+    sessionStorage.clear();
+    // avoid loops: only redirect once
+    if (beginRedirectOnce()) window.location.replace('/index.html');
+  }
+});
+
+/* ——— expose for other code ——— */
+window.requireAuth = requireAuth;
+window.clearRedirectFlag = clearRedirectFlag;
 </script>
-
   
     // ---- TRIAGE ----
     const TRIAGE_KEYWORDS = [
