@@ -2795,19 +2795,32 @@ async function requireSession() {
   }
 }
 
-// --- init: runs at page load, forces login if no session ---
-async function init() {
+// --- helper: never leave the loader up
+function showUI() {
   const loader = $("#loadingScreen");
   const main   = $("#dashboard");
+  loader.classList.add("hidden");
+  main.classList.remove("hidden");
+}
 
-  // language + setup
+// --- tiny timeout helper
+function withTimeout(promise, ms, fallbackValue=null) {
+  return Promise.race([
+    promise.catch(() => fallbackValue),
+    new Promise(resolve => setTimeout(() => resolve(fallbackValue), ms))
+  ]);
+}
+
+// STRICT: must be logged in
+async function init() {
+  // language + basic wiring
   const savedLang = localStorage.getItem("myqer_language");
   setLanguage(savedLang || (navigator.language || "en").slice(0,2));
   applyTranslations();
   setupOnlineBanner();
   setupInputs();
 
-  // must have valid session
+  // Check session right away
   const s = await requireSession();
   if (!s) {
     const next = encodeURIComponent("/dashboard.html");
@@ -2815,23 +2828,92 @@ async function init() {
     return;
   }
 
-  // load cached, then server
+  // Render cached data immediately (snappy)
   await loadFromLocalFirst();
-  await fetchServerData();
 
-  // show dashboard
-  loader.classList.add("hidden");
-  main.classList.remove("hidden");
+  // Watchdog: if anything is slow, still show UI after 4s
+  const watchdog = setTimeout(() => {
+    showUI();
+    toastRateLimited("warning", tr("network_error"));
+  }, 4000);
+
+  // Load server data, but don't allow it to block UI forever
+  await withTimeout(fetchServerData(), 3500);
+
+  clearTimeout(watchdog);
+  showUI();
 
   setupIdleTimer();
+
+  // Regenerate button: re-render both QRs (code stays the same)
   window.generateQRCode = async () => { await refreshQRCodes(); };
 }
 
-/** -------- Expose save buttons to HTML (already hooked via onclick) -------- **/
-window.saveProfile = ()=>saveProfile(false);
-window.saveHealth  = ()=>saveHealth(false);
-window.saveICE     = saveICE;
+// Fetch server data (server wins) — resilient and fast-fail
+async function fetchServerData() {
+  // profiles
+  try {
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("full_name,dob,country,health_id,code")
+      .eq("id", uid)
+      .maybeSingle();
 
+    if (prof) {
+      setProfileToUI(prof);
+      if (prof.code) {
+        userCode = (prof.code || "").toUpperCase();
+        localStorage.setItem("myqer_shortcode", userCode);
+      }
+      saveLS("myqer_profile", getProfileFromUI());
+    }
+  } catch (e) {
+    console.warn("profiles fetch error:", e);
+    toastRateLimited("error", tr("schema_warn"));
+  }
+
+  // health
+  try {
+    const { data: h } = await sb
+      .from("health_data")
+      .select("blood_type,allergies,organ_donor,conditions,medications,implants,triage_override")
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (h) {
+      setHealthToUI(h);
+      saveLS("myqer_health", h);
+    }
+  } catch (e) {
+    console.warn("health_data fetch error:", e);
+    toastRateLimited("error", tr("schema_warn"));
+  }
+
+  // ice
+  try {
+    const { data: rows } = await sb
+      .from("ice_contacts")
+      .select("contact_order,name,relation,phone")
+      .eq("user_id", uid)
+      .order("contact_order", { ascending: true });
+    if (Array.isArray(rows)) {
+      iceContacts = rows.map(r => ({
+        id: String(Date.now()) + "-" + r.contact_order,
+        name: r.name, relation: r.relation, phone: r.phone
+      }));
+      saveLS("myqer_ice", iceContacts);
+    }
+  } catch (e) {
+    console.warn("ice_contacts fetch error:", e);
+    toastRateLimited("error", tr("schema_warn"));
+  }
+
+  // ensure code + QRs
+  await ensureShortCode();
+  setCardUrl();
+  renderICE();
+  updateTriage();
+  await refreshQRCodes();
+}
 /** -------- Start -------- **/
 document.addEventListener("DOMContentLoaded", init);
 </script>
