@@ -1910,1017 +1910,985 @@
             </div>
         </div>
     </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* =========================
-   MYQER Dashboard — Logic
-   ========================= */
 
-/** -------- Supabase -------- **/
-const SUPABASE_URL  = "https://dmntmhkncldgynufajei.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
+    <script>
+        // Global Variables
+        let currentUser = { email: 'user@example.com', id: 'demo-user-123' };
+        let iceContacts = [];
+        let idleTimer = null;
+        let warningTimer = null;
+        let countdownTimer = null;
+        let countdownSeconds = 60;
+        let debounceTimers = {};
+        let isOnline = navigator.onLine;
+        let currentLanguage = 'en';
+        let userCode = 'MQ7X9K';
+        let isGeneratingQR = false;
 
-/** -------- State -------- **/
-let session = null;
-let uid = null;
-let debounceTimers = {};
-let errorToastLockedUntil = 0;
-let autoToastLockedUntil = 0;
-let iceContacts = []; // {id, name, relation, phone}
-let userCode = null;
-let currentLanguage = "en";
-let isGeneratingQR = false;
+        // Fatal Keywords for Triage
+        const FATAL_KEYWORDS = [
+            'anaphylaxis', 'anaphylactic', 'epi-pen', 'epipen', 'epinephrine', 'shock', 'cardiac arrest',
+            'heart attack', 'stroke', 'seizure', 'epilepsy', 'pacemaker', 'defibrillator', 'insulin pump',
+            'severe asthma', 'hemophilia', 'blood clotting', 'bleeding disorder', 'life threatening',
+            'critical', 'emergency', 'fatal', 'deadly', 'aneurysm', 'transplant', 'dialysis',
+            'chemotherapy', 'radiation', 'cancer', 'tumor', 'malignant', 'metastatic'
+        ];
 
-/** -------- i18n (10 langs) -------- **/
+        // Translations Object
+        const translations = {
+            en: {
+                offline_mode: "You're offline. Changes will sync when connection is restored.",
+                online_status: "Online",
+                logout: "Logout",
+                identity_title: "Identity — Personal Information",
+                identity_subtitle: "Your basic personal and identification details",
+                save: "Save",
+                full_name: "Full Name",
+                full_name_help: "Enter your complete legal name as it appears on official documents",
+                date_of_birth: "Date of Birth",
+                dob_help: "Used for age verification in medical emergencies",
+                country: "Country",
+                country_help: "Helps emergency responders understand local medical systems",
+                health_id: "National/Health ID (Optional)",
+                health_id_help: "National health identifier for faster medical record access",
+                critical_title: "CRITICAL — Medical & Health Details",
+                critical_subtitle: "Life-saving medical information for emergency responders",
+                auto: "Auto",
+                green: "Green",
+                amber: "Amber",
+                red: "Red",
+                black: "Black",
+                blood_type: "Blood Type",
+                blood_type_help: "Critical for blood transfusions and medical procedures",
+                allergies: "Critical Allergies",
+                allergies_help: "List all known allergies that could cause severe reactions",
+                conditions: "Medical Conditions",
+                conditions_help: "Include chronic diseases, mental health conditions, and ongoing treatments",
+                medications: "Current Medications",
+                medications_help: "Include prescription drugs, over-the-counter medications, and supplements",
+                implants: "Implants/Medical Devices",
+                implants_help: "Medical devices that could affect treatment or require special consideration",
+                organ_donor: "I am an organ donor",
+                organ_donor_help: "Indicates your consent for organ donation in case of brain death",
+                ice_title: "Emergency Contacts (ICE)",
+                ice_subtitle: "People to contact in case of emergency (maximum 3 contacts)",
+                add_contact: "Add Contact",
+                save_all: "Save All",
+                qr_title: "Emergency Card & QR Code",
+                qr_subtitle: "Your unique emergency medical information access code",
+                copy: "Copy",
+                open: "Open",
+                download_png: "Download PNG",
+                download_svg: "Download SVG",
+                print: "Print Card",
+                regenerate: "Regenerate",
+                delete_title: "Delete Account",
+                delete_warning: "This action cannot be undone. All your emergency medical data, QR codes, and profile information will be permanently deleted from our servers. Your emergency contacts will no longer be able to access your medical information.",
+                delete_confirm_label: "Type \"DELETE MY ACCOUNT\" to confirm:",
+                delete_account: "Delete My Account Permanently",
+                copyright: "© 2024 MYQER. All rights reserved. Saving lives through technology.",
+                privacy_policy: "Privacy Policy",
+                terms_of_service: "Terms of Service",
+                support: "Support",
+                about: "About MYQER",
+                saving: "Saving...",
+                session_expiring: "Session Expiring",
+                session_expire_text: "Your session will expire in",
+                seconds: "seconds due to inactivity.",
+                stay_logged_in: "Stay Logged In",
+                contact_name: "Name",
+                contact_relationship: "Relationship",
+                contact_phone: "Phone",
+                remove: "Remove",
+                no_contacts: "No emergency contacts added yet. Click \"Add Contact\" to get started.",
+                profile_saved: "Profile saved successfully",
+                health_saved: "Health data saved successfully",
+                ice_saved: "Emergency contacts saved successfully",
+                url_copied: "URL copied to clipboard",
+                qr_downloaded: "QR code downloaded successfully",
+                account_deleted: "Account deleted successfully",
+                save_error: "Failed to save data",
+                network_error: "Network error. Please check your connection.",
+                validation_error: "Please fill in all required fields",
+                max_contacts: "Maximum 3 emergency contacts allowed",
+                confirm_delete: "Please type \"DELETE MY ACCOUNT\" exactly to confirm"
+            },
+            es: {
+                offline_mode: "Estás desconectado. Los cambios se sincronizarán cuando se restaure la conexión.",
+                online_status: "En línea",
+                logout: "Cerrar Sesión",
+                identity_title: "Identidad — Información Personal",
+                identity_subtitle: "Tus datos personales básicos y de identificación",
+                save: "Guardar",
+                full_name: "Nombre Completo",
+                full_name_help: "Ingresa tu nombre legal completo como aparece en documentos oficiales",
+                date_of_birth: "Fecha de Nacimiento",
+                dob_help: "Usado para verificación de edad en emergencias médicas",
+                country: "País",
+                country_help: "Ayuda a los socorristas a entender los sistemas médicos locales",
+                health_id: "ID Nacional/Salud (Opcional)",
+                health_id_help: "Identificador nacional de salud para acceso más rápido a registros médicos",
+                critical_title: "CRÍTICO — Detalles Médicos y de Salud",
+                critical_subtitle: "Información médica vital para socorristas de emergencia",
+                auto: "Auto",
+                green: "Verde",
+                amber: "Ámbar",
+                red: "Rojo",
+                black: "Negro",
+                blood_type: "Tipo de Sangre",
+                blood_type_help: "Crítico para transfusiones de sangre y procedimientos médicos",
+                allergies: "Alergias Críticas",
+                allergies_help: "Lista todas las alergias conocidas que podrían causar reacciones severas",
+                conditions: "Condiciones Médicas",
+                conditions_help: "Incluye enfermedades crónicas, condiciones de salud mental y tratamientos en curso",
+                medications: "Medicamentos Actuales",
+                medications_help: "Incluye medicamentos recetados, de venta libre y suplementos",
+                implants: "Implantes/Dispositivos Médicos",
+                implants_help: "Dispositivos médicos que podrían afectar el tratamiento o requerir consideración especial",
+                organ_donor: "Soy donante de órganos",
+                organ_donor_help: "Indica tu consentimiento para donación de órganos en caso de muerte cerebral",
+                ice_title: "Contactos de Emergencia (ICE)",
+                ice_subtitle: "Personas a contactar en caso de emergencia (máximo 3 contactos)",
+                add_contact: "Agregar Contacto",
+                save_all: "Guardar Todo",
+                qr_title: "Tarjeta de Emergencia y Código QR",
+                qr_subtitle: "Tu código único de acceso a información médica de emergencia",
+                copy: "Copiar",
+                open: "Abrir",
+                download_png: "Descargar PNG",
+                download_svg: "Descargar SVG",
+                print: "Imprimir Tarjeta",
+                regenerate: "Regenerar",
+                delete_title: "Eliminar Cuenta",
+                delete_warning: "Esta acción no se puede deshacer. Todos tus datos médicos de emergencia, códigos QR e información de perfil serán eliminados permanentemente de nuestros servidores. Tus contactos de emergencia ya no podrán acceder a tu información médica.",
+                delete_confirm_label: "Escribe \"DELETE MY ACCOUNT\" para confirmar:",
+                delete_account: "Eliminar Mi Cuenta Permanentemente",
+                copyright: "© 2024 MYQER. Todos los derechos reservados. Salvando vidas a través de la tecnología.",
+                privacy_policy: "Política de Privacidad",
+                terms_of_service: "Términos de Servicio",
+                support: "Soporte",
+                about: "Acerca de MYQER",
+                saving: "Guardando...",
+                session_expiring: "Sesión Expirando",
+                session_expire_text: "Tu sesión expirará en",
+                seconds: "segundos debido a inactividad.",
+                stay_logged_in: "Mantener Sesión",
+                contact_name: "Nombre",
+                contact_relationship: "Relación",
+                contact_phone: "Teléfono",
+                remove: "Eliminar",
+                no_contacts: "No se han agregado contactos de emergencia aún. Haz clic en \"Agregar Contacto\" para comenzar.",
+                profile_saved: "Perfil guardado exitosamente",
+                health_saved: "Datos de salud guardados exitosamente",
+                ice_saved: "Contactos de emergencia guardados exitosamente",
+                url_copied: "URL copiada al portapapeles",
+                qr_downloaded: "Código QR descargado exitosamente",
+                account_deleted: "Cuenta eliminada exitosamente",
+                save_error: "Error al guardar datos",
+                network_error: "Error de red. Por favor verifica tu conexión.",
+                validation_error: "Por favor completa todos los campos requeridos",
+                max_contacts: "Máximo 3 contactos de emergencia permitidos",
+                confirm_delete: "Por favor escribe \"DELETE MY ACCOUNT\" exactamente para confirmar"
+            }
+        };
 
-// Base English strings
-const LANG_EN = {
-  offline_mode: "You're offline. Changes will sync when connection is restored.",
-  online_status: "Online",
-  logout: "Logout",
-  identity_title: "Identity — Personal Information",
-  identity_subtitle: "Your basic personal and identification details",
-  save: "Save",
-  full_name: "Full Name",
-  full_name_help: "Enter your complete legal name as it appears on official documents",
-  date_of_birth: "Date of Birth",
-  dob_help: "Used for age verification in medical emergencies",
-  country: "Country",
-  country_help: "Helps emergency responders understand local medical systems",
-  health_id: "National/Health ID (Optional)",
-  health_id_help: "National health identifier for faster medical record access",
-  critical_title: "CRITICAL — Medical & Health Details",
-  critical_subtitle: "Life-saving medical information for emergency responders",
-  auto: "Auto", green: "Green", amber: "Amber", red: "Red", black: "Black",
-  blood_type: "Blood Type",
-  blood_type_help: "Critical for blood transfusions and medical procedures",
-  allergies: "Critical Allergies",
-  allergies_help: "List all known allergies that could cause severe reactions",
-  conditions: "Medical Conditions",
-  conditions_help: "Include chronic diseases, mental health conditions, and ongoing treatments",
-  medications: "Current Medications",
-  medications_help: "Include prescription drugs, over-the-counter medications, and supplements",
-  implants: "Implants/Medical Devices",
-  implants_help: "Medical devices that could affect treatment or require special consideration",
-  organ_donor: "I am an organ donor",
-  organ_donor_help: "Indicates your consent for organ donation in case of brain death",
-  ice_title: "Emergency Contacts (ICE)",
-  ice_subtitle: "People to contact in case of emergency (maximum 3 contacts)",
-  add_contact: "Add Contact",
-  save_all: "Save All",
-  qr_title: "Emergency Card & QR Code",
-  qr_subtitle: "Your unique emergency medical information access code",
-  copy: "Copy", open: "Open",
-  download_png: "Download PNG", download_svg: "Download SVG", print: "Print Card", regenerate: "Regenerate",
-  delete_title: "Delete Account",
-  delete_warning: "This action cannot be undone. All your emergency medical data, QR codes, and profile information will be permanently deleted from our servers. Your emergency contacts will no longer be able to access your medical information.",
-  delete_confirm_label: "Type \"DELETE MY ACCOUNT\" to confirm:",
-  delete_account: "Delete My Account Permanently",
-  privacy_policy: "Privacy Policy", terms_of_service: "Terms of Service", support: "Support", about: "About MYQER",
-  saving: "Saving...", session_expiring: "Session Expiring", session_expire_text: "Your session will expire in", seconds: "seconds due to inactivity.", stay_logged_in: "Stay Logged In",
-  contact_name: "Name", contact_relationship: "Relationship", contact_phone: "Phone", remove: "Remove",
-  no_contacts: "No emergency contacts added yet. Click \"Add Contact\" to get started.",
-  profile_saved: "Profile saved successfully", health_saved: "Health data saved successfully", ice_saved: "Emergency contacts saved successfully",
-  auto_saved: "Changes saved automatically",
-  url_copied: "URL copied to clipboard", qr_downloaded: "QR code downloaded successfully", account_deleted: "Account deleted successfully",
-  save_error: "Failed to save data", network_error: "Network error. Please check your connection.", validation_error: "Please fill in all required fields", max_contacts: "Maximum 3 emergency contacts allowed", confirm_delete: "Please type \"DELETE MY ACCOUNT\" exactly to confirm",
-  qr_ready: "QRs are up to date", qr_fail: "Failed to generate QR code",
-  schema_warn: "Some data could not be loaded (missing table/column). Functionality continues.",
-  live_qr_label: "MYQER™ EMERGENCY ACCESS",
-  offline_qr_label: "Offline Text QR",
-  offline_qr_downloaded: "Offline QR PNG downloaded",
-  logout_ok: "Signed out"
-};
+        // Initialize Application
+        async function init() {
+            try {
+                // Update UI with user info
+                updateUserInfo();
+                
+                // Setup event listeners
+                setupOnlineDetection();
+                setupEventListeners();
+                
+                // Load saved language
+                const savedLanguage = localStorage.getItem('myqer_language') || 'en';
+                changeLanguage(savedLanguage);
+                
+                // Load all data
+                await loadAll();
+                
+                // Setup auto-save and idle timer
+                setupAutosave();
+                setupIdleTimer();
+                
+                // Hide loading screen and show dashboard
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    
+                    // Add entrance animations
+                    document.querySelectorAll('.card').forEach((card, index) => {
+                        setTimeout(() => {
+                            card.style.opacity = '0';
+                            card.style.transform = 'translateY(30px)';
+                            card.style.transition = 'all 0.6s ease-out';
+                            setTimeout(() => {
+                                card.style.opacity = '1';
+                                card.style.transform = 'translateY(0)';
+                            }, 50);
+                        }, index * 150);
+                    });
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showToast('Failed to load dashboard', 'error');
+            }
+        }
 
-// Your Spanish strings (kept as you wrote them)
-const LANG_ES = {
-  offline_mode: "Estás desconectado. Los cambios se sincronizarán cuando vuelva la conexión.",
-  online_status: "En línea", logout: "Cerrar sesión",
-  identity_title: "Identidad — Información Personal", identity_subtitle: "Tus datos personales e identificativos",
-  save: "Guardar", full_name: "Nombre completo", full_name_help: "Escribe tu nombre legal tal como aparece en documentos oficiales",
-  date_of_birth: "Fecha de nacimiento", dob_help: "Usado para verificar la edad en emergencias",
-  country: "País", country_help: "Ayuda a entender los sistemas médicos locales",
-  health_id: "ID nacional/salud (opcional)", health_id_help: "Identificador de salud para un acceso rápido",
-  critical_title: "CRÍTICO — Datos Médicos y de Salud", critical_subtitle: "Información vital para emergencias",
-  auto: "Auto", green: "Verde", amber: "Ámbar", red: "Rojo", black: "Negro",
-  blood_type: "Tipo de sangre", blood_type_help: "Crucial para transfusiones y procedimientos",
-  allergies: "Alergias críticas", allergies_help: "Enumera alergias que puedan causar reacciones graves",
-  conditions: "Condiciones médicas", conditions_help: "Incluye enfermedades crónicas y tratamientos",
-  medications: "Medicamentos", medications_help: "Incluye recetados, OTC y suplementos",
-  implants: "Implantes/Dispositivos", implants_help: "Dispositivos que afectan el tratamiento",
-  organ_donor: "Soy donante de órganos", organ_donor_help: "Indica consentimiento para donar órganos",
-  ice_title: "Contactos de emergencia (ICE)", ice_subtitle: "Personas a contactar (máximo 3)",
-  add_contact: "Añadir contacto", save_all: "Guardar todo",
-  qr_title: "Tarjeta de emergencia y QR", qr_subtitle: "Tu código único de acceso médico",
-  copy: "Copiar", open: "Abrir", download_png: "Descargar PNG", download_svg: "Descargar SVG", print: "Imprimir tarjeta", regenerate: "Regenerar",
-  delete_title: "Eliminar cuenta", delete_warning: "Esta acción es irreversible...",
-  delete_confirm_label: "Escribe \"DELETE MY ACCOUNT\" para confirmar:", delete_account: "Eliminar mi cuenta permanentemente",
-  privacy_policy: "Privacidad", terms_of_service: "Términos", support: "Soporte", about: "Acerca de MYQER",
-  saving: "Guardando...", session_expiring: "Sesión por expirar", session_expire_text: "Tu sesión expirará en", seconds: "segundos por inactividad.", stay_logged_in: "Mantener sesión",
-  contact_name: "Nombre", contact_relationship: "Relación", contact_phone: "Teléfono", remove: "Eliminar",
-  no_contacts: "Sin contactos aún. Haz clic en \"Añadir contacto\".",
-  profile_saved: "Perfil guardado", health_saved: "Salud guardada", ice_saved: "Contactos guardados",
-  auto_saved: "Cambios guardados automáticamente",
-  url_copied: "URL copiada", qr_downloaded: "QR descargado", account_deleted: "Cuenta eliminada",
-  save_error: "Error al guardar", network_error: "Error de red", validation_error: "Completa los campos requeridos", max_contacts: "Máximo 3 contactos", confirm_delete: "Escribe exactamente \"DELETE MY ACCOUNT\"",
-  qr_ready: "QRs actualizados", qr_fail: "No se pudo generar el QR",
-  schema_warn: "No se pudo cargar parte de los datos. Continuamos.",
-  live_qr_label: "ACCESO DE EMERGENCIA MYQER™",
-  offline_qr_label: "QR de texto sin conexión",
-  offline_qr_downloaded: "QR sin conexión descargado",
-  logout_ok: "Sesión cerrada"
-};
+        // Update user information in header
+        function updateUserInfo() {
+            const email = currentUser.email;
+            document.getElementById('userEmail').textContent = email;
+            
+            // Set user avatar initial
+            const initial = email.charAt(0).toUpperCase();
+            document.getElementById('userAvatar').textContent = initial;
+        }
 
-// Build the language map without self-referencing
-const T = {
-  en: LANG_EN,
-  es: LANG_ES,
-  fr: LANG_EN,
-  de: LANG_EN,
-  it: LANG_EN,
-  pt: LANG_EN,
-  ro: LANG_EN,
-  ar: LANG_EN,
-  hi: LANG_EN,
-  zh: LANG_EN
-};
+        // Generate random code
+        function generateRandomCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
 
-/** -------- Utilities -------- **/
-const $ = sel => document.querySelector(sel);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
-function nowSec(){ return Math.floor(Date.now()/1000); }
-function toastRateLimited(type, msg, lockSec=5){
-  const t = nowSec();
-  const lock = (type==="error") ? errorToastLockedUntil : autoToastLockedUntil;
-  if (t < lock) return;
-  showToast(msg, type);
-  if (type==="error") errorToastLockedUntil = t + lockSec;
-  else autoToastLockedUntil = t + 5;
-}
-function textBytes(s){ return new TextEncoder().encode(s).length; }
-function onLine(){ return navigator.onLine; }
+        // Data getter functions
+        function getProfileData() {
+            return {
+                fullName: document.getElementById('fullName').value.trim() || null,
+                dob: document.getElementById('dob').value || null,
+                country: document.getElementById('country').value || null,
+                healthId: document.getElementById('healthId').value.trim() || null
+            };
+        }
 
-function showToast(message, type="info"){
-  const toast = $("#toast");
-  toast.className = `toast ${type} show`;
-  toast.querySelector(".toast-message").textContent = message;
-  const icon = {success:"fas fa-check-circle",error:"fas fa-exclamation-circle",warning:"fas fa-exclamation-triangle",info:"fas fa-info-circle"}[type] || "fas fa-info-circle";
-  toast.querySelector(".toast-icon").className = `toast-icon ${icon}`;
-  setTimeout(hideToast, 4200);
-}
-function hideToast(){ $("#toast").classList.remove("show"); }
-function showSaving(){ $("#savingIndicator").classList.add("show"); }
-function hideSaving(){ $("#savingIndicator").classList.remove("show"); }
+        function getHealthData() {
+            return {
+                bloodType: document.getElementById('bloodType').value || null,
+                allergies: document.getElementById('allergies').value.trim() || null,
+                conditions: document.getElementById('conditions').value.trim() || null,
+                medications: document.getElementById('medications').value.trim() || null,
+                implants: document.getElementById('implants').value.trim() || null,
+                organDonor: document.getElementById('organDonor').checked,
+                triageOverride: document.getElementById('triageOverride').value || 'auto'
+            };
+        }
 
-/** -------- Online/Offline Banner -------- **/
-function setupOnlineBanner(){
-  const banner = $("#offlineBanner");
-  const statusEl = document.querySelector('[data-i18n="online_status"]');
-  function update(){
-    if (onLine()) {
-      banner.classList.remove("show");
-      if (statusEl) statusEl.textContent = tr("online_status");
-    } else {
-      banner.classList.add("show");
-      if (statusEl) statusEl.textContent = "Offline";
-    }
-  }
-  window.addEventListener("online", update);
-  window.addEventListener("offline", update);
-  update();
-}
+        function getICEData() {
+            return iceContacts.map(contact => ({
+                name: contact.name?.trim() || null,
+                relation: contact.relation?.trim() || null,
+                phone: contact.phone?.trim() || null
+            }));
+        }
 
-/** -------- i18n Apply -------- **/
-function tr(key){ return (T[currentLanguage] && T[currentLanguage][key]) || (T.en[key] || key); }
-function applyTranslations(){
-  $$("[data-i18n]").forEach(el=>{
-    const k = el.getAttribute("data-i18n");
-    const txt = tr(k);
-    if (txt) el.textContent = txt;
-  });
-  // refresh ICE labels and buttons
-  renderICE();
-}
-function setLanguage(lang){
-  currentLanguage = T[lang] ? lang : "en";
-  localStorage.setItem("myqer_language", currentLanguage);
-  const flags = {en:"🇺🇸 EN", es:"🇪🇸 ES", fr:"🇫🇷 FR", de:"🇩🇪 DE", it:"🇮🇹 IT", pt:"🇵🇹 PT", ro:"🇷🇴 RO", ar:"🇸🇦 AR", hi:"🇮🇳 HI", zh:"🇨🇳 ZH"};
-  $("#currentLanguage").textContent = flags[currentLanguage] || "EN";
-  // activate item
-  $$("#languageDropdown .language-option").forEach(n=>n.classList.remove("active"));
-  const opt = Array.from($$("#languageDropdown .language-option")).find(n=>n.textContent.toLowerCase().includes((currentLanguage==="en"?"English":currentLanguage)));
-  if (opt) opt.classList.add("active");
-  applyTranslations();
-}
-function toggleLanguageDropdown(){
-  $("#languageDropdown").classList.toggle("show");
-  document.addEventListener("click", function onDoc(e){
-    if (!e.target.closest(".language-selector")) {
-      $("#languageDropdown").classList.remove("show");
-      document.removeEventListener("click", onDoc);
-    }
-  });
-}
-window.toggleLanguageDropdown = toggleLanguageDropdown;
-window.changeLanguage = setLanguage;
+        // QR Code generation
+        async function generateQRCode() {
+            if (isGeneratingQR) return;
+            isGeneratingQR = true;
+            
+            try {
+                userCode = generateRandomCode();
+                const liveUrl = `https://www.myqer.com/c/${userCode}`;
+                const box = document.getElementById('qrcode');
+                box.innerHTML = '';
+                
+                await QRCode.toCanvas(box, liveUrl, { 
+                    width: 240, 
+                    margin: 1,
+                    color: {
+                        dark: '#0f172a',
+                        light: '#ffffff'
+                    }
+                });
+                
+                document.getElementById('qrCodeText').textContent = userCode;
+                document.getElementById('cardUrl').value = liveUrl;
+                
+                showToast('QR code generated successfully', 'success');
+            } catch (error) {
+                console.error('QR generation error:', error);
+                showToast('Failed to generate QR code', 'error');
+            } finally {
+                isGeneratingQR = false;
+            }
+        }
 
-/** -------- Auth -------- **/
-async function requireSession(){
-  const { data: { session: s }, error } = await sb.auth.getSession();
-  if (error) console.warn(error);
-  if (!s || !s.user) {
-    // redirect to login with next
-    window.location.replace("/login.html?next=/dashboard.html");
-    throw new Error("No session");
-  }
-  session = s;
-  uid = s.user.id;
-  // header info
-  const email = s.user.email || "user";
-  $("#userEmail").textContent = email;
-  $("#userAvatar").textContent = (email[0]||"U").toUpperCase();
-}
+        // Load all data
+        async function loadAll() {
+            try {
+                // Load data from localStorage
+                await loadFromLocalStorage();
+                
+                // Generate QR code
+                await generateQRCode();
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                showToast('Failed to load data', 'error');
+            }
+        }
 
-/** -------- Country select (keep as-is, native search ok) -------- **/
+        // Load data from localStorage to UI
+        async function loadFromLocalStorage() {
+            // Load profile data
+            const profileData = localStorage.getItem('myqer_profile');
+            if (profileData) {
+                const data = JSON.parse(profileData);
+                document.getElementById('fullName').value = data.fullName || '';
+                document.getElementById('dob').value = data.dob || '';
+                document.getElementById('country').value = data.country || '';
+                document.getElementById('healthId').value = data.healthId || '';
+            }
 
-/** -------- LocalStorage Mirror Helpers -------- **/
-const LS_PROFILE = "myqer_profile";
-const LS_HEALTH  = "myqer_health";
-const LS_ICE     = "myqer_ice";
-const LS_CODE    = "myqer_shortcode";
+            // Load health data
+            const healthData = localStorage.getItem('myqer_health');
+            if (healthData) {
+                const data = JSON.parse(healthData);
+                document.getElementById('bloodType').value = data.bloodType || '';
+                document.getElementById('allergies').value = data.allergies || '';
+                document.getElementById('conditions').value = data.conditions || '';
+                document.getElementById('medications').value = data.medications || '';
+                document.getElementById('implants').value = data.implants || '';
+                document.getElementById('organDonor').checked = !!data.organDonor;
+                document.getElementById('triageOverride').value = data.triageOverride || 'auto';
+            }
 
-function getProfileFromUI(){
-  return {
-    full_name: $("#fullName").value.trim() || null,
-    dob: $("#dob").value || null,
-    country: $("#country").value || null,
-    health_id: $("#healthId").value.trim() || null
-  };
-}
-function setProfileToUI(p){
-  $("#fullName").value = p?.full_name || "";
-  $("#dob").value = p?.dob || "";
-  $("#country").value = p?.country || "";
-  $("#healthId").value = p?.health_id || "";
-}
-function getHealthFromUI(){
-  return {
-    blood_type: $("#bloodType").value || null,
-    allergies: $("#allergies").value.trim() || null,
-    organ_donor: $("#organDonor").checked,
-    conditions: $("#conditions").value.trim() || null,
-    medications: $("#medications").value.trim() || null,
-    implants: $("#implants").value.trim() || null,
-    triage_override: $("#triageOverride").value || "auto"
-  };
-}
-function setHealthToUI(h){
-  $("#bloodType").value = h?.blood_type || "";
-  $("#allergies").value = h?.allergies || "";
-  $("#conditions").value = h?.conditions || "";
-  $("#medications").value = h?.medications || "";
-  $("#implants").value = h?.implants || "";
-  $("#organDonor").checked = !!h?.organ_donor;
-  $("#triageOverride").value = h?.triage_override || "auto";
-}
+            // Load ICE contacts
+            const iceData = localStorage.getItem('myqer_ice');
+            if (iceData) {
+                iceContacts = JSON.parse(iceData);
+                renderICE();
+            }
 
-function saveLS(key, obj){ localStorage.setItem(key, JSON.stringify(obj)); }
-function loadLS(key){
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
-}
+            // Update triage
+            updateTriage();
+        }
 
-/** -------- Short Code (immutable once set) -------- **/
-const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1
-function newShortCode(){
-  let s=""; for (let i=0;i<8;i++) s += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];
-  return (s.slice(0,4)+"-"+s.slice(4)).toUpperCase();
-}
-async function ensureShortCode(){
-  // prefer local cached
-  let code = localStorage.getItem(LS_CODE);
-  if (code && code.length===9) { userCode = code; return code; }
-  // Try fetch profile.code
-  try {
-    const { data, error } = await sb.from("profiles").select("code").eq("id", uid).maybeSingle();
-    if (!error && data && data.code) {
-      userCode = data.code.toUpperCase();
-      localStorage.setItem(LS_CODE, userCode);
-      return userCode;
-    }
-  } catch (e) {}
-  // Create and try to set if null on server
-  code = newShortCode();
-  userCode = code;
-  localStorage.setItem(LS_CODE, code);
-  try {
-    const { error } = await sb.from("profiles")
-      .update({ code })
-      .eq("id", uid)
-      .is("code", null);
-    // If unique/immutable fails, read back again
-    if (error) {
-      const { data } = await sb.from("profiles").select("code").eq("id", uid).maybeSingle();
-      if (data?.code) {
-        userCode = data.code.toUpperCase();
-        localStorage.setItem(LS_CODE, userCode);
-      }
-    }
-  } catch(e){}
-  return userCode;
-}
+        // Auto-triage system
+        function updateTriage() {
+            const override = document.getElementById('triageOverride').value;
+            const pill = document.getElementById('triagePill');
+            const pillText = pill.querySelector('span');
+            
+            if (override !== 'auto') {
+                pill.className = `triage-pill triage-${override}`;
+                pillText.textContent = translations[currentLanguage][override];
+                return;
+            }
+            
+            const allergies = document.getElementById('allergies').value.toLowerCase();
+            const conditions = document.getElementById('conditions').value.toLowerCase();
+            const medications = document.getElementById('medications').value.toLowerCase();
+            const implants = document.getElementById('implants').value.toLowerCase();
+            
+            // Check for fatal keywords
+            let isFatal = false;
+            const allText = `${allergies} ${conditions} ${medications} ${implants}`;
+            FATAL_KEYWORDS.forEach(keyword => {
+                if (allText.includes(keyword.toLowerCase())) {
+                    isFatal = true;
+                }
+            });
+            
+            if (isFatal) {
+                pill.className = 'triage-pill triage-red';
+                pillText.textContent = translations[currentLanguage]['red'];
+            } else if (allergies.trim() || conditions.trim() || implants.trim()) {
+                pill.className = 'triage-pill triage-amber';
+                pillText.textContent = translations[currentLanguage]['amber'];
+            } else {
+                pill.className = 'triage-pill triage-green';
+                pillText.textContent = translations[currentLanguage]['green'];
+            }
+        }
 
-async function renderLiveQR(){
-  if (!userCode) return;
-  const url = `https://www.myqer.com/c/${userCode}`;
-  const box = $("#qrcode");
-  box.innerHTML = "";
-  const canvas = document.createElement("canvas");
-  box.appendChild(canvas);
-  try {
-    await QRCode.toCanvas(canvas, url, {
-      width: 240, margin: 1, errorCorrectionLevel: "M",
-      color:{dark:"#0f172a", light:"#ffffff"}
-    });
-  } catch(e){
-    console.error(e);
-    toastRateLimited("error", tr("qr_fail"));
-  }
-  $("#qrCodeText").textContent = userCode;
-  $("#cardUrl").value = url;
-}
-function offlinePayloadLines(profile, health, iceList){
-  const name = profile?.full_name || "";
-  const dob  = profile?.dob || "";
-  const bt   = health?.blood_type || "";
-  const allergies = health?.allergies?.trim() || "None reported";
-  const conditions = health?.conditions?.trim() || "";
-  const meds = health?.medications?.trim() || "";
-  const implants = health?.implants?.trim() || "";
-  const donor = health?.organ_donor ? "Yes" : "No";
-  const url = `https://www.myqer.com/c/${userCode}`;
+        // Save functions
+        async function saveProfile() {
+            try {
+                showSavingIndicator();
+                
+                const profileData = getProfileData();
+                
+                // Validation
+                if (!profileData.fullName) {
+                    showToast(translations[currentLanguage]['validation_error'], 'error');
+                    return;
+                }
+                
+                localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+                showToast(translations[currentLanguage]['profile_saved'], 'success');
+                await generateQRCode();
+                
+            } catch (error) {
+                console.error('Save profile error:', error);
+                showToast(translations[currentLanguage]['save_error'], 'error');
+            } finally {
+                hideSavingIndicator();
+            }
+        }
 
-  const iceLines = [];
-  for (let i=0;i<3;i++){
-    const c = iceList[i];
-    const nm = c?.name ? c.name : "";
-    const ph = c?.phone ? c.phone : "";
-    iceLines.push(`ICE${i+1}: ${nm}${(nm && ph)?" — ":""}${ph}`);
-  }
+        async function saveHealth() {
+            try {
+                showSavingIndicator();
+                
+                const healthData = getHealthData();
+                localStorage.setItem('myqer_health', JSON.stringify(healthData));
+                
+                showToast(translations[currentLanguage]['health_saved'], 'success');
+                updateTriage();
+                await generateQRCode();
+                
+            } catch (error) {
+                console.error('Save health error:', error);
+                showToast(translations[currentLanguage]['save_error'], 'error');
+            } finally {
+                hideSavingIndicator();
+            }
+        }
 
-  const lines = [
-    "MYQER™ EMERGENCY CARD",
-    `Code: ${userCode}`,
-    `Name: ${name}`,
-    `DOB: ${dob}`,
-    `Blood: ${bt}`,
-    `Allergies: ${allergies || "None reported"}`,
-    `Conditions: ${conditions}`,
-    `Meds: ${meds}`,
-    `Implants: ${implants}`,
-    `Donor: ${donor}`,
-    iceLines[0],
-    iceLines[1],
-    iceLines[2],
-    `URL: ${url}`
-  ];
-  return lines;
-}
+        async function saveICE() {
+            try {
+                showSavingIndicator();
+                
+                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+                showToast(translations[currentLanguage]['ice_saved'], 'success');
+                await generateQRCode();
+                
+            } catch (error) {
+                console.error('Save ICE error:', error);
+                showToast(translations[currentLanguage]['save_error'], 'error');
+            } finally {
+                hideSavingIndicator();
+            }
+        }
 
-function shrinkText(txt, caps){ if (!txt) return ""; if (txt.length<=caps) return txt; return txt.slice(0, caps-1) + "…"; }
+        // ICE Contact Management
+        function addContact() {
+            if (iceContacts.length >= 3) {
+                showToast(translations[currentLanguage]['max_contacts'], 'error');
+                return;
+            }
+            
+            const newContact = {
+                id: Date.now().toString(),
+                name: '',
+                relation: '',
+                phone: ''
+            };
+            
+            iceContacts.push(newContact);
+            renderICE();
+            updateAddContactButton();
+        }
 
-function compactOfflinePayload(profile, health, iceList){
-  let L = offlinePayloadLines(profile, health, iceList);
-  function asText(arr){ return arr.join("\n").trim(); }
-  // Budget
-  let payload = asText(L);
-  let level = "M";
-  const budgetM = 900, budgetL = 1100;
-  const tryCompaction = () => {
-    const b = textBytes(payload);
-    if (b <= budgetM) { level="M"; return true; }
-    if (b <= budgetL) { level="L"; return true; }
-    return false;
-  };
-  if (tryCompaction()) return { text: payload, ecLevel: level };
+        function removeContact(id) {
+            iceContacts = iceContacts.filter(contact => contact.id !== id);
+            renderICE();
+            updateAddContactButton();
+        }
 
-  // Step 1: Trim whitespace (already trimmed)
-  // Step 2: Shrink long fields
-  const idx = {
-    Allergies: L.findIndex(s=>s.startsWith("Allergies: ")),
-    Conditions: L.findIndex(s=>s.startsWith("Conditions: ")),
-    Meds: L.findIndex(s=>s.startsWith("Meds: ")),
-    Implants: L.findIndex(s=>s.startsWith("Implants: "))
-  };
-  const shrinkPlan = [
-    ["Allergies", [220,160,120]],
-    ["Conditions", [300,180,120]],
-    ["Meds", [300,180,120]],
-    ["Implants", [220,160,120]]
-  ];
-  for (const [key, capsList] of shrinkPlan){
-    const i = idx[key];
-    if (i>=0){
-      const base = L[i].split(": ")[0] + ": ";
-      let value = L[i].slice(base.length);
-      for (const cap of capsList){
-        value = shrinkText(value, cap);
-        L[i] = base + value;
-        payload = asText(L);
-        if (tryCompaction()) return { text: payload, ecLevel: level };
-      }
-    }
-  }
-  // Step 3: Drop fields in order
-  const dropOrder = ["Implants", "Meds", "Conditions", "ICE3", "ICE2", "ICE1"];
-  for (const what of dropOrder){
-    if (what.startsWith("ICE")){
-      const n = Number(what.slice(3));
-      const idxICE = L.findIndex(s=>s.startsWith(`ICE${n}:`));
-      if (idxICE>=0){ L.splice(idxICE,1); }
-    } else {
-      const i = L.findIndex(s=>s.startsWith(`${what}:`));
-      if (i>=0){ L.splice(i,1); }
-    }
-    payload = asText(L);
-    if (tryCompaction()) return { text: payload, ecLevel: level };
-  }
-  // Step 4: Shorten URL domain
-  const urlIdx = L.findIndex(s=>s.startsWith("URL: "));
-  if (urlIdx>=0) L[urlIdx] = L[urlIdx].replace("https://www.myqer.com", "myqer.com");
-  payload = asText(L);
-  if (tryCompaction()) return { text: payload, ecLevel: level };
+        function updateContact(id, field, value) {
+            const contact = iceContacts.find(c => c.id === id);
+            if (contact) {
+                contact[field] = value;
+                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+            }
+        }
 
-  // Final minimal set
-  const minimal = [];
-  const pull = (prefix, fallback="")=>{
-    const i = L.findIndex(s=>s.startsWith(prefix));
-    return i>=0 ? L[i] : (fallback?`${prefix}${fallback}`:null);
-  };
-  const M = [
-    "MYQER™ EMERGENCY CARD",
-    pull("Code: "),
-    pull("Name: "),
-    pull("DOB: "),
-    pull("Blood: "),
-    pull("Allergies: "),
-    pull("Donor: "),
-    pull("ICE1: ", " "),
-    pull("URL: ")
-  ].filter(Boolean);
-  payload = asText(M);
-  level="L";
-  return { text: payload, ecLevel: level };
-}
+        function updateAddContactButton() {
+            const btn = document.getElementById('addContactBtn');
+            if (iceContacts.length >= 3) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-ban"></i> <span>Maximum Reached</span>';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-plus"></i> <span data-i18n="add_contact">${translations[currentLanguage]['add_contact']}</span>`;
+            }
+        }
 
-async function renderOfflineQR(){
-  // Create container dynamically under the live QR section if not present
-  let wrap = document.getElementById("offlineQRwrap");
-  if (!wrap){
-    const qc = document.querySelector(".qr-container");
-    wrap = document.createElement("div");
-    wrap.id = "offlineQRwrap";
-    wrap.style.marginTop = "16px";
-    wrap.style.display = "flex";
-    wrap.style.flexDirection = "column";
-    wrap.style.alignItems = "center";
-    wrap.innerHTML = `
-      <div id="offlineQRbox" class="qr-box" style="margin-top:8px;">
-        <div id="offlineQR"></div>
-      </div>
-      <div class="qr-label" style="margin-top:8px;">${tr("offline_qr_label")}</div>
-    `;
-    qc.appendChild(wrap);
-  }
-  const profile = getProfileFromUI();
-  const health = getHealthFromUI();
-  const { text, ecLevel } = compactOfflinePayload(profile, health, iceContacts);
-  const node = $("#offlineQR");
-  node.innerHTML = "";
-  await QRCode.toCanvas(node, text, { width: 240, margin: 1, errorCorrectionLevel: ecLevel, color:{dark:"#0f172a", light:"#ffffff"} });
-  $("#qrStatus")?.remove(); // compatibility if existed
-}
+        function renderICE() {
+            const container = document.getElementById('iceContacts');
+            
+            if (iceContacts.length === 0) {
+                container.innerHTML = `
+                    <div class="no-contacts">
+                        <div class="no-contacts-icon">
+                            <i class="fas fa-address-book"></i>
+                        </div>
+                        <div data-i18n="no_contacts">${translations[currentLanguage]['no_contacts']}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = iceContacts.map((contact, index) => `
+                <div class="ice-contact">
+                    <div class="ice-contact-header">
+                        <h4 class="ice-contact-title">
+                            <div class="ice-contact-number">${index + 1}</div>
+                            Emergency Contact ${index + 1}
+                        </h4>
+                        <button class="btn btn-danger btn-sm" onclick="removeContact('${contact.id}')">
+                            <i class="fas fa-trash"></i>
+                            <span data-i18n="remove">${translations[currentLanguage]['remove']}</span>
+                        </button>
+                    </div>
+                    <div class="ice-grid">
+                        <div class="form-group">
+                            <label class="form-label" data-i18n="contact_name">${translations[currentLanguage]['contact_name']}</label>
+                            <input type="text" class="form-input" value="${contact.name || ''}" 
+                                   onchange="updateContact('${contact.id}', 'name', this.value)"
+                                   placeholder="Full name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" data-i18n="contact_relationship">${translations[currentLanguage]['contact_relationship']}</label>
+                            <input type="text" class="form-input" value="${contact.relation || ''}" 
+                                   onchange="updateContact('${contact.id}', 'relation', this.value)"
+                                   placeholder="e.g., Spouse, Parent, Sibling">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" data-i18n="contact_phone">${translations[currentLanguage]['contact_phone']}</label>
+                            <input type="tel" class="form-input" value="${contact.phone || ''}" 
+                                   onchange="updateContact('${contact.id}', 'phone', this.value)"
+                                   placeholder="+1 (555) 123-4567">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            updateAddContactButton();
+        }
 
-async function refreshQRCodes(){
-  await renderLiveQR();
-  await renderOfflineQR();
-  toastRateLimited("success", tr("qr_ready"));
-}
+        // QR Code Actions
+        function copyUrl() {
+            const urlInput = document.getElementById('cardUrl');
+            urlInput.select();
+            document.execCommand('copy');
+            showToast(translations[currentLanguage]['url_copied'], 'success');
+        }
 
-/** -------- Triage -------- **/
-const TRIAGE_WEIGHTS = [
-  {kw: ["anaphylaxis","epi pen","epipen","epinephrine"], pts: 3},
-  {kw: ["cardiac arrest","vfib","vtach","myocardial infarction","heart attack","mi"], pts: 4},
-  {kw: ["stroke","cva"], pts: 3},
-  {kw: ["severe asthma","status asthmaticus","respiratory failure","copd exacerbation"], pts: 3},
-  {kw: ["transplant","immunosuppression"], pts: 3},
-  {kw: ["warfarin","anticoagulant","apixaban","rivaroxaban","clopidogrel"], pts: 2},
-  {kw: ["pacemaker","icd","defibrillator"], pts: 2}
-];
-function triageScore(){
-  const t = [$("#allergies").value, $("#conditions").value, $("#medications").value].join(" ").toLowerCase();
-  let score = 0;
-  TRIAGE_WEIGHTS.forEach(rule=>{
-    if (rule.kw.some(k=>t.includes(k))) score += rule.pts;
-  });
-  return score;
-}
-function updateTriage(){
-  const override = $("#triageOverride").value;
-  const pill = $("#triagePill");
-  const label = pill.querySelector("span");
-  if (override !== "auto"){
-    pill.className = `triage-pill triage-${override}`;
-    label.textContent = tr(override);
-    return;
-  }
-  const s = triageScore();
-  let color = "green";
-  if (s >= 6) color = "red";
-  else if (s >= 3) color = "amber";
-  pill.className = `triage-pill triage-${color}`;
-  label.textContent = tr(color);
-}
-window.updateTriage = updateTriage;
+        function openUrl() {
+            const url = document.getElementById('cardUrl').value;
+            window.open(url, '_blank');
+        }
 
-/** -------- ICE Contacts UI -------- **/
-function renderICE(){
-  const container = $("#iceContacts");
-  if (!iceContacts.length){
-    container.innerHTML = `
-      <div class="no-contacts">
-        <div class="no-contacts-icon"><i class="fas fa-address-book"></i></div>
-        <div data-i18n="no_contacts">${tr("no_contacts")}</div>
-      </div>`;
-    updateAddContactBtn();
-    return;
-  }
-  container.innerHTML = iceContacts.map((c,i)=>`
-    <div class="ice-contact">
-      <div class="ice-contact-header">
-        <h4 class="ice-contact-title">
-          <div class="ice-contact-number">${i+1}</div>
-          ${tr("ice_title")} #${i+1}
-        </h4>
-        <button class="btn btn-danger btn-sm" onclick="removeContact('${c.id}')">
-          <i class="fas fa-trash"></i><span data-i18n="remove">${tr("remove")}</span>
-        </button>
-      </div>
-      <div class="ice-grid">
-        <div class="form-group">
-          <label class="form-label" data-i18n="contact_name">${tr("contact_name")}</label>
-          <input type="text" class="form-input" value="${c.name||""}" placeholder="Full name"
-            onchange="updateContact('${c.id}','name',this.value)">
-        </div>
-        <div class="form-group">
-          <label class="form-label" data-i18n="contact_relationship">${tr("contact_relationship")}</label>
-          <input type="text" class="form-input" value="${c.relation||""}" placeholder="e.g., Spouse"
-            onchange="updateContact('${c.id}','relation',this.value)">
-        </div>
-        <div class="form-group">
-          <label class="form-label" data-i18n="contact_phone">${tr("contact_phone")}</label>
-          <input type="tel" class="form-input" value="${c.phone||""}" placeholder="+1 555 123 4567"
-            onchange="updateContact('${c.id}','phone',this.value)">
-        </div>
-      </div>
-    </div>
-  `).join("");
-  updateAddContactBtn();
-}
-function addContact(){
-  if (iceContacts.length >= 3) { toastRateLimited("error", tr("max_contacts")); return; }
-  iceContacts.push({ id: String(Date.now()), name:"", relation:"", phone:"" });
-  renderICE();
-  saveLS(LS_ICE, iceContacts);
-}
-function removeContact(id){
-  iceContacts = iceContacts.filter(x=>x.id!==id);
-  renderICE();
-  saveLS(LS_ICE, iceContacts);
-}
-function updateContact(id, field, value){
-  const c = iceContacts.find(x=>x.id===id);
-  if (c){ c[field] = value; saveLS(LS_ICE, iceContacts); }
-}
-function updateAddContactBtn(){
-  const btn = $("#addContactBtn");
-  if (!btn) return;
-  if (iceContacts.length >= 3) {
-    btn.disabled = true; btn.innerHTML = `<i class="fas fa-ban"></i> <span>${tr("max_contacts")}</span>`;
-  } else {
-    btn.disabled = false; btn.innerHTML = `<i class="fas fa-plus"></i> <span data-i18n="add_contact">${tr("add_contact")}</span>`;
-  }
-}
-window.addContact = addContact;
-window.removeContact = removeContact;
-window.updateContact = updateContact;
+        async function downloadQR(format) {
+            try {
+                const canvas = document.querySelector('#qrcode canvas');
+                if (!canvas) {
+                    showToast('QR code not generated yet', 'error');
+                    return;
+                }
+                
+                if (format === 'png') {
+                    const link = document.createElement('a');
+                    link.download = `myqer-${userCode || 'emergency'}-card.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                } else if (format === 'svg') {
+                    const liveUrl = `https://www.myqer.com/c/${userCode}`;
+                    const svg = await QRCode.toString(liveUrl, { type: 'svg' });
+                    const blob = new Blob([svg], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = `myqer-${userCode || 'emergency'}-card.svg`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                }
+                
+                showToast(translations[currentLanguage]['qr_downloaded'], 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showToast('Failed to download QR code', 'error');
+            }
+        }
 
-/** -------- Clipboard / Open / Download / Print -------- **/
-async function copyUrl(){
-  const url = $("#cardUrl").value;
-  try {
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
-    else { const i=$("#cardUrl"); i.select(); document.execCommand("copy"); }
-    showToast(tr("url_copied"), "success");
-  } catch(e){ toastRateLimited("error", tr("network_error")); }
-}
-function openUrl(){ window.open($("#cardUrl").value, "_blank"); }
-async function downloadQR(fmt){
-  // Download OFFLINE QR PNG as requested spec
-  const canvas = $("#offlineQR canvas") || $("#qrcode canvas");
-  if (!canvas){ toastRateLimited("error", tr("qr_fail")); return; }
-  if (fmt==="png"){
-    const link = document.createElement("a");
-    link.download = `myqer-${userCode||"card"}-offline.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-    showToast(tr("offline_qr_downloaded"), "success");
-  } else if (fmt==="svg"){
-    // Build SVG from offline payload
-    const profile = getProfileFromUI(), health = getHealthFromUI();
-    const { text, ecLevel } = compactOfflinePayload(profile, health, iceContacts);
-    const svg = await QRCode.toString(text, { type:"svg", errorCorrectionLevel: ecLevel });
-    const url = URL.createObjectURL(new Blob([svg], {type:"image/svg+xml"}));
-    const a = document.createElement("a");
-    a.href = url; a.download = `myqer-${userCode||"card"}-offline.svg`; a.click();
-    URL.revokeObjectURL(url);
-    showToast(tr("qr_downloaded"), "success");
-  }
-}
-function printQR(){
-  // Print Live QR with some details
-  const canvas = $("#qrcode canvas");
-  if (!canvas){ toastRateLimited("error", tr("qr_fail")); return; }
-  const code = userCode || $("#qrCodeText").textContent;
-  const url = $("#cardUrl").value;
-  const win = window.open("", "_blank");
-  win.document.write(`
-  <!doctype html><html><head><title>MYQER Emergency Card - ${code}</title>
-  <style>
-    body{font-family:Inter,Arial,sans-serif;text-align:center;padding:40px;background:#fff}
-    .card{border:3px solid #dc2626;border-radius:20px;padding:40px;max-width:520px;margin:0 auto;background:#fff}
-    .logo{font-size:32px;font-weight:900;color:#dc2626;margin-bottom:20px;letter-spacing:2px}
-    .code{font-family:Monaco,monospace;font-size:24px;font-weight:900;margin:20px 0;letter-spacing:3px}
-    .url{font-size:14px;color:#444;word-break:break-all;margin-top:10px;font-family:Monaco,monospace}
-    .qr{margin:24px 0}
-    .lbl{font-size:12px;color:#dc2626;font-weight:700;letter-spacing:2px;text-transform:uppercase}
-  </style></head><body>
-  <div class="card">
-    <div class="logo">MYQER™ EMERGENCY CARD</div>
-    <div class="lbl">${tr("live_qr_label")}</div>
-    <div class="qr"><img src="${canvas.toDataURL("image/png")}" style="width:250px;height:250px;border:2px solid #eee;border-radius:12px"/></div>
-    <div class="code">${code}</div>
-    <div class="url">${url}</div>
-  </div></body></html>`);
-  win.document.close(); win.print();
-}
-window.copyUrl = copyUrl;
-window.openUrl = openUrl;
-window.downloadQR = downloadQR;
-window.printQR = printQR;
+        function printQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            const code = document.getElementById('qrCodeText').textContent;
+            const url = document.getElementById('cardUrl').value;
+            
+            if (!canvas) {
+                showToast('QR code not generated yet', 'error');
+                return;
+            }
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>MYQER Emergency Card - ${code}</title>
+                    <style>
+                        body { 
+                            font-family: 'Inter', Arial, sans-serif; 
+                            text-align: center; 
+                            padding: 40px; 
+                            background: white;
+                        }
+                        .card { 
+                            border: 3px solid #dc2626; 
+                            border-radius: 20px; 
+                            padding: 40px; 
+                            max-width: 500px; 
+                            margin: 0 auto; 
+                            background: white;
+                        }
+                        .logo { 
+                            font-size: 32px; 
+                            font-weight: 900; 
+                            color: #dc2626; 
+                            margin-bottom: 20px; 
+                            letter-spacing: 2px;
+                        }
+                        .code { 
+                            font-family: 'Monaco', monospace; 
+                            font-size: 24px; 
+                            font-weight: 900; 
+                            margin: 20px 0; 
+                            letter-spacing: 3px;
+                        }
+                        .url { 
+                            font-size: 14px; 
+                            color: #666; 
+                            word-break: break-all; 
+                            margin-top: 20px; 
+                            font-family: 'Monaco', monospace;
+                        }
+                        .qr { 
+                            margin: 30px 0; 
+                        }
+                        .instructions {
+                            font-size: 14px; 
+                            color: #666; 
+                            margin-top: 30px; 
+                            line-height: 1.6;
+                        }
+                        @media print { 
+                            body { margin: 0; } 
+                            .card { box-shadow: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div class="logo">MYQER™ EMERGENCY CARD</div>
+                        <div class="qr">
+                            <img src="${canvas.toDataURL()}" alt="QR Code" style="width: 250px; height: 250px; border: 2px solid #e2e8f0; border-radius: 12px;">
+                        </div>
+                        <div class="code">${code}</div>
+                        <div class="url">${url}</div>
+                        <div class="instructions">
+                            <strong>EMERGENCY ACCESS INSTRUCTIONS:</strong><br>
+                            1. Scan QR code with any smartphone camera<br>
+                            2. Or visit the URL above in any web browser<br>
+                            3. Access critical medical information instantly<br><br>
+                            <em>Keep this card in your wallet, purse, or vehicle for emergency access to your medical information.</em>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
 
-/** -------- Autosave (debounced 600ms) -------- **/
-function debounce(fn, key, wait=600){
-  return function(...args){
-    clearTimeout(debounceTimers[key]);
-    debounceTimers[key] = setTimeout(()=>fn.apply(this,args), wait);
-  };
-}
-const autosaveProfile = debounce(async ()=>{
-  await saveProfile(true);
-}, "profile", 600);
-const autosaveHealth = debounce(async ()=>{
-  await saveHealth(true);
-}, "health", 600);
+        // Language Management
+        function toggleLanguageDropdown() {
+            const dropdown = document.getElementById('languageDropdown');
+            dropdown.classList.toggle('show');
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!e.target.closest('.language-selector')) {
+                    dropdown.classList.remove('show');
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
 
-/** -------- Save / Upserts -------- **/
-async function saveProfile(isAuto=false){
-  const p = getProfileFromUI();
-  if (!p.full_name){ if (!isAuto) showToast(tr("validation_error"), "error"); return; }
-  try {
-    showSaving();
-    // local mirror
-    saveLS(LS_PROFILE, p);
-    // server upsert
-    const up = { id: uid, full_name: p.full_name, dob: p.dob, country: p.country, health_id: p.health_id };
-    const { error } = await sb.from("profiles").upsert(up, { onConflict: "id" });
-    if (error) { console.warn(error); toastRateLimited("error", tr("schema_warn")); }
-    await ensureShortCode(); // make sure code exists
-    await refreshQRCodes();
-    hideSaving();
-    if (isAuto) toastRateLimited("success", tr("auto_saved"));
-    else showToast(tr("profile_saved"), "success");
-  } catch(e){
-    console.error(e);
-    hideSaving();
-    if (isAuto) toastRateLimited("error", tr("save_error"));
-    else showToast(tr("save_error"), "error");
-  }
-}
-async function saveHealth(isAuto=false){
-  const h = getHealthFromUI();
-  try {
-    showSaving();
-    saveLS(LS_HEALTH, h);
-    const up = { user_id: uid, blood_type:h.blood_type, allergies:h.allergies, organ_donor:h.organ_donor, conditions:h.conditions, medications:h.medications, implants:h.implants, triage_override:h.triage_override };
-    const { error } = await sb.from("health_data").upsert(up, { onConflict: "user_id" });
-    if (error) { console.warn(error); toastRateLimited("error", tr("schema_warn")); }
-    updateTriage();
-    await refreshQRCodes();
-    hideSaving();
-    if (isAuto) toastRateLimited("success", tr("auto_saved"));
-    else showToast(tr("health_saved"), "success");
-  } catch(e){
-    console.error(e);
-    hideSaving();
-    if (isAuto) toastRateLimited("error", tr("save_error"));
-    else showToast(tr("save_error"), "error");
-  }
-}
-async function saveICE(){
-  try {
-    showSaving();
-    saveLS(LS_ICE, iceContacts);
-    // Upsert up to 3 rows with composite key (user_id, contact_order)
-    const rows = iceContacts.slice(0,3).map((c,idx)=>({ user_id: uid, contact_order: idx, name: (c.name||null), relation: (c.relation||null), phone: (c.phone||null) }));
-    // We will replace: easiest is delete then upsert rows present to avoid ghosts
-    const { error: delErr } = await sb.from("ice_contacts").delete().eq("user_id", uid);
-    if (delErr) console.warn(delErr);
-    if (rows.length){
-      const { error: upErr } = await sb.from("ice_contacts").upsert(rows, { onConflict: "user_id,contact_order" });
-      if (upErr) console.warn(upErr);
-    }
-    await refreshQRCodes();
-    hideSaving();
-    showToast(tr("ice_saved"), "success");
-  } catch(e){
-    console.error(e);
-    hideSaving();
-    showToast(tr("save_error"), "error");
-  }
-}
-window.saveProfile = ()=>saveProfile(false);
-window.saveHealth = ()=>saveHealth(false);
-window.saveICE = saveICE;
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('myqer_language', lang);
+            
+            const flags = {
+                en: '🇺🇸 EN', es: '🇪🇸 ES', fr: '🇫🇷 FR', de: '🇩🇪 DE',
+                it: '🇮🇹 IT', pt: '🇵🇹 PT', ro: '🇷🇴 RO', ar: '🇸🇦 AR',
+                hi: '🇮🇳 HI', zh: '🇨🇳 ZH'
+            };
+            
+            document.getElementById('currentLanguage').textContent = flags[lang];
+            
+            // Update active language option
+            document.querySelectorAll('.language-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            document.querySelector(`[onclick="changeLanguage('${lang}')"]`).classList.add('active');
+            
+            document.getElementById('languageDropdown').classList.remove('show');
+            
+            applyTranslations();
+            renderICE();
+        }
 
-/** -------- Load flow -------- **/
-async function loadFromLocalFirst(){
-  const p = loadLS(LS_PROFILE); if (p) setProfileToUI(p);
-  const h = loadLS(LS_HEALTH);  if (h) setHealthToUI(h);
-  const ic = loadLS(LS_ICE);    if (ic) iceContacts = ic;
-  else iceContacts = [];
-  renderICE();
-  updateTriage();
-  // code
-  const c = localStorage.getItem(LS_CODE); if (c) userCode = c;
-  await renderLiveQR();
-  await renderOfflineQR();
-}
+        function applyTranslations() {
+            const t = translations[currentLanguage];
+            
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (t[key]) {
+                    element.textContent = t[key];
+                }
+            });
+        }
 
-async function fetchServerData(){
-  try{
-    // profiles
-    const { data: prof, error: e1 } = await sb.from("profiles").select("full_name,dob,country,health_id,code").eq("id", uid).maybeSingle();
-    if (!e1 && prof){
-      setProfileToUI(prof);
-      if (prof.code){ userCode = prof.code.toUpperCase(); localStorage.setItem(LS_CODE, userCode); }
-      saveLS(LS_PROFILE, getProfileFromUI());
-    } else if (e1) console.warn(e1);
-  }catch(e){ console.warn(e); }
-  try{
-    // health
-    const { data: h, error: e2 } = await sb.from("health_data").select("blood_type,allergies,organ_donor,conditions,medications,implants,triage_override").eq("user_id", uid).maybeSingle();
-    if (!e2 && h){ setHealthToUI(h); saveLS(LS_HEALTH, h); }
-    else if (e2) console.warn(e2);
-  }catch(e){ console.warn(e); }
-  try{
-    // ice
-    const { data: rows, error: e3 } = await sb.from("ice_contacts").select("contact_order,name,relation,phone").eq("user_id", uid).order("contact_order", {ascending:true});
-    if (!e3 && rows){ iceContacts = rows.map(r=>({ id: String(Date.now())+"-"+r.contact_order, name:r.name, relation:r.relation, phone:r.phone })); saveLS(LS_ICE, iceContacts); }
-    else if (e3) console.warn(e3);
-  }catch(e){ console.warn(e); }
-  // ensure code
-  await ensureShortCode();
-  setCardUrl();
-  renderICE();
-  updateTriage();
-  await refreshQRCodes();
-}
-function setCardUrl(){
-  if (userCode){ $("#qrCodeText").textContent = userCode; $("#cardUrl").value = `https://www.myqer.com/c/${userCode}`; }
-}
+        // Online/Offline Detection
+        function setupOnlineDetection() {
+            function updateOnlineStatus() {
+                isOnline = navigator.onLine;
+                const banner = document.getElementById('offlineBanner');
+                const statusElement = document.querySelector('[data-i18n="online_status"]');
+                
+                if (isOnline) {
+                    banner.classList.remove('show');
+                    if (statusElement) statusElement.textContent = translations[currentLanguage]['online_status'] || 'Online';
+                } else {
+                    banner.classList.add('show');
+                    if (statusElement) statusElement.textContent = 'Offline';
+                }
+            }
+            
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+        }
 
-/** -------- Idle Modal -------- **/
-function setupIdleTimer(){
-  const IDLE_MS = 30*60*1000, WARN_MS = 60*1000;
-  let idleTimer, warnTimer, cdTimer, secs=60;
-  function reset(){
-    clearTimeout(idleTimer); clearTimeout(warnTimer); clearInterval(cdTimer);
-    $("#idleModal").classList.remove("show");
-    idleTimer = setTimeout(()=>{
-      $("#idleModal").classList.add("show");
-      secs=60; $("#countdown").textContent = secs;
-      cdTimer = setInterval(()=>{ secs--; $("#countdown").textContent = secs; if (secs<=0){ logout(); } }, 1000);
-      warnTimer = setTimeout(()=>logout(), WARN_MS);
-    }, IDLE_MS - WARN_MS);
-  }
-  window.resetIdleTimer = reset;
-  ["mousedown","mousemove","keypress","scroll","touchstart","click"].forEach(ev=>document.addEventListener(ev, reset, true));
-  reset();
-}
+        // Auto-save Setup
+        function setupAutosave() {
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    const section = getInputSection(input.id);
+                    if (section) {
+                        debounceAutosave(section);
+                    }
+                    
+                    // Update triage for health inputs
+                    if (['allergies', 'conditions', 'medications', 'implants', 'bloodType', 'triageOverride'].includes(input.id)) {
+                        updateTriage();
+                    }
+                });
+            });
+        }
 
-/** -------- Logout / Delete -------- **/
-async function logout(){
-  try{
-    await sb.auth.signOut();
-  }catch(e){}
-  try{
-    localStorage.clear(); sessionStorage.clear();
-  }catch(e){}
-  showToast(tr("logout_ok"), "success");
-  window.location.replace("/");
-}
-window.logout = logout;
+        function getInputSection(inputId) {
+            const profileInputs = ['fullName', 'dob', 'country', 'healthId'];
+            const healthInputs = ['bloodType', 'allergies', 'conditions', 'medications', 'implants', 'organDonor', 'triageOverride'];
+            
+            if (profileInputs.includes(inputId)) return 'profile';
+            if (healthInputs.includes(inputId)) return 'health';
+            return null;
+        }
 
-async function deleteAccount(){
-  const confirmText = $("#deleteConfirm").value;
-  if (confirmText !== "DELETE MY ACCOUNT"){ showToast(tr("confirm_delete"), "error"); return; }
-  try{
-    showSaving();
-    // delete children first
-    await sb.from("ice_contacts").delete().eq("user_id", uid);
-    await sb.from("health_data").delete().eq("user_id", uid);
-    await sb.from("profiles").delete().eq("id", uid);
-    await sb.auth.signOut();
-    localStorage.clear(); sessionStorage.clear();
-    showToast(tr("account_deleted"), "success");
-    setTimeout(()=>window.location.replace("/"), 900);
-  } catch(e){
-    console.error(e);
-    showToast(tr("save_error"), "error");
-  } finally { hideSaving(); }
-}
-window.deleteAccount = deleteAccount;
+        function debounceAutosave(section) {
+            if (debounceTimers[section]) {
+                clearTimeout(debounceTimers[section]);
+            }
+            
+            debounceTimers[section] = setTimeout(() => {
+                if (section === 'profile') saveProfile();
+                else if (section === 'health') saveHealth();
+            }, 2000);
+        }
 
-/** -------- Events / Wiring -------- **/
-function setupInputs(){
-  // Autosave
-  ["fullName","dob","country","healthId"].forEach(id=>{
-    const el = document.getElementById(id); if (!el) return;
-    el.addEventListener("input", ()=> autosaveProfile());
-  });
-  ["bloodType","allergies","conditions","medications","implants","triageOverride"].forEach(id=>{
-    const el = document.getElementById(id); if (!el) return;
-    el.addEventListener("input", ()=> autosaveHealth());
-    el.addEventListener("change", updateTriage);
-  });
-  $("#organDonor")?.addEventListener("change", ()=> autosaveHealth());
-  // Keyboard shortcuts
-  document.addEventListener("keydown", e=>{
-    if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s"){ e.preventDefault(); saveProfile(false); }
-    if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="q"){ e.preventDefault(); refreshQRCodes(); }
-  });
-}
-// --- requireSession: only lets logged-in users proceed ---
-async function requireSession() {
-  try {
-    const { data: { session: s } } = await sb.auth.getSession();
-    if (!s || !s.user) return null;  // no session
-    session = s;
-    uid = s.user.id;
-    const email = s.user.email || "user";
-    $("#userEmail").textContent = email;
-    $("#userAvatar").textContent = (email[0]||"U").toUpperCase();
-    return s;
-  } catch (e) {
-    console.warn("getSession error:", e);
-    return null;
-  }
-}
+        // Event Listeners Setup
+        function setupEventListeners() {
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch (e.key) {
+                        case 's':
+                            e.preventDefault();
+                            saveProfile();
+                            break;
+                        case 'q':
+                            e.preventDefault();
+                            generateQRCode();
+                            break;
+                    }
+                }
+            });
+            
+            // Form validation
+            document.querySelectorAll('input[required]').forEach(input => {
+                input.addEventListener('blur', validateInput);
+            });
+        }
 
-// --- helper: never leave the loader up
-function showUI() {
-  const loader = $("#loadingScreen");
-  const main   = $("#dashboard");
-  loader.classList.add("hidden");
-  main.classList.remove("hidden");
-}
+        function validateInput(e) {
+            const input = e.target;
+            const value = input.value.trim();
+            
+            if (input.hasAttribute('required') && !value) {
+                input.classList.add('error');
+                showFieldError(input, 'This field is required');
+            } else {
+                input.classList.remove('error');
+                hideFieldError(input);
+            }
+        }
 
-// --- tiny timeout helper
-function withTimeout(promise, ms, fallbackValue=null) {
-  return Promise.race([
-    promise.catch(() => fallbackValue),
-    new Promise(resolve => setTimeout(() => resolve(fallbackValue), ms))
-  ]);
-}
+        function showFieldError(input, message) {
+            let errorElement = input.parentNode.querySelector('.form-error');
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.className = 'form-error';
+                input.parentNode.appendChild(errorElement);
+            }
+            errorElement.textContent = message;
+        }
 
-// STRICT: must be logged in
-async function init() {
-  // language + basic wiring
-  const savedLang = localStorage.getItem("myqer_language");
-  setLanguage(savedLang || (navigator.language || "en").slice(0,2));
-  applyTranslations();
-  setupOnlineBanner();
-  setupInputs();
+        function hideFieldError(input) {
+            const errorElement = input.parentNode.querySelector('.form-error');
+            if (errorElement) {
+                errorElement.remove();
+            }
+        }
 
-  // Check session right away
-  const s = await requireSession();
-  if (!s) {
-    const next = encodeURIComponent("/dashboard.html");
-    window.location.replace(`/login.html?next=${next}`);
-    return;
-  }
+        // Idle Timer Setup
+        function setupIdleTimer() {
+            const IDLE_TIME = 30 * 60 * 1000; // 30 minutes
+            const WARNING_TIME = 60 * 1000; // 1 minute warning
+            
+            function resetIdleTimer() {
+                clearTimeout(idleTimer);
+                clearTimeout(warningTimer);
+                clearInterval(countdownTimer);
+                document.getElementById('idleModal').classList.remove('show');
+                
+                idleTimer = setTimeout(() => {
+                    showIdleWarning();
+                }, IDLE_TIME - WARNING_TIME);
+            }
+            
+            function showIdleWarning() {
+                document.getElementById('idleModal').classList.add('show');
+                countdownSeconds = 60;
+                document.getElementById('countdown').textContent = countdownSeconds;
+                
+                countdownTimer = setInterval(() => {
+                    countdownSeconds--;
+                    document.getElementById('countdown').textContent = countdownSeconds;
+                    
+                    if (countdownSeconds <= 0) {
+                        logout();
+                    }
+                }, 1000);
+                
+                warningTimer = setTimeout(() => {
+                    logout();
+                }, WARNING_TIME);
+            }
+            
+            // Make resetIdleTimer globally accessible
+            window.resetIdleTimer = resetIdleTimer;
+            
+            // Activity event listeners
+            ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+                document.addEventListener(event, resetIdleTimer, true);
+            });
+            
+            resetIdleTimer();
+        }
 
-  // Render cached data immediately (snappy)
-  await loadFromLocalFirst();
+        // Account Deletion
+        async function deleteAccount() {
+            const confirmText = document.getElementById('deleteConfirm').value;
+            
+            if (confirmText !== 'DELETE MY ACCOUNT') {
+                showToast(translations[currentLanguage]['confirm_delete'], 'error');
+                return;
+            }
+            
+            try {
+                showSavingIndicator();
+                
+                // Clear local storage
+                localStorage.clear();
+                
+                showToast(translations[currentLanguage]['account_deleted'], 'success');
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Delete account error:', error);
+                showToast('Failed to delete account', 'error');
+            } finally {
+                hideSavingIndicator();
+            }
+        }
 
-  // Watchdog: if anything is slow, still show UI after 4s
-  const watchdog = setTimeout(() => {
-    showUI();
-    toastRateLimited("warning", tr("network_error"));
-  }, 4000);
+        // Logout Function
+        async function logout() {
+            try {
+                localStorage.clear();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = 'index.html';
+            }
+        }
 
-  // Load server data, but don't allow it to block UI forever
-  await withTimeout(fetchServerData(), 3500);
+        // UI Helper Functions
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const messageEl = toast.querySelector('.toast-message');
+            const iconEl = toast.querySelector('.toast-icon');
+            
+            messageEl.textContent = message;
+            
+            // Set icon based on type
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            iconEl.className = `toast-icon ${icons[type] || icons.info}`;
+            toast.className = `toast ${type} show`;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                hideToast();
+            }, 5000);
+        }
 
-  clearTimeout(watchdog);
-  showUI();
+        function hideToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('show');
+        }
 
-  setupIdleTimer();
+        function showSavingIndicator() {
+            document.getElementById('savingIndicator').classList.add('show');
+        }
 
-  // Regenerate button: re-render both QRs (code stays the same)
-  window.generateQRCode = async () => { await refreshQRCodes(); };
-}
+        function hideSavingIndicator() {
+            document.getElementById('savingIndicator').classList.remove('show');
+        }
 
-// Fetch server data (server wins) — resilient and fast-fail
-async function fetchServerData() {
-  // profiles
-  try {
-    const { data: prof } = await sb
-      .from("profiles")
-      .select("full_name,dob,country,health_id,code")
-      .eq("id", uid)
-      .maybeSingle();
-
-    if (prof) {
-      setProfileToUI(prof);
-      if (prof.code) {
-        userCode = (prof.code || "").toUpperCase();
-        localStorage.setItem("myqer_shortcode", userCode);
-      }
-      saveLS("myqer_profile", getProfileFromUI());
-    }
-  } catch (e) {
-    console.warn("profiles fetch error:", e);
-    toastRateLimited("error", tr("schema_warn"));
-  }
-
-  // health
-  try {
-    const { data: h } = await sb
-      .from("health_data")
-      .select("blood_type,allergies,organ_donor,conditions,medications,implants,triage_override")
-      .eq("user_id", uid)
-      .maybeSingle();
-    if (h) {
-      setHealthToUI(h);
-      saveLS("myqer_health", h);
-    }
-  } catch (e) {
-    console.warn("health_data fetch error:", e);
-    toastRateLimited("error", tr("schema_warn"));
-  }
-
-  // ice
-  try {
-    const { data: rows } = await sb
-      .from("ice_contacts")
-      .select("contact_order,name,relation,phone")
-      .eq("user_id", uid)
-      .order("contact_order", { ascending: true });
-    if (Array.isArray(rows)) {
-      iceContacts = rows.map(r => ({
-        id: String(Date.now()) + "-" + r.contact_order,
-        name: r.name, relation: r.relation, phone: r.phone
-      }));
-      saveLS("myqer_ice", iceContacts);
-    }
-  } catch (e) {
-    console.warn("ice_contacts fetch error:", e);
-    toastRateLimited("error", tr("schema_warn"));
-  }
-
-  // ensure code + QRs
-  await ensureShortCode();
-  setCardUrl();
-  renderICE();
-  updateTriage();
-  await refreshQRCodes();
-}
-/** -------- Start -------- **/
-document.addEventListener("DOMContentLoaded", init);
-</script>
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b0788e409fef1b',t:'MTc1NzE4Nzk3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
