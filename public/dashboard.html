@@ -218,7 +218,7 @@
         }
 
         .card.emergency::before {
-            background: linear-gradient(135deg, var(--primary-red), var(--primary-red-hover));
+            background: linear-gradient(135deg, #ec4899, #f472b6);
         }
 
         .card.delete {
@@ -981,7 +981,7 @@
 
     <script>
         let supabase;
-        let currentUser = { id: 'demo-user', email: 'user@example.com' };
+        let currentUser = { id: 'demo-user-' + Date.now(), email: 'user@example.com' };
         let iceContacts = [];
         let idleTimer = null;
         let warningTimer = null;
@@ -1495,12 +1495,19 @@
             'insulin dependent', 'blood clotting disorder', 'severe bleeding disorder', 'aneurysm',
             'heart failure', 'arrhythmia', 'atrial fibrillation', 'ventricular tachycardia',
             'myocardial infarction', 'angina', 'coronary artery disease', 'pulmonary embolism',
-            'deep vein thrombosis', 'aortic stenosis', 'mitral valve prolapse', 'cardiomyopathy'
+            'deep vein thrombosis', 'aortic stenosis', 'mitral valve prolapse', 'cardiomyopathy',
+            'heart disease', 'cardiac', 'coronary', 'myocardial', 'ventricular', 'atrial'
         ];
 
         const LIFE_THREATENING_ALLERGIES = [
             'penicillin', 'shellfish', 'nuts', 'peanuts', 'bee sting', 'wasp sting', 'latex',
-            'contrast dye', 'iodine', 'aspirin', 'nsaid', 'sulfa', 'eggs', 'milk', 'soy'
+            'contrast dye', 'iodine', 'aspirin', 'nsaid', 'sulfa', 'eggs', 'milk', 'soy',
+            'anaphylactic', 'severe allergy', 'epipen', 'epinephrine'
+        ];
+
+        const CRITICAL_IMPLANTS = [
+            'pacemaker', 'defibrillator', 'insulin pump', 'cochlear implant', 'neurostimulator',
+            'heart valve', 'stent', 'artificial heart', 'ventricular assist device', 'icd'
         ];
 
         async function init() {
@@ -1518,7 +1525,7 @@
                 
                 setupAutosave();
                 setupIdleTimer();
-                generateQR();
+                await generateQR();
                 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
@@ -1701,10 +1708,10 @@
         }
 
         function fillProfileForm(data) {
-            document.getElementById('fullName').value = data.full_name || '';
-            document.getElementById('dob').value = data.dob || '';
-            document.getElementById('country').value = data.country || '';
-            document.getElementById('healthId').value = data.health_id || '';
+            if (data.full_name) document.getElementById('fullName').value = data.full_name;
+            if (data.dob) document.getElementById('dob').value = data.dob;
+            if (data.country) document.getElementById('country').value = data.country;
+            if (data.health_id) document.getElementById('healthId').value = data.health_id;
             userCode = data.code;
         }
 
@@ -1738,13 +1745,13 @@
         }
 
         function fillHealthForm(data) {
-            document.getElementById('bloodType').value = data.blood_type || '';
-            document.getElementById('allergies').value = data.allergies || '';
-            document.getElementById('conditions').value = data.conditions || '';
-            document.getElementById('medications').value = data.medications || '';
-            document.getElementById('implants').value = data.implants || '';
-            document.getElementById('organDonor').checked = data.organ_donor || false;
-            document.getElementById('triageOverride').value = data.triage_override || 'auto';
+            if (data.blood_type) document.getElementById('bloodType').value = data.blood_type;
+            if (data.allergies) document.getElementById('allergies').value = data.allergies;
+            if (data.conditions) document.getElementById('conditions').value = data.conditions;
+            if (data.medications) document.getElementById('medications').value = data.medications;
+            if (data.implants) document.getElementById('implants').value = data.implants;
+            if (data.donor !== undefined) document.getElementById('organDonor').checked = data.donor;
+            if (data.triage_override) document.getElementById('triageOverride').value = data.triage_override;
         }
 
         async function loadICE() {
@@ -1829,7 +1836,7 @@
                     showToast('Profile saved successfully', 'success');
                 }
                 
-                generateQR();
+                await generateQR();
                 saveSnapshot();
                 
             } catch (error) {
@@ -1862,7 +1869,7 @@
                     conditions: document.getElementById('conditions').value || null,
                     medications: document.getElementById('medications').value || null,
                     implants: document.getElementById('implants').value || null,
-                    organ_donor: document.getElementById('organDonor').checked,
+                    donor: document.getElementById('organDonor').checked,
                     triage_override: document.getElementById('triageOverride').value
                 };
                 
@@ -1889,7 +1896,7 @@
                 }
                 
                 updateTriage();
-                generateQR();
+                await generateQR();
                 saveSnapshot();
                 
             } catch (error) {
@@ -1906,7 +1913,7 @@
                         conditions: document.getElementById('conditions').value || null,
                         medications: document.getElementById('medications').value || null,
                         implants: document.getElementById('implants').value || null,
-                        organ_donor: document.getElementById('organDonor').checked,
+                        donor: document.getElementById('organDonor').checked,
                         triage_override: document.getElementById('triageOverride').value
                     };
                     localStorage.setItem('myqer_health_pending', JSON.stringify(healthData));
@@ -1927,6 +1934,7 @@
             
             const allergies = document.getElementById('allergies').value.toLowerCase();
             const conditions = document.getElementById('conditions').value.toLowerCase();
+            const implants = document.getElementById('implants').value.toLowerCase();
             
             let isLifeThreatening = false;
             
@@ -1942,10 +1950,16 @@
                 }
             });
             
+            CRITICAL_IMPLANTS.forEach(implant => {
+                if (implants.includes(implant)) {
+                    isLifeThreatening = true;
+                }
+            });
+            
             if (isLifeThreatening) {
                 pill.className = 'triage-pill triage-red';
                 pillText.textContent = translations[currentLanguage]['red'];
-            } else if (allergies || conditions) {
+            } else if (allergies || conditions || implants) {
                 pill.className = 'triage-pill triage-amber';
                 pillText.textContent = translations[currentLanguage]['amber'];
             } else {
@@ -2056,7 +2070,7 @@
                 }
                 
                 showToast('Emergency contacts saved successfully', 'success');
-                generateQR();
+                await generateQR();
                 saveSnapshot();
                 
             } catch (error) {
@@ -2125,7 +2139,7 @@
             if (health.conditions) payload += `Conditions: ${health.conditions}\n`;
             if (health.medications) payload += `Medications: ${health.medications}\n`;
             if (health.implants) payload += `Implants: ${health.implants}\n`;
-            if (health.organ_donor) payload += `Organ Donor: Yes\n`;
+            if (health.donor) payload += `Organ Donor: Yes\n`;
             
             ice.slice(0, 3).forEach((contact, i) => {
                 if (contact.name && contact.phone) {
@@ -2298,14 +2312,13 @@
                     await supabase.from('health_data').delete().eq('user_id', currentUser.id);
                     await supabase.from('ice_contacts').delete().eq('user_id', currentUser.id);
                     await supabase.from('profile_snapshots').delete().eq('user_id', currentUser.id);
-                    await supabase.auth.admin.deleteUser(currentUser.id);
                 }
                 
                 localStorage.clear();
                 showToast('Account deleted successfully', 'success');
                 
                 setTimeout(() => {
-                    window.location.href = 'login.html';
+                    window.location.href = 'index.html';
                 }, 2000);
                 
             } catch (error) {
@@ -2316,14 +2329,14 @@
 
         async function logout() {
             try {
-                if (isOnline) {
+                if (isOnline && supabase) {
                     await supabase.auth.signOut();
                 }
                 localStorage.clear();
-                window.location.href = 'login.html';
+                window.location.href = 'index.html';
             } catch (error) {
                 console.error('Logout error:', error);
-                window.location.href = 'login.html';
+                window.location.href = 'index.html';
             }
         }
 
@@ -2338,8 +2351,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', init);
-
-        console.log("MYQER FULL DASHBOARD DELIVERED ✅");
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b0175847cdc4f0',t:'MTc1NzE4Mzk4OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b0325b25fb940d',t:'MTc1NzE4NTA5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
