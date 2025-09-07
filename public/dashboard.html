@@ -2105,33 +2105,42 @@ const getUserId = async () => {
   }
 };
 
-        const saveIce = async () => {
-            try {
-                if (isSupabaseAvailable && isOnline) {
-                    const { error } = await supabase
-                        .from('ice_contacts')
-                        .upsert(iceContacts.map((contact, index) => ({
-                            ...contact,
-                            contact_order: index
-                        })));
-                    
-                    if (error) throw error;
-                }
-                
-                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                userData.ice = iceContacts;
-                
-                showToast(t('toast.iceSaved'), 'success');
-                document.getElementById('iceMsg').textContent = '✓ ' + t('toast.iceSaved');
-                document.getElementById('iceMsg').className = 'status-msg success';
-                document.getElementById('iceMsg').style.display = 'block';
-                
-                generateQRCode();
-            } catch (error) {
-                console.error('Save ICE error:', error);
-                showToast('Error saving emergency contacts: ' + error.message, 'error');
-            }
-        };
+       const saveIce = async () => {
+  try {
+    // Always keep a local copy
+    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+    userData.ice = iceContacts;
+
+    // Sync to Supabase when possible
+    if (isSupabaseAvailable && isOnline) {
+      const userId = await getUserId();
+      if (!userId) throw new Error('No authenticated user');
+
+      const rows = iceContacts.map((contact, index) => ({
+        user_id: userId,
+        contact_order: index,
+        ...contact
+      }));
+
+      // Clear old rows and insert new
+      await supabase.from('ice_contacts').delete().eq('user_id', userId);
+      const { error } = await supabase.from('ice_contacts').insert(rows);
+
+      if (error) throw error;
+    }
+
+    showToast(t('toast.iceSaved'), 'success');
+    const msg = document.getElementById('iceMsg');
+    msg.textContent = '✓ ' + t('toast.iceSaved');
+    msg.className = 'status-msg success';
+    msg.style.display = 'block';
+
+    generateQRCode();
+  } catch (error) {
+    console.error('Save ICE error:', error);
+    showToast('Error saving emergency contacts: ' + error.message, 'error');
+  }
+};
 
         // QR Code generation
         const generateQRCode = () => {
