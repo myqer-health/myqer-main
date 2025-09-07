@@ -1929,27 +1929,44 @@ const getUserId = async () => {
         };
 
         const saveIndividualIceContact = async (index) => {
-            try {
-                const contact = iceContacts[index];
-                if (!contact.name || !contact.phone) {
-                    showToast('Name and phone are required', 'error');
-                    return;
-                }
+  try {
+    const contact = iceContacts[index];
+    if (!contact?.name || !contact?.phone) {
+      showToast('Name and phone are required', 'error');
+      return;
+    }
 
-                // Save individual contact
-                if (isSupabaseAvailable && isOnline) {
-                    // Save to Supabase
-                }
-                
-                localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                showToast(`Contact ${index + 1} saved`, 'success');
-                generateQRCode();
-            } catch (error) {
-                console.error('Save ICE contact error:', error);
-                showToast('Error saving contact', 'error');
-            }
-        };
+    // Always save locally
+    localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
 
+    // Also sync this one contact when possible
+    if (isSupabaseAvailable && isOnline) {
+      const userId = await getUserId();
+      if (!userId) throw new Error('No authenticated user');
+
+      const row = {
+        user_id: userId,
+        contact_order: index,
+        name: contact.name || '',
+        relationship: contact.relationship || '',
+        phone: contact.phone || ''
+      };
+
+      // Upsert by (user_id, contact_order)
+      const { error } = await supabase
+        .from('ice_contacts')
+        .upsert(row, { onConflict: 'user_id,contact_order' });
+
+      if (error) throw error;
+    }
+
+    showToast(`Contact ${index + 1} saved`, 'success');
+    generateQRCode();
+  } catch (error) {
+    console.error('Save ICE contact error:', error);
+    showToast('Error saving contact: ' + error.message, 'error');
+  }
+};
         // Short code generation
         const generateShortCode = () => {
             // Check if user already has a short code
