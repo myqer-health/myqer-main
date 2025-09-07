@@ -1928,39 +1928,44 @@ const getUserId = async () => {
             renderIceContacts();
         };
 
-        const saveIndividualIceContact = async (index) => {
+      // Save ONE ICE contact (index), keep local copy, and sync to Supabase if possible
+const saveIndividualIceContact = async (index) => {
   try {
     const contact = iceContacts[index];
-    if (!contact?.name || !contact?.phone) {
+    if (!contact || !contact.name || !contact.phone) {
       showToast('Name and phone are required', 'error');
       return;
     }
 
-    // Always save locally
+    // 1) Always save locally
     localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
 
- // Try to load from Supabase if available and online
-if (isSupabaseAvailable && isOnline) {
-  try {
-    const userId = await getUserId();
-    if (userId) {
-      // --- profiles
-      const { data: serverProfile, error: spErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (spErr) console.warn('profiles load error:', spErr);
+    // 2) Sync to Supabase when available & online
+    if (isSupabaseAvailable && isOnline) {
+      const userId = await getUserId();
+      if (!userId) throw new Error('No authenticated user');
 
-      if (serverProfile) {
-        userData.profile = { ...userData.profile, ...serverProfile };
-        localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-        // Reflect in inputs
-        document.getElementById('profileFullName').value = userData.profile.fullName || '';
-        document.getElementById('profileDob').value = userData.profile.dob || '';
-        document.getElementById('profileCountry').value = userData.profile.country || '';
-        document.getElementById('profileHealthId').value = userData.profile.healthId || '';
-      }
+      // Replace all rows for this user (simple, consistent)
+      await supabase.from('ice_contacts').delete().eq('user_id', userId);
+
+      const rows = iceContacts.map((c, i) => ({
+        user_id: userId,
+        contact_order: i,
+        name: c.name || '',
+        relationship: c.relationship || '',
+        phone: c.phone || ''
+      }));
+
+      const { error } = await supabase.from('ice_contacts').insert(rows);
+      if (error) throw error;
+    }
+
+    showToast('Emergency contacts saved', 'success');
+  } catch (error) {
+    console.error('Save ICE contact error:', error);
+    showToast('Error saving contact', 'error');
+  }
+};
 
       // --- health_data
       const { data: serverHealth, error: shErr } = await supabase
@@ -2255,6 +2260,8 @@ if (isSupabaseAvailable && isOnline) {
         };
 
         // Load user data with Supabase session guard
+      const loadUserData = async () => {
+  try {
 const { data: { session }, error } = await supabase.auth.getSession();
 if (!session) {
   console.log('❌ No Supabase session; staying on page');
