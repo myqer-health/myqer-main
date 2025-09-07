@@ -2259,133 +2259,156 @@ const saveIndividualIceContact = async (index) => {
             }
         };
 
-        // Load user data with Supabase session guard
-      const loadUserData = async () => {
+   // Load user data with Supabase session guard
+const loadUserData = async () => {
   try {
-const { data: { session }, error } = await supabase.auth.getSession();
-if (!session) {
-  console.log('❌ No Supabase session; staying on page');
-  // Stop the spinner and show a friendly message instead of redirecting
-  document.getElementById('loadingState').style.display = 'none';
-  const box = document.getElementById('errorBox');
-  const msg = document.getElementById('errorMsg');
-  msg.textContent = 'Please sign in first, then return to the dashboard.';
-  box.style.display = 'block';
-  return;
-}
+    // 1) Require a Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.log('❌ No Supabase session; staying on page');
+      // Stop spinner and show friendly message instead of redirecting
+      const loading = document.getElementById('loadingState');
+      if (loading) loading.style.display = 'none';
+      const box = document.getElementById('errorBox');
+      const msg = document.getElementById('errorMsg');
+      if (msg) msg.textContent = 'Please sign in first, then return to the dashboard.';
+      if (box) box.style.display = 'block';
+      return;
+    }
 
-    // ...your existing code continues here (load from localStorage, sync, generateQRCode, etc.)
+    // 2) Load from localStorage first (fast)
+    const lsProfile = localStorage.getItem('myqer_profile');
+    const lsHealth  = localStorage.getItem('myqer_health');
+    const lsIce     = localStorage.getItem('myqer_ice');
 
-                // Load from localStorage first (persistent across sessions)
-                const profile = localStorage.getItem('myqer_profile');
-                const health = localStorage.getItem('myqer_health');
-                const ice = localStorage.getItem('myqer_ice');
-                
-                if (profile) {
-                    userData.profile = JSON.parse(profile);
-                    // Populate profile fields
-                    Object.keys(userData.profile).forEach(key => {
-                        const field = document.getElementById('profile' + key.charAt(0).toUpperCase() + key.slice(1));
-                        if (field) {
-                            field.value = userData.profile[key] || '';
-                            // Add visual indicator that field has saved data
-                            if (userData.profile[key]) {
-                                field.classList.add('field-saved');
-                            }
-                        }
-                    });
-                }
-                
-                if (health) {
-                    userData.health = JSON.parse(health);
-                    // Populate health fields
-                    const healthFields = {
-                        'hfBloodType': 'bloodType',
-                        'hfAllergies': 'allergies',
-                        'hfConditions': 'conditions',
-                        'hfMeds': 'medications',
-                        'hfImplants': 'implants',
-                        'triageOverride': 'triageOverride'
-                    };
-                    
-                    Object.entries(healthFields).forEach(([fieldId, dataKey]) => {
-                        const field = document.getElementById(fieldId);
-                        if (field) {
-                            if (fieldId === 'hfDonor') {
-                                field.checked = userData.health.organDonor || false;
-                            } else {
-                                field.value = userData.health[dataKey] || '';
-                                if (userData.health[dataKey]) {
-                                    field.classList.add('field-saved');
-                                }
-                            }
-                        }
-                    });
-                    
-                    document.getElementById('hfDonor').checked = userData.health.organDonor || false;
-                    calculateTriage();
-                }
-                
-                if (ice) {
-                    iceContacts = JSON.parse(ice);
-                    renderIceContacts();
-                }
-                
-                // Try to load from Supabase if available and online
-                if (isSupabaseAvailable && isOnline) {
-                    try {
-                        // Sync with server data
-                        const { data: serverProfile } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .single();
-                        
-                        const { data: serverHealth } = await supabase
-                            .from('health_data')
-                            .select('*')
-                            .single();
-                        
-                        const { data: serverIce } = await supabase
-                            .from('ice_contacts')
-                            .select('*')
-                            .order('contact_order');
-                        
-                        // Merge server data with local data (server takes precedence)
-                        if (serverProfile) {
-                            userData.profile = { ...userData.profile, ...serverProfile };
-                            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
-                        }
-                        
-                        if (serverHealth) {
-                            userData.health = { ...userData.health, ...serverHealth };
-                            localStorage.setItem('myqer_health', JSON.stringify(userData.health));
-                        }
-                        
-                        if (serverIce && serverIce.length > 0) {
-                            iceContacts = serverIce;
-                            localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
-                            renderIceContacts();
-                        }
-                        
-                        console.log('✅ Data synced with server');
-                    } catch (syncError) {
-                        console.warn('⚠️ Server sync failed, using local data:', syncError);
-                    }
-                }
-                
-                generateQRCode();
-                console.log('✅ User data loaded successfully');
-                
-            } catch (error) {
-                console.error('Load data error:', error);
-                showToast('Error loading data: ' + error.message, 'error');
-                
-                // Show error state but don't redirect
-                document.getElementById('errorBox').style.display = 'block';
-                document.getElementById('errorMsg').textContent = 'Failed to load your data. Please try refreshing the page.';
-            }
-        };
+    if (lsProfile) {
+      userData.profile = JSON.parse(lsProfile);
+      // Populate profile inputs
+      Object.keys(userData.profile).forEach(key => {
+        const el = document.getElementById('profile' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (!el) return;
+        el.value = userData.profile[key] || '';
+        if (userData.profile[key]) el.classList.add('field-saved');
+      });
+    }
 
+    if (lsHealth) {
+      userData.health = JSON.parse(lsHealth);
+      const map = {
+        hfBloodType: 'bloodType',
+        hfAllergies: 'allergies',
+        hfConditions: 'conditions',
+        hfMeds:      'medications',
+        hfImplants:  'implants',
+        triageOverride: 'triageOverride'
+      };
+      Object.entries(map).forEach(([id, k]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'hfDonor') return; // handled below
+        el.value = userData.health?.[k] || '';
+        if (userData.health?.[k]) el.classList.add('field-saved');
+      });
+      // Checkbox
+      const donor = document.getElementById('hfDonor');
+      if (donor) donor.checked = !!userData.health?.organDonor;
+      calculateTriage();
+    }
+
+    if (lsIce) {
+      iceContacts = JSON.parse(lsIce);
+      renderIceContacts();
+    }
+
+    // 3) Try to sync from Supabase (server wins)
+    if (isSupabaseAvailable && isOnline) {
+      try {
+        const userId = await getUserId();
+        if (userId) {
+          // profiles
+          const { data: serverProfile, error: spErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (spErr) console.warn('profiles load error:', spErr);
+          if (serverProfile) {
+            userData.profile = { ...userData.profile, ...serverProfile };
+            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+            // Reflect to inputs
+            const pf = userData.profile || {};
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+            set('profileFullName', pf.fullName);
+            set('profileDob',      pf.dob);
+            set('profileCountry',  pf.country);
+            set('profileHealthId', pf.healthId);
+          }
+
+          // health_data
+          const { data: serverHealth, error: shErr } = await supabase
+            .from('health_data')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (shErr) console.warn('health_data load error:', shErr);
+          if (serverHealth) {
+            userData.health = { ...userData.health, ...serverHealth };
+            localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+            // Reflect to inputs
+            const hd = userData.health || {};
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+            set('hfBloodType',  hd.bloodType);
+            set('hfAllergies',  hd.allergies);
+            set('hfConditions', hd.conditions);
+            set('hfMeds',       hd.medications);
+            set('hfImplants',   hd.implants);
+            const donor = document.getElementById('hfDonor');
+            if (donor) donor.checked = !!hd.organDonor;
+            const triSel = document.getElementById('triageOverride');
+            if (triSel) triSel.value = hd.triageOverride || 'auto';
+            calculateTriage();
+          }
+
+          // ice_contacts
+          const { data: serverIce, error: siErr } = await supabase
+            .from('ice_contacts')
+            .select('*')
+            .eq('user_id', userId)
+            .order('contact_order', { ascending: true });
+          if (siErr) console.warn('ice_contacts load error:', siErr);
+          if (serverIce && serverIce.length) {
+            iceContacts = serverIce.map(r => ({
+              name: r.name || '',
+              relationship: r.relationship || '',
+              phone: r.phone || ''
+            }));
+            localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+            renderIceContacts();
+          }
+
+          console.log('✅ Data synced with server');
+        }
+      } catch (syncErr) {
+        console.warn('⚠️ Server sync failed, using local data:', syncErr);
+      }
+    }
+
+    // 4) Finalize UI
+    generateQRCode();
+    console.log('✅ User data loaded successfully');
+  } catch (err) {
+    console.error('Load data error:', err);
+    showToast('Error loading data: ' + (err?.message || err), 'error');
+    const box = document.getElementById('errorBox');
+    const msg = document.getElementById('errorMsg');
+    if (msg) msg.textContent = 'Failed to load your data. Please try refreshing the page.';
+    if (box) box.style.display = 'block';
+  } finally {
+    // Always remove the spinner
+    const loading = document.getElementById('loadingState');
+    if (loading) loading.style.display = 'none';
+  }
+};
         // Event listeners
         document.addEventListener('DOMContentLoaded', async () => {
             // Initialize first
