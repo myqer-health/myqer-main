@@ -2061,42 +2061,49 @@ const getUserId = async () => {
   }
 };
 
-        const saveHealth = async () => {
-            const healthData = {
-                bloodType: document.getElementById('hfBloodType').value,
-                allergies: document.getElementById('hfAllergies').value,
-                organDonor: document.getElementById('hfDonor').checked,
-                conditions: document.getElementById('hfConditions').value,
-                medications: document.getElementById('hfMeds').value,
-                implants: document.getElementById('hfImplants').value,
-                triageOverride: document.getElementById('triageOverride').value
-            };
+       const saveHealth = async () => {
+  const healthData = {
+    bloodType: document.getElementById('hfBloodType').value,
+    allergies: document.getElementById('hfAllergies').value,
+    organDonor: document.getElementById('hfDonor').checked,
+    conditions: document.getElementById('hfConditions').value,
+    medications: document.getElementById('hfMeds').value,
+    implants: document.getElementById('hfImplants').value,
+    triageOverride: document.getElementById('triageOverride').value
+  };
 
-            try {
-                if (isSupabaseAvailable && isOnline) {
-                    const { error } = await supabase
-                        .from('health_data')
-                        .upsert(healthData);
-                    
-                    if (error) throw error;
-                }
-                
-                localStorage.setItem('myqer_health', JSON.stringify(healthData));
-                userData.health = healthData;
-                
-                calculateTriage();
-                
-                showToast(t('toast.healthSaved'), 'success');
-                document.getElementById('healthMsg').textContent = '✓ ' + t('toast.healthSaved');
-                document.getElementById('healthMsg').className = 'status-msg success';
-                document.getElementById('healthMsg').style.display = 'block';
-                
-                generateQRCode();
-            } catch (error) {
-                console.error('Save health error:', error);
-                showToast('Error saving health data: ' + error.message, 'error');
-            }
-        };
+  try {
+    // Always keep a local copy
+    localStorage.setItem('myqer_health', JSON.stringify(healthData));
+    userData.health = healthData;
+
+    // Sync to Supabase when possible
+    if (isSupabaseAvailable && isOnline) {
+      const userId = await getUserId();
+      if (!userId) throw new Error('No authenticated user');
+
+      const row = { user_id: userId, ...healthData };
+      const { error } = await supabase
+        .from('health_data')
+        .upsert(row, { onConflict: 'user_id' });
+
+      if (error) throw error;
+    }
+
+    calculateTriage();
+
+    showToast(t('toast.healthSaved'), 'success');
+    const msg = document.getElementById('healthMsg');
+    msg.textContent = '✓ ' + t('toast.healthSaved');
+    msg.className = 'status-msg success';
+    msg.style.display = 'block';
+
+    generateQRCode();
+  } catch (error) {
+    console.error('Save health error:', error);
+    showToast('Error saving health data: ' + error.message, 'error');
+  }
+};
 
         const saveIce = async () => {
             try {
