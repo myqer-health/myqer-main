@@ -1661,11 +1661,12 @@
       if (isSupabaseAvailable && isOnline) {
         const userId = await getUserId();
         if (!userId) throw new Error('No authenticated user');
-        const row = { user_id: userId, ...profileData };
-        const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' });
-        if (error) throw error;
-      }
-
+        const code = await ensureShortCode(); // ensures correct XXX-XXXX-XXX
+const row = { user_id: userId, code, ...profileData };
+const { error } = await supabase
+  .from('profiles')
+  .upsert(row, { onConflict: 'user_id' });
+          
       showToast(t('toast.profileSaved'), 'success');
       const msg = document.getElementById('profileMsg');
       msg.textContent = '✓ ' + t('toast.profileSaved');
