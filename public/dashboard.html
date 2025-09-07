@@ -1644,40 +1644,46 @@
     pill.textContent = level.toUpperCase();
   };
 
-  // =========================
-  // Save functions
-  // =========================
   const saveProfile = async () => {
-    const profileData = {
-      fullName: document.getElementById('profileFullName').value,
-      dob:      document.getElementById('profileDob').value,
-      country:  document.getElementById('profileCountry').value,
-      healthId: document.getElementById('profileHealthId').value
-    };
-    try {
-      localStorage.setItem('myqer_profile', JSON.stringify(profileData));
-      userData.profile = profileData;
-
-      if (isSupabaseAvailable && isOnline) {
-        const userId = await getUserId();
-        if (!userId) throw new Error('No authenticated user');
-        const code = await ensureShortCode(); // ensures correct XXX-XXXX-XXX
-const row = { user_id: userId, code, ...profileData };
-const { error } = await supabase
-  .from('profiles')
-  .upsert(row, { onConflict: 'user_id' });
-          
-      showToast(t('toast.profileSaved'), 'success');
-      const msg = document.getElementById('profileMsg');
-      msg.textContent = '✓ ' + t('toast.profileSaved');
-      msg.className = 'status-msg success';
-      msg.style.display = 'block';
-      generateQRCode();
-    } catch (error) {
-      console.error('Save profile error:', error);
-      showToast('Error saving profile: ' + error.message, 'error');
-    }
+  const profileData = {
+    fullName: document.getElementById('profileFullName').value,
+    dob:      document.getElementById('profileDob').value,
+    country:  document.getElementById('profileCountry').value,
+    healthId: document.getElementById('profileHealthId').value
   };
+
+  try {
+    // local-first
+    localStorage.setItem('myqer_profile', JSON.stringify(profileData));
+    userData.profile = profileData;
+
+    // best-effort server sync
+    if (isSupabaseAvailable && isOnline) {
+      const userId = await getUserId();
+      if (!userId) throw new Error('No authenticated user');
+
+      const code = await ensureShortCode(); // XXX-XXXX-XXX, validated
+      const row  = { user_id: userId, code, ...profileData };
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(row, { onConflict: 'user_id' });
+
+      if (error) throw error;
+    }
+
+    showToast(t('toast.profileSaved'), 'success');
+    const msg = document.getElementById('profileMsg');
+    msg.textContent = '✓ ' + t('toast.profileSaved');
+    msg.className = 'status-msg success';
+    msg.style.display = 'block';
+
+    generateQRCode();
+  } catch (error) {
+    console.error('Save profile error:', error);
+    showToast('Error saving profile: ' + error.message, 'error');
+  }
+};
 
   const saveHealth = async () => {
     const healthData = {
@@ -2096,10 +2102,7 @@ function generateShortCode() {
   }
   return code;
 }
-  code = makeShortCode_3_4_3();
-  localStorage.setItem('myqer_shortcode', code);
-  return code;
-}
+
 
 // Ensure code exists locally and (best effort) store it in Supabase profiles.code
 // Relies on a UNIQUE constraint on profiles.code and on profiles.user_id.
