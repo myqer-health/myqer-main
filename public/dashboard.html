@@ -2547,11 +2547,13 @@ const loadUserData = async () => {
                     try {
                         // Delete from Supabase if available
                         if (isSupabaseAvailable && isOnline) {
-                            // Delete user data from all tables
-                            await supabase.from('profiles').delete().eq('user_id', 'current_user');
-                            await supabase.from('health_data').delete().eq('user_id', 'current_user');
-                            await supabase.from('ice_contacts').delete().eq('user_id', 'current_user');
-                        }
+    const userId = await getUserId();
+    if (!userId) throw new Error('No authenticated user');
+    // Delete user data from all tables for this user
+    await supabase.from('ice_contacts').delete().eq('user_id', userId);
+    await supabase.from('health_data').delete().eq('user_id', userId);
+    await supabase.from('profiles').delete().eq('user_id', userId);
+}
                         
                         // Clear all local data
                         localStorage.clear();
