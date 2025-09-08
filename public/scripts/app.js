@@ -304,7 +304,7 @@
     } catch (err) {
       console.error('QR render error:', err);
       // graceful failure UI
-      qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+      qrPlaceholder && (qrPlaceholder.style.display = 'flex')
       qrCanvas && (qrCanvas.style.display = 'none');
       if (qrStatus) {
         qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
