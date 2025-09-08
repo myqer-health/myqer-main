@@ -1608,19 +1608,51 @@ function prepareQrCanvas(size = 220) {
   if (ph) ph.style.display='none'; canvas.style.display='block';
   return { canvas, size };
 }
+// Draw a QR into #qrCanvas with a safe fallback
 async function drawQR(text) {
-  await ensureQRCodeLib();
+  await ensureQrCodeLib();
   const { canvas, size } = prepareQrCanvas(220);
+
+  // 1) Try the fast path (canvas renderer)
   try {
     await new Promise((res, rej) =>
-      QRCode.toCanvas(canvas, text, { errorCorrectionLevel:'H', margin:1, width:size }, e => e?rej(e):res())
+      QRCode.toCanvas(
+        canvas,
+        text,
+        { errorCorrectionLevel: 'H', margin: 1, width: size },
+        (err) => (err ? rej(err) : res())
+      )
     );
-  } catch {
-    const dataUrl = await QRCode.toDataURL(text, { errorCorrectionLevel:'H', margin:1, width:size });
-    await new Promise((res, rej) => { const img=new Image(); img.onload=()=>{canvas.getContext('2d').drawImage(img,0,0,size,size); res();}; img.onerror=rej; img.src=dataUrl; });
+    return;
+  } catch (e) {
+    // continue to fallback
+    console.warn('QRCode.toCanvas failed, using toDataURL fallback:', e);
+  }
+
+  // 2) Fallback: render to dataURL, then paint it onto our canvas
+  try {
+    const dataUrl = await QRCode.toDataURL(text, {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: size
+    });
+
+    await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        res();
+      };
+      img.onerror = rej;
+      img.src = dataUrl;
+    });
+  } catch (e2) {
+    console.error('QR fallback also failed:', e2);
+    throw e2; // so your caller can show a toast
   }
 }
-
 /* ---------- Generate QR (single truth) ---------- */
 async function generateQRCode() {
   const qrCanvas = $('qrCanvas'), qrPlaceholder = $('qrPlaceholder'),
