@@ -1436,10 +1436,9 @@ let userData = { profile: {}, health: {} };
 let iceContacts = [];
 const autoSaveTimers = {};
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
-
 /* ---------- Supabase (robust init) ---------- */
 const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
 
 async function initSupabase(maxMs = 4000) {
   const start = Date.now();
@@ -1967,18 +1966,22 @@ const showError = (msg) => { const box=$('errorBox'), m=$('errorMsg'); m && (m.t
 
 /* ---------- DOM Ready ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
+  // ✅ ensure SDK + client exist before anything else
   await initSupabase();
-  // Net status
+
+  // (optional) quick sanity logs
+  console.log('JS alive, supabase?', !!supabase);
+
+  // existing code follows…
   updateNetworkStatus();
   window.addEventListener('online',  updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
 
-  // Bind buttons
-  on($('saveProfile'), 'click', saveProfile);
-  on($('saveHealth'),  'click', saveHealth);
-  on($('saveIce'),     'click', saveICE);
-  on($('addIce'),      'click', addIceContact);
-
+  // bind buttons…
+  // …
+  await loadUserData();  // now this can safely call supabase
+  // …
+});
   // Live triage while typing (no extra autosave bindings here)
   ['hfAllergies','hfConditions'].forEach(id => on($(id), 'input', calculateTriage));
 
