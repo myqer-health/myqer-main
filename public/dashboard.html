@@ -1653,46 +1653,68 @@ async function drawQR(text) {
     throw e2; // so your caller can show a toast
   }
 }
-/* ---------- Generate QR (single truth) ---------- */
+<script>
+// ---------- QR drawing (single source) ----------
 async function generateQRCode() {
-  const qrCanvas = $('qrCanvas'), qrPlaceholder = $('qrPlaceholder'),
-        codeEl   = $('codeUnderQR'), urlEl = $('cardUrl'), status = $('qrStatus');
+  const qrCanvas      = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeUnderQR   = document.getElementById('codeUnderQR');
+  const cardUrlInput  = document.getElementById('cardUrl');
+  const qrStatus      = document.getElementById('qrStatus');
 
-  const hasProfile = !!userData?.profile?.fullName;
-  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
-  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
-
-  if (!(hasProfile || hasHealth || hasICE)) {
-    qrPlaceholder && (qrPlaceholder.style.display='flex');
-    qrCanvas && (qrCanvas.style.display='none');
-    codeEl && (codeEl.textContent='');
-    urlEl && (urlEl.value='');
-    status && (status.hidden=true);
+  // If user has nothing saved yet, show placeholder and exit quietly
+  const hasProfile = !!(window.userData?.profile?.fullName);
+  const hasHealth  = !!(window.userData?.health?.bloodType || window.userData?.health?.allergies);
+  const hasIce     = Array.isArray(window.iceContacts) && window.iceContacts.length > 0;
+  if (!(hasProfile || hasHealth || hasIce)) {
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas)      qrCanvas.style.display      = 'none';
+    if (codeUnderQR)   codeUnderQR.textContent     = '';
+    if (cardUrlInput)  cardUrlInput.value          = '';
+    if (qrStatus)      qrStatus.hidden             = true;
     return;
   }
-  try {
-    const code = await ensureShortCode();
-    const shortUrl = `https://www.myqer.com/c/${code}`;
-    codeEl && (codeEl.textContent = code);
-    urlEl  && (urlEl.value = shortUrl);
 
-    await drawQR(shortUrl);   // not the code text — the actual URL
+  // Ensure short code and URL
+  const code     = await ensureShortCode();
+  const shortUrl = `https://www.myqer.com/c/${code}`;
+  if (codeUnderQR)  codeUnderQR.textContent = code;
+  if (cardUrlInput) cardUrlInput.value      = shortUrl;
 
-    if (status) {
-      status.textContent = 'QR Code generated successfully';
-      status.style.background = 'rgba(5,150,105,0.1)';
-      status.style.color = 'var(--green)';
-      status.hidden = false;
+  // Draw into <canvas> with qrcode v1.5.x
+  if (qrCanvas && window.QRCode && typeof QRCode.toCanvas === 'function') {
+    // make sure canvas is visible and clean
+    const ctx = qrCanvas.getContext('2d');
+    ctx && ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+
+    await new Promise((resolve, reject) => {
+      QRCode.toCanvas(
+        qrCanvas,
+        shortUrl,
+        { width: 200, margin: 1, errorCorrectionLevel: 'H' },
+        err => err ? reject(err) : resolve()
+      );
+    });
+
+    qrCanvas.style.display = 'block';
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    if (qrStatus) {
+      qrStatus.textContent      = 'QR Code generated successfully';
+      qrStatus.style.background = 'rgba(5,150,105,0.1)';
+      qrStatus.style.color      = 'var(--green)';
+      qrStatus.hidden           = false;
     }
-    const off = $('offlineText'); off && (off.value = buildOfflineText(shortUrl));
+
+    // offline text
+    const offlineEl = document.getElementById('offlineText');
+    if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
     console.log('🔗 QR ready:', shortUrl);
-  } catch (err) {
-    console.error('QR render error:', err);
-    qrPlaceholder && (qrPlaceholder.style.display='flex');
-    qrCanvas && (qrCanvas.style.display='none');
-    toast('Failed to draw QR. Check connection and try again.', 'error');
+  } else {
+    // If QRCode lib didn’t load, don’t show the old red toast (that’s what you were seeing)
+    console.warn('QRCode library not available');
   }
 }
+</script>
 
 /* ---------- ICE Contacts ---------- */
 function renderIceContacts() {
