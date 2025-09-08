@@ -1475,6 +1475,7 @@ const showFieldSaved = (id) => {
 const t = (key) => (window.LOCALES?.[currentLang]?.[key]) || (window.LOCALES?.en?.[key]) || key;
 const updateLanguage = (lang) => {
   currentLang = lang || 'en';
+  document.addEventListener('DOMContentLoaded', () => updateLanguage('en'));
   document.documentElement.lang = currentLang;
   document.documentElement.dir  = (currentLang === 'ar' ? 'rtl' : 'ltr');
   $$('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
@@ -1724,38 +1725,68 @@ const buildOfflineText = (url) => {
   return txt;
 };
 
-const generateQRCode = async () => {
-  const canvas = $('qrCanvas'), placeholder = $('qrPlaceholder'), codeEl = $('codeUnderQR'), urlInput = $('cardUrl'), status = $('qrStatus');
-  const hasProfile = !!userData?.profile?.fullName;
-  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
+async function generateQRCode() {
+  const qrCanvas      = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeUnderQR   = document.getElementById('codeUnderQR');
+  const cardUrlInput  = document.getElementById('cardUrl');
+  const qrStatus      = document.getElementById('qrStatus');
+
+  const hasProfile = !!(userData?.profile && userData.profile.fullName);
+  const hasHealth  = !!(userData?.health && (userData.health.bloodType || userData.health.allergies));
   const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
   if (!(hasProfile || hasHealth || hasIce)) {
-    placeholder && (placeholder.style.display = 'flex');
-    canvas && (canvas.style.display = 'none');
-    codeEl && (codeEl.textContent = '');
-    urlInput && (urlInput.value = '');
-    status && (status.hidden = true);
+    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+    qrCanvas && (qrCanvas.style.display = 'none');
+    codeUnderQR && (codeUnderQR.textContent = '');
+    cardUrlInput && (cardUrlInput.value = '');
+    qrStatus && (qrStatus.hidden = true);
     return;
   }
 
   const code = await ensureShortCode();
   const shortUrl = `https://www.myqer.com/c/${code}`;
-  codeEl && (codeEl.textContent = code);
-  urlInput && (urlInput.value = shortUrl);
+  codeUnderQR && (codeUnderQR.textContent = code);
+  cardUrlInput && (cardUrlInput.value = shortUrl);
 
-  await new Promise((res, rej) => {
-    window.QRCode.toCanvas(canvas, shortUrl, { width:200, errorCorrectionLevel:'H', margin:1 }, (err)=> err?rej(err):res());
+  // Ensure QR lib is present
+  if (!(window.QRCode && typeof QRCode.toCanvas === 'function')) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('QR lib failed to load'));
+      document.head.appendChild(s);
+    }).catch(err => {
+      console.warn(err);
+      showToast('QR library failed to load', 'error');
+    });
+  }
+  if (!(window.QRCode && QRCode.toCanvas)) return;
+
+  const ctx = qrCanvas.getContext('2d');
+  ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+
+  await new Promise((resolve, reject) => {
+    QRCode.toCanvas(qrCanvas, shortUrl, { width: 200, errorCorrectionLevel: 'H', margin: 1 },
+      err => err ? reject(err) : resolve());
   });
 
-  placeholder && (placeholder.style.display = 'none');
-  canvas && (canvas.style.display = 'block');
-  status && (status.textContent='QR Code generated successfully', status.style.background='rgba(5,150,105,0.1)', status.style.color='var(--green)', status.hidden=false);
+  qrPlaceholder && (qrPlaceholder.style.display = 'none');
+  qrCanvas && (qrCanvas.style.display = 'block');
 
-  const offline = $('offlineText'); if (offline) offline.value = buildOfflineText(shortUrl);
-  console.log('🔗 QR ready:', shortUrl);
-};
+  if (qrStatus) {
+    qrStatus.textContent = 'QR Code generated successfully';
+    qrStatus.style.background = 'rgba(5, 150, 105, 0.1)';
+    qrStatus.style.color = 'var(--green)';
+    qrStatus.hidden = false;
+  }
 
+  const offlineEl = document.getElementById('offlineText');
+  offlineEl && (offlineEl.value = buildOfflineText(shortUrl));
+}
 /* =========================
    Data Load (local-first, server sync best-effort)
    ========================= */
