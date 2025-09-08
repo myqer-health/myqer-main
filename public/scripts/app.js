@@ -353,43 +353,51 @@
     });
   }
 
-  function saveProfile() {
-    var profile = {
-      full_name:     $('profileFullName') ? $('profileFullName').value.trim() : '',
-      date_of_birth: $('profileDob') ? $('profileDob').value.trim() : '',
-      country:       $('profileCountry') ? $('profileCountry').value.trim() : '',
-      national_id:   $('profileHealthId') ? $('profileHealthId').value.trim() : ''
-    };
-    userData.profile = profile;
-    localStorage.setItem('myqer_profile', JSON.stringify(profile));
-    var p = Promise.resolve();
-    if (isSupabaseAvailable && isOnline) p = upsertProfileSmart(profile);
-    p.then(function(){
-      toast('Profile saved', 'success');
-      return generateQRCode();
-    }).catch(function(e){ console.error(e); toast('Error saving profile','error'); });
-  }
+ function saveProfile() {
+  var profile = {
+    full_name:     $('profileFullName') ? $('profileFullName').value.trim() : '',
+    date_of_birth: $('profileDob') ? $('profileDob').value.trim() : '',
+    country:       $('profileCountry') ? $('profileCountry').value.trim() : '',
+    national_id:   $('profileHealthId') ? $('profileHealthId').value.trim() : ''
+  };
 
-  function saveHealth() {
-    var donorEl = $('hfDonor');
-    var health = {
-      bloodType:      $('hfBloodType') ? $('hfBloodType').value : '',
-      allergies:      $('hfAllergies') ? $('hfAllergies').value : '',
-      conditions:     $('hfConditions') ? $('hfConditions').value : '',
-      medications:    $('hfMeds') ? $('hfMeds').value : '',
-      implants:       $('hfImplants') ? $('hfImplants').value : '',
-      organDonor:     donorEl ? !!donorEl.checked : false,
-      triageOverride: $('triageOverride') ? $('triageOverride').value : 'auto'
-    };
-    userData.health = health;
-    localStorage.setItem('myqer_health', JSON.stringify(health));
+  userData.profile = profile;
+  localStorage.setItem('myqer_profile', JSON.stringify(profile));
 
-    var p = Promise.resolve();
-    if (isSupabaseAvailable && isOnline) {
-      p = getUserId().then(function (uid) {
-        if (!uid) return;
-        return supabase.from('health_data').upsert({ user_id: uid, bloodType: health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organDonor: health.organDonor, triageOverride: health.triageOverride }, { onConflict: 'user_id' });
-      });
+  // NEW: warn if not authenticated (server write will be skipped)
+  if (!isSupabaseAvailable) { toast('Saved locally (offline mode)', 'info'); generateQRCode(); return; }
+
+  supabase.auth.getSession().then(function(r){
+    var session = r && r.data ? r.data.session : null;
+    if (!session) { toast('Saved locally — please sign in to sync', 'info'); generateQRCode(); return; }
+
+    upsertProfileSmart(profile)
+      .then(function(){ toast('Profile saved', 'success'); generateQRCode(); })
+      .catch(function(e){ console.error(e); toast('Error saving profile','error'); });
+  });
+}
+function saveHealth() {
+  // ...build health object (unchanged)...
+  userData.health = health;
+  localStorage.setItem('myqer_health', JSON.stringify(health));
+
+  if (!isSupabaseAvailable) { calculateTriage(); toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+
+  supabase.auth.getSession().then(function(r){
+    var session = r && r.data ? r.data.session : null;
+    if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
+
+    getUserId().then(function(uid){
+      if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
+      return supabase.from('health_data').upsert(
+        { user_id: uid, bloodType: health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organDonor: health.organDonor, triageOverride: health.triageOverride },
+        { onConflict: 'user_id' }
+      );
+    })
+    .then(function(){ calculateTriage(); toast('Health info saved','success'); generateQRCode(); })
+    .catch(function(e){ console.error(e); toast('Error saving health','error'); });
+  });
+}
     }
 
     p.then(function(){
@@ -584,7 +592,7 @@
     on($('btnSignOut'),  'click', function () {
       (isSupabaseAvailable ? supabase.auth.signOut().catch(function(e){ console.warn(e); }) : Promise.resolve())
         .then(function(){
-          try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+          
           location.href = 'index.html';
         });
     });
