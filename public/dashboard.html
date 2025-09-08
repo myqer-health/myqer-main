@@ -1992,6 +1992,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 400);
 });
 </script>
+  <script>
+/* Force init + guard against early errors + lazy-load QR lib if missing */
+(function () {
+  function safe(fn){ try{ fn && fn(); }catch(e){ console.error(e); } }
+
+  async function ensureQRCodeLib() {
+    if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+
+  async function boot() {
+    safe(() => updateLanguage('en'));         // fixes i18n keys showing
+    safe(updateNetworkStatus);                // set ONLINE/OFFLINE pill
+    safe(renderIceContacts);                  // paint ICE rows if any
+    await ensureQRCodeLib();                  // make sure QR lib exists
+    safe(generateQRCode);                     // draw the QR
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot); // run after all scripts finished
+})();
+</script>
 <!-- Cloudflare bot-protection snippet (leave as-is) -->
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d= b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97984376b004496e',t:'MTc1NjkzNDEzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
