@@ -1422,13 +1422,15 @@
     </footer>
 <script>
 /* =========================
-   MYQER — Clean Dashboard Script
-   (drop-in, single source of truth)
+   MYQER — Dashboard Script (fixed + server-sync)
    ========================= */
 
-/* ---------- Globals ---------- */
+/* ---------- Helpers ---------- */
 const $  = (id) => document.getElementById(id);
 const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+const later = (ms) => new Promise(r => setTimeout(r, ms));
+const withTimeout = (p, ms, label='promise') =>
+  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))]);
 
 let supabase, isSupabaseAvailable = false;
 let isOnline = navigator.onLine;
@@ -1447,23 +1449,16 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
       isSupabaseAvailable = true;
       console.log('✅ Supabase ready');
     }
-  } catch (e) {
-    console.warn('⚠️ Supabase init failed:', e);
-  }
+  } catch (e) { console.warn('⚠️ Supabase init failed:', e); }
 })();
 const getUserId = async () => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
   return data?.user?.id || null;
 };
-const withTimeout = (p, ms, label='promise') =>
-  Promise.race([
-    p,
-    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))
-  ]);
 
 /* ---------- Toasts ---------- */
-const toast = (msg, type='success', ms=3500) => {
+const toast = (msg, type='success', ms=2500) => {
   let area = $('toastArea');
   if (!area) {
     area = document.createElement('div');
@@ -1483,35 +1478,33 @@ const toast = (msg, type='success', ms=3500) => {
 const updateNetworkStatus = () => {
   const badge = $('netStatus'), banner = $('offlineBanner');
   if (navigator.onLine) {
-    badge && (badge.textContent = 'Online', badge.className='online');
+    badge && (badge.textContent = 'ONLINE', badge.classList.remove('offline'), badge.classList.add('online'));
     banner && (banner.style.display='none');
-    if (!isOnline) toast('Back online - syncing changes', 'success');
+    if (!isOnline) toast('Back online — syncing…', 'success');
     isOnline = true;
   } else {
-    badge && (badge.textContent = 'Offline', badge.className='offline');
+    badge && (badge.textContent = 'OFFLINE', badge.classList.remove('online'), badge.classList.add('offline'));
     banner && (banner.style.display='block');
-    if (isOnline) toast('Working offline - changes saved locally', 'info');
+    if (isOnline) toast('Working offline — saving locally', 'info');
     isOnline = false;
   }
 };
 
-/* ---------- Autosave helper ---------- */
+/* ---------- Autosave ---------- */
 const setupAutoSave = (id, fn, delay=600) => {
   const el = $(id);
   if (!el) return;
   on(el, 'input', () => {
     clearTimeout(autoSaveTimers[id]);
     autoSaveTimers[id] = setTimeout(async () => {
-      try { await fn(); showFieldSaved(id); toast('Changes saved automatically','success',2000); }
-      catch (e) { console.error('Autosave error', e); toast('Auto-save failed','error'); }
+      try { await fn(); showFieldSaved(id); } catch (e) { console.error('Autosave error', e); toast('Auto-save failed','error'); }
     }, delay);
   });
 };
 const showFieldSaved = (id) => {
-  const el = $(id);
-  if (!el) return;
+  const el = $(id); if (!el) return;
   el.classList.add('field-saved','show-check');
-  setTimeout(() => el.classList.remove('show-check'), 1500);
+  setTimeout(() => el.classList.remove('show-check'), 1200);
 };
 
 /* ---------- TRIAGE ---------- */
@@ -1522,24 +1515,17 @@ const updateTriagePill = (level='green') => {
   pill.classList.add(level);
   pill.textContent = level.toUpperCase();
 };
+// Auto-amber if allergies OR conditions has content (unless overridden)
 const calculateTriage = () => {
   const overSel = $('triageOverride');
   const override = overSel ? overSel.value : 'auto';
   if (override && override !== 'auto') return updateTriagePill(override);
 
-  const norm = (s='') => s.toString().toLowerCase();
-  const allergies  = norm($('hfAllergies')?.value);
-  const conditions = norm($('hfConditions')?.value);
-  const meds       = norm($('hfMeds')?.value);
+  const allergies  = ($('hfAllergies')?.value || '').trim();
+  const conditions = ($('hfConditions')?.value || '').trim();
 
-  let score = 0;
-  if (allergies.includes('anaphylaxis') || allergies.includes('severe')) score = 5; // red shortcut
-  if (conditions.includes('heart') || conditions.includes('cardiac'))    score = Math.max(score,3);
-  if (conditions.includes('diabetes') && meds.includes('insulin'))       score = Math.max(score,3);
-  if (conditions.includes('epilepsy') || conditions.includes('seizure')) score = Math.max(score,3);
-  if (meds.includes('warfarin') || meds.includes('blood thinner'))       score = Math.max(score,3);
-
-  updateTriagePill(score >= 5 ? 'red' : score >= 3 ? 'amber' : 'green');
+  if (allergies || conditions) updateTriagePill('amber');
+  else updateTriagePill('green');
 };
 
 /* ---------- QR + Short Code ---------- */
@@ -1556,20 +1542,21 @@ const generateShortCode = () => {
 const ensureShortCode = async () => {
   let code = localStorage.getItem('myqer_shortcode') || generateShortCode();
   if (!(isSupabaseAvailable && isOnline)) return code;
-
   try {
-    const uid = await getUserId();
-    if (!uid) return code;
-
-    for (let i=0;i<5;i++){
-      const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
-      if (!error) break;
-      const msg = `${error.message||''} ${error.details||''}`.toLowerCase();
-      if (msg.includes('duplicate')) { code = makeShort_3_4_3(); localStorage.setItem('myqer_shortcode', code); continue; }
-      console.warn('ensureShortCode upsert err:', error); break;
-    }
+    const uid = await getUserId(); if (!uid) return code;
+    await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
   } catch(e){ console.warn('ensureShortCode failed', e); }
   return code;
+};
+// load QR lib on demand
+const ensureQRCodeLib = async () => {
+  if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
+  await new Promise((res, rej) => {
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('QRCode lib failed to load'));
+    document.head.appendChild(s);
+  });
 };
 const buildOfflineText = (shortUrl) => {
   const pf = userData?.profile || {}, hd = userData?.health || {};
@@ -1582,9 +1569,7 @@ const buildOfflineText = (shortUrl) => {
   const L3 = [hd.conditions && `COND: ${hd.conditions}`, hd.medications && `MED: ${hd.medications}`, hd.implants && `IMP: ${hd.implants}`, `DONOR:${donor}`].filter(Boolean).join(' | ');
   if (L3) L.push(L3);
   L.push(`URL:${shortUrl}`);
-  let text = L.join('\n');
-  if (text.length > 1200) text = text.slice(0,1200);
-  return text;
+  return L.join('\n').slice(0,1200);
 };
 const generateQRCode = async () => {
   const qrCanvas = $('qrCanvas'), qrPlaceholder = $('qrPlaceholder'), codeEl = $('codeUnderQR'), urlEl = $('cardUrl'), status = $('qrStatus');
@@ -1604,52 +1589,54 @@ const generateQRCode = async () => {
 
   const code = await ensureShortCode();
   const shortUrl = `https://www.myqer.com/c/${code}`;
-
   codeEl && (codeEl.textContent = code);
   urlEl  && (urlEl.value = shortUrl);
 
-  if (qrCanvas && window.QRCode) {
+  try {
+    await ensureQRCodeLib();
     const ctx = qrCanvas.getContext('2d'); ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height);
     await new Promise((res,rej)=> QRCode.toCanvas(qrCanvas, shortUrl, { width: 200, errorCorrectionLevel:'H', margin:1 }, e=> e?rej(e):res()));
     qrCanvas.style.display = 'block';
+    qrPlaceholder && (qrPlaceholder.style.display='none');
+    status && (status.textContent='QR Code generated successfully', status.style.background='rgba(5,150,105,.1)', status.style.color='var(--green)', status.hidden=false);
+    const off = $('offlineText'); off && (off.value = buildOfflineText(shortUrl));
+  } catch (e) {
+    console.error('QR render failed:', e);
+    status && (status.textContent='QR generation failed', status.style.background='rgba(239,68,68,.1)', status.style.color='var(--red)', status.hidden=false);
   }
-  qrPlaceholder && (qrPlaceholder.style.display='none');
-
-  status && (status.textContent='QR Code generated successfully', status.style.background='rgba(5,150,105,.1)', status.style.color='var(--green)', status.hidden=false);
-
-  const off = $('offlineText'); off && (off.value = buildOfflineText(shortUrl));
-  console.log('🔗 QR ready:', shortUrl);
 };
 
-/* ---------- ICE Contacts ---------- */
+/* ---------- ICE Contacts (safe render) ---------- */
 const renderIceContacts = () => {
   const box = $('iceContactsList'); if (!box) return;
   box.innerHTML = '';
+
   (iceContacts || []).forEach((contact, idx) => {
     const row = document.createElement('div');
     row.className = 'ice-row'; row.dataset.index = idx;
-    row.innerHTML = `
-      <div class="ice-contact-header">
-        <div class="contact-number">${idx+1}</div>
-        <div class="ice-actions">
-          <button class="iceSaveBtn" data-act="save" data-idx="${idx}">Save</button>
-          <button class="iceDeleteBtn" data-act="del" data-idx="${idx}" aria-label="Delete contact">✖</button>
-        </div>
-      </div>
-      <div class="ice-form-grid">
-        <div class="form-group">
-          <label>Name</label>
-          <input type="text" class="iceName" data-field="name" data-idx="${idx}" value="${contact.name||''}" placeholder="Name">
-        </div>
-        <div class="form-group">
-          <label>Relationship</label>
-          <input type="text" class="iceRelation" data-field="relationship" data-idx="${idx}" value="${contact.relationship||''}" placeholder="Spouse, Parent">
-        </div>
-        <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" class="icePhone" data-field="phone" data-idx="${idx}" value="${contact.phone||''}" placeholder="+1 555 123 4567">
-        </div>
-      </div>`;
+
+    const header = document.createElement('div'); header.className = 'ice-contact-header';
+    const num = document.createElement('div'); num.className = 'contact-number'; num.textContent = String(idx+1);
+    const actions = document.createElement('div'); actions.className = 'ice-actions';
+    const saveBtn = document.createElement('button'); saveBtn.className='iceSaveBtn'; saveBtn.dataset.act='save'; saveBtn.dataset.idx=String(idx); saveBtn.textContent='Save';
+    const delBtn  = document.createElement('button'); delBtn.className='iceDeleteBtn'; delBtn.dataset.act='del'; delBtn.dataset.idx=String(idx); delBtn.setAttribute('aria-label','Delete contact'); delBtn.textContent='✖';
+    actions.append(saveBtn, delBtn);
+    header.append(num, actions);
+
+    const grid = document.createElement('div'); grid.className = 'ice-form-grid';
+    const make = (labelTxt, type, cls, field, value, ph) => {
+      const g = document.createElement('div'); g.className='form-group';
+      const l = document.createElement('label'); l.textContent = labelTxt;
+      const i = document.createElement('input'); i.type=type; i.className=cls; i.dataset.field=field; i.dataset.idx=String(idx); i.value=value||''; if (ph) i.placeholder=ph;
+      g.append(l,i); return g;
+    };
+    grid.append(
+      make('Name','text','iceName','name',contact.name,'Name'),
+      make('Relationship','text','iceRelation','relationship',contact.relationship,'Spouse, Parent'),
+      make('Phone','tel','icePhone','phone',contact.phone,'+1 555 123 4567')
+    );
+
+    row.append(header, grid);
     box.appendChild(row);
   });
 
@@ -1659,9 +1646,7 @@ const renderIceContacts = () => {
     else { addBtn.disabled = false; addBtn.textContent = 'Add Emergency Contact'; }
   }
 };
-const persistIceLocally = () => {
-  localStorage.setItem('myqer_ice', JSON.stringify(iceContacts || []));
-};
+const persistIceLocally = () => localStorage.setItem('myqer_ice', JSON.stringify(iceContacts || []));
 const addIceContact = () => {
   iceContacts = Array.isArray(iceContacts) ? iceContacts : [];
   if (iceContacts.length >= 3) return toast('Maximum 3 emergency contacts allowed','error');
@@ -1676,27 +1661,21 @@ const updateIceContact = (idx, field, value) => {
 const saveICEToServer = async () => {
   if (!(isSupabaseAvailable && isOnline)) return;
   const uid = await getUserId(); if (!uid) return;
-
-  // Replace all rows for this user
   const { error: delErr } = await supabase.from('ice_contacts').delete().eq('user_id', uid);
   if (delErr) throw delErr;
-
   const rows = (iceContacts || []).filter(c => c.name || c.phone).map((c,i)=>({
     user_id: uid, contact_order: i, name: c.name || '', relationship: c.relationship || '', phone: c.phone || ''
   }));
-  if (!rows.length) return; // empty stays empty on server — fixes the "ghost contacts" bug
-
+  if (!rows.length) return;
   const { error } = await supabase.from('ice_contacts').insert(rows);
   if (error) throw error;
 };
 const saveICE = async () => {
-  // Validate
   const entries = (iceContacts||[]).map(c => ({ name:(c.name||'').trim(), relationship:(c.relationship||'').trim(), phone:(c.phone||'').trim() }))
                                   .filter(c => c.name || c.phone);
   if (entries.length > 3) return toast('Maximum 3 emergency contacts allowed','error');
   const invalid = entries.find(c => !(c.name && c.phone));
   if (invalid) return toast('Each contact needs a name and phone','error');
-
   iceContacts = entries;
   persistIceLocally();
   try { await saveICEToServer(); toast('Emergency contacts saved','success'); }
@@ -1704,7 +1683,7 @@ const saveICE = async () => {
   renderIceContacts(); generateQRCode();
 };
 
-/* ---------- Profile & Health ---------- */
+/* ---------- Profile & Health (save + sync) ---------- */
 const saveProfile = async () => {
   const profile = {
     fullName: $('profileFullName')?.value?.trim() || '',
@@ -1712,26 +1691,18 @@ const saveProfile = async () => {
     country:  $('profileCountry')?.value?.trim() || '',
     healthId: $('profileHealthId')?.value?.trim() || ''
   };
-  if (!profile.fullName) return toast('Full name is required','error');
-  if (profile.dob && !/^\d{4}-\d{2}-\d{2}$/.test(profile.dob)) return toast('Use YYYY-MM-DD for Date of Birth','error');
-
   userData.profile = profile;
   localStorage.setItem('myqer_profile', JSON.stringify(profile));
 
   try {
     if (isSupabaseAvailable && isOnline) {
-      const uid = await getUserId(); if (!uid) throw new Error('No authenticated user');
+      const uid = await getUserId(); if (!uid) return;
       const code = await ensureShortCode();
-      const row  = { user_id: uid, code, ...profile };
-      const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' });
-      if (error) throw error;
+      const { error } = await supabase.from('profiles').upsert({ user_id: uid, code, ...profile }, { onConflict: 'user_id' });
+      if (error) console.warn(error);
     }
-    toast('Profile saved successfully','success');
-    $('profileMsg') && ($('profileMsg').textContent = '✓ Profile saved successfully', $('profileMsg').className='status-msg success', $('profileMsg').style.display='block');
     generateQRCode();
-  } catch (e) {
-    console.error(e); toast('Error saving profile: ' + e.message,'error');
-  }
+  } catch (e) { console.error(e); }
 };
 const saveHealth = async () => {
   const health = {
@@ -1748,65 +1719,47 @@ const saveHealth = async () => {
 
   try {
     if (isSupabaseAvailable && isOnline) {
-      const uid = await getUserId(); if (!uid) throw new Error('No authenticated user');
-      const row = { user_id: uid, ...health };
-      const { error } = await supabase.from('health_data').upsert(row, { onConflict: 'user_id' });
-      if (error) throw error;
+      const uid = await getUserId(); if (!uid) return;
+      const { error } = await supabase.from('health_data').upsert({ user_id: uid, ...health }, { onConflict: 'user_id' });
+      if (error) console.warn(error);
     }
     calculateTriage();
-    toast('Health information saved','success');
-    $('healthMsg') && ($('healthMsg').textContent='✓ Health information saved', $('healthMsg').className='status-msg success', $('healthMsg').style.display='block');
     generateQRCode();
-  } catch (e) {
-    console.error(e); toast('Error saving health data: ' + e.message,'error');
-  }
+  } catch (e) { console.error(e); }
 };
 
-/* ---------- Load (local-first, server-sync) ---------- */
+/* ---------- Load (local-first, then server) ---------- */
 const fillFromLocal = () => {
   try {
-    // profile
-    const lp = localStorage.getItem('myqer_profile');
-    if (lp) {
-      userData.profile = JSON.parse(lp) || {};
-      const p = userData.profile, set = (id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-      set('profileFullName', p.fullName); set('profileDob', p.dob); set('profileCountry', p.country); set('profileHealthId', p.healthId);
-    }
-    // health
-    const lh = localStorage.getItem('myqer_health');
-    if (lh) {
-      userData.health = JSON.parse(lh) || {};
-      const h = userData.health, set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-      set('hfBloodType', h.bloodType); set('hfAllergies', h.allergies); set('hfConditions', h.conditions);
-      set('hfMeds', h.medications); set('hfImplants', h.implants);
-      $('hfDonor') && ($('hfDonor').checked = !!h.organDonor);
-      $('triageOverride') && ($('triageOverride').value = h.triageOverride || 'auto');
-      calculateTriage();
-    }
-    // ice
-    const li = localStorage.getItem('myqer_ice');
-    iceContacts = li ? (JSON.parse(li) || []) : [];
+    const lp = localStorage.getItem('myqer_profile'); if (lp) userData.profile = JSON.parse(lp) || {};
+    const p = userData.profile;
+    const set = (id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+    set('profileFullName', p.fullName); set('profileDob', p.dob); set('profileCountry', p.country); set('profileHealthId', p.healthId);
+
+    const lh = localStorage.getItem('myqer_health'); if (lh) userData.health = JSON.parse(lh) || {};
+    const h = userData.health;
+    set('hfBloodType', h.bloodType); set('hfAllergies', h.allergies); set('hfConditions', h.conditions);
+    set('hfMeds', h.medications); set('hfImplants', h.implants);
+    $('hfDonor') && ($('hfDonor').checked = !!h.organDonor);
+    $('triageOverride') && ($('triageOverride').value = h.triageOverride || 'auto');
+    calculateTriage();
+
+    const li = localStorage.getItem('myqer_ice'); iceContacts = li ? (JSON.parse(li) || []) : [];
     renderIceContacts();
-    generateQRCode();
   } catch(e){ console.warn('Local fill failed', e); }
 };
-const loadUserData = async () => {
-  // local immediately
-  fillFromLocal();
-
-  // server optional
-  if (!(isSupabaseAvailable && isOnline)) return hideSpinner();
-
+const loadFromServer = async () => {
+  if (!(isSupabaseAvailable && isOnline)) return;
   try {
     const { data: { session } } = await withTimeout(supabase.auth.getSession(), 3000, 'getSession');
-    if (!session) { showSignInNote(); return; }
-    const uid = await withTimeout(getUserId(), 3000, 'getUserId'); if (!uid) { showSignInNote(); return; }
+    if (!session) return;
+    const uid = await withTimeout(getUserId(), 3000, 'getUserId'); if (!uid) return;
 
-    // profiles
+    // profile
     const { data: prof } = await withTimeout(
       supabase.from('profiles').select('*').eq('user_id', uid).maybeSingle(),
       4000, 'profiles.select'
-    ).catch(() => ({ data:null }));
+    ).catch(()=>({ data:null }));
     if (prof) {
       userData.profile = { ...userData.profile, ...prof };
       localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
@@ -1840,49 +1793,15 @@ const loadUserData = async () => {
       localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
       renderIceContacts();
     }
-
-    await ensureShortCode();
-    await generateQRCode();
-  } catch (e) {
-    console.warn('Load (server) non-fatal:', e);
-  } finally {
-    hideSpinner();
-  }
-};
-const showSignInNote = () => {
-  const box=$('errorBox'), msg=$('errorMsg');
-  msg && (msg.textContent='Please sign in first, then return to the dashboard.');
-  box && (box.style.display='block');
-  hideSpinner();
+  } catch(e){ console.warn('Server load failed', e); }
 };
 
-/* ---------- Delete account ---------- */
-const deleteAccount = async () => {
-  const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
-  if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the confirmation phrase exactly','error');
-  if (!confirm('Are you absolutely sure? This permanently deletes your data.')) return;
-
-  try {
-    if (isSupabaseAvailable && isOnline) {
-      const uid = await getUserId(); if (!uid) throw new Error('No authenticated user');
-      await supabase.from('ice_contacts').delete().eq('user_id', uid);
-      await supabase.from('health_data').delete().eq('user_id', uid);
-      await supabase.from('profiles').delete().eq('user_id', uid);
-    }
-    localStorage.clear(); sessionStorage.clear();
-    toast('Account deleted. Redirecting…','success');
-    setTimeout(()=> location.href='/', 1200);
-  } catch(e) {
-    console.error(e); toast('Error deleting account: ' + e.message, 'error');
-  }
-};
-
-/* ---------- QR / Buttons ---------- */
+/* ---------- UI: QR Buttons ---------- */
 const wireQRButtons = () => {
   on($('copyLink'), 'click', async () => {
     const url = $('cardUrl')?.value?.trim();
     if (!url) return toast('No link to copy','error');
-    try { await navigator.clipboard.writeText(url); toast('Link copied to clipboard','success'); }
+    try { await navigator.clipboard.writeText(url); toast('Link copied','success'); }
     catch { toast('Copy failed','error'); }
   });
   on($('openLink'), 'click', () => {
@@ -1898,10 +1817,7 @@ const wireQRButtons = () => {
   on($('dlSVG'), 'click', async () => {
     const url = $('cardUrl')?.value?.trim(); if (!url) return toast('Generate QR first','error');
     try {
-      if (!(window.QRCode && typeof window.QRCode.toString === 'function')) {
-        const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-        await new Promise((res,rej)=>{ s.onload=res; s.onerror=rej; document.head.appendChild(s); });
-      }
+      await ensureQRCodeLib();
       const svg = await new Promise((res,rej)=> QRCode.toString(url, {type:'svg', errorCorrectionLevel:'H', margin:1}, (e,s)=> e?rej(e):res(s)));
       const blob = new Blob([svg], {type:'image/svg+xml'}), a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = 'myqer-emergency-qr.svg'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
@@ -1951,7 +1867,6 @@ const showError = (msg) => { const box=$('errorBox'), m=$('errorMsg'); m && (m.t
 
 /* ---------- DOM Ready ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
-  // Net status
   updateNetworkStatus();
   window.addEventListener('online',  updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
@@ -1978,48 +1893,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Triage override
+  // Triage live updates + override persistence
+  ['hfAllergies','hfConditions'].forEach(id => on($(id), 'input', () => { calculateTriage(); setupAutoSave(id, saveHealth, 400); }));
   on($('triageOverride'), 'change', () => { calculateTriage(); saveHealth(); });
 
-  // Autosaves
+  // Autosaves (profile/health fields)
   ['profileFullName','profileDob','profileCountry','profileHealthId']
     .forEach(id => setupAutoSave(id, saveProfile));
-  ['hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants']
+  ['hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants','hfDonor']
     .forEach(id => setupAutoSave(id, saveHealth));
 
-  // Delete account flow
-  on($('deletePhrase'), 'input', () => {
-    const ok = ($('deletePhrase').value || '').trim().toUpperCase() === 'DELETE MY ACCOUNT';
-    const btn = $('deleteBtn'); if (!btn) return;
-    btn.disabled = !ok; btn.style.background = ok ? '#DC2626' : 'var(--light-slate)'; btn.style.cursor = ok ? 'pointer' : 'not-allowed';
-  });
-  on($('deleteBtn'), 'click', deleteAccount);
-
-  // Sign out
+  // Logout — always go to index.html
   on($('btnSignOut'), 'click', async () => {
-    if (!confirm('Are you sure you want to logout?')) return;
-    try { const { error } = await supabase.auth.signOut(); if (error) throw error; localStorage.clear(); sessionStorage.clear(); location.href='/'; }
-    catch(e){ console.error(e); alert('Logout failed, please try again'); }
+    try { if (isSupabaseAvailable) await supabase.auth.signOut(); } catch(e){ console.warn(e); }
+    localStorage.clear(); sessionStorage.clear();
+    location.href='index.html';
   });
 
   // QR buttons
   wireQRButtons();
 
-  // Load data
-  await loadUserData();
+  // Load: local first (instant), then server (if logged in)
+  fillFromLocal();
+  await generateQRCode();
+  await loadFromServer();
+  await generateQRCode(); // re-draw with server values
 
-  // Smooth loading transition
-  setTimeout(() => {
-    const loading = $('loadingState');
-    if (loading) { loading.style.opacity='0'; loading.style.transition='opacity .4s'; setTimeout(()=>loading.style.display='none', 400); }
-  }, 600);
+  // Smooth loading transition + failsafes
+  setTimeout(hideSpinner, 500);
 });
-
-/* ---------- Global traps (never-stuck loader) ---------- */
+/* ---------- Global traps ---------- */
 window.addEventListener('error', (e) => { hideSpinner(); showError('JavaScript error: ' + (e.message || 'Unknown error')); console.error('Uncaught error:', e.error || e.message); });
 window.addEventListener('unhandledrejection', (e) => { hideSpinner(); showError('Promise error: ' + (e.reason?.message || String(e.reason))); console.error('Unhandled rejection:', e.reason); });
-
-// Hard failsafe: kill spinner after 4s regardless
 setTimeout(hideSpinner, 4000);
 </script>
 <!-- Cloudflare bot-protection snippet (leave as-is) -->
