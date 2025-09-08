@@ -1403,18 +1403,15 @@
             </div>
         </div>
     </footer>
-  <script>
-/* =========================
-   MYQER — Clean Dashboard Script
-   (drop-in, single source of truth)
-   ========================= */
+<!-- ==================== DASHBOARD CORE (clean, hardened) ==================== -->
+<script>
 /* ---------- Globals ---------- */
 const $  = (id) => document.getElementById(id);
 const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
 let supabase, isSupabaseAvailable = false;
-let isOnline  = navigator.onLine;
-let userData  = { profile: {}, health: {} };
+let isOnline = navigator.onLine;
+let userData = { profile: {}, health: {} };
 let iceContacts = [];
 const autoSaveTimers = {};
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
@@ -1422,8 +1419,8 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
 /* ---------- Supabase ---------- */
 (() => {
   try {
-    const URL = 'https://dmntmhkncldgynufajei.supabase.co';
-    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+    const URL  = 'https://dmntmhkncldgynufajei.supabase.co';
+    const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
     if (window.supabase && URL && KEY) {
       supabase = window.supabase.createClient(URL, KEY);
       isSupabaseAvailable = true;
@@ -1433,18 +1430,19 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
     console.warn('⚠️ Supabase init failed:', e);
   }
 })();
-
-async function getUserId() {
+const getUserId = async () => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
   return data?.user?.id || null;
-}
-
+};
 const withTimeout = (p, ms, label='promise') =>
-  Promise.race([ p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms)) ]);
+  Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms))
+  ]);
 
 /* ---------- Toasts ---------- */
-function toast(msg, type='success', ms=3500) {
+const toast = (msg, type='success', ms=3500) => {
   let area = $('toastArea');
   if (!area) {
     area = document.createElement('div');
@@ -1458,28 +1456,26 @@ function toast(msg, type='success', ms=3500) {
   area.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, ms);
-}
+};
 
 /* ---------- Net status ---------- */
-function updateNetworkStatus() {
+const updateNetworkStatus = () => {
   const badge = $('netStatus'), banner = $('offlineBanner');
   if (navigator.onLine) {
-    badge && (badge.textContent='Online', badge.className='online');
+    badge && (badge.textContent = 'Online', badge.className='online');
     banner && (banner.style.display='none');
     if (!isOnline) toast('Back online - syncing changes', 'success');
     isOnline = true;
   } else {
-    badge && (badge.textContent='Offline', badge.className='offline');
+    badge && (badge.textContent = 'Offline', badge.className='offline');
     banner && (banner.style.display='block');
     if (isOnline) toast('Working offline - changes saved locally', 'info');
     isOnline = false;
   }
-}
-window.addEventListener('online',  updateNetworkStatus);
-window.addEventListener('offline', updateNetworkStatus);
+};
 
 /* ---------- Autosave helper ---------- */
-function setupAutoSave(id, fn, delay=600) {
+const setupAutoSave = (id, fn, delay=600) => {
   const el = $(id);
   if (!el) return;
   on(el, 'input', () => {
@@ -1489,77 +1485,66 @@ function setupAutoSave(id, fn, delay=600) {
       catch (e) { console.error('Autosave error', e); toast('Auto-save failed','error'); }
     }, delay);
   });
-}
-function showFieldSaved(id) {
-  const el = $(id); if (!el) return;
+};
+const showFieldSaved = (id) => {
+  const el = $(id);
+  if (!el) return;
   el.classList.add('field-saved','show-check');
   setTimeout(() => el.classList.remove('show-check'), 1500);
-}
+};
 
-/* ---------- TRIAGE (auto) ---------- */
+/* ---------- TRIAGE ---------- */
 const TRIAGE = ['green','amber','red','black'];
-function updateTriagePill(level='green') {
+const updateTriagePill = (level='green') => {
   const pill = $('triagePill'); if (!pill) return;
   TRIAGE.forEach(c => pill.classList.remove(c));
   pill.classList.add(level);
   pill.textContent = level.toUpperCase();
-}
-
-/* Rules:
-   - Any non-empty Allergies => at least AMBER.
-   - “anaphylaxis” or “severe” in allergies => RED.
-   - Cardiac/heart => AMBER.
-   - Diabetes + insulin => AMBER.
-   - Epilepsy/seizure => AMBER.
-   - Blood thinner meds / warfarin => AMBER.
-*/
-function calculateTriage() {
-  const overSel  = $('triageOverride');
+};
+const calculateTriage = () => {
+  const overSel = $('triageOverride');
   const override = overSel ? overSel.value : 'auto';
   if (override && override !== 'auto') return updateTriagePill(override);
 
-  const norm = (s='') => s.toString().toLowerCase().trim();
-
+  const norm = (s='') => s.toString().toLowerCase();
   const allergies  = norm($('hfAllergies')?.value);
   const conditions = norm($('hfConditions')?.value);
   const meds       = norm($('hfMeds')?.value);
 
-  // Start at green
-  let level = 'green';
+  // Rule set:
+  // - any allergy text => AMBER
+  // - keywords 'anaphylaxis' or 'severe' => RED
+  // - cardiac/heart, diabetes+insulin, epilepsy/seizure, blood thinner => AMBER minimum
+  if (allergies.includes('anaphylaxis') || allergies.includes('severe')) return updateTriagePill('red');
+  if (allergies.trim().length > 0) return updateTriagePill('amber');
+  if (conditions.includes('heart') || conditions.includes('cardiac')) return updateTriagePill('amber');
+  if (conditions.includes('diabetes') && meds.includes('insulin')) return updateTriagePill('amber');
+  if (conditions.includes('epilepsy') || conditions.includes('seizure')) return updateTriagePill('amber');
+  if (meds.includes('warfarin') || meds.includes('blood thinner')) return updateTriagePill('amber');
 
-  // Allergy rules
-  if (allergies) level = 'amber'; // any allergy bumps to amber
-  if (allergies.includes('anaphylaxis') || allergies.includes('severe')) level = 'red';
-
-  // Other amber triggers (only elevate if not already red)
-  if (level !== 'red') {
-    if (conditions.includes('heart') || conditions.includes('cardiac')) level = 'amber';
-    if (conditions.includes('diabetes') && meds.includes('insulin'))   level = 'amber';
-    if (conditions.includes('epilepsy') || conditions.includes('seizure')) level = 'amber';
-    if (meds.includes('warfarin') || meds.includes('blood thinner'))   level = 'amber';
-  }
-
-  updateTriagePill(level);
-}
+  updateTriagePill('green');
+};
 
 /* ========= QR helpers (robust, retina-safe) ========= */
+// Load QR lib from two CDNs (jsDelivr, unpkg) with feature check
 async function ensureQRCodeLib() {
-  if (window.QRCode && typeof QRCode.toCanvas === 'function') return;
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Failed to load QRCode library'));
-    document.head.appendChild(s);
+  const ok = () => (window.QRCode && typeof QRCode.toCanvas === 'function');
+  if (ok()) return;
+  await new Promise((resolve) => {
+    const add = (src, onload) => { const s = document.createElement('script'); s.src = src; s.onload = onload; s.onerror = onload; document.head.appendChild(s); };
+    add('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js', () => {
+      if (ok()) return resolve();
+      add('https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js', () => resolve());
+    });
   });
 }
 
 function prepareQrCanvas(size = 220) {
-  const canvas = $('qrCanvas');
-  const ph     = $('qrPlaceholder');
+  const canvas = document.getElementById('qrCanvas');
+  const ph     = document.getElementById('qrPlaceholder');
   if (!canvas) throw new Error('#qrCanvas not found');
 
-  const scale = window.devicePixelRatio || 1;
+  const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
   canvas.width  = size * scale;
   canvas.height = size * scale;
   canvas.style.width  = size + 'px';
@@ -1571,96 +1556,36 @@ function prepareQrCanvas(size = 220) {
 
   if (ph) ph.style.display = 'none';
   canvas.style.display = 'block';
-  return { canvas, ctx, size, scale };
+  return { canvas, size };
 }
 
 async function drawQR(text) {
   await ensureQRCodeLib();
+  if (!(window.QRCode && typeof QRCode.toCanvas === 'function')) {
+    throw new Error('QR library unavailable');
+  }
   const { canvas, size } = prepareQrCanvas(220);
-
   try {
     await new Promise((res, rej) => {
-      QRCode.toCanvas(canvas, text, { errorCorrectionLevel: 'H', margin: 1, width: size }, e => e ? rej(e) : res());
+      QRCode.toCanvas(
+        canvas,
+        text,
+        { errorCorrectionLevel: 'H', margin: 1, width: size },
+        err => (err ? rej(err) : res())
+      );
     });
   } catch (e) {
-    try {
-      const dataUrl = await QRCode.toDataURL(text, { errorCorrectionLevel: 'H', margin: 1, width: size });
-      await new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = () => { canvas.getContext('2d').drawImage(img, 0, 0, size, size); res(); };
-        img.onerror = rej;
-        img.src = dataUrl;
-      });
-    } catch (e2) {
-      console.error('QR fallback failed:', e2);
-      throw e2;
-    }
+    // Fallback: render to DataURL, then paint onto canvas
+    const dataUrl = await QRCode.toDataURL(text, { errorCorrectionLevel:'H', margin:1, width:size });
+    await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => { canvas.getContext('2d').drawImage(img, 0, 0, size, size); res(); };
+      img.onerror = rej;
+      img.src = dataUrl;
+    });
   }
 }
 
-/* ---- Permanent short code ---- */
-function makeShortCode_3_4_3() {
-  const pick = n => Array.from({length:n}, () => CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
-  return `${pick(3)}-${pick(4)}-${pick(3)}`;
-}
-function generateShortCode() {
-  const valid = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
-  let code = localStorage.getItem('myqer_shortcode') || '';
-  if (!valid.test(code)) {
-    code = makeShortCode_3_4_3();
-    localStorage.setItem('myqer_shortcode', code);
-  }
-  return code;
-}
-async function ensureShortCode() {
-  let code = localStorage.getItem('myqer_shortcode') || generateShortCode();
-
-  if (isSupabaseAvailable && isOnline) {
-    try {
-      const uid = await getUserId();
-      if (!uid) return code;
-
-      for (let i = 0; i < 5; i++) {
-        const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
-        if (!error) break;
-
-        const msg = `${error.message || ''} ${error.details || ''}`.toLowerCase();
-        if (msg.includes('duplicate')) {
-          code = makeShortCode_3_4_3();
-          localStorage.setItem('myqer_shortcode', code);
-          continue;
-        }
-        console.warn('profiles.code upsert error:', error);
-        break;
-      }
-    } catch (e) {
-      console.warn('ensureShortCode() persist failed:', e);
-    }
-  }
-  return code;
-}
-
-/* ---- Offline text builder ---- */
-function buildOfflineText(shortUrl) {
-  const pf = userData?.profile || {};
-  const hd = userData?.health  || {};
-  const donor = hd.organDonor ? 'Y' : 'N';
-  const L = [];
-
-  const L1 = [pf.fullName && `Name: ${pf.fullName}`, pf.dob && `DOB: ${pf.dob}`, pf.country && `C: ${pf.country}`].filter(Boolean).join(' | ');
-  if (L1) L.push(L1);
-  const L2 = [hd.bloodType && `BT: ${hd.bloodType}`, hd.allergies && `ALG: ${hd.allergies}`].filter(Boolean).join(' | ');
-  if (L2) L.push(L2);
-  const L3 = [hd.conditions && `COND: ${hd.conditions}`, hd.medications && `MED: ${hd.medications}`, hd.implants && `IMP: ${hd.implants}`, `DONOR:${donor}`].filter(Boolean).join(' | ');
-  if (L3) L.push(L3);
-
-  L.push(`URL:${shortUrl}`);
-  let text = L.join('\n');
-  if (text.length > 1200) text = text.slice(0, 1200);
-  return text;
-}
-
-/* ---- QR generator (uses everything above) ---- */
 async function generateQRCode() {
   const qrCanvas      = $('qrCanvas');
   const qrPlaceholder = $('qrPlaceholder');
@@ -1668,7 +1593,6 @@ async function generateQRCode() {
   const cardUrlInput  = $('cardUrl');
   const qrStatus      = $('qrStatus');
 
-  // Require *some* data to avoid empty cards
   const hasProfile = !!(userData?.profile?.fullName);
   const hasHealth  = !!(userData?.health && (userData.health.bloodType || userData.health.allergies));
   const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
@@ -1682,6 +1606,7 @@ async function generateQRCode() {
     return;
   }
 
+  // `ensureShortCode()` is defined elsewhere in your file; we keep using it.
   const code = await ensureShortCode();
   const shortUrl = `https://www.myqer.com/c/${code}`;
   codeUnderQR && (codeUnderQR.textContent = code);
@@ -1689,12 +1614,14 @@ async function generateQRCode() {
 
   try {
     await drawQR(shortUrl);
-    qrStatus && (qrStatus.textContent = 'QR Code generated successfully',
-                 qrStatus.style.background = 'rgba(5,150,105,0.1)',
-                 qrStatus.style.color = 'var(--green)',
-                 qrStatus.hidden = false);
+    if (qrStatus) {
+      qrStatus.textContent = 'QR Code generated successfully';
+      qrStatus.style.background = 'rgba(5,150,105,0.1)';
+      qrStatus.style.color = 'var(--green)';
+      qrStatus.hidden = false;
+    }
     const offlineEl = $('offlineText');
-    if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+    if (offlineEl) offlineEl.value = buildOfflineText(shortUrl); // your builder elsewhere
     console.log('🔗 QR ready:', shortUrl);
   } catch (err) {
     console.error('QR render error:', err);
@@ -1704,10 +1631,9 @@ async function generateQRCode() {
   }
 }
 
-/* ===== Download/Print buttons ===== */
+/* ===== Buttons rely on the canvas actually having an image now ===== */
 document.addEventListener('DOMContentLoaded', () => {
-  updateNetworkStatus(); // set initial badge/banner
-
+  // PNG
   $('dlPNG')?.addEventListener('click', () => {
     const c = $('qrCanvas');
     if (!c || c.style.display === 'none') return toast('Generate QR first', 'error');
@@ -1717,6 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
     a.click();
   });
 
+  // SVG
   $('dlSVG')?.addEventListener('click', async () => {
     try {
       await ensureQRCodeLib();
@@ -1724,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const url  = $('cardUrl')?.value?.trim();
       if (!code || !url) return toast('Generate QR first', 'error');
       const svg = await new Promise((res, rej) => {
-        QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'H', margin: 1 }, (e, s) => e ? rej(e) : res(s));
+        QRCode.toString(url, { type:'svg', errorCorrectionLevel:'H', margin:1 }, (e, s) => e ? rej(e) : res(s));
       });
       const blob = new Blob([svg], { type: 'image/svg+xml' });
       const a = document.createElement('a');
@@ -1737,6 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Print
   $('printQR')?.addEventListener('click', () => {
     const canvas = $('qrCanvas');
     const code   = $('codeUnderQR')?.textContent?.trim();
@@ -1763,14 +1691,19 @@ document.addEventListener('DOMContentLoaded', () => {
     `);
     w.document.close();
   });
+
+  // Make triage react when user types
+  ['hfAllergies','hfConditions','hfMeds','triageOverride'].forEach(id => on($(id), 'input', calculateTriage));
+  on($('triageOverride'),'change',calculateTriage);
+
+  // Harden logout: attempt signOut, but always clear & redirect
+  $('btnSignOut')?.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to logout?')) return;
+    try { if (isSupabaseAvailable) await supabase.auth.signOut(); } catch (e) { console.warn('signOut error (ignored):', e); }
+    try { localStorage.clear(); sessionStorage.clear(); } catch {}
+    location.href = '/';
+  });
 });
-
-/* Expose key functions for other modules that may call them */
-window.calculateTriage  = calculateTriage;
-window.generateQRCode   = generateQRCode;
-window.ensureShortCode  = ensureShortCode;
-window.buildOfflineText = buildOfflineText;
-
 
 /* ---------- ICE Contacts ---------- */
 const renderIceContacts = () => {
