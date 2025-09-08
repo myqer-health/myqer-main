@@ -140,14 +140,32 @@ const ensureShortCode = async () => {
   } catch(e){ console.warn('ensureShortCode failed', e); }
   return code;
 };
+// robust loader: try jsDelivr, then unpkg
 const ensureQRCodeLib = async () => {
   if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
-  await new Promise((res, rej) => {
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-    s.onload=res; s.onerror=()=>rej(new Error('QRCode lib failed to load'));
-    document.head.appendChild(s);
-  });
+
+  const srcs = [
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
+    'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js'
+  ];
+
+  let lastErr;
+  for (const src of srcs) {
+    try {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.crossOrigin = 'anonymous';
+        s.onload = res;
+        s.onerror = () => rej(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+      });
+      if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('QR library blocked by network/content-blocker');
+};
 };
 const buildOfflineText = (shortUrl) => {
   const pf = userData?.profile || {}, hd = userData?.health || {};
