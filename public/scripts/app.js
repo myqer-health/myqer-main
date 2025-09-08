@@ -12,6 +12,11 @@
       p,
       new Promise(function (_ , rej){ setTimeout(function(){ rej(new Error(label + ' timed out')); }, ms); })
     ]);
+    function getQRCodeLib() {
+  if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return window.QRCode;
+  if (window.QRCode && window.QRCode.default && typeof window.QRCode.default.toCanvas === 'function') return window.QRCode.default;
+  throw new Error('QRCode library not available');
+}
   }
 
   var supabase, isSupabaseAvailable = false;
@@ -214,12 +219,13 @@ async function generateQRCode() {
   try {
     await ensureQRCodeLib();
 
-    const QR = (window.QRCode && typeof window.QRCode.toCanvas === 'function')
-      ? window.QRCode
-      : (window.QRCode?.default && typeof window.QRCode.default.toCanvas === 'function'
-          ? window.QRCode.default
-          : null);
-    if (!QR) throw new Error('QRCode lib not ready');
+    const QR = getQRCodeLib();
+await new Promise((res, rej) =>
+  QR.toCanvas(qrCanvas, shortUrl,
+    { errorCorrectionLevel: 'H', margin: 1, width: 200 },
+    e => e ? rej(e) : res()
+  )
+);
 
     const size  = 220;
     const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
