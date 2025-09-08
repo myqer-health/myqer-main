@@ -90,62 +90,68 @@
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ---- helpers ----
-  const qs = (id) => document.getElementById(id);
-  const code = (location.pathname.split('/').pop() || '').toUpperCase();
+  const $ = (id) => document.getElementById(id);
+  const pathLast = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+  const fromQS = new URLSearchParams(location.search).get('code') || '';
+  let code = (fromQS || pathLast(location.pathname)).toUpperCase();
 
-  if (!/^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/.test(code)) {
-    document.body.innerHTML = '<div class="wrap"><p>Card not found.</p></div>'; 
-  } else {
-    (async () => {
-      // 1) find the user by code
-      const { data: prof, error } = await supabase
-        .from('profiles')
-        .select('user_id, fullName, dob, country, healthId, code')
-        .eq('code', code)
-        .maybeSingle();
+  const CODE_RX = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
 
-      if (error || !prof) {
-        document.body.innerHTML = '<div class="wrap"><p>Card not found.</p></div>'; 
-        return;
-      }
+  const showNotFound = (msg='Card not found.') => {
+    document.body.innerHTML = `<div class="wrap"><p>${msg}</p></div>`;
+  };
 
-      // 2) load health + ice
-      const [{ data: health }, { data: ice }] = await Promise.all([
-        supabase.from('health_data').select('*').eq('user_id', prof.user_id).maybeSingle(),
-        supabase.from('ice_contacts').select('*').eq('user_id', prof.user_id).order('contact_order', { ascending:true })
-      ]);
+  (async () => {
+    if (!CODE_RX.test(code)) return showNotFound('Card not found.');
 
-      // 3) render
-      qs('v_name').textContent = prof.fullName || '—';
-      qs('v_dob').textContent = prof.dob || '—';
-      qs('v_country').textContent = prof.country || '—';
-      qs('v_hid').textContent = prof.healthId || '—';
+    // 1) find the user by code
+    const { data: prof, error } = await supabase
+      .from('profiles')
+      .select('user_id, fullName, dob, country, healthId, code')
+      .eq('code', code)
+      .maybeSingle();
 
-      if (health) {
-        qs('v_bt').textContent   = health.bloodType || '—';
-        qs('v_donor').textContent= health.organDonor ? 'Yes' : 'No';
-        qs('v_alg').textContent  = health.allergies || '—';
-        qs('v_cond').textContent = health.conditions || '—';
-        qs('v_meds').textContent = health.medications || '—';
-        qs('v_impl').textContent = health.implants || '—';
-        // triage pill
-        const pill = qs('triage');
-        const lvl = (health.triageOverride && health.triageOverride !== 'auto') ? health.triageOverride : 'green';
-        pill.textContent = lvl.toUpperCase();
-        pill.style.background = lvl === 'red' ? '#fee2e2' : (lvl === 'amber' ? '#fef3c7' : '#dcfce7');
-        pill.style.color = lvl === 'red' ? '#dc2626' : (lvl === 'amber' ? '#d97706' : '#059669');
-      }
+    if (error || !prof) return showNotFound();
 
-      // ice
-      const list = (ice || []).map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — ')).filter(Boolean);
-      qs('iceList').textContent = list.length ? list.join(' | ') : '—';
+    // 2) load health + ice in parallel
+    const [{ data: health }, { data: ice }] = await Promise.all([
+      supabase.from('health_data').select('*').eq('user_id', prof.user_id).maybeSingle(),
+      supabase.from('ice_contacts').select('*').eq('user_id', prof.user_id).order('contact_order', { ascending:true })
+    ]);
 
-      // self QR (short url)
-      const url = `https://www.myqer.com/c/${code}`;
-      qs('v_url').textContent = url;
-      QRCode.toCanvas(qs('qr'), url, { width: 160, margin: 1, errorCorrectionLevel: 'H' });
-    })();
-  }
+    // 3) render profile
+    $('v_name').textContent    = prof.fullName || '—';
+    $('v_dob').textContent     = prof.dob || '—';
+    $('v_country').textContent = prof.country || '—';
+    $('v_hid').textContent     = prof.healthId || '—';
+
+    // 4) render health + triage pill
+    if (health) {
+      $('v_bt').textContent    = health.bloodType || '—';
+      $('v_donor').textContent = health.organDonor ? 'Yes' : 'No';
+      $('v_alg').textContent   = health.allergies || '—';
+      $('v_cond').textContent  = health.conditions || '—';
+      $('v_meds').textContent  = health.medications || '—';
+      $('v_impl').textContent  = health.implants || '—';
+
+      const pill = $('triage');
+      const lvl = (health.triageOverride && health.triageOverride !== 'auto') ? health.triageOverride : 'green';
+      pill.textContent = lvl.toUpperCase();
+      pill.style.background = lvl === 'red' ? '#fee2e2' : (lvl === 'amber' ? '#fef3c7' : '#dcfce7');
+      pill.style.color      = lvl === 'red' ? '#dc2626' : (lvl === 'amber' ? '#d97706' : '#059669');
+    }
+
+    // 5) render ICE
+    const list = (ice || []).map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — ')).filter(Boolean);
+    $('iceList').textContent = list.length ? list.join(' | ') : '—';
+
+    // 6) self QR (short url)
+    const url = `https://www.myqer.com/c/${code}`;
+    $('v_url').textContent = url;
+    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
+      try { QRCode.toCanvas($('qr'), url, { width: 160, margin: 1, errorCorrectionLevel: 'H' }); } catch {}
+    }
+  })();
 </script>
 </body>
 </html>
