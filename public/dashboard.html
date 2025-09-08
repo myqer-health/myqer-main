@@ -1437,20 +1437,29 @@ let iceContacts = [];
 const autoSaveTimers = {};
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
 
-/* ---------- Supabase ---------- */
-(() => {
+/* ---------- Supabase (robust init) ---------- */
+const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+
+async function initSupabase(maxMs = 4000) {
+  const start = Date.now();
+  while (!window.supabase && Date.now() - start < maxMs) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+  if (!window.supabase) {
+    console.warn('Supabase SDK not available yet; running in local-only mode');
+    return false;
+  }
   try {
-    const URL  = 'https://dmntmhkncldgynufajei.supabase.co';
-    const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-    if (window.supabase && URL && KEY) {
-      supabase = window.supabase.createClient(URL, KEY);
-      isSupabaseAvailable = true;
-      console.log('✅ Supabase ready');
-    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    isSupabaseAvailable = true;
+    console.log('✅ Supabase ready');
+    return true;
   } catch (e) {
     console.warn('⚠️ Supabase init failed:', e);
+    return false;
   }
-})();
+}
 const getUserId = async () => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -1958,6 +1967,7 @@ const showError = (msg) => { const box=$('errorBox'), m=$('errorMsg'); m && (m.t
 
 /* ---------- DOM Ready ---------- */
 document.addEventListener('DOMContentLoaded', async () => {
+  await initSupabase();
   // Net status
   updateNetworkStatus();
   window.addEventListener('online',  updateNetworkStatus);
