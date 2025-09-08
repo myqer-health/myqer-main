@@ -166,24 +166,38 @@ const ensureQRCodeLib = async () => {
   }
   throw lastErr || new Error('QR library blocked by network/content-blocker');
 };
-};
-const buildOfflineText = (shortUrl) => {
-  const pf = userData?.profile || {}, hd = userData?.health || {};
-  const name = pf.full_name ?? pf.fullName ?? '';
-  const dob  = pf.date_of_birth ?? pf.dob ?? '';
-  const nat  = pf.national_id ?? pf.healthId ?? '';
-  const country = pf.country ?? '';
-  const donor = hd.organDonor ? 'Y' : 'N';
-  const L = [];
-  const L1 = [name && `Name: ${name}`, dob && `DOB: ${dob}`, country && `C: ${country}`, nat && `ID: ${nat}`].filter(Boolean).join(' | ');
-  if (L1) L.push(L1);
-  const L2 = [hd.bloodType && `BT: ${hd.bloodType}`, hd.allergies && `ALG: ${hd.allergies}`].filter(Boolean).join(' | ');
-  if (L2) L.push(L2);
-  const L3 = [hd.conditions && `COND: ${hd.conditions}`, hd.medications && `MED: ${hd.medications}`, hd.implants && `IMP: ${hd.implants}`, `DONOR:${donor}`].filter(Boolean).join(' | ');
-  if (L3) L.push(L3);
-  L.push(`URL:${shortUrl}`);
-  return L.join('\n').slice(0,1200);
-};
+function buildOfflineText(shortUrl) {
+  var pf = (userData && userData.profile) ? userData.profile : {};
+  var hd = (userData && userData.health) ? userData.health : {};
+  var name = (pf.full_name != null ? pf.full_name : (pf.fullName != null ? pf.fullName : ''));
+  var dob  = (pf.date_of_birth != null ? pf.date_of_birth : (pf.dob != null ? pf.dob : ''));
+  var nat  = (pf.national_id != null ? pf.national_id : (pf.healthId != null ? pf.healthId : ''));
+  var country = (pf.country != null ? pf.country : '');
+  var donor = hd && hd.organDonor ? 'Y' : 'N';
+
+  var L = [];
+  var L1 = [];
+  if (name)   L1.push('Name: ' + name);
+  if (dob)    L1.push('DOB: ' + dob);
+  if (country)L1.push('C: ' + country);
+  if (nat)    L1.push('ID: ' + nat);
+  if (L1.length) L.push(L1.join(' | '));
+
+  var L2 = [];
+  if (hd && hd.bloodType) L2.push('BT: ' + hd.bloodType);
+  if (hd && hd.allergies) L2.push('ALG: ' + hd.allergies);
+  if (L2.length) L.push(L2.join(' | '));
+
+  var L3 = [];
+  if (hd && hd.conditions)  L3.push('COND: ' + hd.conditions);
+  if (hd && hd.medications) L3.push('MED: ' + hd.medications);
+  if (hd && hd.implants)    L3.push('IMP: ' + hd.implants);
+  L3.push('DONOR:' + donor);
+  if (L3.length) L.push(L3.join(' | '));
+
+  L.push('URL:' + shortUrl);
+  return L.join('\n').slice(0, 1200);
+}
 // (helper) make the canvas crisp on any device
 function prepareQrCanvas(size = 220) {
   const canvas = document.getElementById('qrCanvas');
@@ -204,91 +218,70 @@ function prepareQrCanvas(size = 220) {
   canvas.style.display = 'block';
   return { canvas, size };
 }
+};
 
-// -------- QR drawing (single source) --------
-async function generateQRCode() {
-  const qrCanvas      = document.getElementById('qrCanvas');
-  const qrPlaceholder = document.getElementById('qrPlaceholder');
-  const codeEl        = document.getElementById('codeUnderQR');
-  const urlEl         = document.getElementById('cardUrl');
-  const status        = document.getElementById('qrStatus');
+function generateQRCode() {
+  var qrCanvas      = document.getElementById('qrCanvas');
+  var qrPlaceholder = document.getElementById('qrPlaceholder');
+  var codeEl        = document.getElementById('codeUnderQR');
+  var urlEl         = document.getElementById('cardUrl');
+  var status        = document.getElementById('qrStatus');
+  if (!qrCanvas) return;
 
-  if (!qrCanvas) return; // no QR area on this page
-
-  // allow QR when ANY section has data (profile OR health OR ICE)
-  const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
-  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
-  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
+  var prof = (userData && userData.profile) ? userData.profile : {};
+  var health = (userData && userData.health) ? userData.health : {};
+  var hasProfile = !!(prof.full_name || prof.fullName);
+  var hasHealth  = !!(health.bloodType || health.allergies);
+  var hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
   if (!(hasProfile || hasHealth || hasICE)) {
-    // nothing yet — show placeholder, clear UI
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
-    codeEl && (codeEl.textContent = '');
-    urlEl && (urlEl.value = '');
-    status && (status.hidden = true);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas) qrCanvas.style.display = 'none';
+    if (codeEl) codeEl.textContent = '';
+    if (urlEl) urlEl.value = '';
+    if (status) status.hidden = true;
     return;
   }
 
-  // 1) ensure/persist code and URL first (works offline)
-  const code = await ensureShortCode();
-  const shortUrl = `https://www.myqer.com/c/${code}`;
-  codeEl && (codeEl.textContent = code);
-  urlEl  && (urlEl.value = shortUrl);
+  ensureShortCode().then(function(code){
+    var shortUrl = 'https://www.myqer.com/c/' + code;
+    if (codeEl) codeEl.textContent = code;
+    if (urlEl)  urlEl.value = shortUrl;
 
-  try {
-    // 2) make sure QR library is present
-    await ensureQRCodeLib();
-
-    // 3) prepare canvas for sharp rendering
-    const prep = prepareQrCanvas(220);
-    if (!prep) throw new Error('QR canvas missing');
-    const { canvas, size } = prep;
-
-    // 4) try fast path: draw directly into canvas
-    try {
-      await new Promise((res, rej) =>
-        window.QRCode.toCanvas(
-          canvas,
-          shortUrl,
-          { errorCorrectionLevel: 'H', margin: 1, width: size },
-          (e) => (e ? rej(e) : res())
-        )
-      );
-    } catch (e1) {
-      // 5) fallback: render to dataURL then paint it onto our canvas
-      const dataUrl = await window.QRCode.toDataURL(shortUrl, {
-        errorCorrectionLevel: 'H', margin: 1, width: size
-      });
-      await new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = () => { canvas.getContext('2d').drawImage(img, 0, 0, size, size); res(); };
-        img.onerror = rej;
-        img.src = dataUrl;
-      });
-    }
-
-    // 6) success UI + offline text
-    if (status) {
-      status.textContent = 'QR Code generated successfully';
-      status.style.background = 'rgba(5,150,105,0.1)';
-      status.style.color = 'var(--green)';
-      status.hidden = false;
-    }
-    const off = document.getElementById('offlineText');
-    if (off) off.value = buildOfflineText(shortUrl);
-  } catch (err) {
-    console.error('QR render error:', err);
-    // graceful failure (no red toast)
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
-    if (status) {
-      status.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
-      status.style.background = 'rgba(252, 211, 77, 0.15)';
-      status.style.color = '#92400E';
-      status.hidden = false;
-    }
-  }
+    ensureQRCodeLib().then(function(){
+      try {
+        var ctx = qrCanvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+        return new Promise(function(res, rej){
+          window.QRCode.toCanvas(
+            qrCanvas,
+            shortUrl,
+            { width: 200, errorCorrectionLevel: 'H', margin: 1 },
+            function(e){ return e ? rej(e) : res(); }
+          );
+        }).then(function(){
+          qrCanvas.style.display = 'block';
+          if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+          if (status) {
+            status.textContent = 'QR Code generated successfully';
+            status.style.background = 'rgba(5,150,105,.1)';
+            status.style.color = 'var(--green)';
+            status.hidden = false;
+          }
+          var off = document.getElementById('offlineText');
+          if (off) off.value = buildOfflineText(shortUrl);
+        });
+      } catch (e) {
+        console.error('QR render failed:', e);
+        if (status) {
+          status.textContent = 'QR generation failed';
+          status.style.background = 'rgba(239,68,68,.1)';
+          status.style.color = 'var(--red)';
+          status.hidden = false;
+        }
+      }
+    });
+  });
 }
 /* ---------- ICE (local-first + server-sync) ---------- */
 const renderIceContacts = () => {
