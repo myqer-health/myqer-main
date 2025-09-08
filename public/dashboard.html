@@ -1583,16 +1583,36 @@ function buildOfflineText(shortUrl) {
 
 /* ---------- QR library + drawing ---------- */
 async function ensureQRCodeLib() {
-  const ok = () => (window.QRCode && typeof QRCode.toCanvas === 'function');
-  if (ok()) return;
-  await new Promise((resolve) => {
-    const add = (src, onload) => { const s = document.createElement('script'); s.src = src; s.onload = onload; s.onerror = onload; document.head.appendChild(s); };
-    add('https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js', () => {
-      if (ok()) return resolve();
-      add('https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js', () => resolve());
-    });
-  });
+  // Already present?
+  if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
+
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
+    'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js'
+  ];
+
+  // Try each source; only resolve when QRCode is truly available
+  for (const src of sources) {
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+      });
+      if (window.QRCode && typeof window.QRCode.toCanvas === 'function') return;
+    } catch (e) {
+      console.warn('QRCode load failed:', e.message);
+      // fall through to next source
+    }
+  }
+
+  // If we get here, nothing loaded
+  throw new Error('QRCode library could not be loaded from any source');
 }
+
 function prepareQrCanvas(size = 220) {
   const canvas = $('qrCanvas');
   const ph     = $('qrPlaceholder');
