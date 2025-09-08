@@ -1,8 +1,8 @@
 // /public/scripts/app.js
-// One-file dashboard logic (Supabase UMD + QRCode UMD are loaded by <script> tags in HTML)
+// One-file dashboard logic (Supabase UMD + QRCode UMD are loaded by <script> tags in HTML or by the loader below)
 
 (function () {
-  /* ---------- small helpers ---------- */
+  /* ---------- tiny helpers ---------- */
   function $(id) { return document.getElementById(id); }
   function on(el, ev, fn) { if (el) el.addEventListener(ev, fn); }
   function withTimeout(p, ms, label) {
@@ -11,11 +11,12 @@
       new Promise(function (_, rej){ setTimeout(function(){ rej(new Error((label||'promise') + ' timed out')); }, ms); })
     ]);
   }
+  function once(fn){ var done=false; return function(){ if(done) return; done=true; try{ return fn.apply(this, arguments); } finally { done=true; } }; }
 
   var supabase, isSupabaseAvailable = false;
   var isOnline = navigator.onLine;
 
-  // mirror to window for any external scripts that expect globals
+  // mirror to window for external visibility
   var userData = { profile: {}, health: {} };
   var iceContacts = [];
   window.userData = userData;
@@ -26,7 +27,6 @@
 
   /* ---------- supabase init ---------- */
   try {
-    // don’t shadow the global URL API
     var SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
     var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
     if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -89,7 +89,7 @@
       }, delay);
     };
     on(el, 'input', handler);
-    on(el, 'change', handler); // checkboxes (iOS)
+    on(el, 'change', handler); // checkboxes/iOS
   }
 
   /* ---------- triage ---------- */
@@ -112,20 +112,15 @@
 
   /* ---------- QR + short code ---------- */
   function makeShort_3_4_3() {
-    function pick(n) {
-      var s = ''; for (var i = 0; i < n; i++) s += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];
-      return s;
-    }
+    function pick(n) { var s=''; for (var i=0;i<n;i++) s += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]; return s; }
     return pick(3) + '-' + pick(4) + '-' + pick(3);
   }
-
   function generateShortCode() {
     var valid = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
     var code = localStorage.getItem('myqer_shortcode');
     if (!valid.test(code || '')) { code = makeShort_3_4_3(); localStorage.setItem('myqer_shortcode', code); }
     return code;
   }
-
   function ensureShortCode() {
     var code = localStorage.getItem('myqer_shortcode') || generateShortCode();
     if (!(isSupabaseAvailable && isOnline)) return Promise.resolve(code);
@@ -151,24 +146,49 @@
     });
   }
 
-  function ensureQRCodeLib() {
-    if (window.QRCode && (typeof window.QRCode.toCanvas === 'function' || typeof window.QRCode?.default?.toCanvas === 'function')) {
-      return Promise.resolve();
-    }
-    return new Promise(function (res, rej) {
-      var s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-      s.onload = res;
-      s.onerror = function () { rej(new Error('QRCode lib failed to load')); };
-      document.head.appendChild(s);
-    });
+  /* ---------- QR library loader (multi-source, resilient) ---------- */
+  function hasQR() {
+    return !!(window.QRCode && (typeof window.QRCode.toString === 'function' || typeof window.QRCode?.default?.toString === 'function'
+      || typeof window.QRCode.toCanvas === 'function' || typeof window.QRCode?.default?.toCanvas === 'function'));
   }
   function getQRApi() {
     if (!window.QRCode) return null;
-    if (typeof window.QRCode.toCanvas === 'function') return window.QRCode;
-    if (typeof window.QRCode?.default?.toCanvas === 'function') return window.QRCode.default;
-    return null;
+    // UMD sometimes exposes both; prefer root
+    return (typeof window.QRCode.toString === 'function' || typeof window.QRCode.toCanvas === 'function')
+      ? window.QRCode
+      : (window.QRCode.default || null);
   }
+
+  var QR_SOURCES = [
+    // self-host first (works even with blockers)
+    '/scripts/vendor/qrcode.min.js',
+    // two popular CDNs
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
+    'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js'
+  ];
+  function loadScript(src) {
+    return new Promise(function(res, rej){
+      var s = document.createElement('script');
+      s.src = src;
+      s.onerror = function(){ rej(new Error('load failed: '+src)); };
+      s.onload = function(){ res(); };
+      // load as regular script (not defer) so it’s available immediately
+      document.head.appendChild(s);
+    });
+  }
+  var ensureQRCodeLib = once(function () {
+    if (hasQR()) return Promise.resolve();
+    // try each source sequentially
+    var i = 0;
+    function next() {
+      if (i >= QR_SOURCES.length) return Promise.reject(new Error('QRCode lib not available'));
+      var src = QR_SOURCES[i++]; 
+      return loadScript(src)
+        .then(function(){ if (hasQR()) return; throw new Error('QRCode symbol missing after '+src); })
+        .catch(function(err){ console.warn('[QR loader]', err.message); return next(); });
+    }
+    return next();
+  });
 
   function buildOfflineText(shortUrl) {
     var pf = userData.profile || {};
@@ -189,139 +209,118 @@
     return L.join('\n').slice(0, 1200);
   }
 
+  /* ---------- QR render (SVG-first; canvas/PNG fallbacks) ---------- */
   async function generateQRCode() {
-  const qrCanvas      = document.getElementById('qrCanvas');
-  const qrPlaceholder = document.getElementById('qrPlaceholder');
-  const codeUnderQR   = document.getElementById('codeUnderQR');
-  const cardUrlInput  = document.getElementById('cardUrl');
-  const qrStatus      = document.getElementById('qrStatus');
+    const qrCanvas      = $('qrCanvas');
+    const qrPlaceholder = $('qrPlaceholder');
+    const codeUnderQR   = $('codeUnderQR');
+    const cardUrlInput  = $('cardUrl');
+    const qrStatus      = $('qrStatus');
 
-  if (!qrCanvas) return;
+    if (!qrCanvas) return;
 
-  // data present?
-  const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
-  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
-  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
-  if (!(hasProfile || hasHealth || hasICE)) {
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
-    codeUnderQR && (codeUnderQR.textContent = '');
-    cardUrlInput && (cardUrlInput.value = '');
-    qrStatus && (qrStatus.hidden = true);
-    return;
-  }
-
-  const code = await ensureShortCode();
-  const shortUrl = `https://www.myqer.com/c/${code}`;
-  codeUnderQR && (codeUnderQR.textContent = code);
-  cardUrlInput && (cardUrlInput.value = shortUrl);
-
-  try {
-    await ensureQRCodeLib();
-
-    // Normalize QR API
-    const QR = (window.QRCode && (window.QRCode.toCanvas || window.QRCode.toString)) 
-               ? window.QRCode
-               : (window.QRCode?.default || null);
-    if (!QR) throw new Error('QRCode lib not ready');
-
-    // Remove any previous SVG fallback
-    const oldSvg = document.getElementById('qrSvgHost');
-    if (oldSvg) oldSvg.remove();
-
-    // ---------- iOS-first STRATEGY: SVG ----------
-    // iOS WebKit sometimes blocks/taints canvas. SVG never fails.
-    try {
-      const svg = await new Promise((res, rej) =>
-        QR.toString(
-          shortUrl,
-          { type: 'svg', errorCorrectionLevel: 'H', margin: 1, width: 220 },
-          (e, s) => (e ? rej(e) : res(s))
-        )
-      );
-      const host = document.createElement('div');
-      host.id = 'qrSvgHost';
-      host.style.width = '220px';
-      host.style.height = '220px';
-      host.innerHTML = svg;
-      // insert right after canvas, keep canvas hidden
-      qrCanvas.style.display = 'none';
-      qrPlaceholder && (qrPlaceholder.style.display = 'none');
-      qrCanvas.parentNode.insertBefore(host, qrCanvas.nextSibling);
-
-      if (qrStatus) {
-        qrStatus.textContent = 'QR Code generated successfully';
-        qrStatus.style.background = 'rgba(5,150,105,0.1)';
-        qrStatus.style.color = 'var(--green)';
-        qrStatus.hidden = false;
-      }
-
-      const offlineEl = document.getElementById('offlineText');
-      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-      return; // done (SVG path)
-    } catch (eSvg) {
-      console.warn('SVG path failed, trying canvas…', eSvg);
-    }
-
-    // ---------- Fallback A: draw to canvas ----------
-    try {
-      // prep canvas for high-DPI
-      const size  = 220;
-      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-      qrCanvas.width  = size * scale;
-      qrCanvas.height = size * scale;
-      qrCanvas.style.width  = size + 'px';
-      qrCanvas.style.height = size + 'px';
-      const ctx = qrCanvas.getContext('2d');
-      if (!ctx) throw new Error('2D context unavailable');
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.clearRect(0, 0, size, size);
-
-      await new Promise((res, rej) =>
-        QR.toCanvas(
-          qrCanvas,
-          shortUrl,
-          { errorCorrectionLevel: 'H', margin: 1, width: size },
-          e => (e ? rej(e) : res())
-        )
-      );
-
-      qrPlaceholder && (qrPlaceholder.style.display = 'none');
-      qrCanvas.style.display = 'block';
-      if (qrStatus) {
-        qrStatus.textContent = 'QR Code generated successfully';
-        qrStatus.style.background = 'rgba(5,150,105,0.1)';
-        qrStatus.style.color = 'var(--green)';
-        qrStatus.hidden = false;
-      }
-      const offlineEl = document.getElementById('offlineText');
-      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+    const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
+    const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
+    const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
+    if (!(hasProfile || hasHealth || hasICE)) {
+      qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+      qrCanvas && (qrCanvas.style.display = 'none');
+      codeUnderQR && (codeUnderQR.textContent = '');
+      cardUrlInput && (cardUrlInput.value = '');
+      qrStatus && (qrStatus.hidden = true);
       return;
-    } catch (eCanvas) {
-      console.warn('Canvas path failed, trying PNG fallback…', eCanvas);
     }
 
-    // ---------- Fallback B: PNG dataURL → draw ----------
+    const code = await ensureShortCode();
+    const shortUrl = `https://www.myqer.com/c/${code}`;
+    codeUnderQR && (codeUnderQR.textContent = code);
+    cardUrlInput && (cardUrlInput.value = shortUrl);
+
     try {
+      await ensureQRCodeLib();             // <- NEW: multi-source loader
+      const QR = getQRApi();
+      if (!QR) throw new Error('QRCode lib not ready');
+
+      // remove any older SVG attempt
+      var oldSvg = $('qrSvgHost'); if (oldSvg) oldSvg.remove();
+
+      // ---------- Strategy 1: SVG (best on iOS) ----------
+      try {
+        const svg = await new Promise((res, rej) =>
+          QR.toString(shortUrl, { type: 'svg', errorCorrectionLevel: 'H', margin: 1, width: 220 }, (e, s) => e ? rej(e) : res(s))
+        );
+        const host = document.createElement('div');
+        host.id = 'qrSvgHost';
+        host.style.width = '220px';
+        host.style.height = '220px';
+        host.innerHTML = svg;
+        qrCanvas.style.display = 'none';
+        qrPlaceholder && (qrPlaceholder.style.display = 'none');
+        qrCanvas.parentNode.insertBefore(host, qrCanvas.nextSibling);
+
+        if (qrStatus) {
+          qrStatus.textContent = 'QR Code generated successfully';
+          qrStatus.style.background = 'rgba(5,150,105,0.1)';
+          qrStatus.style.color = 'var(--green)';
+          qrStatus.hidden = false;
+        }
+        const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+        return; // done
+      } catch (eSvg) {
+        console.warn('[QR] SVG path failed, trying canvas…', eSvg);
+      }
+
+      // ---------- Strategy 2: direct canvas ----------
+      try {
+        const size  = 220;
+        const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        qrCanvas.width  = size * scale;
+        qrCanvas.height = size * scale;
+        qrCanvas.style.width  = size + 'px';
+        qrCanvas.style.height = size + 'px';
+        const ctx = qrCanvas.getContext('2d');
+        if (!ctx) throw new Error('2D context unavailable');
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.clearRect(0, 0, size, size);
+
+        await new Promise((res, rej) =>
+          QR.toCanvas(qrCanvas, shortUrl, { errorCorrectionLevel: 'H', margin: 1, width: size }, e => e ? rej(e) : res())
+        );
+
+        qrPlaceholder && (qrPlaceholder.style.display = 'none');
+        qrCanvas.style.display = 'block';
+        if (qrStatus) {
+          qrStatus.textContent = 'QR Code generated successfully';
+          qrStatus.style.background = 'rgba(5,150,105,0.1)';
+          qrStatus.style.color = 'var(--green)';
+          qrStatus.hidden = false;
+        }
+        const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+        return;
+      } catch (eCanvas) {
+        console.warn('[QR] Canvas path failed, trying PNG…', eCanvas);
+      }
+
+      // ---------- Strategy 3: PNG dataURL → draw ----------
       const size = 220;
       const dataUrl = await new Promise((res, rej) =>
-        QR.toDataURL(
-          shortUrl,
-          { errorCorrectionLevel: 'H', margin: 1, width: size },
-          (e, s) => (e ? rej(e) : res(s))
-        )
+        QR.toDataURL(shortUrl, { errorCorrectionLevel: 'H', margin: 1, width: size }, (e, s) => e ? rej(e) : res(s))
       );
-      const img = new Image();
       await new Promise((res, rej) => {
-        img.onload = res; img.onerror = rej; img.src = dataUrl;
+        const img = new Image();
+        img.onload = function(){ 
+          const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+          qrCanvas.width  = size * scale; qrCanvas.height = size * scale;
+          qrCanvas.style.width = size + 'px'; qrCanvas.style.height = size + 'px';
+          const ctx = qrCanvas.getContext('2d');
+          ctx.setTransform(scale, 0, 0, scale, 0, 0);
+          ctx.clearRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          res();
+        };
+        img.onerror = rej;
+        img.src = dataUrl;
       });
-      const ctx = qrCanvas.getContext('2d');
-      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-      qrCanvas.width = size * scale; qrCanvas.height = size * scale;
-      qrCanvas.style.width = size + 'px'; qrCanvas.style.height = size + 'px';
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.clearRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
 
       qrPlaceholder && (qrPlaceholder.style.display = 'none');
       qrCanvas.style.display = 'block';
@@ -331,26 +330,20 @@
         qrStatus.style.color = 'var(--green)';
         qrStatus.hidden = false;
       }
-      const offlineEl = document.getElementById('offlineText');
-      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-      return;
-    } catch (ePng) {
-      console.error('All QR strategies failed:', ePng);
-      throw ePng;
-    }
+      const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
 
-  } catch (err) {
-    console.error('QR render error:', err);
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
-    if (qrStatus) {
-      qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
-      qrStatus.style.background = 'rgba(252,211,77,0.15)';
-      qrStatus.style.color = '#92400E';
-      qrStatus.hidden = false;
+    } catch (err) {
+      console.error('QR render error:', err);
+      qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+      qrCanvas && (qrCanvas.style.display = 'none');
+      if (qrStatus) {
+        qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
+        qrStatus.style.background = 'rgba(252,211,77,0.15)';
+        qrStatus.style.color = '#92400E';
+        qrStatus.hidden = false;
+      }
     }
   }
-}
 
   /* ---------- ICE (local-first + server-sync) ---------- */
   function renderIceContacts() {
@@ -593,7 +586,7 @@
     }).catch(function (e){ console.warn('Server load failed', e); });
   }
 
-  /* ---------- wire UI ---------- */
+  /* ---------- QR UI buttons ---------- */
   function wireQRButtons() {
     on($('copyLink'), 'click', function () {
       var url = ($('cardUrl') && $('cardUrl').value) || '';
@@ -610,13 +603,10 @@
       var canvas = $('qrCanvas'), svgHost = $('qrSvgHost');
       if (!(canvas && canvas.style.display !== 'none') && !svgHost) return toast('Generate QR first','error');
       if (svgHost) {
-        // render SVG → canvas → PNG for download
-        var tmp = document.createElement('canvas');
-        var size = 300; tmp.width = size; tmp.height = size;
-        var ctx = tmp.getContext('2d');
-        var img = new Image();
+        var tmp = document.createElement('canvas'), size=300; tmp.width=size; tmp.height=size;
+        var ctx = tmp.getContext('2d'); var img = new Image();
         var blob = new Blob([svgHost.innerHTML], { type: 'image/svg+xml' });
-        img.onload = function(){ ctx.drawImage(img, 0, 0, size, size); var a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=tmp.toDataURL('image/png'); a.click(); };
+        img.onload = function(){ ctx.drawImage(img,0,0,size,size); var a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=tmp.toDataURL('image/png'); a.click(); };
         img.src = URL.createObjectURL(blob);
         setTimeout(function(){ URL.revokeObjectURL(img.src); }, 1000);
       } else {
@@ -642,20 +632,6 @@
     on($('printQR'), 'click', function () {
       var canvas = $('qrCanvas'), svgHost = $('qrSvgHost'); var code = ($('codeUnderQR') && $('codeUnderQR').textContent) || '';
       if ((!canvas || canvas.style.display === 'none') && !svgHost || !code) return toast('Generate QR first','error');
-      var dataUrl;
-      if (svgHost) {
-        // print from SVG via dataURL rasterization
-        var tmp = document.createElement('canvas'); var size=300; tmp.width=size; tmp.height=size;
-        var ctx = tmp.getContext('2d'); var img = new Image();
-        var blob = new Blob([svgHost.innerHTML], { type: 'image/svg+xml' });
-        img.onload = function(){ ctx.drawImage(img,0,0,size,size); openAndPrint(tmp.toDataURL('image/png'), code); };
-        img.src = URL.createObjectURL(blob);
-        setTimeout(function(){ URL.revokeObjectURL(img.src); }, 1000);
-        return;
-      } else {
-        dataUrl = canvas.toDataURL('image/png');
-        openAndPrint(dataUrl, code);
-      }
       function openAndPrint(dataUrl, code){
         var w = window.open('', '_blank', 'noopener'); if (!w) return toast('Pop-up blocked','error');
         w.document.write(
@@ -665,6 +641,16 @@
           '<img alt="QR Code" src="' + dataUrl + '"><p>Scan this QR code for emergency information</p>' +
           '<p style="font-size:.8em;color:#666">www.myqer.com</p><script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>'
         ); w.document.close();
+      }
+      if (svgHost) {
+        var tmp = document.createElement('canvas'); var size=300; tmp.width=size; tmp.height=size;
+        var ctx = tmp.getContext('2d'); var img = new Image();
+        var blob = new Blob([svgHost.innerHTML], { type: 'image/svg+xml' });
+        img.onload = function(){ ctx.drawImage(img,0,0,size,size); openAndPrint(tmp.toDataURL('image/png'), code); };
+        img.src = URL.createObjectURL(blob);
+        setTimeout(function(){ URL.revokeObjectURL(img.src); }, 1000);
+      } else {
+        openAndPrint(canvas.toDataURL('image/png'), code);
       }
     });
     on($('copyOffline'), 'click', function () {
@@ -708,6 +694,7 @@
     window.addEventListener('online',  updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 
+    // binds
     on($('saveProfile'), 'click', saveProfile);
     on($('saveHealth'),  'click', saveHealth);
     on($('saveIce'),     'click', saveICE);
@@ -737,25 +724,31 @@
       }
     });
 
+    // triage live + override
     ['hfAllergies','hfConditions'].forEach(function(id){ on($(id), 'input', calculateTriage); });
     on($('triageOverride'), 'change', function(){ calculateTriage(); saveHealth(); });
 
+    // autosaves
     ['profileFullName','profileDob','profileCountry','profileHealthId'].forEach(function(id){ setupAutoSave(id, saveProfile); });
     ['hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants','hfDonor'].forEach(function(id){ setupAutoSave(id, saveHealth); });
 
+    // QR buttons
     wireQRButtons();
 
     // load sequence
     fillFromLocal();
-    generateQRCode();
+    generateQRCode();          // draw from local data if possible
     loadFromServer().then(function(){ generateQRCode(); });
 
+    // hide spinner
     var loading = $('loadingState'); if (loading) loading.style.display = 'none';
     setTimeout(function(){ var l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
   });
 
+  // loader guards
   window.addEventListener('error', function () { var el = $('loadingState'); if (el) el.style.display = 'none'; });
   window.addEventListener('unhandledrejection', function () { var el = $('loadingState'); if (el) el.style.display = 'none'; });
 
+  // heartbeat
   setInterval(function(){ try { navigator.sendBeacon && navigator.sendBeacon('/ping', ''); } catch(e){} }, 120000);
 })();
