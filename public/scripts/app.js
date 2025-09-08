@@ -15,6 +15,23 @@ let userData = { profile: {}, health: {} };
 let iceContacts = [];
 const autoSaveTimers = {};
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
+  // ---- UI DEBUG (no-console mode) ----
+function uiSay(msg, type = 'info') {
+  try {
+    const el = document.getElementById('qrStatus');
+    if (el) {
+      el.hidden = false;
+      el.textContent = msg;
+      if (type === 'ok')   { el.style.background = 'rgba(5,150,105,0.1)'; el.style.color = 'var(--green)'; }
+      if (type === 'warn') { el.style.background = 'rgba(252,211,77,0.15)'; el.style.color = '#92400E'; }
+      if (type === 'err')  { el.style.background = 'rgba(239,68,68,0.12)'; el.style.color = '#B91C1C'; }
+    }
+    // mirror to toast as well
+    if (typeof toast === 'function') {
+      toast(msg, type === 'err' ? 'error' : (type === 'ok' ? 'success' : 'success'), 2200);
+    }
+  } catch {}
+}
 
 /* ---------- supabase init ---------- */
 try {
@@ -149,42 +166,112 @@ const buildOfflineText = (shortUrl) => {
   L.push(`URL:${shortUrl}`);
   return L.join('\n').slice(0,1200);
 };
-const generateQRCode = async () => {
-  const qrCanvas = $('qrCanvas'), qrPlaceholder = $('qrPlaceholder'), codeEl = $('codeUnderQR'), urlEl = $('cardUrl'), status = $('qrStatus');
-  if (!qrCanvas) return; // no slot on page
+// (helper) make the canvas crisp on any device
+function prepareQrCanvas(size = 220) {
+  const canvas = document.getElementById('qrCanvas');
+  const ph     = document.getElementById('qrPlaceholder');
+  if (!canvas) return null;
 
+  const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  canvas.width  = size * scale;
+  canvas.height = size * scale;
+  canvas.style.width  = size + 'px';
+  canvas.style.height = size + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+
+  if (ph) ph.style.display = 'none';
+  canvas.style.display = 'block';
+  return { canvas, size };
+}
+
+// -------- QR drawing (single source) --------
+async function generateQRCode() {
+  const qrCanvas      = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeEl        = document.getElementById('codeUnderQR');
+  const urlEl         = document.getElementById('cardUrl');
+  const status        = document.getElementById('qrStatus');
+
+  if (!qrCanvas) return; // no QR area on this page
+
+  // allow QR when ANY section has data (profile OR health OR ICE)
   const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
   const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
   const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
   if (!(hasProfile || hasHealth || hasICE)) {
-    qrPlaceholder && (qrPlaceholder.style.display='flex');
-    qrCanvas && (qrCanvas.style.display='none');
-    codeEl && (codeEl.textContent='');
-    urlEl && (urlEl.value='');
-    status && (status.hidden=true);
+    // nothing yet — show placeholder, clear UI
+    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+    qrCanvas && (qrCanvas.style.display = 'none');
+    codeEl && (codeEl.textContent = '');
+    urlEl && (urlEl.value = '');
+    status && (status.hidden = true);
     return;
   }
 
+  // 1) ensure/persist code and URL first (works offline)
   const code = await ensureShortCode();
   const shortUrl = `https://www.myqer.com/c/${code}`;
   codeEl && (codeEl.textContent = code);
   urlEl  && (urlEl.value = shortUrl);
 
   try {
+    // 2) make sure QR library is present
     await ensureQRCodeLib();
-    const ctx = qrCanvas.getContext('2d'); ctx && ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height);
-    await new Promise((res,rej)=> window.QRCode.toCanvas(qrCanvas, shortUrl, { width: 200, errorCorrectionLevel:'H', margin:1 }, e=> e?rej(e):res()));
-    qrCanvas.style.display = 'block';
-    qrPlaceholder && (qrPlaceholder.style.display='none');
-    status && (status.textContent='QR Code generated successfully', status.style.background='rgba(5,150,105,.1)', status.style.color='var(--green)', status.hidden=false);
-    const off = $('offlineText'); off && (off.value = buildOfflineText(shortUrl));
-  } catch (e) {
-    console.error('QR render failed:', e);
-    status && (status.textContent='QR generation failed', status.style.background='rgba(239,68,68,.1)', status.style.color='var(--red)', status.hidden=false);
-  }
-};
 
+    // 3) prepare canvas for sharp rendering
+    const prep = prepareQrCanvas(220);
+    if (!prep) throw new Error('QR canvas missing');
+    const { canvas, size } = prep;
+
+    // 4) try fast path: draw directly into canvas
+    try {
+      await new Promise((res, rej) =>
+        window.QRCode.toCanvas(
+          canvas,
+          shortUrl,
+          { errorCorrectionLevel: 'H', margin: 1, width: size },
+          (e) => (e ? rej(e) : res())
+        )
+      );
+    } catch (e1) {
+      // 5) fallback: render to dataURL then paint it onto our canvas
+      const dataUrl = await window.QRCode.toDataURL(shortUrl, {
+        errorCorrectionLevel: 'H', margin: 1, width: size
+      });
+      await new Promise((res, rej) => {
+        const img = new Image();
+        img.onload = () => { canvas.getContext('2d').drawImage(img, 0, 0, size, size); res(); };
+        img.onerror = rej;
+        img.src = dataUrl;
+      });
+    }
+
+    // 6) success UI + offline text
+    if (status) {
+      status.textContent = 'QR Code generated successfully';
+      status.style.background = 'rgba(5,150,105,0.1)';
+      status.style.color = 'var(--green)';
+      status.hidden = false;
+    }
+    const off = document.getElementById('offlineText');
+    if (off) off.value = buildOfflineText(shortUrl);
+  } catch (err) {
+    console.error('QR render error:', err);
+    // graceful failure (no red toast)
+    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+    qrCanvas && (qrCanvas.style.display = 'none');
+    if (status) {
+      status.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
+      status.style.background = 'rgba(252, 211, 77, 0.15)';
+      status.style.color = '#92400E';
+      status.hidden = false;
+    }
+  }
+}
 /* ---------- ICE (local-first + server-sync) ---------- */
 const renderIceContacts = () => {
   const box = $('iceContactsList'); if (!box) return;
@@ -498,6 +585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { if (isSupabaseAvailable) await supabase.auth.signOut(); } catch(e){ console.warn(e); }
     localStorage.clear(); sessionStorage.clear();
     location.href='index.html';
+    uiSay('app.js loaded', 'ok');
   });
 
   // ICE delegated events
