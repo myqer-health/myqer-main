@@ -2565,7 +2565,153 @@ if (deletePhrase && deleteBtn) {
   // ====== /QR overrides ======
 </script>
 
-<!-- Spinner failsafe: always hide after load/errors -->
+<script>
+// =========================
+// Fatal error traps (no infinite spinner)
+// =========================
+window.addEventListener('error', (e) => {
+  const loading = document.getElementById('loadingState');
+  if (loading) loading.style.display = 'none';
+  const box = document.getElementById('errorBox');
+  const msg = document.getElementById('errorMsg');
+  if (msg) msg.textContent = 'JavaScript error: ' + (e.message || 'Unknown error');
+  if (box) box.style.display = 'block';
+  console.error('Uncaught error:', e.error || e.message);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  const loading = document.getElementById('loadingState');
+  if (loading) loading.style.display = 'none';
+  const box = document.getElementById('errorBox');
+  const msg = document.getElementById('errorMsg');
+  if (msg) msg.textContent = 'Promise error: ' + (e.reason?.message || String(e.reason));
+  if (box) box.style.display = 'block';
+  console.error('Unhandled promise rejection:', e.reason);
+});
+
+// Network status listeners
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+
+// Expose some functions
+window.addIceContact = addIceContact;
+window.removeIceContact = removeIceContact;
+window.updateIceContact = updateIceContact;
+window.saveIndividualIceContact = saveIndividualIceContact;
+
+// ====== QR: permanent code + real QR rendering ======
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excludes O/0/I/1
+function makeShortCode_3_4_3() {
+  const pick = n => Array.from({ length: n }, () =>
+    CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
+  ).join('');
+  return `${pick(3)}-${pick(4)}-${pick(3)}`;
+}
+function generateShortCode() {
+  const valid = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+  let code = localStorage.getItem('myqer_shortcode');
+  if (!valid.test(code || '')) {
+    code = makeShortCode_3_4_3();
+    localStorage.setItem('myqer_shortcode', code);
+  }
+  return code;
+}
+async function ensureShortCode() {
+  let code = localStorage.getItem('myqer_shortcode') || generateShortCode();
+  if (isSupabaseAvailable && isOnline) {
+    try {
+      const userId = await getUserId();
+      if (userId) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { error } = await supabase.from('profiles')
+            .upsert({ user_id: userId, code }, { onConflict: 'user_id' });
+          if (!error) break;
+          const msg = (error.message || '') + ' ' + (error.details || '');
+          if (msg.toLowerCase().includes('duplicate')) {
+            code = makeShortCode_3_4_3();
+            localStorage.setItem('myqer_shortcode', code);
+          } else {
+            console.warn('profiles.code upsert error:', error);
+            break;
+          }
+        }
+      }
+    } catch (e) { console.warn('ensureShortCode() persist failed:', e); }
+  }
+  return code;
+}
+function buildOfflineText(shortUrl) {
+  const pf = userData?.profile || {};
+  const hd = userData?.health  || {};
+  const donor = hd.organDonor ? 'Y' : 'N';
+  const lines = [];
+  const line1 = [ pf.fullName && `Name: ${pf.fullName}`, pf.dob && `DOB: ${pf.dob}`, pf.country && `C: ${pf.country}` ].filter(Boolean).join(' | ');
+  if (line1) lines.push(line1);
+  const line2 = [ hd.bloodType && `BT: ${hd.bloodType}`, hd.allergies && `ALG: ${hd.allergies}` ].filter(Boolean).join(' | ');
+  if (line2) lines.push(line2);
+  const line3 = [ hd.conditions && `COND: ${hd.conditions}`, hd.medications && `MED: ${hd.medications}`, hd.implants && `IMP: ${hd.implants}`, `DONOR:${donor}` ].filter(Boolean).join(' | ');
+  if (line3) lines.push(line3);
+  lines.push(`URL:${shortUrl}`);
+  let text = lines.join('\n');
+  if (text.length > 1200) text = text.slice(0, 1200);
+  return text;
+}
+async function generateQRCode() {
+  const qrCanvas      = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeUnderQR   = document.getElementById('codeUnderQR');
+  const cardUrlInput  = document.getElementById('cardUrl');
+  const qrStatus      = document.getElementById('qrStatus');
+
+  const hasProfile = !!(userData?.profile?.fullName);
+  const hasHealth  = !!(userData?.health && (userData.health.bloodType || userData.health.allergies));
+  const hasIce     = Array.isArray(iceContacts) && iceContacts.length > 0;
+
+  if (!(hasProfile || hasHealth || hasIce)) {
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas) qrCanvas.style.display = 'none';
+    if (codeUnderQR) codeUnderQR.textContent = '';
+    if (cardUrlInput) cardUrlInput.value = '';
+    if (qrStatus) qrStatus.hidden = true;
+    return;
+  }
+
+  const code = await ensureShortCode();
+  const shortUrl = `https://www.myqer.com/c/${code}`;
+
+  if (codeUnderQR) codeUnderQR.textContent = code;
+  if (cardUrlInput) cardUrlInput.value = shortUrl;
+
+  const ctx = qrCanvas.getContext('2d');
+  ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+
+  await new Promise((resolve, reject) => {
+    QRCode.toCanvas(
+      qrCanvas,
+      shortUrl,
+      { width: 200, errorCorrectionLevel: 'H', margin: 1 },
+      (err) => err ? reject(err) : resolve()
+    );
+  });
+
+  if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+  if (qrCanvas) qrCanvas.style.display = 'block';
+
+  if (qrStatus) {
+    qrStatus.textContent = 'QR Code generated successfully';
+    qrStatus.style.background = 'rgba(5,150,105,0.1)';
+    qrStatus.style.color = 'var(--green)';
+    qrStatus.hidden = false;
+  }
+
+  const offlineEl = document.getElementById('offlineText');
+  if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+
+  console.log('🔗 QR ready:', shortUrl);
+}
+</script>
+
+<!-- Fallback: always kill the loading spinner even if the main code fails -->
 <script>
 (function () {
   function hideSpinner() {
@@ -2580,8 +2726,7 @@ if (deletePhrase && deleteBtn) {
 })();
 </script>
 
-<!-- Cloudflare bot-protection snippet (unchanged) -->
+<!-- Cloudflare bot-protection snippet (leave as-is) -->
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97984376b004496e',t:'MTc1NjkzNDEzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-
 </body>
 </html>
