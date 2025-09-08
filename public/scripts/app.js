@@ -200,42 +200,27 @@ async function generateQRCode() {
   const cardUrlInput  = document.getElementById('cardUrl');
   const qrStatus      = document.getElementById('qrStatus');
 
-  if (!qrCanvas) return; // no slot on page
+  if (!qrCanvas) return;
 
-  // allow QR as soon as *any* section has data (name OR health OR ICE)
-  const hasProfile = !!(window.userData?.profile?.full_name ?? window.userData?.profile?.fullName);
-  const hasHealth  = !!(window.userData?.health?.bloodType || window.userData?.health?.allergies);
-  const hasICE     = Array.isArray(window.iceContacts) && window.iceContacts.length > 0;
-
-  if (!(hasProfile || hasHealth || hasICE)) {
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
-    codeUnderQR && (codeUnderQR.textContent = '');
-    cardUrlInput && (cardUrlInput.value = '');
-    qrStatus && (qrStatus.hidden = true);
-    return;
-  }
-
-  // short URL + show it in UI
+  // 1) Always ensure a short code (local first, server if online)
   const code = await ensureShortCode();
   const shortUrl = `https://www.myqer.com/c/${code}`;
-  codeUnderQR && (codeUnderQR.textContent = code);
-  cardUrlInput && (cardUrlInput.value = shortUrl);
 
+  // 2) Reflect in UI immediately (even before drawing)
+  if (codeUnderQR)  codeUnderQR.textContent = code;
+  if (cardUrlInput) cardUrlInput.value = shortUrl;
+
+  // 3) Load QR library and draw (with robust fallback)
   try {
-    // make sure QR library is present
     await ensureQRCodeLib();
 
-    // normalize the QRCode entry point (handles UMD default export)
     const QR = (window.QRCode && typeof window.QRCode.toCanvas === 'function')
       ? window.QRCode
       : (window.QRCode?.default && typeof window.QRCode.default.toCanvas === 'function'
           ? window.QRCode.default
           : null);
-
     if (!QR) throw new Error('QRCode lib not ready');
 
-    // prep canvas for high-DPI
     const size  = 220;
     const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     qrCanvas.width  = size * scale;
@@ -246,22 +231,19 @@ async function generateQRCode() {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, size, size);
 
-    // try direct draw; if some environments block canvas draw, fall back to dataURL
+    // direct draw; if blocked, fall back to dataURL -> <img> -> canvas
     try {
       await new Promise((res, rej) =>
-        QR.toCanvas(
-          qrCanvas,
-          shortUrl,
+        QR.toCanvas(qrCanvas, shortUrl,
           { errorCorrectionLevel: 'H', margin: 1, width: size },
-          e => (e ? rej(e) : res())
+          e => e ? rej(e) : res()
         )
       );
     } catch {
       const dataUrl = await new Promise((res, rej) =>
-        QR.toDataURL(
-          shortUrl,
+        QR.toDataURL(shortUrl,
           { errorCorrectionLevel: 'H', margin: 1, width: size },
-          (e, s) => (e ? rej(e) : res(s))
+          (e, s) => e ? rej(e) : res(s)
         )
       );
       await new Promise((res, rej) => {
@@ -272,8 +254,8 @@ async function generateQRCode() {
       });
     }
 
-    // success UI
-    qrPlaceholder && (qrPlaceholder.style.display = 'none');
+    // 4) Success UI + offline text
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
     qrCanvas.style.display = 'block';
     if (qrStatus) {
       qrStatus.textContent = 'QR Code generated successfully';
@@ -281,19 +263,16 @@ async function generateQRCode() {
       qrStatus.style.color = 'var(--green)';
       qrStatus.hidden = false;
     }
-
-    // fill offline text block
     const offlineEl = document.getElementById('offlineText');
     if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
 
   } catch (err) {
-    console.error('QR render error:', err);
-    // graceful failure UI
-    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-    qrCanvas && (qrCanvas.style.display = 'none');
+    console.error('QR draw error:', err);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas)      qrCanvas.style.display = 'none';
     if (qrStatus) {
       qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
-      qrStatus.style.background = 'rgba(252,211,77,0.15)';
+      qrStatus.style.background = 'rgba(252,211,77,.15)';
       qrStatus.style.color = '#92400E';
       qrStatus.hidden = false;
     }
