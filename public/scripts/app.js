@@ -376,36 +376,79 @@
       .catch(function(e){ console.error(e); toast('Error saving profile','error'); });
   });
 }
-function saveHealth() {
-  // ...build health object (unchanged)...
+  function saveHealth() {
+  // build health object (unchanged from your code)
+  const health = {
+    bloodType:      $('hfBloodType')?.value || '',
+    allergies:      $('hfAllergies')?.value || '',
+    conditions:     $('hfConditions')?.value || '',
+    medications:    $('hfMeds')?.value || '',
+    implants:       $('hfImplants')?.value || '',
+    organDonor:     !!$('hfDonor')?.checked,
+    triageOverride: $('triageOverride')?.value || 'auto'
+  };
+
+  // local-first
   userData.health = health;
   localStorage.setItem('myqer_health', JSON.stringify(health));
 
-  if (!isSupabaseAvailable) { calculateTriage(); toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+  if (!isSupabaseAvailable) {
+    calculateTriage();
+    toast('Saved locally (offline mode)', 'info');
+    generateQRCode();
+    return;
+  }
 
-  supabase.auth.getSession().then(function(r){
-    var session = r && r.data ? r.data.session : null;
-    if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
-
-    getUserId().then(function(uid){
-      if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
-      return supabase.from('health_data').upsert(
-        { user_id: uid, bloodType: health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organDonor: health.organDonor, triageOverride: health.triageOverride },
-        { onConflict: 'user_id' }
-      );
-    })
-    .then(function(){ calculateTriage(); toast('Health info saved','success'); generateQRCode(); })
-    .catch(function(e){ console.error(e); toast('Error saving health','error'); });
-  });
-}
+  supabase.auth.getSession().then((r) => {
+    const session = r && r.data ? r.data.session : null;
+    if (!session) {
+      calculateTriage();
+      toast('Saved locally — please sign in to sync', 'info');
+      generateQRCode();
+      // prevent success .then from running
+      return Promise.reject(new Error('no session'));
     }
 
-    p.then(function(){
-      calculateTriage();
-      toast('Health info saved','success');
-      return generateQRCode();
-    }).catch(function(e){ console.error(e); toast('Error saving health','error'); });
-  }
+    return getUserId().then((uid) => {
+      if (!uid) {
+        calculateTriage();
+        toast('Saved locally — please sign in to sync', 'info');
+        generateQRCode();
+        return Promise.reject(new Error('no uid'));
+      }
+
+      return supabase
+        .from('health_data')
+        .upsert(
+          {
+            user_id: uid,
+            bloodType: health.bloodType,
+            allergies: health.allergies,
+            conditions: health.conditions,
+            medications: health.medications,
+            implants: health.implants,
+            organDonor: health.organDonor,
+            triageOverride: health.triageOverride
+          },
+          { onConflict: 'user_id' }
+        )
+        .then(({ error }) => {
+          if (error) throw error;
+        });
+    });
+  })
+  .then(() => {
+    calculateTriage();
+    toast('Health info saved', 'success');
+    generateQRCode();
+  })
+  .catch((e) => {
+    // ignore our intentional "no session/uid" rejects (we already showed a toast)
+    if (e && (e.message === 'no session' || e.message === 'no uid')) return;
+    console.error(e);
+    toast('Error saving health', 'error');
+  });
+}
 
   /* ---------- load (local-first, then server) ---------- */
   function fillFromLocal() {
