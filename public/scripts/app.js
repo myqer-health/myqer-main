@@ -190,114 +190,64 @@
   }
 
   async function generateQRCode() {
-    let qrCanvas = $('qrCanvas'); // may be the wrong tag on some builds
-    const qrPlaceholder = $('qrPlaceholder');
-    const codeUnderQR   = $('codeUnderQR');
-    const cardUrlInput  = $('cardUrl');
-    const qrStatus      = $('qrStatus');
+  const qrCanvas      = document.getElementById('qrCanvas');
+  const qrPlaceholder = document.getElementById('qrPlaceholder');
+  const codeUnderQR   = document.getElementById('codeUnderQR');
+  const cardUrlInput  = document.getElementById('cardUrl');
+  const qrStatus      = document.getElementById('qrStatus');
 
-    // if the node exists but isn’t <canvas>, replace it with a real canvas
-    if (qrCanvas && qrCanvas.tagName !== 'CANVAS') {
-      const c = document.createElement('canvas');
-      c.id = 'qrCanvas';
-      c.style.width = qrCanvas.style.width || '';
-      c.style.height = qrCanvas.style.height || '';
-      qrCanvas.parentNode.replaceChild(c, qrCanvas);
-      qrCanvas = c;
-    }
+  if (!qrCanvas) return;
 
-    if (!qrCanvas) return;
+  // data present?
+  const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
+  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
+  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
+  if (!(hasProfile || hasHealth || hasICE)) {
+    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+    qrCanvas && (qrCanvas.style.display = 'none');
+    codeUnderQR && (codeUnderQR.textContent = '');
+    cardUrlInput && (cardUrlInput.value = '');
+    qrStatus && (qrStatus.hidden = true);
+    return;
+  }
 
-    const hasProfile = !!(userData?.profile?.full_name ?? userData?.profile?.fullName);
-    const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
-    const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
+  const code = await ensureShortCode();
+  const shortUrl = `https://www.myqer.com/c/${code}`;
+  codeUnderQR && (codeUnderQR.textContent = code);
+  cardUrlInput && (cardUrlInput.value = shortUrl);
 
-    if (!(hasProfile || hasHealth || hasICE)) {
-      qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-      qrCanvas && (qrCanvas.style.display = 'none');
-      codeUnderQR && (codeUnderQR.textContent = '');
-      cardUrlInput && (cardUrlInput.value = '');
-      qrStatus && (qrStatus.hidden = true);
-      return;
-    }
+  try {
+    await ensureQRCodeLib();
 
-    const code = await ensureShortCode();
-    const shortUrl = `https://www.myqer.com/c/${code}`;
-    codeUnderQR && (codeUnderQR.textContent = code);
-    cardUrlInput && (cardUrlInput.value = shortUrl);
+    // Normalize QR API
+    const QR = (window.QRCode && (window.QRCode.toCanvas || window.QRCode.toString)) 
+               ? window.QRCode
+               : (window.QRCode?.default || null);
+    if (!QR) throw new Error('QRCode lib not ready');
 
+    // Remove any previous SVG fallback
+    const oldSvg = document.getElementById('qrSvgHost');
+    if (oldSvg) oldSvg.remove();
+
+    // ---------- iOS-first STRATEGY: SVG ----------
+    // iOS WebKit sometimes blocks/taints canvas. SVG never fails.
     try {
-      await ensureQRCodeLib();
-      const QR = getQRApi();
-      if (!QR) throw new Error('QRCode lib not ready');
-
-      // remove any old inline SVG fallback
-      var oldSvg = $('qrSvgHost');
-      if (oldSvg) oldSvg.remove();
-
-      // prepare canvas
-      const size  = 220;
-      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-      qrCanvas.width  = size * scale;
-      qrCanvas.height = size * scale;
-      qrCanvas.style.width  = size + 'px';
-      qrCanvas.style.height = size + 'px';
-      const ctx = qrCanvas.getContext && qrCanvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2D context unavailable');
-
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.clearRect(0, 0, size, size);
-
-      // strategy A: direct canvas
-      try {
-        await new Promise((res, rej) =>
-          QR.toCanvas(
-            qrCanvas,
-            shortUrl,
-            { errorCorrectionLevel: 'H', margin: 1, width: size },
-            e => (e ? rej(e) : res())
-          )
-        );
-      } catch (eA) {
-        // strategy B: dataURL → draw
-        try {
-          const dataUrl = await new Promise((res, rej) =>
-            QR.toDataURL(
-              shortUrl,
-              { errorCorrectionLevel: 'H', margin: 1, width: size },
-              (e, s) => (e ? rej(e) : res(s))
-            )
-          );
-          await new Promise((res, rej) => {
-            const img = new Image();
-            img.onload = () => { ctx.drawImage(img, 0, 0, size, size); res(); };
-            img.onerror = rej;
-            img.src = dataUrl;
-          });
-        } catch (eB) {
-          // strategy C: inline SVG (rock-solid on iOS)
-          const svg = await new Promise((res, rej) =>
-            QR.toString(
-              shortUrl,
-              { type: 'svg', errorCorrectionLevel: 'H', margin: 1, width: size },
-              (e, s) => (e ? rej(e) : res(s))
-            )
-          );
-          const host = document.createElement('div');
-          host.id = 'qrSvgHost';
-          host.style.width = size + 'px';
-          host.style.height = size + 'px';
-          host.style.display = 'block';
-          host.innerHTML = svg;
-          qrCanvas.style.display = 'none';
-          qrCanvas.parentNode.insertBefore(host, qrCanvas.nextSibling);
-        }
-      }
-
-      // success UI
+      const svg = await new Promise((res, rej) =>
+        QR.toString(
+          shortUrl,
+          { type: 'svg', errorCorrectionLevel: 'H', margin: 1, width: 220 },
+          (e, s) => (e ? rej(e) : res(s))
+        )
+      );
+      const host = document.createElement('div');
+      host.id = 'qrSvgHost';
+      host.style.width = '220px';
+      host.style.height = '220px';
+      host.innerHTML = svg;
+      // insert right after canvas, keep canvas hidden
+      qrCanvas.style.display = 'none';
       qrPlaceholder && (qrPlaceholder.style.display = 'none');
-      // if SVG is used, canvas is hidden — that’s fine. If not, show canvas.
-      if (!$('qrSvgHost')) qrCanvas.style.display = 'block';
+      qrCanvas.parentNode.insertBefore(host, qrCanvas.nextSibling);
 
       if (qrStatus) {
         qrStatus.textContent = 'QR Code generated successfully';
@@ -306,21 +256,101 @@
         qrStatus.hidden = false;
       }
 
-      const offlineEl = $('offlineText');
+      const offlineEl = document.getElementById('offlineText');
       if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+      return; // done (SVG path)
+    } catch (eSvg) {
+      console.warn('SVG path failed, trying canvas…', eSvg);
+    }
 
-    } catch (err) {
-      console.error('QR render error:', err);
-      qrPlaceholder && (qrPlaceholder.style.display = 'flex');
-      qrCanvas && (qrCanvas.style.display = 'none');
+    // ---------- Fallback A: draw to canvas ----------
+    try {
+      // prep canvas for high-DPI
+      const size  = 220;
+      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      qrCanvas.width  = size * scale;
+      qrCanvas.height = size * scale;
+      qrCanvas.style.width  = size + 'px';
+      qrCanvas.style.height = size + 'px';
+      const ctx = qrCanvas.getContext('2d');
+      if (!ctx) throw new Error('2D context unavailable');
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.clearRect(0, 0, size, size);
+
+      await new Promise((res, rej) =>
+        QR.toCanvas(
+          qrCanvas,
+          shortUrl,
+          { errorCorrectionLevel: 'H', margin: 1, width: size },
+          e => (e ? rej(e) : res())
+        )
+      );
+
+      qrPlaceholder && (qrPlaceholder.style.display = 'none');
+      qrCanvas.style.display = 'block';
       if (qrStatus) {
-        qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
-        qrStatus.style.background = 'rgba(252,211,77,0.15)';
-        qrStatus.style.color = '#92400E';
+        qrStatus.textContent = 'QR Code generated successfully';
+        qrStatus.style.background = 'rgba(5,150,105,0.1)';
+        qrStatus.style.color = 'var(--green)';
         qrStatus.hidden = false;
       }
+      const offlineEl = document.getElementById('offlineText');
+      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+      return;
+    } catch (eCanvas) {
+      console.warn('Canvas path failed, trying PNG fallback…', eCanvas);
+    }
+
+    // ---------- Fallback B: PNG dataURL → draw ----------
+    try {
+      const size = 220;
+      const dataUrl = await new Promise((res, rej) =>
+        QR.toDataURL(
+          shortUrl,
+          { errorCorrectionLevel: 'H', margin: 1, width: size },
+          (e, s) => (e ? rej(e) : res(s))
+        )
+      );
+      const img = new Image();
+      await new Promise((res, rej) => {
+        img.onload = res; img.onerror = rej; img.src = dataUrl;
+      });
+      const ctx = qrCanvas.getContext('2d');
+      const scale = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      qrCanvas.width = size * scale; qrCanvas.height = size * scale;
+      qrCanvas.style.width = size + 'px'; qrCanvas.style.height = size + 'px';
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+
+      qrPlaceholder && (qrPlaceholder.style.display = 'none');
+      qrCanvas.style.display = 'block';
+      if (qrStatus) {
+        qrStatus.textContent = 'QR Code generated successfully';
+        qrStatus.style.background = 'rgba(5,150,105,0.1)';
+        qrStatus.style.color = 'var(--green)';
+        qrStatus.hidden = false;
+      }
+      const offlineEl = document.getElementById('offlineText');
+      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+      return;
+    } catch (ePng) {
+      console.error('All QR strategies failed:', ePng);
+      throw ePng;
+    }
+
+  } catch (err) {
+    console.error('QR render error:', err);
+    qrPlaceholder && (qrPlaceholder.style.display = 'flex');
+    qrCanvas && (qrCanvas.style.display = 'none');
+    if (qrStatus) {
+      qrStatus.textContent = '⚠️ Couldn’t draw QR. Check connection/ad-blockers and try again.';
+      qrStatus.style.background = 'rgba(252,211,77,0.15)';
+      qrStatus.style.color = '#92400E';
+      qrStatus.hidden = false;
     }
   }
+}
 
   /* ---------- ICE (local-first + server-sync) ---------- */
   function renderIceContacts() {
