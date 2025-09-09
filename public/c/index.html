@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>MYQER — Emergency Info</title>
-
-  <!-- Light styles -->
   <style>
     :root { --ink:#0f172a; --slate:#475569; --red:#dc2626; --border:#e5e7eb; --card:#fff; --bg:#f8fafc; }
     html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -24,10 +22,7 @@
     .error{background:#fee2e2;border:1px solid #fecaca;color:#991b1b;padding:.9rem 1rem;border-radius:10px}
     @media (max-width:700px){ .grid{grid-template-columns:1fr} #qrCanvas{margin:0 auto} .bar{flex-direction:column;gap:.25rem}}
   </style>
-
-  <!-- Supabase (same version as dashboard) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <!-- QR lib to re-draw the code here for visual consistency (optional but nice) -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
@@ -42,7 +37,6 @@
     <div class="card">
       <div class="grid">
         <canvas id="qrCanvas" width="200" height="200" aria-label="QR"></canvas>
-
         <div>
           <h1 id="name">—</h1>
           <p class="sub" id="meta">—</p>
@@ -52,18 +46,10 @@
               <div class="chip"><strong>Blood:</strong> <span id="blood">—</span></div>
               <div class="chip"><strong>Donor:</strong> <span id="donor">—</span></div>
             </div>
-            <div class="row muted" id="allergiesRow" style="display:none">
-              <div><strong>Allergies:</strong> <span id="allergies"></span></div>
-            </div>
-            <div class="row muted" id="conditionsRow" style="display:none">
-              <div><strong>Conditions:</strong> <span id="conditions"></span></div>
-            </div>
-            <div class="row muted" id="medsRow" style="display:none">
-              <div><strong>Medications:</strong> <span id="meds"></span></div>
-            </div>
-            <div class="row muted" id="implantsRow" style="display:none">
-              <div><strong>Implants/Devices:</strong> <span id="implants"></span></div>
-            </div>
+            <div class="row muted" id="allergiesRow" style="display:none"><div><strong>Allergies:</strong> <span id="allergies"></span></div></div>
+            <div class="row muted" id="conditionsRow" style="display:none"><div><strong>Conditions:</strong> <span id="conditions"></span></div></div>
+            <div class="row muted" id="medsRow" style="display:none"><div><strong>Medications:</strong> <span id="meds"></span></div></div>
+            <div class="row muted" id="implantsRow" style="display:none"><div><strong>Implants/Devices:</strong> <span id="implants"></span></div></div>
           </div>
 
           <div class="section">
@@ -81,79 +67,58 @@
 
 <script>
 (function(){
-  // --- Read code from /c/<CODE> ---
   const path = (location.pathname || '').replace(/\/+$/, '');
   const code = decodeURIComponent(path.split('/').pop() || '').toUpperCase();
   document.getElementById('code').textContent = code || '—';
-
-  // draw QR preview of this URL (nice touch; does not change the QR you carry)
   try {
     const url = location.origin + '/c/' + code;
     QRCode.toCanvas(document.getElementById('qrCanvas'), url, {width:200, margin:2, errorCorrectionLevel:'H'}, ()=>{});
   } catch(_) {}
-
-  // Quick reject if code is clearly wrong (accept 6-char or legacy 3-4-3)
   const sixOk = /^[A-HJ-NP-Z2-9]{6}$/.test(code);
   const legacyOk = /^[A-Z0-9]{3}-[A-Z0-9]{4}-[A-Z0-9]{3}$/.test(code);
-  if (!sixOk && !legacyOk){
-    showError('Invalid code.');
-    return;
-  }
+  if (!sixOk && !legacyOk) return showError('Invalid code.');
 
-  // --- Supabase init (same project as dashboard) ---
   const URL = 'https://dmntmhkncldgynufajei.supabase.co';
   const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
   const sb = window.supabase.createClient(URL, KEY);
-
   const $ = (id) => document.getElementById(id);
   function showError(msg){ const m=$('msg'); m.textContent=msg; m.style.display='block'; }
 
-  // --- Load profile by code (works for snake/camel schemas) ---
   (async function load(){
     try {
-      // try snake then camel (whichever your table uses)
-      let rp = await sb.from('profiles').select('*').eq('code', code).maybeSingle();
-      if (rp.error && /does not exist/i.test(rp.error.message)) { /* table issue */ }
+      const rp = await sb.from('profiles').select('*').eq('code', code).maybeSingle();
       if (!rp.data) { showError('No card found for this code.'); return; }
-
       const prof = rp.data;
       const userId = prof.user_id ?? prof.userId ?? null;
 
-      // Render identity
       const name = prof.full_name ?? prof.fullName ?? '—';
       const dob  = prof.date_of_birth ?? prof.dob ?? '';
       const country = prof.country ?? '';
       $('name').textContent = name || '—';
       $('meta').textContent = [dob ? ('DOB: ' + dob) : '', country ? ('Country: ' + country) : ''].filter(Boolean).join('  •  ') || '—';
 
-      // Load health
       if (userId){
         const rh = await sb.from('health_data').select('*').eq('user_id', userId).maybeSingle();
         const h = rh.data || {};
         const blood = h.bloodType ?? h.blood_type ?? '';
         const donor = (h.organDonor ?? h.organ_donor) ? 'Y' : 'N';
-        const allergies  = h.allergies ?? h.allergy_list ?? '';
+        const allergies  = h.allergies ?? h.alergy_list ?? h.allergy_list ?? '';
         const conditions = h.conditions ?? h.medical_conditions ?? '';
         const meds       = h.medications ?? h.meds ?? '';
         const implants   = h.implants ?? h.implants_devices ?? '';
 
         $('blood').textContent = blood || 'Unknown';
         $('donor').textContent = donor;
-
         if (allergies){ $('allergies').textContent = allergies; $('allergiesRow').style.display='flex'; }
         if (conditions){ $('conditions').textContent = conditions; $('conditionsRow').style.display='flex'; }
         if (meds){ $('meds').textContent = meds; $('medsRow').style.display='flex'; }
         if (implants){ $('implants').textContent = implants; $('implantsRow').style.display='flex'; }
 
-        // ICE
         const ri = await sb.from('ice_contacts').select('*').eq('user_id', userId).order('contact_order', {ascending:true});
         const ice = (ri.data || []).map(r => [r.name, r.relationship, r.phone].filter(Boolean).join(' — ')).filter(Boolean);
         if (ice.length){ $('ice').style.display='block'; $('iceList').textContent = ice.join('   |   '); }
       }
-    } catch (e){
-      console.error(e);
-      showError('Temporary error loading card.');
-    }
+    } catch (e){ console.error(e); showError('Temporary error loading card.'); }
   })();
 })();
 </script>
