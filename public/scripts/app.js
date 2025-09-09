@@ -8,6 +8,19 @@
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
   const debounce = (fn, ms=500) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms);}};
+  // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
+function normalizeDOB(s) {
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+  const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
+  if (m) {
+    const M = String(+m[1]).padStart(2,'0');
+    const D = String(+m[2]).padStart(2,'0');
+    const Y = +m[3];
+    if (Y > 1900) return `${Y}-${M}-${D}`;
+  }
+  return s;
+}
 
   let supabase, isSupabaseAvailable = false;
   let isOnline = navigator.onLine;
@@ -180,33 +193,47 @@
     /* eslint-enable */
   })();
 
-  /* ---------- offline text ---------- */
-  function buildOfflineText(shortUrl){
-    const pf = userData.profile || {}, hd = userData.health || {};
-    const name = pf.full_name ?? pf.fullName ?? '';
-    const dob  = pf.date_of_birth ?? pf.dob ?? '';
-    const nat  = pf.national_id ?? pf.healthId ?? '';
-    const country = pf.country ?? '';
-    const donor = hd.organDonor ? 'Y' : 'N';
-    const L=[], A=[], B=[], C=[];
-    if (name) A.push('Name: '+name);
-    if (dob) A.push('DOB: '+dob);
-    if (country) A.push('C: '+country);
-    if (nat) A.push('ID: '+nat);
-    if (A.length) L.push(A.join(' | '));
-    if (hd.bloodType) B.push('BT: '+hd.bloodType);
-    if (hd.allergies) B.push('ALG: '+hd.allergies);
-    if (B.length) L.push(B.join(' | '));
-    if (hd.conditions) C.push('COND: '+hd.conditions);
-    if (hd.medications) C.push('MED: '+hd.medications);
-    if (hd.implants) C.push('IMP: '+hd.implants);
-    C.push('DONOR:'+donor);
-    L.push(C.join(' | '));
-    L.push('URL:'+shortUrl);
-    return L.join('\n').slice(0,1200);
-  }
+ function buildOfflineText(shortUrl) {
+  const pf = userData?.profile || {};
+  const hd = userData?.health || {};
 
+  const name    = pf.full_name ?? pf.fullName ?? '';
+  const dob     = pf.date_of_birth ?? pf.dob ?? '';
+  const nat     = pf.national_id ?? pf.healthId ?? '';
+  const country = pf.country ?? '';
+  const donor   = hd.organDonor ? 'Y' : 'N';
 
+  const L = [];
+
+  const L1 = [];
+  if (name)    L1.push('Name: ' + name);
+  if (dob)     L1.push('DOB: ' + dob);
+  if (country) L1.push('C: ' + country);
+  if (nat)     L1.push('ID: ' + nat);
+  if (L1.length) L.push(L1.join(' | '));
+
+  const L2 = [];
+  if (hd.bloodType) L2.push('BT: ' + hd.bloodType);
+  if (hd.allergies) L2.push('ALG: ' + hd.allergies);
+  if (L2.length) L.push(L2.join(' | '));
+
+  const L3 = [];
+  if (hd.conditions)  L3.push('COND: ' + hd.conditions);
+  if (hd.medications) L3.push('MED: ' + hd.medications);
+  if (hd.implants)    L3.push('IMP: ' + hd.implants);
+  L3.push('DONOR: ' + donor);
+  if (L3.length) L.push(L3.join(' | '));
+
+  // ICE
+  const ice = Array.isArray(iceContacts) ? iceContacts : [];
+  const iceLines = ice
+    .filter(c => c && (c.name || c.phone))
+    .map(c => `${c.name || ''} — ${c.relationship || ''} — ${c.phone || ''}`.replace(/\s+—\s+—\s*$/,'').trim());
+  if (iceLines.length) L.push('ICE: ' + iceLines.join(' | '));
+
+  L.push('URL: ' + shortUrl);
+  return L.join('\n').slice(0, 1200);
+}
  // ---------- QR: uses embedded encoder ----------
 async function generateQRCode() {
   const qrCanvas = $('qrcodeCanvas'),
@@ -325,7 +352,7 @@ async function generateQRCode() {
   function saveProfile(){
     const profile={
       full_name: $('profileFullName')?.value.trim() || '',
-      date_of_birth: $('profileDob')?.value.trim() || '',
+      date_of_birth: $('profileDob') ? normalizeDOB($('profileDob').value.trim()) : '',
       country: $('profileCountry')?.value.trim() || '',
       national_id: $('profileHealthId')?.value.trim() || ''
     };
@@ -340,34 +367,87 @@ async function generateQRCode() {
       upsertProfileSmart(profile).then(()=>{ toast('Profile saved','success'); generateQRCode(); }).catch(e=>{ console.error(e); toast('Error saving profile','error'); });
     });
   }
-  function saveHealth(){
-    const health={
-      bloodType: $('hfBloodType')?.value || '',
-      allergies: $('hfAllergies')?.value || '',
-      conditions: $('hfConditions')?.value || '',
-      medications: $('hfMeds')?.value || '',
-      implants: $('hfImplants')?.value || '',
-      organDonor: !!$('hfDonor')?.checked,
-      triageOverride: $('triageOverride')?.value || 'auto'
-    };
-    userData.health=health; window.userData=userData;
-    localStorage.setItem('myqer_health', JSON.stringify(health));
+  function saveHealth() {
+  const health = {
+    bloodType:      $('hfBloodType')?.value || '',
+    allergies:      $('hfAllergies')?.value || '',
+    conditions:     $('hfConditions')?.value || '',
+    medications:    $('hfMeds')?.value || '',
+    implants:       $('hfImplants')?.value || '',
+    organDonor:     !!$('hfDonor')?.checked,
+    triageOverride: $('triageOverride')?.value || 'auto'
+  };
 
-    if (!isSupabaseAvailable){ calculateTriage(); toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+  // local-first
+  userData.health = health;
+  localStorage.setItem('myqer_health', JSON.stringify(health));
 
-    supabase.auth.getSession().then(r=>{
-      const session=r?.data?.session; if (!session){ calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); throw new Error('no session'); }
-      return getUserId().then(uid=>{
-        if (!uid){ calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); throw new Error('no uid'); }
-        return supabase.from('health_data').upsert({
-          user_id:uid, bloodType:health.bloodType, allergies:health.allergies, conditions:health.conditions,
-          medications:health.medications, implants:health.implants, organDonor:health.organDonor, triageOverride:health.triageOverride
-        }, { onConflict:'user_id' }).then(({error})=>{ if (error) throw error; });
-      });
-    }).then(()=>{ calculateTriage(); toast('Health info saved','success'); generateQRCode(); })
-    .catch(e=>{ if (e?.message==='no session'||e?.message==='no uid') return; console.error(e); toast('Error saving health','error'); });
+  if (!isSupabaseAvailable) {
+    calculateTriage();
+    toast('Saved locally (offline mode)', 'info');
+    generateQRCode();
+    return;
   }
 
+  supabase.auth.getSession()
+    .then((r) => {
+      const session = r?.data?.session;
+      if (!session) {
+        calculateTriage();
+        toast('Saved locally — please sign in to sync', 'info');
+        generateQRCode();
+        throw new Error('no session');
+      }
+      return getUserId();
+    })
+    .then((uid) => {
+      if (!uid) {
+        calculateTriage();
+        toast('Saved locally — please sign in to sync', 'info');
+        generateQRCode();
+        throw new Error('no uid');
+      }
+
+      // snake first (what most card pages expect), then camel fallback
+      const snake = {
+        user_id: uid,
+        blood_type: health.bloodType,
+        allergies: health.allergies,
+        conditions: health.conditions,
+        medications: health.medications,
+        implants: health.implants,
+        organ_donor: health.organDonor,
+        triage_override: health.triageOverride
+      };
+      const camel = {
+        user_id: uid,
+        bloodType: health.bloodType,
+        allergies: health.allergies,
+        conditions: health.conditions,
+        medications: health.medications,
+        implants: health.implants,
+        organDonor: health.organDonor,
+        triageOverride: health.triageOverride
+      };
+
+      return supabase.from('health_data').upsert(snake, { onConflict: 'user_id' })
+        .then(({ error }) => {
+          if (!error) return;
+          return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' })
+            .then(({ error: e2 }) => { if (e2) throw e2; });
+        });
+    })
+    .then(() => {
+      calculateTriage();
+      toast('Health info saved', 'success');
+      generateQRCode();
+    })
+    .catch((e) => {
+      if (e && (e.message === 'no session' || e.message === 'no uid')) return;
+      console.error(e);
+      toast('Error saving health', 'error');
+    });
+}
   /* ---------- load sequence ---------- */
   function fillFromLocal(){
     try{
