@@ -237,20 +237,35 @@ function waitForQRCode(tries = 20, interval = 100) {
     if (cardUrlInput) cardUrlInput.value      = shortUrl;
 
 // --- draw (prefer UMD library for classic 3-squares QR) ---
-const hasUMD = await waitForQRCode(20, 100);   // ~2s max
-if (hasUMD) {
+// --- draw (prefer UMD for classic 3-squares) ---
+const payload = String(shortUrl).trim();               // clean
+const useUMD  = !!(window.QRCode && QRCode.toCanvas);
+
+if (useUMD) {
   await new Promise((resolve, reject) => {
     QRCode.toCanvas(
       qrCanvas,
-      shortUrl,                                // e.g. https://myqer.com/c/ABC-DEF0-GHI
-      { width: 260, margin: 2, errorCorrectionLevel: 'H' },
+      payload,
+      {
+        // very camera-friendly settings
+        errorCorrectionLevel: 'M',   // M scans faster than H for short URLs
+        margin: 4,                   // clear quiet zone
+        scale: 8,                    // crisp modules
+        color: { dark: '#000000', light: '#ffffff' } // force pure white bg
+      },
       err => err ? reject(err) : resolve()
     );
   });
+
+  // make sure the browser doesn't blur modules
+  const ctx = qrCanvas.getContext('2d');
+  if (ctx) ctx.imageSmoothingEnabled = false;
+
 } else {
-  // fallback — only if the UMD script truly isn't available
-  await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
+  // fallback encoder; also draw on pure white
+  await simpleQR.canvas(qrCanvas, payload, 260, 4);
 }
+
 qrCanvas.style.display = 'block';
 if (qrPlaceholder) qrPlaceholder.style.display = 'none';
 
