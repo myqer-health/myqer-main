@@ -1,90 +1,97 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MYQER — Emergency Card</title>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; padding:24px; }
+  .wrap{ max-width:840px; margin:0 auto; }
+  .pill{ display:inline-block; padding:4px 8px; border-radius:999px; background:#dcfce7; color:#065f46; font-weight:600 }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .lab{ font-size:12px; color:#64748b }
+  .val{ font-weight:600 }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MYQER — Emergency Card <span id="triage" class="pill">AUTO</span></h1>
+
+  <div class="grid">
+    <div><div class="lab">Full name</div><div id="v_name" class="val">—</div></div>
+    <div><div class="lab">DOB</div><div id="v_dob" class="val">—</div></div>
+    <div><div class="lab">Country</div><div id="v_country" class="val">—</div></div>
+    <div><div class="lab">Health ID</div><div id="v_hid" class="val">—</div></div>
+  </div>
+
+  <div style="margin-top:12px" class="grid">
+    <div><div class="lab">Blood type</div><div id="v_bt" class="val">—</div></div>
+    <div><div class="lab">Organ donor</div><div id="v_donor" class="val">—</div></div>
+    <div style="grid-column:1/-1"><div class="lab">Allergies</div><div id="v_alg" class="val">—</div></div>
+    <div style="grid-column:1/-1"><div class="lab">Conditions</div><div id="v_cond" class="val">—</div></div>
+    <div style="grid-column:1/-1"><div class="lab">Medications</div><div id="v_meds" class="val">—</div></div>
+    <div style="grid-column:1/-1"><div class="lab">Implants/devices</div><div id="v_impl" class="val">—</div></div>
+  </div>
+
+  <div style="margin-top:12px">
+    <div class="lab">Card URL</div>
+    <div id="v_url" class="val" style="font-family:monospace"></div>
+  </div>
+
+  <div style="margin-top:12px">
+    <div class="lab">ICE</div>
+    <div id="v_ice" class="val">—</div>
+  </div>
+</div>
+
 <script>
-  // ---- Supabase (same project as dashboard) ----
-  const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---- helpers ----
-  const $ = (id) => document.getElementById(id);
-  const normalizeDashes = (s) => (s || '').replace(/[\u2010-\u2015\u2212]/g, '-').toUpperCase();
-  const pathLast = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+const CODE_VALID = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}$/;
+const clean = s => (s||'').toUpperCase().replace(/[\u2010-\u2015\u2212]/g,'-');
+const code = clean(location.pathname.split('/').filter(Boolean).pop());
+if (!CODE_VALID.test(code)) document.body.innerHTML='<div class="wrap"><p>Card not found.</p></div>';
 
-  // accept BOTH: 6-char (no dashes) OR old 3-4-3
-  const RX_6     = /^[A-HJ-NP-Z2-9]{6}$/; 
-  const RX_3_4_3 = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+(async () => {
+  const prof = await sb.from('profiles')
+    .select('user_id, full_name, date_of_birth, country, national_id, code, fullName, dob, healthId')
+    .eq('code', code).maybeSingle();
 
-  const showNotFound = (msg='Card not found.') => {
-    document.body.innerHTML = `<div class="wrap"><p>${msg}</p></div>`;
-  };
+  const row = prof.data;
+  if (!row) { document.body.innerHTML='<div class="wrap"><p>Card not found.</p></div>'; return; }
 
-  (async () => {
-    // read from querystring or path and sanitize
-    let raw = new URLSearchParams(location.search).get('code') || pathLast(location.pathname);
-    raw = normalizeDashes(raw);
+  const uid = row.user_id;
+  const health = await sb.from('health_data').select('*').eq('user_id', uid).maybeSingle();
+  const ice = await sb.from('ice_contacts').select('*').eq('user_id', uid).order('contact_order', {ascending:true});
 
-    // validate against either pattern
-    if (!(RX_6.test(raw) || RX_3_4_3.test(raw))) return showNotFound();
+  const p = row;
+  const get = (a,b) => a ?? b ?? '—';
+  document.getElementById('v_name').textContent    = get(p.full_name, p.fullName);
+  document.getElementById('v_dob').textContent     = get(p.date_of_birth, p.dob);
+  document.getElementById('v_country').textContent = get(p.country);
+  document.getElementById('v_hid').textContent     = get(p.national_id, p.healthId);
 
-    // 1) find the user by code
-    const { data: prof, error: perr } = await supabase
-      .from('profiles')
-      .select('user_id, fullName, full_name, dob, date_of_birth, country, healthId, national_id, code')
-      .eq('code', raw)
-      .maybeSingle();
+  const h = health.data || {};
+  document.getElementById('v_bt').textContent    = get(h.blood_type, h.bloodType);
+  document.getElementById('v_donor').textContent = (h.organ_donor || h.organDonor) ? 'Yes' : 'No';
+  document.getElementById('v_alg').textContent   = get(h.allergies);
+  document.getElementById('v_cond').textContent  = get(h.conditions);
+  document.getElementById('v_meds').textContent  = get(h.medications);
+  document.getElementById('v_impl').textContent  = get(h.implants);
 
-    if (perr || !prof) return showNotFound();
+  const lvl = (h.triage_override || h.triageOverride || 'auto').toUpperCase();
+  document.getElementById('triage').textContent = lvl;
 
-    // normalize fields (camel/snake)
-    const name = prof.full_name ?? prof.fullName ?? '';
-    const dob  = prof.date_of_birth ?? prof.dob ?? '';
-    const hid  = prof.national_id ?? prof.healthId ?? '';
-    const ctry = prof.country ?? '';
+  const base = `https://${location.hostname.replace(/^www\./,'')}`;
+  const url = `${base}/c/${code}`;
+  document.getElementById('v_url').textContent = url;
 
-    // 2) fetch health + ICE
-    const [{ data: health }, { data: ice }] = await Promise.all([
-      supabase.from('health_data').select('*').eq('user_id', prof.user_id).maybeSingle(),
-      supabase.from('ice_contacts').select('*').eq('user_id', prof.user_id).order('contact_order', { ascending:true })
-    ]);
-
-    // 3) fill UI
-    $('v_name').textContent    = name || '—';
-    $('v_dob').textContent     = dob || '—';
-    $('v_country').textContent = ctry || '—';
-    $('v_hid').textContent     = hid || '—';
-
-    if (health) {
-      const bt  = health.bloodType      ?? health.blood_type      ?? '';
-      const alg = health.allergies      ?? health.allergy_list    ?? '';
-      const con = health.conditions     ?? health.medical_conditions ?? '';
-      const med = health.medications    ?? health.meds            ?? '';
-      const imp = health.implants       ?? health.implants_devices ?? '';
-      const don = (health.organDonor ?? health.organ_donor) ? 'Yes' : 'No';
-      const tri = (health.triageOverride ?? health.triage_override ?? 'green').toLowerCase();
-
-      $('v_bt').textContent    = bt || '—';
-      $('v_donor').textContent = don;
-      $('v_alg').textContent   = alg || '—';
-      $('v_cond').textContent  = con || '—';
-      $('v_meds').textContent  = med || '—';
-      $('v_impl').textContent  = imp || '—';
-
-      const pill = $('triage');
-      pill.textContent = tri.toUpperCase();
-      pill.style.background = tri==='red' ? '#fee2e2' : tri==='amber' ? '#fef3c7' : '#dcfce7';
-      pill.style.color      = tri==='red' ? '#dc2626' : tri==='amber' ? '#d97706' : '#059669';
-    }
-
-    const list = (ice || [])
-      .map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — '))
-      .filter(Boolean);
-    $('iceList').textContent = list.length ? list.join(' | ') : '—';
-
-    // 4) mirror URL on page and draw QR of this page itself (optional)
-    const url = `https://${location.hostname.replace(/^www\./,'')}/c/${raw}`;
-    $('v_url').textContent = url;
-    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
-      try { QRCode.toCanvas($('qr'), url, { width: 160, margin: 1, errorCorrectionLevel: 'H' }); } catch {}
-    }
-  })();
+  const list = (ice.data || []).map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — '));
+  document.getElementById('v_ice').textContent = list.length ? list.join(' | ') : '—';
+})();
 </script>
+</body>
+</html>
