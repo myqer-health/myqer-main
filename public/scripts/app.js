@@ -8,19 +8,21 @@
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
   const debounce = (fn, ms=500) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms);}};
+  const autoSaveTimers = {}; // <— needed by setupAutoSave
+
   // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
-function normalizeDOB(s) {
-  if (!s) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
-  const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
-  if (m) {
-    const M = String(+m[1]).padStart(2,'0');
-    const D = String(+m[2]).padStart(2,'0');
-    const Y = +m[3];
-    if (Y > 1900) return `${Y}-${M}-${D}`;
+  function normalizeDOB(s) {
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+    const m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
+    if (m) {
+      const M = String(+m[1]).padStart(2,'0');
+      const D = String(+m[2]).padStart(2,'0');
+      const Y = +m[3];
+      if (Y > 1900) return `${Y}-${M}-${D}`;
+    }
+    return s;
   }
-  return s;
-}
 
   let supabase, isSupabaseAvailable = false;
   let isOnline = navigator.onLine;
@@ -110,183 +112,178 @@ function normalizeDOB(s) {
     });
   }
 
-  /* ============= EMBEDDED QR ENCODER (no external files) ============= 
-     Based on qrcode-generator (MIT, Kazuhiko Arase) — trimmed and wrapped.
-     Exposes simpleQR.svg(text,size,margin) and simpleQR.canvas(canvas,text,size,margin)
+  /* ============= EMBEDDED QR (no external files) ============= 
+     Compact build based on qrcode-generator (MIT).
+     Exposes: simpleQR.svg(text,size,margin) and simpleQR.canvas(canvas,text,size,margin)
   ====================================================================*/
-  const simpleQR = (function(){ /* tiny QR bundle */
-    // Minimal port: encode as 2D modules (H EC), mask 0..7 scan for best score
-    // For brevity, this is a compact implementation that supports UTF-8 text.
-    // Source: https://github.com/kazuhikoarase/qrcode-generator  (MIT) — compacted for embedding.
+  const simpleQR = (function(){ /* compact, canvas-first */
     /* eslint-disable */
-    function QR8bitByte(data){this.mode=4;this.data=data}
-    QR8bitByte.prototype={getLength:function(){return new TextEncoder().encode(this.data).length},
-    write:function(buff){for(const b of new TextEncoder().encode(this.data))buff.put(b,8)}};
-    function QRBitBuffer(){this.buffer=[],this.length=0}
-    QRBitBuffer.prototype.put=function(num,length){for(let i=0;i<length;i++)this.putBit(((num>>> (length-i-1))&1)===1)};
+    function QR8bitByte(d){this.mode=4;this.data=d}
+    QR8bitByte.prototype={getLength(){return new TextEncoder().encode(this.data).length},
+      write(buf){for(const b of new TextEncoder().encode(this.data)) buf.put(b,8)}};
+    function QRBitBuffer(){this.buffer=[];this.length=0}
+    QRBitBuffer.prototype.put=function(num,len){for(let i=0;i<len;i++)this.putBit(((num>>(len-i-1))&1)===1)};
     QRBitBuffer.prototype.putBit=function(bit){this.buffer.push(bit?1:0);this.length++};
-    function RSBlock(totalCount,dataCount){this.totalCount=totalCount;this.dataCount=dataCount}
+    function RSBlock(t,d){this.totalCount=t;this.dataCount=d}
     const PAD0=0xEC,PAD1=0x11;
-    const RS_BLOCK_TABLE={ // H only (index by typeNumber)
-     1:[1,   9,  7], 2:[1,  16, 10], 3:[1,  26, 15], 4:[1,  36, 20], 5:[1,  44, 26],
-     6:[2,  60, 36], 7:[2,  66, 43], 8:[2,  86, 54], 9:[2, 100, 69],10:[4, 122, 84],
-    11:[4, 140, 93],12:[4, 158,107],13:[4, 180,115],14:[4, 197,131]
-    }; // good enough for URLs
-    function getRSBlocks(typeNum){const t=RS_BLOCK_TABLE[typeNum];const list=[];for(let i=0;i<t[0];i++)list.push(new RSBlock(t[1],t[2]));return list}
-    function QRCode(typeNumber){this.typeNumber=typeNumber||0;this.modules=null;this.moduleCount=0;this.dataList=[]}
-    QRCode.prototype={addData:function(data){this.dataList.push(new QR8bitByte(data))},
-    make:function(){if(this.typeNumber<1){for(let t=1;t<=14;t++){this.typeNumber=t; if(this.getMaxDataBits()>=this.getDataLength()){break}}}
-      this.moduleCount=this.typeNumber*4+17;this.modules=Array.from({length:this.moduleCount},()=>Array(this.moduleCount).fill(null));
-      this.setupPositionProbePattern(0,0);this.setupPositionProbePattern(this.moduleCount-7,0);this.setupPositionProbePattern(0,this.moduleCount-7);
-      this.setupTimingPattern();this.mapData(this.createData());this.applyBestMask()},
-    isDark:function(r,c){return this.modules[r][c]},
-    getDataLength:function(){return this.dataList.reduce((n,d)=>n+d.getLength(),0)},
-    getMaxDataBits:function(){return getRSBlocks(this.typeNumber).reduce((n,b)=>n+b.dataCount,0)*8-4}, // rough
-    setupPositionProbePattern:function(row,col){for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){const rr=row+r,cc=col+c;if(rr<0||rr>=this.moduleCount||cc<0||cc>=this.moduleCount)continue;this.modules[rr][cc]= (r>=0&&r<=6&&(c===0||c===6))||(c>=0&&c<=6&&(r===0||r===6))||(r>=2&&r<=4&&c>=2&&c<=4)}},
-    setupTimingPattern:function(){for(let i=8;i<this.moduleCount-8;i++){const v=i%2===0; if(this.modules[i][6]==null)this.modules[i][6]=v; if(this.modules[6][i]==null)this.modules[6][i]=v}},
-    createData:function(){const rsBlocks=getRSBlocks(this.typeNumber);const buffer=new QRBitBuffer();
-      for(const d of this.dataList){buffer.put(4,4);buffer.put(d.getLength(),8);d.write(buffer)}
-      // terminator/padding to bytes
-      const totalDataCount=rsBlocks.reduce((n,b)=>n+b.dataCount,0);
-      let bits=buffer.length;const maxBits=totalDataCount*8; if(bits+4<=maxBits)buffer.put(0,4); while(buffer.length%8!==0)buffer.put(0,1);
-      let padFlag=true; while(buffer.length<maxBits){buffer.put(padFlag?PAD0:PAD1,8);padFlag=!padFlag}
-      // pack bytes
-      const data=[]; for(let i=0;i<buffer.length;i+=8){let v=0;for(let j=0;j<8;j++)v=(v<<1)|buffer.buffer[i+j]; data.push(v)}
-      return data},
-    mapData:function(data){ // very simplified interleaving (good enough for our sizes)
-      let row=this.moduleCount-1,col=this.moduleCount-1,dir=-1,byteIdx=0,bitIdx=7;
-      const nextBit=()=>{const v=(data[byteIdx]>>>bitIdx)&1; if(--bitIdx<0){byteIdx++;bitIdx=7} return v};
-      while(col>0){if(col===6)col--; for(let i=0;i<this.moduleCount;i++){const r=row+dir*i,c1=col,c2=col-1;
-          for(const c of [c1,c2]) if(this.modules[r] && this.modules[r][c]==null) this.modules[r][c]= nextBit()===1;
-        } row+=dir*(this.moduleCount); dir=-dir; col-=2;}
-    },
-    applyBestMask:function(){ // try masks 0..3 for speed
-      const scores=[]; for(let m=0;m<4;m++){const cp=this.modules.map(r=>r.slice());
-        for(let r=0;r<this.moduleCount;r++)for(let c=0;c<this.moduleCount;c++){
-          if(cp[r][c]==null)continue;
-          if(m===0) cp[r][c] = ((r+c)%2===0)? !cp[r][c]: cp[r][c];
-          if(m===1) cp[r][c] = (r%2===0)? !cp[r][c]: cp[r][c];
-          if(m===2) cp[r][c] = (c%3===0)? !cp[r][c]: cp[r][c];
-          if(m===3) cp[r][c] = ((r+c)%3===0)? !cp[r][c]: cp[r][c];
-        }
-        scores.push({m,cp,score:this.score(cp)});
-      }
-      scores.sort((a,b)=>a.score-b.score); this.modules = scores[0].cp;
-    },
-    score:function(mat){ // simple penalty: balance + runs
-      const n=mat.length; let dark=0, runs=0;
-      for(let r=0;r<n;r++)for(let c=0;c<n;c++){ if(mat[r][c]) dark++; if(c&&mat[r][c]===mat[r][c-1]) runs++; }
-      for(let c=0;c<n;c++)for(let r=0;r<n;r++) if(r&&mat[r][c]===mat[r-1][c]) runs++;
-      const ratio=Math.abs(dark/(n*n)-0.5)*100; return runs + ratio;
-    }};
-    function matrix(text){ const q=new QRCode(0); q.addData(text||''); q.make(); return q.modules.map(r=>r.map(v=>!!v)); }
+    const RS_BLOCK_TABLE={1:[1,9,7],2:[1,16,10],3:[1,26,15],4:[1,36,20],5:[1,44,26],6:[2,60,36],7:[2,66,43],8:[2,86,54],9:[2,100,69],10:[4,122,84],11:[4,140,93],12:[4,158,107],13:[4,180,115],14:[4,197,131]};
+    function getRSBlocks(n){const t=RS_BLOCK_TABLE[n],a=[];for(let i=0;i<t[0];i++)a.push(new RSBlock(t[1],t[2]));return a}
+    function QRCode(n){this.typeNumber=n||0;this.modules=null;this.moduleCount=0;this.dataList=[]}
+    QRCode.prototype={
+      addData(d){this.dataList.push(new QR8bitByte(d))},
+      make(){
+        if(this.typeNumber<1){for(let t=1;t<=14;t++){this.typeNumber=t;if(this.getMaxDataBits()>=this.getDataLength())break}}
+        this.moduleCount=this.typeNumber*4+17;
+        this.modules=Array.from({length:this.moduleCount},()=>Array(this.moduleCount).fill(null));
+        this.pp(0,0);this.pp(this.moduleCount-7,0);this.pp(0,this.moduleCount-7);this.tp();this.mapData(this.createData());this.mask();
+      },
+      isDark(r,c){return this.modules[r][c]},
+      getDataLength(){return this.dataList.reduce((n,d)=>n+d.getLength(),0)},
+      getMaxDataBits(){return getRSBlocks(this.typeNumber).reduce((n,b)=>n+b.dataCount,0)*8-4},
+      pp(row,col){for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){const rr=row+r,cc=col+c;
+        if(rr<0||rr>=this.moduleCount||cc<0||cc>=this.moduleCount)continue;
+        this.modules[rr][cc]=(r>=0&&r<=6&&(c===0||c===6))||(c>=0&&c<=6&&(r===0||r===6))||(r>=2&&r<=4&&c>=2&&c<=4)}},
+      tp(){for(let i=8;i<this.moduleCount-8;i++){const v=i%2===0;if(this.modules[i][6]==null)this.modules[i][6]=v;if(this.modules[6][i]==null)this.modules[6][i]=v}},
+      createData(){
+        const rs=getRSBlocks(this.typeNumber),buf=new QRBitBuffer();
+        for(const d of this.dataList){buf.put(4,4);buf.put(d.getLength(),8);d.write(buf)}
+        const total=rs.reduce((n,b)=>n+b.dataCount,0),maxBits=total*8;
+        if(buf.length+4<=maxBits)buf.put(0,4);while(buf.length%8)buf.put(0,1);
+        let pad=true;while(buf.length<maxBits){buf.put(pad?PAD0:PAD1,8);pad=!pad}
+        const out=[];for(let i=0;i<buf.length;i+=8){let v=0;for(let j=0;j<8;j++)v=(v<<1)|buf.buffer[i+j];out.push(v)}return out
+      },
+      mapData(data){
+        let row=this.moduleCount-1,col=this.moduleCount-1,dir=-1,bi=0,bit=7;
+        const next=()=>{const v=(data[bi]>>>bit)&1;if(--bit<0){bi++;bit=7}return v};
+        while(col>0){if(col===6)col--;for(let i=0;i<this.moduleCount;i++){
+          const r=row+dir*i,c1=col,c2=col-1;for(const c of [c1,c2]) if(this.modules[r]&&this.modules[r][c]==null) this.modules[r][c]=next()===1}
+          row+=dir*this.moduleCount;dir=-dir;col-=2}
+      },
+      mask(){
+        const scores=[];for(let m=0;m<4;m++){const cp=this.modules.map(r=>r.slice());
+          for(let r=0;r<this.moduleCount;r++)for(let c=0;c<this.moduleCount;c++){
+            if(cp[r][c]==null)continue;
+            if(m===0)cp[r][c]=((r+c)%2===0)?!cp[r][c]:cp[r][c];
+            if(m===1)cp[r][c]=(r%2===0)?!cp[r][c]:cp[r][c];
+            if(m===2)cp[r][c]=(c%3===0)?!cp[r][c]:cp[r][c];
+            if(m===3)cp[r][c]=((r+c)%3===0)?!cp[r][c]:cp[r][c];
+          }
+          scores.push({m,cp,score:this.score(cp)})}
+        scores.sort((a,b)=>a.score-b.score);this.modules=scores[0].cp
+      },
+      score(mat){const n=mat.length;let dark=0,runs=0;
+        for(let r=0;r<n;r++)for(let c=0;c<n;c++){if(mat[r][c])dark++;if(c&&mat[r][c]===mat[r][c-1])runs++}
+        for(let c=0;c<n;c++)for(let r=0;r<n;r++)if(r&&mat[r][c]===mat[r-1][c])runs++;
+        const ratio=Math.abs(dark/(n*n)-0.5)*100;return runs+ratio}
+    };
+    function matrix(text){const q=new QRCode(0);q.addData(text||'');q.make();return q.modules.map(r=>r.map(v=>!!v))}
+    function drawCanvas(canvas,text,size=220,margin=1){
+      const mat=matrix(text), n=mat.length, scale=Math.max(1,Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
+      canvas.width=dim; canvas.height=dim;
+      const ctx=canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,dim,dim); ctx.fillStyle='#000';
+      for(let r=0;r<n;r++)for(let c=0;c<n;c++) if(mat[r][c]) ctx.fillRect((c+margin)*scale,(r+margin)*scale,scale,scale);
+      return Promise.resolve();
+    }
     function svg(text,size=220,margin=1){
-      const m=matrix(text), n=m.length, scale=Math.max(1, Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
-      let d=''; for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(m[r][c]) d+=`M${(c+margin)*scale} ${(r+margin)*scale}h${scale}v${scale}h-${scale}z`;
-      return { width:dim, height:dim, svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>` };
+      const mat=matrix(text), n=mat.length, scale=Math.max(1,Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
+      let d=''; for(let r=0;r<n;r++)for(let c=0;c<n;c++) if(mat[r][c]) d+=`M${(c+margin)*scale} ${(r+margin)*scale}h${scale}v${scale}h-${scale}z`;
+      return {width:dim,height:dim,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`};
     }
-    function drawCanvas(canvas, text, size=220, margin=1){
-      const out=svg(text,size,margin); const img=new Image(); const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(out.svg);
-      return new Promise((res,rej)=>{ img.onload=()=>{ canvas.width=out.width; canvas.height=out.height; const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,out.width,out.height); ctx.drawImage(img,0,0,out.width,out.height); res(); }; img.onerror=rej; img.src=url; });
-    }
-    return { svg, canvas: drawCanvas };
+    return { canvas:drawCanvas, svg };
     /* eslint-enable */
   })();
 
- function buildOfflineText(shortUrl) {
-  const pf = userData?.profile || {};
-  const hd = userData?.health || {};
+  function buildOfflineText(shortUrl) {
+    const pf = userData?.profile || {};
+    const hd = userData?.health || {};
 
-  const name    = pf.full_name ?? pf.fullName ?? '';
-  const dob     = pf.date_of_birth ?? pf.dob ?? '';
-  const nat     = pf.national_id ?? pf.healthId ?? '';
-  const country = pf.country ?? '';
-  const donor   = hd.organDonor ? 'Y' : 'N';
+    const name    = pf.full_name ?? pf.fullName ?? '';
+    const dob     = pf.date_of_birth ?? pf.dob ?? '';
+    const nat     = pf.national_id ?? pf.healthId ?? '';
+    const country = pf.country ?? '';
+    const donor   = hd.organDonor ? 'Y' : 'N';
 
-  const L = [];
+    const L = [];
 
-  const L1 = [];
-  if (name)    L1.push('Name: ' + name);
-  if (dob)     L1.push('DOB: ' + dob);
-  if (country) L1.push('C: ' + country);
-  if (nat)     L1.push('ID: ' + nat);
-  if (L1.length) L.push(L1.join(' | '));
+    const L1 = [];
+    if (name)    L1.push('Name: ' + name);
+    if (dob)     L1.push('DOB: ' + dob);
+    if (country) L1.push('C: ' + country);
+    if (nat)     L1.push('ID: ' + nat);
+    if (L1.length) L.push(L1.join(' | '));
 
-  const L2 = [];
-  if (hd.bloodType) L2.push('BT: ' + hd.bloodType);
-  if (hd.allergies) L2.push('ALG: ' + hd.allergies);
-  if (L2.length) L.push(L2.join(' | '));
+    const L2 = [];
+    if (hd.bloodType) L2.push('BT: ' + hd.bloodType);
+    if (hd.allergies) L2.push('ALG: ' + hd.allergies);
+    if (L2.length) L.push(L2.join(' | '));
 
-  const L3 = [];
-  if (hd.conditions)  L3.push('COND: ' + hd.conditions);
-  if (hd.medications) L3.push('MED: ' + hd.medications);
-  if (hd.implants)    L3.push('IMP: ' + hd.implants);
-  L3.push('DONOR: ' + donor);
-  if (L3.length) L.push(L3.join(' | '));
+    const L3 = [];
+    if (hd.conditions)  L3.push('COND: ' + hd.conditions);
+    if (hd.medications) L3.push('MED: ' + hd.medications);
+    if (hd.implants)    L3.push('IMP: ' + hd.implants);
+    L3.push('DONOR: ' + donor);
+    if (L3.length) L.push(L3.join(' | '));
 
-  // ICE
-  const ice = Array.isArray(iceContacts) ? iceContacts : [];
-  const iceLines = ice
-    .filter(c => c && (c.name || c.phone))
-    .map(c => `${c.name || ''} — ${c.relationship || ''} — ${c.phone || ''}`.replace(/\s+—\s+—\s*$/,'').trim());
-  if (iceLines.length) L.push('ICE: ' + iceLines.join(' | '));
+    // ICE
+    const ice = Array.isArray(iceContacts) ? iceContacts : [];
+    const iceLines = ice
+      .filter(c => c && (c.name || c.phone))
+      .map(c => `${c.name || ''} — ${c.relationship || ''} — ${c.phone || ''}`.replace(/\s+—\s+—\s*$/,'').trim());
+    if (iceLines.length) L.push('ICE: ' + iceLines.join(' | '));
 
-  L.push('URL: ' + shortUrl);
-  return L.join('\n').slice(0, 1200);
-}
- // ---------- QR: uses embedded encoder ----------
-/* ---------- QR: ALWAYS build ---------- */
-async function generateQRCode() {
-  const qrCanvas      = document.getElementById('qrCanvas');
-  const qrPlaceholder = document.getElementById('qrPlaceholder');
-  const codeUnderQR   = document.getElementById('codeUnderQR');
-  const cardUrlInput  = document.getElementById('cardUrl');
-  const qrStatus      = document.getElementById('qrStatus');
+    L.push('URL: ' + shortUrl);
+    return L.join('\n').slice(0, 1200);
+  }
 
-  if (!qrCanvas) return;
+  /* ---------- QR: ALWAYS build ---------- */
+  async function generateQRCode() {
+    const qrCanvas      = $('qrCanvas');
+    const qrPlaceholder = $('qrPlaceholder');
+    const codeUnderQR   = $('codeUnderQR');
+    const cardUrlInput  = $('cardUrl');
+    const qrStatus      = $('qrStatus');
+    const offlineEl     = $('offlineText');
 
-  try {
-    // 1) get (or create) the per-user code
-    const code = await ensureShortCode();
-    const shortUrl = `https://www.myqer.com/c/${code}`;
+    if (!qrCanvas) return;
 
-    // 2) show code + URL in UI
-    if (codeUnderQR) codeUnderQR.textContent = code;
-    if (cardUrlInput) cardUrlInput.value = shortUrl;
+    try {
+      // 1) get (or create) the per-user code
+      const code = await ensureShortCode();
+      const shortUrl = `https://www.myqer.com/c/${code}`;
 
-    // 3) draw QR (embedded encoder)
-  await new Promise((resolve, reject) => {
-  QRCode.toCanvas(
-    qrCanvas,
-    shortUrl,
-    { errorCorrectionLevel: 'H', margin: 4, width: 260 }, // readable by iOS/Android
-    (err) => (err ? reject(err) : resolve())
-  );
-});
-    // 4) offline text
-    const offlineEl = document.getElementById('offlineText');
-    if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+      // 2) show code + URL in UI
+      if (codeUnderQR) codeUnderQR.textContent = code;
+      if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-    // 5) success status
-    if (qrStatus) {
-      qrStatus.textContent = 'QR Code generated successfully';
-      qrStatus.style.background = 'rgba(5,150,105,0.1)';
-      qrStatus.style.color = 'var(--green)';
-      qrStatus.hidden = false;
-    }
-  } catch (err) {
-    console.error('QR render error:', err);
-    // fallback UI
-    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-    if (qrCanvas) qrCanvas.style.display = 'none';
-    if (qrStatus) {
-      qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
-      qrStatus.style.background = 'rgba(252,211,77,0.15)';
-      qrStatus.style.color = '#92400E';
-      qrStatus.hidden = false;
+      // 3) fill offline text first (so you have it even if drawing fails)
+      if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+
+      // 4) draw QR directly to canvas (no <img> step)
+      await simpleQR.canvas(qrCanvas, shortUrl, 220, 1);
+      if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+      qrCanvas.style.display = 'block';
+
+      // 5) success status
+      if (qrStatus) {
+        qrStatus.textContent = 'QR Code generated successfully';
+        qrStatus.style.background = 'rgba(5,150,105,0.1)';
+        qrStatus.style.color = 'var(--green)';
+        qrStatus.hidden = false;
+      }
+    } catch (err) {
+      console.error('QR render error:', err);
+      // fallback UI
+      if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+      if (qrCanvas) qrCanvas.style.display = 'none';
+      if (qrStatus) {
+        qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
+        qrStatus.style.background = 'rgba(252,211,77,0.15)';
+        qrStatus.style.color = '#92400E';
+        qrStatus.hidden = false;
+      }
     }
   }
-}
+
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
@@ -366,86 +363,87 @@ async function generateQRCode() {
     });
   }
   function saveHealth() {
-  const health = {
-    bloodType:      $('hfBloodType')?.value || '',
-    allergies:      $('hfAllergies')?.value || '',
-    conditions:     $('hfConditions')?.value || '',
-    medications:    $('hfMeds')?.value || '',
-    implants:       $('hfImplants')?.value || '',
-    organDonor:     !!$('hfDonor')?.checked,
-    triageOverride: $('triageOverride')?.value || 'auto'
-  };
+    const health = {
+      bloodType:      $('hfBloodType')?.value || '',
+      allergies:      $('hfAllergies')?.value || '',
+      conditions:     $('hfConditions')?.value || '',
+      medications:    $('hfMeds')?.value || '',
+      implants:       $('hfImplants')?.value || '',
+      organDonor:     !!$('hfDonor')?.checked,
+      triageOverride: $('triageOverride')?.value || 'auto'
+    };
 
-  // local-first
-  userData.health = health;
-  localStorage.setItem('myqer_health', JSON.stringify(health));
+    // local-first
+    userData.health = health;
+    localStorage.setItem('myqer_health', JSON.stringify(health));
 
-  if (!isSupabaseAvailable) {
-    calculateTriage();
-    toast('Saved locally (offline mode)', 'info');
-    generateQRCode();
-    return;
+    if (!isSupabaseAvailable) {
+      calculateTriage();
+      toast('Saved locally (offline mode)', 'info');
+      generateQRCode();
+      return;
+    }
+
+    supabase.auth.getSession()
+      .then((r) => {
+        const session = r?.data?.session;
+        if (!session) {
+          calculateTriage();
+          toast('Saved locally — please sign in to sync', 'info');
+          generateQRCode();
+          throw new Error('no session');
+        }
+        return getUserId();
+      })
+      .then((uid) => {
+        if (!uid) {
+          calculateTriage();
+          toast('Saved locally — please sign in to sync', 'info');
+          generateQRCode();
+          throw new Error('no uid');
+        }
+
+        // snake first, camel fallback
+        const snake = {
+          user_id: uid,
+          blood_type: health.bloodType,
+          allergies: health.allergies,
+          conditions: health.conditions,
+          medications: health.medications,
+          implants: health.implants,
+          organ_donor: health.organDonor,
+          triage_override: health.triageOverride
+        };
+        const camel = {
+          user_id: uid,
+          bloodType: health.bloodType,
+          allergies: health.allergies,
+          conditions: health.conditions,
+          medications: health.medications,
+          implants: health.implants,
+          organDonor: health.organDonor,
+          triageOverride: health.triageOverride
+        };
+
+        return supabase.from('health_data').upsert(snake, { onConflict: 'user_id' })
+          .then(({ error }) => {
+            if (!error) return;
+            return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' })
+              .then(({ error: e2 }) => { if (e2) throw e2; });
+          });
+      })
+      .then(() => {
+        calculateTriage();
+        toast('Health info saved', 'success');
+        generateQRCode();
+      })
+      .catch((e) => {
+        if (e && (e.message === 'no session' || e.message === 'no uid')) return;
+        console.error(e);
+        toast('Error saving health', 'error');
+      });
   }
 
-  supabase.auth.getSession()
-    .then((r) => {
-      const session = r?.data?.session;
-      if (!session) {
-        calculateTriage();
-        toast('Saved locally — please sign in to sync', 'info');
-        generateQRCode();
-        throw new Error('no session');
-      }
-      return getUserId();
-    })
-    .then((uid) => {
-      if (!uid) {
-        calculateTriage();
-        toast('Saved locally — please sign in to sync', 'info');
-        generateQRCode();
-        throw new Error('no uid');
-      }
-
-      // snake first (what most card pages expect), then camel fallback
-      const snake = {
-        user_id: uid,
-        blood_type: health.bloodType,
-        allergies: health.allergies,
-        conditions: health.conditions,
-        medications: health.medications,
-        implants: health.implants,
-        organ_donor: health.organDonor,
-        triage_override: health.triageOverride
-      };
-      const camel = {
-        user_id: uid,
-        bloodType: health.bloodType,
-        allergies: health.allergies,
-        conditions: health.conditions,
-        medications: health.medications,
-        implants: health.implants,
-        organDonor: health.organDonor,
-        triageOverride: health.triageOverride
-      };
-
-      return supabase.from('health_data').upsert(snake, { onConflict: 'user_id' })
-        .then(({ error }) => {
-          if (!error) return;
-          return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' })
-            .then(({ error: e2 }) => { if (e2) throw e2; });
-        });
-    })
-    .then(() => {
-      calculateTriage();
-      toast('Health info saved', 'success');
-      generateQRCode();
-    })
-    .catch((e) => {
-      if (e && (e.message === 'no session' || e.message === 'no uid')) return;
-      console.error(e);
-      toast('Error saving health', 'error');
-    });
-}
   /* ---------- load sequence ---------- */
   function fillFromLocal(){
     try{
@@ -456,35 +454,37 @@ async function generateQRCode() {
       set('profileDob', p.date_of_birth ?? p.dob);
       set('profileCountry', p.country);
       set('profileHealthId', p.national_id ?? p.healthId);
-const lh = localStorage.getItem('myqer_health');
-if (lh) {
-  try {
-    const raw = JSON.parse(lh) || {};
-    userData.health = {
-      bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
-      allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
-      conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
-      medications:    raw.medications    != null ? raw.medications    : raw.meds,
-      implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
-      organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
-      triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
-    };
-  } catch (_) { userData.health = {}; }
-}
-window.userData = userData;
-const h = userData.health;
-set('hfBloodType',  h.bloodType);
-set('hfAllergies',  h.allergies);
-set('hfConditions', h.conditions);
-set('hfMeds',       h.medications);
-set('hfImplants',   h.implants);
-if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
-if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
-calculateTriage();
+
+      const lh = localStorage.getItem('myqer_health');
+      if (lh) {
+        try {
+          const raw = JSON.parse(lh) || {};
+          userData.health = {
+            bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
+            allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
+            conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
+            medications:    raw.medications    != null ? raw.medications    : raw.meds,
+            implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
+            organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
+            triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
+          };
+        } catch (_) { userData.health = {}; }
+      }
+      window.userData = userData;
+      const h = userData.health;
+      set('hfBloodType',  h.bloodType);
+      set('hfAllergies',  h.allergies);
+      set('hfConditions', h.conditions);
+      set('hfMeds',       h.medications);
+      set('hfImplants',   h.implants);
+      if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
+      if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
+      calculateTriage();
 
       const li=localStorage.getItem('myqer_ice'); iceContacts=li ? (JSON.parse(li)||[]) : []; window.iceContacts=iceContacts; renderIceContacts();
     }catch(e){ console.warn('Local fill failed', e); }
   }
+
   function loadFromServer(){
     if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
     return withTimeout(supabase.auth.getSession(),3000,'getSession').then(res=>{
@@ -503,39 +503,38 @@ calculateTriage();
           }
         }).then(()=>{
           // health
-return withTimeout(
-  supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
-  4000,
-  'health_data.select'
-).then(function (rh) {
-  var raw = rh && rh.data ? rh.data : null;
-  if (!raw) return;
+          return withTimeout(
+            supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
+            4000,
+            'health_data.select'
+          ).then(function (rh) {
+            var raw = rh && rh.data ? rh.data : null;
+            if (!raw) return;
 
-  // normalize snake ⇄ camel to the shape the UI expects
-  var norm = {
-    bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
-    allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
-    conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
-    medications:    raw.medications    != null ? raw.medications    : raw.meds,
-    implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
-    organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
-    triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
-  };
+            var norm = {
+              bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
+              allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
+              conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
+              medications:    raw.medications    != null ? raw.medications    : raw.meds,
+              implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
+              organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
+              triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
+            };
 
-  userData.health = Object.assign({}, userData.health, norm);
-  localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+            userData.health = Object.assign({}, userData.health, norm);
+            localStorage.setItem('myqer_health', JSON.stringify(userData.health));
 
-  var h = userData.health;
-  function set(id, v){ var el=$(id); if (el) el.value = v || ''; }
-  set('hfBloodType',  h.bloodType);
-  set('hfAllergies',  h.allergies);
-  set('hfConditions', h.conditions);
-  set('hfMeds',       h.medications);
-  set('hfImplants',   h.implants);
-  if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
-  if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
-  calculateTriage();
-});
+            var h = userData.health;
+            function set(id, v){ var el=$(id); if (el) el.value = v || ''; }
+            set('hfBloodType',  h.bloodType);
+            set('hfAllergies',  h.allergies);
+            set('hfConditions', h.conditions);
+            set('hfMeds',       h.medications);
+            set('hfImplants',   h.implants);
+            if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
+            if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
+            calculateTriage();
+          });
         }).then(()=>{
           return withTimeout(supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),4000,'ice_contacts.select').then(ri=>{
             const ice=ri?.data||[];
@@ -577,18 +576,19 @@ return withTimeout(
   }
 
   function setupAutoSave(id, fn, delay) {
-  if (!delay && delay !== 0) delay = 600;
-  var el = $(id);
-  if (!el) return;
-  function run() {
-    clearTimeout(autoSaveTimers[id]);
-    autoSaveTimers[id] = setTimeout(function () {
-      fn().catch(function (e) { console.warn('autosave err', e); });
-    }, delay);
+    if (!delay && delay !== 0) delay = 600;
+    var el = $(id);
+    if (!el) return;
+    function run() {
+      clearTimeout(autoSaveTimers[id]);
+      autoSaveTimers[id] = setTimeout(function () {
+        Promise.resolve(fn()).catch(function (e) { console.warn('autosave err', e); });
+      }, delay);
+    }
+    el.addEventListener('input', run);
+    el.addEventListener('change', run); // important for <select>, checkboxes, iOS
   }
-  el.addEventListener('input', run);
-  el.addEventListener('change', run); // important for <select>, checkboxes, iOS
-}
+
   /* ---------- DOM ready ---------- */
   document.addEventListener('DOMContentLoaded', ()=>{
     updateNetworkStatus();
