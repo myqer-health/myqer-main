@@ -61,97 +61,125 @@
 
   <footer>© 2024 MYQER™</footer>
 </div>
-
 <script>
-  // ---- supabase (same project as dashboard) ----
+  // ---- config ----
   const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ---- tiny helpers ----
   const $ = (id) => document.getElementById(id);
   const pathLast = (p) => (p || '').split('/').filter(Boolean).pop() || '';
-  const code = (new URLSearchParams(location.search).get('code') || pathLast(location.pathname) || '').toUpperCase();
+  const fromQS = new URLSearchParams(location.search).get('code') || '';
+  let code = (fromQS || pathLast(location.pathname)).toUpperCase();
   const CODE_RX = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
 
-  const showMsg = (msg) => { document.body.innerHTML = '<div class="wrap"><p>'+msg+'</p></div>'; };
+  // ---- tiny embedded QR fallback (SVG→canvas)
+  const simpleQR = (() => {
+    function QR8(data){this.data=data}
+    QR8.prototype={len(){return new TextEncoder().encode(this.data).length},
+    write(buf){for(const b of new TextEncoder().encode(this.data))buf.put(b,8)}};
+    function Buf(){this.b=[];this.l=0} Buf.prototype.put=function(n,len){for(let i=0;i<len;i++)this.putBit(((n>>(len-i-1))&1)===1)};
+    Buf.prototype.putBit=function(bit){this.b.push(bit?1:0);this.l++};
+    const PAD0=0xEC,PAD1=0x11, RS={1:[1,9,7],2:[1,16,10],3:[1,26,15],4:[1,36,20],5:[1,44,26],6:[2,60,36],7:[2,66,43],8:[2,86,54],9:[2,100,69],10:[4,122,84],11:[4,140,93],12:[4,158,107],13:[4,180,115],14:[4,197,131]};
+    function getRS(t){const x=RS[t];return Array.from({length:x[0]},()=>({total:x[1],data:x[2]}))}
+    function QR(t){this.t=t||0;this.m=null;this.n=0;this.d=[]}
+    QR.prototype={add(s){this.d.push(new QR8(s))},
+    make(){if(this.t<1){for(let k=1;k<=14;k++){this.t=k;if(this.cap()>=this.len())break}}
+      this.n=this.t*4+17;this.m=Array.from({length:this.n},()=>Array(this.n).fill(null));
+      this.pp(0,0);this.pp(this.n-7,0);this.pp(0,this.n-7);this.tp();this.map(this.data());this.mask()},
+    isDark(r,c){return this.m[r][c]}, len(){return this.d.reduce((n,x)=>n+x.len(),0)}, cap(){return getRS(this.t).reduce((n,b)=>n+b.data,0)*8-4},
+    pp(R,C){for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){const rr=R+r,cc=C+c;if(rr<0||rr>=this.n||cc<0||cc>=this.n)continue;this.m[rr][cc]=(r>=0&&r<=6&&(c===0||c===6))||(c>=0&&c<=6&&(r===0||r===6))||(r>=2&&r<=4&&c>=2&&c<=4)}},
+    tp(){for(let i=8;i<this.n-8;i++){const v=i%2===0;if(this.m[i][6]==null)this.m[i][6]=v;if(this.m[6][i]==null)this.m[6][i]=v}},
+    data(){const rs=getRS(this.t), buf=new Buf();
+      for(const d of this.d){buf.put(4,4);buf.put(d.len(),8);d.write(buf)}
+      const total=rs.reduce((n,b)=>n+b.data,0), max=total*8;
+      if(buf.l+4<=max)buf.put(0,4); while(buf.l%8)buf.put(0,1);
+      let pad=true; while(buf.l<max){buf.put(pad?PAD0:PAD1,8);pad=!pad}
+      const out=[]; for(let i=0;i<buf.l;i+=8){let v=0;for(let j=0;j<8;j++)v=(v<<1)|buf.b[i+j]; out.push(v)} return out},
+    map(data){let row=this.n-1,col=this.n-1,dir=-1,bi=0,bit=7;const next=()=>{const v=(data[bi]>>bit)&1; if(--bit<0){bi++;bit=7} return v};
+      while(col>0){if(col===6)col--; for(let i=0;i<this.n;i++){const r=row+dir*i; for(const c of [col,col-1]) if(this.m[r]&&this.m[r][c]==null)this.m[r][c]=next()===1} row+=dir*this.n; dir=-dir; col-=2}},
+    mask(){const opts=[];for(let m=0;m<4;m++){const cp=this.m.map(r=>r.slice());for(let r=0;r<this.n;r++)for(let c=0;c<this.n;c++){if(cp[r][c]==null)continue;
+          if(m===0)cp[r][c]=((r+c)%2===0)?!cp[r][c]:cp[r][c]; if(m===1)cp[r][c]=(r%2===0)?!cp[r][c]:cp[r][c];
+          if(m===2)cp[r][c]=(c%3===0)?!cp[r][c]:cp[r][c]; if(m===3)cp[r][c]=((r+c)%3===0)?!cp[r][c]:cp[r][c]}
+        opts.push({m,cp,score:this.score(cp)})} opts.sort((a,b)=>a.score-b.score); this.m=opts[0].cp},
+    score(mat){const n=mat.length;let d=0,run=0;for(let r=0;r<n;r++)for(let c=0;c<n;c++){if(mat[r][c])d++;if(c&&mat[r][c]===mat[r][c-1])run++}
+      for(let c=0;c<n;c++)for(let r=0;r<n;r++)if(r&&mat[r][c]===mat[r-1][c])run++; return run+Math.abs(d/(n*n)-0.5)*100}};
+    function svg(text,size=260,margin=4){
+      const q=new QR(0); q.add(text); q.make(); const m=q.m, n=m.length, scale=Math.max(1,Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
+      let d=''; for(let r=0;r<n;r++)for(let c=0;c<n;c++) if(m[r][c]) d+=`M${(c+margin)*scale} ${(r+margin)*scale}h${scale}v${scale}h-${scale}z`;
+      return {w:dim,h:dim,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`}
+    }
+    function toCanvas(canvas,text,size=260,margin=4){
+      const out=svg(text,size,margin), img=new Image(), url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(out.svg);
+      return new Promise((res,rej)=>{ img.onload=()=>{ canvas.width=out.w; canvas.height=out.h; const ctx=canvas.getContext('2d'); ctx.imageSmoothingEnabled=false; ctx.clearRect(0,0,out.w,out.h); ctx.drawImage(img,0,0,out.w,out.h); res(); }; img.onerror=rej; img.src=url; });
+    }
+    return { toCanvas };
+  })();
+
+  const showNotFound = (msg='Card not found.') => {
+    document.body.innerHTML = `<div class="wrap"><p>${msg}</p></div>`;
+  };
 
   (async () => {
-    if (!CODE_RX.test(code)) return showMsg('Card not found.');
+    if (!CODE_RX.test(code)) return showNotFound('Card not found.');
 
-    // 1) get profile by code (select * so snake/camel both work)
-    const { data: prof, error: pe } = await supabase
+    // 1) find the user by code (camel or snake)
+    const { data: prof } = await supabase
       .from('profiles')
-      .select('*')
+      .select('user_id, fullName, full_name, dob, date_of_birth, country, healthId, national_id, code')
       .eq('code', code)
       .maybeSingle();
-
-    if (pe || !prof) return showMsg('Card not found.');
-
-    // normalize profile
-    const profile = {
-      user_id: prof.user_id,
-      fullName:   prof.fullName   ?? prof.full_name   ?? '',
-      dob:        prof.dob        ?? prof.date_of_birth ?? '',
-      country:    prof.country    ?? '',
-      healthId:   prof.healthId   ?? prof.national_id  ?? ''
-    };
+    if (!prof) return showNotFound();
 
     // 2) load health + ice
     const [{ data: healthRaw }, { data: ice }] = await Promise.all([
-      supabase.from('health_data').select('*').eq('user_id', profile.user_id).maybeSingle(),
-      supabase.from('ice_contacts').select('*').eq('user_id', profile.user_id).order('contact_order', { ascending:true })
+      supabase.from('health_data').select('*').eq('user_id', prof.user_id).maybeSingle(),
+      supabase.from('ice_contacts').select('*').eq('user_id', prof.user_id).order('contact_order', { ascending:true })
     ]);
 
-    const health = healthRaw ? {
-      bloodType:      healthRaw.bloodType      ?? healthRaw.blood_type      ?? '',
-      allergies:      healthRaw.allergies      ?? healthRaw.allergy_list    ?? '',
-      conditions:     healthRaw.conditions     ?? healthRaw.medical_conditions ?? '',
-      medications:    healthRaw.medications    ?? healthRaw.meds            ?? '',
-      implants:       healthRaw.implants       ?? healthRaw.implants_devices ?? '',
-      organDonor:     (healthRaw.organDonor ?? healthRaw.organ_donor) ? 'Yes' : 'No',
-      triageOverride: healthRaw.triageOverride ?? healthRaw.triage_override ?? 'auto'
-    } : {};
-
     // 3) render profile
-    $('v_name').textContent    = profile.fullName || '—';
-    $('v_dob').textContent     = profile.dob || '—';
-    $('v_country').textContent = profile.country || '—';
-    $('v_hid').textContent     = profile.healthId || '—';
+    $('v_name').textContent    = prof.fullName ?? prof.full_name ?? '—';
+    $('v_dob').textContent     = prof.dob ?? prof.date_of_birth ?? '—';
+    $('v_country').textContent = prof.country ?? '—';
+    $('v_hid').textContent     = prof.healthId ?? prof.national_id ?? '—';
 
     // 4) render health + triage
-    $('v_bt').textContent    = health.bloodType || '—';
-    $('v_donor').textContent = health.organDonor || 'No';
-    $('v_alg').textContent   = health.allergies || '—';
-    $('v_cond').textContent  = health.conditions || '—';
-    $('v_meds').textContent  = health.medications || '—';
-    $('v_impl').textContent  = health.implants || '—';
-
+    const h = healthRaw||{};
+    $('v_bt').textContent    = h.bloodType ?? h.blood_type ?? '—';
+    $('v_donor').textContent = (h.organDonor ?? h.organ_donor) ? 'Yes' : 'No';
+    $('v_alg').textContent   = h.allergies ?? h.allergy_list ?? '—';
+    $('v_cond').textContent  = h.conditions ?? h.medical_conditions ?? '—';
+    $('v_meds').textContent  = h.medications ?? h.meds ?? '—';
+    $('v_impl').textContent  = h.implants ?? h.implants_devices ?? '—';
+    const lvl = (h.triageOverride ?? h.triage_override ?? 'green').toLowerCase();
     const pill = $('triage');
-    const lvl = (health.triageOverride && health.triageOverride !== 'auto') ? health.triageOverride : 'green';
-    pill.textContent = lvl.toUpperCase();
-    pill.style.background = lvl === 'red' ? '#fee2e2' : (lvl === 'amber' ? '#fef3c7' : '#dcfce7');
-    pill.style.color      = lvl === 'red' ? '#dc2626' : (lvl === 'amber' ? '#d97706' : '#059669');
+    const tone = lvl==='red' ? ['#fee2e2','#dc2626'] : (lvl==='amber' ? ['#fef3c7','#d97706'] : ['#dcfce7','#059669']);
+    pill.textContent = (lvl==='amber'?'AMBER':lvl.toUpperCase());
+    pill.style.background = tone[0]; pill.style.color = tone[1];
 
-    // 5) ICE
+    // 5) render ICE
     const list = (ice || []).map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — ')).filter(Boolean);
     $('iceList').textContent = list.length ? list.join(' | ') : '—';
 
-    // 6) Show the URL (for sharing) and draw a small QR of itself
-    const base = location.hostname.endsWith('myqer.com') ? `https://${location.hostname.replace(/^www\./,'')}` : location.origin;
-    const url = `${base}/c/${code}`;
+    // 6) draw QR (UMD first, fallback to embedded)
+    const url = `https://${location.hostname.replace(/^www\./,'')}/c/${code}`;
     $('v_url').textContent = url;
 
-    // draw QR without any external lib (tiny inline)
-    (function drawQR(text, canvas){
-      // simple tiny QR painter: use built-in URL API to create a data URL with the text
-      // (for reliability you can keep the canvas as a placeholder—even if not drawn, the page has all details)
-      try {
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,160,160);
-        // fallback: render the url text so a scanner app with macro still recognizes it
-        ctx.fillStyle = '#000'; ctx.font = '12px monospace'; ctx.fillText(text, 8, 80);
-      } catch {}
-    })(url, document.getElementById('qr'));
+    try {
+      if (window.QRCode && typeof QRCode.toCanvas === 'function') {
+        await new Promise((resolve, reject) => {
+          QRCode.toCanvas($('qr'), url, {
+            errorCorrectionLevel: 'M',
+            margin: 4,
+            scale: 8,
+            color: { dark: '#000000', light: '#ffffff' }
+          }, err => err ? reject(err) : resolve());
+        });
+      } else {
+        await simpleQR.toCanvas($('qr'), url, 260, 4);
+      }
+    } catch { /* ignore – page still shows the URL */ }
   })();
 </script>
 </body>
