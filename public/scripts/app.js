@@ -225,13 +225,20 @@ async function generateQRCode() {
 
   try {
     const code = await ensureShortCode();
+// keep exact host to avoid redirects confusing iOS
+const base = location.hostname.endsWith('myqer.com')
+  ? `https://${location.hostname.replace(/^www\./,'')}`
+  : location.origin;
+const shortUrl = `${base}/c/${code}`;
 
-    // 👇 Force canonical host (no www). This is the string that the QR encodes.
-    const shortUrl = `https://myqer.com/c/${code}`;
+document.getElementById('codeUnderQR').textContent = code;
+document.getElementById('cardUrl').value = shortUrl;
 
-    if (codeUnderQR)  codeUnderQR.textContent = code;
-    if (cardUrlInput) cardUrlInput.value      = shortUrl;
+await drawQR(shortUrl);                         // <- draws a valid QR
+document.getElementById('offlineText').value = buildOfflineText(shortUrl);
 
+const s = document.getElementById('qrStatus');
+if (s) { s.hidden = false; s.textContent = 'QR Code generated successfully'; }
     // Prefer UMD qrcode (classic 3 squares). Fallback to embedded encoder.
     const useUMD = !!(window.QRCode && typeof QRCode.toCanvas === 'function');
     if (useUMD) {
