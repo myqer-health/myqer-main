@@ -8,6 +8,16 @@
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
 
+
+  function mergeNonEmpty(target, src){
+  const out = { ...target };
+  for (const k in src){
+    const v = src[k];
+    if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = v;
+  }
+  return out;
+}
+
   // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
   function normalizeDOB(s) {
     if (!s) return '';
@@ -259,68 +269,85 @@
   }
 
   /* ---------- Profile & Health ---------- */
-// Upsert profile; tries snake_case, then camelCase (user_id), then camelCase (userId)
+// Detect schema, then update-or-insert with correct columns.
+// Never regenerates the local code; it uses what's in localStorage.
 function upsertProfileSmart(rowBase){
-  return getUserId().then(uid=>{
+  return getUserId().then(async (uid)=>{
     if (!uid) return;
 
-    return ensureShortCode().then(code=>{
-      const snake = {
-        user_id: uid, code,
-        full_name:     rowBase.full_name,
-        date_of_birth: rowBase.date_of_birth,
-        country:       rowBase.country,
-        national_id:   rowBase.national_id
-      };
-      const camel = {
-        userId:  uid, code,
-        fullName: rowBase.full_name,
-        dob:      rowBase.date_of_birth,
-        country:  rowBase.country,
-        healthId: rowBase.national_id
-      };
+    // Keep the same code forever
+    const code = generateShortCode();
 
-      let attempts = 0;
+    // Detect schema: try selecting a snake-only column; if it errors, assume camel
+    let schema = 'snake';
+    try {
+      const probe = await supabase.from('profiles').select('user_id').limit(1);
+      if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
+    } catch (_) { schema = 'camel'; }
 
-      function attemptSnake(){
-        attempts++;
-        return supabase.from('profiles').upsert(snake, { onConflict: 'user_id' }).then(r=>{
-          if (!r.error) return;
-          // If duplicate code, regenerate and retry a few times
-          const msg = (r.error.message||'') + ' ' + (r.error.details||'');
-          if (/duplicate|unique/i.test(msg) && attempts < 6){
-            const newCode = (Math.random().toString(36).toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,6) || 'ABC123');
-            localStorage.setItem('myqer_shortcode', newCode);
-            snake.code = camel.code = newCode;
-            return attemptSnake();
-          }
-          // move to camel attempts
-          return attemptCamel_user_id();
-        });
+    const snakeRow = {
+      user_id:       uid,
+      code,
+      full_name:     rowBase.full_name,
+      date_of_birth: rowBase.date_of_birth,
+      country:       rowBase.country,
+      national_id:   rowBase.national_id
+    };
+    const camelRow = {
+      userId:   uid,
+      code,
+      fullName: rowBase.full_name,
+      dob:      rowBase.date_of_birth,
+      country:  rowBase.country,
+      healthId: rowBase.national_id
+    };
+
+    async function upsertSnake(){
+      const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
+      if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+
+      if (existing.data) {
+        const { error } = await supabase.from('profiles')
+          .update({
+            full_name:     snakeRow.full_name,
+            date_of_birth: snakeRow.date_of_birth,
+            country:       snakeRow.country,
+            national_id:   snakeRow.national_id,
+            code:          snakeRow.code
+          })
+          .eq('user_id', uid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('profiles').insert(snakeRow);
+        if (error) throw error;
       }
+    }
 
-      function attemptCamel_user_id(){
-        return supabase.from('profiles').upsert({
-          // keep camel fields, but this attempt still uses user_id for conflict
-          user_id: uid, code: camel.code,
-          fullName: camel.fullName, dob: camel.dob, country: camel.country, healthId: camel.healthId
-        }, { onConflict: 'user_id' }).then(r=>{
-          if (!r.error) return;
-          return attemptCamel_userId(); // final attempt: proper camel onConflict
-        });
+    async function upsertCamel(){
+      const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
+      if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+
+      if (existing.data) {
+        const { error } = await supabase.from('profiles')
+          .update({
+            fullName: camelRow.fullName,
+            dob:      camelRow.dob,
+            country:  camelRow.country,
+            healthId: camelRow.healthId,
+            code:     camelRow.code
+          })
+          .eq('userId', uid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('profiles').insert(camelRow);
+        if (error) throw error;
       }
+    }
 
-      function attemptCamel_userId(){
-        return supabase.from('profiles').upsert(camel, { onConflict: 'userId' }).then(r=>{
-          if (r.error) throw r.error; // if this fails, surface the error
-        });
-      }
-
-      return attemptSnake();
-    });
+    if (schema === 'snake') await upsertSnake(); else await upsertCamel();
+    return code; // unchanged permanent code
   });
 }
-
   function saveHealth() {
     const health = {
       bloodType:      $('hfBloodType')?.value || '',
