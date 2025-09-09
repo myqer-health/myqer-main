@@ -213,7 +213,8 @@ async function generateQRCode() {
     await loadQRCodeLib();
 
     const code = await ensureShortCode();
-    const shortUrl = `https://www.myqer.com/c/${code}`;
+    const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '');
+const shortUrl = `${base}/c/${code}`;
     const payload = buildOfflineText(shortUrl);  // <- HYBRID PAYLOAD (text + URL as last line)
 
     if (codeUnderQR) codeUnderQR.textContent = code;
