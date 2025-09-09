@@ -225,40 +225,43 @@ async function generateQRCode() {
 
   try {
     const code = await ensureShortCode();
-// keep exact host to avoid redirects confusing iOS
-const base = location.hostname.endsWith('myqer.com')
-  ? `https://${location.hostname.replace(/^www\./,'')}`
-  : location.origin;
-const shortUrl = `${base}/c/${code}`;
 
-document.getElementById('codeUnderQR').textContent = code;
-document.getElementById('cardUrl').value = shortUrl;
+    // Make URL match the current host (apex vs www) so iOS is happy
+    const base = location.hostname.endsWith('myqer.com')
+      ? `https://${location.hostname.replace(/^www\./,'')}`
+      : location.origin;
 
-await drawQR(shortUrl);                         // <- draws a valid QR
-document.getElementById('offlineText').value = buildOfflineText(shortUrl);
+    const shortUrl = `${base}/c/${code}`;
 
-const s = document.getElementById('qrStatus');
-if (s) { s.hidden = false; s.textContent = 'QR Code generated successfully'; }
-    // Prefer UMD qrcode (classic 3 squares). Fallback to embedded encoder.
-    const useUMD = !!(window.QRCode && typeof QRCode.toCanvas === 'function');
-    if (useUMD) {
+    if (codeUnderQR)  codeUnderQR.textContent = code;
+    if (cardUrlInput) cardUrlInput.value      = shortUrl;
+
+    // --- prefer the UMD QR library (classic 3-squares) ---
+    // wait up to ~500 ms for the UMD to appear (in case the browser is slow)
+    let tries = 10;
+    while (tries-- && !(window.QRCode && typeof QRCode.toCanvas === 'function')) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
       await new Promise((resolve, reject) => {
         QRCode.toCanvas(
           qrCanvas,
           shortUrl,
           {
-            width: 320,                 // bigger = easier to scan
-            margin: 4,                  // proper quiet zone
-            errorCorrectionLevel: 'H',  // robust
-            color: { dark: '#000000', light: '#FFFFFF' } // pure B/W
+            errorCorrectionLevel: 'M', // scans fast for short URLs
+            margin: 4,                // proper quiet zone
+            scale: 8,                 // crisp modules
+            color: { dark: '#000000', light: '#ffffff' }
           },
-          err => (err ? reject(err) : resolve())
+          err => err ? reject(err) : resolve()
         );
       });
       const ctx = qrCanvas.getContext('2d');
       if (ctx) ctx.imageSmoothingEnabled = false;
     } else {
-      await simpleQR.canvas(qrCanvas, shortUrl, 320, 4);
+      // Fallback (will look like a maze; some cameras won’t scan it)
+      await simpleQR.canvas(qrCanvas, shortUrl, 260, 4);
     }
 
     qrCanvas.style.display = 'block';
@@ -268,9 +271,9 @@ if (s) { s.hidden = false; s.textContent = 'QR Code generated successfully'; }
     if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
 
     if (qrStatus) {
-      qrStatus.textContent = 'QR Code generated successfully';
+      qrStatus.textContent   = 'QR Code generated successfully';
       qrStatus.style.background = 'rgba(5,150,105,0.1)';
-      qrStatus.style.color = 'var(--green)';
+      qrStatus.style.color      = 'var(--green)';
       qrStatus.hidden = false;
     }
   } catch (err) {
