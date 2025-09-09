@@ -221,7 +221,7 @@ async function generateQRCode() {
 
     await new Promise((resolve, reject) =>
       window.QRCode.toCanvas(qrCanvas, payload, {
-        width: 300,             // a bit larger for easy scanning
+        width: 200,             // a bit larger for easy scanning
         margin: 2,
         errorCorrectionLevel: 'Q'
       }, err => err ? reject(err) : resolve())
