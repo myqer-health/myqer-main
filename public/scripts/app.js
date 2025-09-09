@@ -243,11 +243,14 @@ async function generateQRCode() {
         qrStatus = $('qrStatus');
   if (!qrCanvas) return;
 
-  // Make sure we have some profile/health/ICE before generating
-  const hasProfile = !!(userData?.profile?.full_name || userData?.profile?.fullname);
-  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
-  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
-
+  // make the presence checks generous (any identity/health/ICE counts)
+const prof = (userData && userData.profile) || {};
+const health = (userData && userData.health) || {};
+const hasProfile =
+  !!(prof.full_name || prof.fullName || prof.date_of_birth || prof.dob || prof.country || prof.national_id || prof.healthId);
+const hasHealth =
+  !!(health.bloodType || health.allergies || health.conditions || health.medications || health.implants || typeof health.organDonor === 'boolean');
+const hasICE = Array.isArray(iceContacts) && iceContacts.length > 0;
   if (!(hasProfile || hasHealth || hasICE)) {
     if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
     if (qrCanvas) qrCanvas.style.display = 'none';
