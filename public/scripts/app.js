@@ -461,15 +461,31 @@ const hasICE = Array.isArray(iceContacts) && iceContacts.length > 0;
       set('profileDob', p.date_of_birth ?? p.dob);
       set('profileCountry', p.country);
       set('profileHealthId', p.national_id ?? p.healthId);
-
-      const lh=localStorage.getItem('myqer_health'); if (lh) userData.health=JSON.parse(lh)||{};
-      window.userData=userData;
-      const h=userData.health;
-      set('hfBloodType', h.bloodType); set('hfAllergies',h.allergies); set('hfConditions',h.conditions);
-      set('hfMeds',h.medications); set('hfImplants',h.implants);
-      if ($('hfDonor')) $('hfDonor').checked=!!h.organDonor;
-      if ($('triageOverride')) $('triageOverride').value=h.triageOverride||'auto';
-      calculateTriage();
+const lh = localStorage.getItem('myqer_health');
+if (lh) {
+  try {
+    const raw = JSON.parse(lh) || {};
+    userData.health = {
+      bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
+      allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
+      conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
+      medications:    raw.medications    != null ? raw.medications    : raw.meds,
+      implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
+      organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
+      triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
+    };
+  } catch (_) { userData.health = {}; }
+}
+window.userData = userData;
+const h = userData.health;
+set('hfBloodType',  h.bloodType);
+set('hfAllergies',  h.allergies);
+set('hfConditions', h.conditions);
+set('hfMeds',       h.medications);
+set('hfImplants',   h.implants);
+if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
+if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
+calculateTriage();
 
       const li=localStorage.getItem('myqer_ice'); iceContacts=li ? (JSON.parse(li)||[]) : []; window.iceContacts=iceContacts; renderIceContacts();
     }catch(e){ console.warn('Local fill failed', e); }
