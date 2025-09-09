@@ -7,6 +7,14 @@
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn, { passive: true });
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
+  // Accepts AAA-BBBB-CCC and variants with en-dash/em-dash, squashes duplicates.
+const CODE_VALID = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+function normalizeDashes(s='') {
+  return String(s).trim()
+    .replace(/[–—−]/g, '-')       // any dash → hyphen-minus
+    .replace(/-+/g, '-')          // collapse repeats
+    .toUpperCase();
+}
 
   function normalizeDOB(s) {
     if (!s) return '';
@@ -182,69 +190,74 @@
     return L.join('\n').slice(0,1200);
   }
 
-  /* ===== QR (always draw) ===== */
-  async function generateQRCode() {
-    const qrCanvas      = $('qrCanvas');
-    const qrPlaceholder = $('qrPlaceholder');
-    const codeUnderQR   = $('codeUnderQR');
-    const cardUrlInput  = $('cardUrl');
-    const qrStatus      = $('qrStatus');
-    if (!qrCanvas) return;
+ async function generateQRCode() {
+  const qrCanvas      = $('qrCanvas');
+  const qrPlaceholder = $('qrPlaceholder');
+  const codeUnderQR   = $('codeUnderQR');
+  const cardUrlInput  = $('cardUrl');
+  const qrStatus      = $('qrStatus');
+  if (!qrCanvas) return;
 
-    try {
-      // Clean, validated code
-      const code = normalizeDashes(await ensureShortCode());
-      if (!CODE_VALID.test(code)) throw new Error('invalid code');
+  try {
+    // 1) get + validate code
+    let code = normalizeDashes(await ensureShortCode());
+    if (!CODE_VALID.test(code)) throw new Error('invalid code');
 
-      // Build base without trailing slash; force apex on prod
-      const base =
-        location.hostname.endsWith('myqer.com')
-          ? `https://${location.hostname.replace(/^www\./,'')}`
-          : location.origin;
-      const baseClean = base.replace(/\/+$/,'');         // <-- no trailing “/”
-      const shortUrl  = `${baseClean}/c/${code}`;        // final payload
+    // 2) build URL (no trailing slash; use apex on prod so iOS sees a “normal” host)
+    const base = location.hostname.endsWith('myqer.com')
+      ? `https://${location.hostname.replace(/^www\./,'')}`
+      : location.origin;
+    const shortUrl = `${base.replace(/\/+$/,'')}/c/${code}`;
 
-      if (codeUnderQR)  codeUnderQR.textContent = code;
-      if (cardUrlInput) cardUrlInput.value      = shortUrl;
+    // 3) update UI text
+    if (codeUnderQR)  codeUnderQR.textContent = code;
+    if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      // Prefer UMD lib (3 big squares), fallback to embedded encoder
-      if (window.QRCode && typeof QRCode.toCanvas === 'function') {
-        await new Promise((resolve, reject) => {
-          QRCode.toCanvas(
-            qrCanvas,
-            shortUrl.trim(),
-            { errorCorrectionLevel: 'M', margin: 4, scale: 8, color: { dark: '#000', light: '#fff' } },
-            err => err ? reject(err) : resolve()
-          );
-        });
-        const ctx = qrCanvas.getContext('2d'); if (ctx) ctx.imageSmoothingEnabled = false;
-      } else {
-        await simpleQR.canvas(qrCanvas, shortUrl.trim(), 260, 4);
-      }
+    // 4) clear canvas first (important)
+    const ctx = qrCanvas.getContext('2d');
+    if (ctx) { ctx.imageSmoothingEnabled = false; ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height); }
 
-      qrCanvas.style.display = 'block';
-      if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    // 5) draw using the *modern* qrcode lib; fallback to embedded encoder
+    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
+      await new Promise((resolve, reject) => {
+        QRCode.toCanvas(
+          qrCanvas,
+          shortUrl,
+          {
+            width: 260,
+            margin: 2,                 // good for phone cameras; not too small
+            errorCorrectionLevel: 'H', // robust
+            color: { dark: '#000', light: '#fff' }
+          },
+          err => err ? reject(err) : resolve()
+        );
+      });
+    } else {
+      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
+    }
 
-      const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-
-      if (qrStatus) {
-        qrStatus.textContent = 'QR Code generated successfully';
-        qrStatus.style.background = 'rgba(5,150,105,0.1)';
-        qrStatus.style.color = 'var(--green)';
-        qrStatus.hidden = false;
-      }
-    } catch (err) {
-      console.error('QR render error:', err);
-      if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-      if (qrCanvas)      qrCanvas.style.display = 'none';
-      if (qrStatus) {
-        qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
-        qrStatus.style.background = 'rgba(252,211,77,0.15)';
-        qrStatus.style.color = '#92400E';
-        qrStatus.hidden = false;
-      }
+    // 6) success UI
+    qrCanvas.style.display = 'block';
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+    if (qrStatus) {
+      qrStatus.textContent = 'QR Code generated successfully';
+      qrStatus.style.background = 'rgba(5,150,105,0.1)';
+      qrStatus.style.color = 'var(--green)';
+      qrStatus.hidden = false;
+    }
+  } catch (err) {
+    console.error('QR render error:', err);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas)      qrCanvas.style.display = 'none';
+    if (qrStatus) {
+      qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
+      qrStatus.style.background = 'rgba(252,211,77,0.15)';
+      qrStatus.style.color = '#92400E';
+      qrStatus.hidden = false;
     }
   }
+}
 
   /* ===== ICE ===== */
   function renderIceContacts(){
