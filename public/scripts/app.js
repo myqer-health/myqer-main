@@ -29,22 +29,23 @@
   window.userData = userData; window.iceContacts = iceContacts;
 
   /* ===== short-code sanitize/validate ===== */
-  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
-  const CODE_VALID = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
+const CODE_RX = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}$/;
 
-  const normalizeDashes = (s) => (s || '').replace(/[\u2010-\u2015\u2212]/g, '-').toUpperCase();
+function makeCode_3_3(){
+  const pick = n => Array.from({length:n},()=> CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
+  return `${pick(3)}-${pick(3)}`;
+}
+const normalizeDashes = s => (s||'').replace(/[\u2010-\u2015\u2212]/g,'-').toUpperCase();
 
-  function makeShort_3_4_3() {
-    const pick = (n)=>Array.from({length:n},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
-    return `${pick(3)}-${pick(4)}-${pick(3)}`;
-  }
-
-  function getCleanStoredCode() {
-    let code = normalizeDashes(localStorage.getItem('myqer_shortcode'));
-    if (!CODE_VALID.test(code)) code = makeShort_3_4_3();
+function getCleanStoredCode(){
+  let code = normalizeDashes(localStorage.getItem('myqer_shortcode'));
+  if (!CODE_RX.test(code||'')) {
+    code = makeCode_3_3();
     localStorage.setItem('myqer_shortcode', code);
-    return code;
   }
+  return code;
+}
 
   /* ===== Supabase ===== */
   try {
