@@ -8,15 +8,15 @@
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
 
-
+  // Merge only non-empty values from src into target (prevents blanking fields)
   function mergeNonEmpty(target, src){
-  const out = { ...target };
-  for (const k in src){
-    const v = src[k];
-    if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = v;
+    const out = { ...(target || {}) };
+    for (const k in src){
+      const v = src[k];
+      if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = v;
+    }
+    return out;
   }
-  return out;
-}
 
   // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
   function normalizeDOB(s) {
@@ -97,31 +97,18 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- SHORT CODE / URL (UPDATED: 6-char code) ---------- */
+  /* ---------- SHORT CODE / URL (UPDATED: 6-char permanent code) ---------- */
   function makeShort6(){ return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join(''); }
   function generateShortCode(){
-    const valid=/^[A-HJ-NP-Z2-9]{6}$/; // 6 chars, no O/I/0/1
+    // permanent: if exists, never change
+    const valid=/^[A-HJ-NP-Z2-9]{6}$/;
     let code = localStorage.getItem('myqer_shortcode');
     if (!valid.test(code||'')){ code = makeShort6(); localStorage.setItem('myqer_shortcode', code); }
     return code;
   }
   function ensureShortCode(){
-    let code = localStorage.getItem('myqer_shortcode') || generateShortCode();
-    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve(code);
-    return getUserId().then(uid=>{
-      if (!uid) return code;
-      let attempt=0;
-      const tryUpsert = () => {
-        attempt++;
-        return supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' }).then(res=>{
-          if (!res.error) return code;
-          const m = ((res.error.message||'')+' '+(res.error.details||'')).toLowerCase();
-          if ((m.includes('duplicate')||m.includes('unique')) && attempt<6){ code = makeShort6(); localStorage.setItem('myqer_shortcode', code); return tryUpsert(); }
-          console.warn('shortcode upsert err:', res.error); return code;
-        }).catch(e=>{ console.warn('ensureShortCode failed', e); return code; });
-      };
-      return tryUpsert();
-    });
+    // no DB writes here; permanence is local and saves happen in profile upsert
+    return Promise.resolve(generateShortCode());
   }
 
   /* ============= QR CODE (UPDATED: use library like MVP, robust loader) =============
@@ -153,7 +140,7 @@
     return qrLibReady;
   }
 
-  // Build offline text (unchanged)
+  /* ---------- Offline text builder ---------- */
   function buildOfflineText(shortUrl) {
     const pf = userData?.profile || {};
     const hd = userData?.health  || {};
@@ -190,11 +177,10 @@
       await loadQRCodeLib(); // ensure QRCode.* is available
 
       const code = await ensureShortCode();
-      const shortUrl = `https://www.myqer.com/c/${code}`; // keep domain as-is
+      const shortUrl = `https://www.myqer.com/c/${code}`;
       if (codeUnderQR) codeUnderQR.textContent = code;
       if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      // Draw a proper QR with data using the same options as your MVP page.
       await new Promise((resolve, reject)=>{
         window.QRCode.toCanvas(qrCanvas, shortUrl, {
           width: 260,
@@ -269,85 +255,108 @@
   }
 
   /* ---------- Profile & Health ---------- */
-// Detect schema, then update-or-insert with correct columns.
-// Never regenerates the local code; it uses what's in localStorage.
-function upsertProfileSmart(rowBase){
-  return getUserId().then(async (uid)=>{
-    if (!uid) return;
+  // Upsert profile (identity) for both schema variants, without ever regenerating code
+  function upsertProfileSmart(rowBase){
+    return getUserId().then(async (uid)=>{
+      if (!uid) return;
 
-    // Keep the same code forever
-    const code = generateShortCode();
+      // Permanent code: generate once if missing, otherwise keep as-is
+      const code = generateShortCode();
 
-    // Detect schema: try selecting a snake-only column; if it errors, assume camel
-    let schema = 'snake';
-    try {
-      const probe = await supabase.from('profiles').select('user_id').limit(1);
-      if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
-    } catch (_) { schema = 'camel'; }
+      // Detect schema: try a snake-only column; if it errors, assume camel
+      let schema = 'snake';
+      try {
+        const probe = await supabase.from('profiles').select('user_id').limit(1);
+        if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
+      } catch (_) { schema = 'camel'; }
 
-    const snakeRow = {
-      user_id:       uid,
-      code,
-      full_name:     rowBase.full_name,
-      date_of_birth: rowBase.date_of_birth,
-      country:       rowBase.country,
-      national_id:   rowBase.national_id
-    };
-    const camelRow = {
-      userId:   uid,
-      code,
-      fullName: rowBase.full_name,
-      dob:      rowBase.date_of_birth,
-      country:  rowBase.country,
-      healthId: rowBase.national_id
-    };
+      const snakeRow = {
+        user_id:       uid,
+        code,
+        full_name:     rowBase.full_name,
+        date_of_birth: rowBase.date_of_birth,
+        country:       rowBase.country,
+        national_id:   rowBase.national_id
+      };
+      const camelRow = {
+        userId:   uid,
+        code,
+        fullName: rowBase.full_name,
+        dob:      rowBase.date_of_birth,
+        country:  rowBase.country,
+        healthId: rowBase.national_id
+      };
 
-    async function upsertSnake(){
-      const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
-      if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+      async function upsertSnake(){
+        const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
+        if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
 
-      if (existing.data) {
-        const { error } = await supabase.from('profiles')
-          .update({
-            full_name:     snakeRow.full_name,
-            date_of_birth: snakeRow.date_of_birth,
-            country:       snakeRow.country,
-            national_id:   snakeRow.national_id,
-            code:          snakeRow.code
-          })
-          .eq('user_id', uid);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('profiles').insert(snakeRow);
-        if (error) throw error;
+        if (existing.data){
+          const { error } = await supabase.from('profiles')
+            .update({
+              full_name:     snakeRow.full_name,
+              date_of_birth: snakeRow.date_of_birth,
+              country:       snakeRow.country,
+              national_id:   snakeRow.national_id,
+              code:          snakeRow.code
+            })
+            .eq('user_id', uid);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('profiles').insert(snakeRow);
+          if (error) throw error;
+        }
       }
-    }
 
-    async function upsertCamel(){
-      const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
-      if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+      async function upsertCamel(){
+        const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
+        if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
 
-      if (existing.data) {
-        const { error } = await supabase.from('profiles')
-          .update({
-            fullName: camelRow.fullName,
-            dob:      camelRow.dob,
-            country:  camelRow.country,
-            healthId: camelRow.healthId,
-            code:     camelRow.code
-          })
-          .eq('userId', uid);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('profiles').insert(camelRow);
-        if (error) throw error;
+        if (existing.data){
+          const { error } = await supabase.from('profiles')
+            .update({
+              fullName: camelRow.fullName,
+              dob:      camelRow.dob,
+              country:  camelRow.country,
+              healthId: camelRow.healthId,
+              code:     camelRow.code
+            })
+            .eq('userId', uid);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('profiles').insert(camelRow);
+          if (error) throw error;
+        }
       }
-    }
 
-    if (schema === 'snake') await upsertSnake(); else await upsertCamel();
-    return code; // unchanged permanent code
-  });
-}
+      if (schema === 'snake') { await upsertSnake(); } else { await upsertCamel(); }
+      return code;
+    });
+  }
+
+  // Save Identity (the function that was missing in your last paste)
+  function saveProfile(){
+    const profile={
+      full_name:     $('profileFullName')?.value.trim() || '',
+      date_of_birth: $('profileDob') ? normalizeDOB($('profileDob').value.trim()) : '',
+      country:       $('profileCountry')?.value.trim() || '',
+      national_id:   $('profileHealthId')?.value.trim() || ''
+    };
+    userData.profile = profile;
+    window.userData  = userData;
+    localStorage.setItem('myqer_profile', JSON.stringify(profile));
+
+    if (!isSupabaseAvailable){ toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+
+    supabase.auth.getSession().then(r=>{
+      const session=r?.data?.session || null;
+      if (!session){ toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
+      upsertProfileSmart(profile)
+        .then(()=>{ toast('Profile saved','success'); generateQRCode(); })
+        .catch(e=>{ console.error(e); toast('Error saving profile: ' + (e?.message || 'Unknown'), 'error'); });
+    });
+  }
+
   function saveHealth() {
     const health = {
       bloodType:      $('hfBloodType')?.value || '',
@@ -434,18 +443,30 @@ function upsertProfileSmart(rowBase){
       return withTimeout(getUserId(),3000,'getUserId').then(uid=>{
         if (!uid) return;
 
-        // profiles
-        return withTimeout(supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle(),4000,'profiles.select').then(rp=>{
-          const prof=rp?.data||null;
+        // profiles (try snake first, then camel; merge non-empty)
+        const selSnake = supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle();
+        return withTimeout(selSnake,4000,'profiles.select.snake').then(rp=>{
+          if (rp?.data) return rp;
+          const selCamel = supabase.from('profiles').select('*').eq('userId',uid).maybeSingle();
+          return withTimeout(selCamel,4000,'profiles.select.camel');
+        }).then(rp=>{
+          const prof = rp?.data || null;
           if (prof){
-            userData.profile=Object.assign({}, userData.profile, prof);
+            const serverProfile = {
+              full_name:     prof.full_name     ?? prof.fullName     ?? '',
+              date_of_birth: prof.date_of_birth ?? prof.dob          ?? '',
+              country:       prof.country       ?? '',
+              national_id:   prof.national_id   ?? prof.healthId     ?? '',
+              code:          prof.code          ?? ''
+            };
+            userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
             localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
             const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-            set('profileFullName', p.full_name ?? p.fullName);
-            set('profileDob',      p.date_of_birth ?? p.dob);
+            set('profileFullName', p.full_name);
+            set('profileDob',      p.date_of_birth);
             set('profileCountry',  p.country);
-            set('profileHealthId', p.national_id ?? p.healthId);
+            set('profileHealthId', p.national_id);
           }
         }).then(()=>{
           // health
