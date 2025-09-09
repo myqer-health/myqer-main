@@ -7,15 +7,6 @@
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn, { passive: true });
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
-  // Accepts AAA-BBBB-CCC and variants with en-dash/em-dash, squashes duplicates.
-const CODE_VALID = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
-function normalizeDashes(s='') {
-  return String(s).trim()
-    .replace(/[–—−]/g, '-')       // any dash → hyphen-minus
-    .replace(/-+/g, '-')          // collapse repeats
-    .toUpperCase();
-}
-
   function normalizeDOB(s) {
     if (!s) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
