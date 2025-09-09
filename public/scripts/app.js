@@ -255,10 +255,14 @@ async function generateQRCode() {
     if (cardUrlInput) cardUrlInput.value = shortUrl;
 
     // 3) draw QR (embedded encoder)
-    await simpleQR.canvas(qrCanvas, shortUrl, 220, 1);
-    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
-    qrCanvas.style.display = 'block';
-
+  await new Promise((resolve, reject) => {
+  QRCode.toCanvas(
+    qrCanvas,
+    shortUrl,
+    { errorCorrectionLevel: 'H', margin: 4, width: 260 }, // readable by iOS/Android
+    (err) => (err ? reject(err) : resolve())
+  );
+});
     // 4) offline text
     const offlineEl = document.getElementById('offlineText');
     if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
