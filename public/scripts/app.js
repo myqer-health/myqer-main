@@ -172,7 +172,7 @@
       let d=''; for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(m[r][c]) d+=`M${(c+margin)*scale} ${(r+margin)*scale}h${scale}v${scale}h-${scale}z`;
       return { width:dim, height:dim, svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>` };
     }
-    function drawCanvas(canvas, text, size=220, margin=1){
+    function drawCanvas(canvas, text, size=300, margin=4){
       const out=svg(text,size,margin); const img=new Image(); const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(out.svg);
       return new Promise((res,rej)=>{ img.onload=()=>{ canvas.width=out.width; canvas.height=out.height; const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,out.width,out.height); ctx.drawImage(img,0,0,out.width,out.height); res(); }; img.onerror=rej; img.src=url; });
     }
