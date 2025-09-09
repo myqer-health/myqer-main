@@ -259,39 +259,67 @@
   }
 
   /* ---------- Profile & Health ---------- */
-  // Upsert profile; tries snake_case first, then camelCase (so identity persists regardless of schema)
-  function upsertProfileSmart(rowBase){
-    return getUserId().then(uid=>{
-      if (!uid) return;
-      return ensureShortCode().then(code=>{
-        const snake={ user_id:uid, code, full_name:rowBase.full_name, date_of_birth:rowBase.date_of_birth, country:rowBase.country, national_id:rowBase.national_id };
-        const camel={ user_id:uid, code, fullName:rowBase.full_name, dob:rowBase.date_of_birth, country:rowBase.country, healthId:rowBase.national_id };
-        return supabase.from('profiles').upsert(snake,{onConflict:'user_id'}).then(r1=>{
-          if (!r1.error) return;
-          return supabase.from('profiles').upsert(camel,{onConflict:'user_id'}).then(r2=>{ if (r2.error) throw r2.error; });
+// Upsert profile; tries snake_case, then camelCase (user_id), then camelCase (userId)
+function upsertProfileSmart(rowBase){
+  return getUserId().then(uid=>{
+    if (!uid) return;
+
+    return ensureShortCode().then(code=>{
+      const snake = {
+        user_id: uid, code,
+        full_name:     rowBase.full_name,
+        date_of_birth: rowBase.date_of_birth,
+        country:       rowBase.country,
+        national_id:   rowBase.national_id
+      };
+      const camel = {
+        userId:  uid, code,
+        fullName: rowBase.full_name,
+        dob:      rowBase.date_of_birth,
+        country:  rowBase.country,
+        healthId: rowBase.national_id
+      };
+
+      let attempts = 0;
+
+      function attemptSnake(){
+        attempts++;
+        return supabase.from('profiles').upsert(snake, { onConflict: 'user_id' }).then(r=>{
+          if (!r.error) return;
+          // If duplicate code, regenerate and retry a few times
+          const msg = (r.error.message||'') + ' ' + (r.error.details||'');
+          if (/duplicate|unique/i.test(msg) && attempts < 6){
+            const newCode = (Math.random().toString(36).toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,6) || 'ABC123');
+            localStorage.setItem('myqer_shortcode', newCode);
+            snake.code = camel.code = newCode;
+            return attemptSnake();
+          }
+          // move to camel attempts
+          return attemptCamel_user_id();
         });
-      });
+      }
+
+      function attemptCamel_user_id(){
+        return supabase.from('profiles').upsert({
+          // keep camel fields, but this attempt still uses user_id for conflict
+          user_id: uid, code: camel.code,
+          fullName: camel.fullName, dob: camel.dob, country: camel.country, healthId: camel.healthId
+        }, { onConflict: 'user_id' }).then(r=>{
+          if (!r.error) return;
+          return attemptCamel_userId(); // final attempt: proper camel onConflict
+        });
+      }
+
+      function attemptCamel_userId(){
+        return supabase.from('profiles').upsert(camel, { onConflict: 'userId' }).then(r=>{
+          if (r.error) throw r.error; // if this fails, surface the error
+        });
+      }
+
+      return attemptSnake();
     });
-  }
-
-  function saveProfile(){
-    const profile={
-      full_name:     $('profileFullName')?.value.trim() || '',
-      date_of_birth: $('profileDob') ? normalizeDOB($('profileDob').value.trim()) : '',
-      country:       $('profileCountry')?.value.trim() || '',
-      national_id:   $('profileHealthId')?.value.trim() || ''
-    };
-    userData.profile=profile; window.userData=userData;
-    localStorage.setItem('myqer_profile', JSON.stringify(profile));
-
-    if (!isSupabaseAvailable){ toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
-
-    supabase.auth.getSession().then(r=>{
-      const session=r?.data?.session || null;
-      if (!session){ toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
-      upsertProfileSmart(profile).then(()=>{ toast('Profile saved','success'); generateQRCode(); }).catch(e=>{ console.error(e); toast('Error saving profile','error'); });
-    });
-  }
+  });
+}
 
   function saveHealth() {
     const health = {
