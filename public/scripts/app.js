@@ -575,19 +575,27 @@ async function downloadOfflineQR() {
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
     on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c||c.style.display==='none') return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
 
-    // SVG download using the library. If QR lib is missing (shouldn't be), we fall back with a warning.
-    on($('dlSVG'),'click',async ()=>{ 
-      const url=$('cardUrl')?.value||''; if(!url) return toast('Generate QR first','error');
-      try{
-        await loadQRCodeLib();
-        window.QRCode.toString(url,{ type:'svg', width:220, margin:1, errorCorrectionLevel:'H' }, (err, svg)=>{
-          if (err) { console.error(err); toast('SVG build failed','error'); return; }
-          const blob=new Blob([svg],{type:'image/svg+xml'});
-          const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='myqer-emergency-qr.svg'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('SVG downloaded','success');
-        });
-        on($('dlOfflineQR'),'click',downloadOfflineQR);
-      }catch(e){ console.error(e); toast('QR library not loaded','error'); }
+// inside wireQRButtons() -> dlSVG handler
+on($('dlSVG'),'click', async ()=>{
+  const shortUrl = $('cardUrl')?.value || '';
+  if (!shortUrl) return toast('Generate QR first','error');
+  const payload = $('offlineText')?.value || buildOfflineText(shortUrl); // use hybrid
+  try {
+    await loadQRCodeLib();
+    window.QRCode.toString(payload, { type: 'svg', width: 220, margin: 1, errorCorrectionLevel: 'Q' }, (err, svg)=>{
+      if (err) { console.error(err); return toast('SVG build failed','error'); }
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'myqer-emergency-qr.svg';
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+      toast('SVG downloaded','success');
     });
+  } catch(e) {
+    console.error(e); toast('QR library not loaded','error');
+  }
+});
 
     on($('printQR'),'click',()=>{ const canvas=$('qrCanvas'); const code=$('codeUnderQR')?.textContent||''; if(!canvas||canvas.style.display==='none'||!code) return toast('Generate QR first','error'); const dataUrl=canvas.toDataURL('image/png'); const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error'); w.document.write(`<html><head><title>MYQER Emergency Card - ${code}</title><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;text-align:center;padding:2rem}.code{font-weight:700;letter-spacing:.06em}img{width:300px;height:300px;image-rendering:pixelated}@media print{@page{size:auto;margin:12mm}}</style></head><body><h1>MYQER™ Emergency Card</h1><p class="code">Code: ${code}</p><img alt="QR Code" src="${dataUrl}"><p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p><script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>`); w.document.close(); });
     on($('copyOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to copy','error'); navigator.clipboard.writeText(t).then(()=>toast('Offline text copied','success')).catch(()=>toast('Copy failed','error')); });
