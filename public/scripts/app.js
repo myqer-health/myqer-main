@@ -201,7 +201,26 @@
       if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.style.background='rgba(252,211,77,0.15)'; qrStatus.style.color='#92400E'; qrStatus.hidden=false; }
     }
   }
-
+// put this near your QR helpers (after loadQRCodeLib)
+async function downloadOfflineQR() {
+  try {
+    await loadQRCodeLib();
+    const txt = document.getElementById('offlineText')?.value?.trim() || '';
+    if (!txt) { toast('No offline text to encode','error'); return; }
+    const canvas = document.createElement('canvas');
+    await new Promise((res, rej) =>
+      window.QRCode.toCanvas(canvas, txt, { width: 260, margin: 2, errorCorrectionLevel: 'M' }, err => err ? rej(err) : res())
+    );
+    const a = document.createElement('a');
+    a.download = 'myqer-offline-qr.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    toast('Offline QR downloaded','success');
+  } catch (e) {
+    console.error(e);
+    toast('Couldn’t build offline QR','error');
+  }
+}
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
@@ -525,6 +544,7 @@
           const blob=new Blob([svg],{type:'image/svg+xml'});
           const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='myqer-emergency-qr.svg'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('SVG downloaded','success');
         });
+        on($('dlOfflineQR'),'click',downloadOfflineQR);
       }catch(e){ console.error(e); toast('QR library not loaded','error'); }
     });
 
