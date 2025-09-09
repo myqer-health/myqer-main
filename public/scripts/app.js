@@ -205,61 +205,64 @@
 
   /* ---------- QR (always draw) ---------- */
   async function generateQRCode() {
-    const qrCanvas      = $('qrCanvas');
-    const qrPlaceholder = $('qrPlaceholder');
-    const codeUnderQR   = $('codeUnderQR');
-    const cardUrlInput  = $('cardUrl');
-    const qrStatus      = $('qrStatus');
-    if (!qrCanvas) return;
+  const qrCanvas      = $('qrCanvas');
+  const qrPlaceholder = $('qrPlaceholder');
+  const codeUnderQR   = $('codeUnderQR');
+  const cardUrlInput  = $('cardUrl');
+  const qrStatus      = $('qrStatus');
+  if (!qrCanvas) return;
 
-    try {
-      const code = await ensureShortCode();
+  try {
+    const code = await ensureShortCode();
 
-// Build a base that matches the current host (avoids www/non-www mismatch)
-const base =
-  location.hostname.endsWith('myqer.com')
-    ? `https://${location.hostname.replace(/^www\./,'')}`  // force apex domain
-    : location.origin;                                      // works on localhost/previews too
+    // Match current host so iOS sees exactly the same domain (apex vs www)
+    const base = location.hostname.endsWith('myqer.com')
+      ? `https://${location.hostname.replace(/^www\./,'')}`
+      : location.origin;
 
-const shortUrl = `${base}/c/${code}`;
+    const shortUrl = `${base}/c/${code}`;
 
-if (codeUnderQR) codeUnderQR.textContent = code;
-if (cardUrlInput) cardUrlInput.value = shortUrl;
-      // draw using embedded encoder
-      // draw using proven QRCode UMD
-await new Promise((resolve, reject) => {
-  if (!(window.QRCode && typeof QRCode.toCanvas === 'function')) {
-    return reject(new Error('QRCode UMD missing'));
-  }
-  QRCode.toCanvas(
-    qrCanvas,
-    shortUrl,  // https://myqer.com/c/<code>
-    { width: 260, margin: 2, errorCorrectionLevel: 'H' },
-    err => err ? reject(err) : resolve()
-  );
-});
-qrCanvas.style.display = 'block';
-if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    if (codeUnderQR)  codeUnderQR.textContent = code;
+    if (cardUrlInput) cardUrlInput.value      = shortUrl;
 
-const offlineEl = $('offlineText');
-if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+    // Prefer UMD QRCode if present; otherwise fall back to embedded simpleQR.
+    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
+      await new Promise((resolve, reject) => {
+        QRCode.toCanvas(
+          qrCanvas,
+          shortUrl,
+          { width: 260, margin: 2, errorCorrectionLevel: 'H' },
+          err => err ? reject(err) : resolve()
+        );
+      });
+    } else {
+      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
+    }
 
-if (qrStatus) {
-  qrStatus.textContent = 'QR Code generated successfully';
-  qrStatus.style.background = 'rgba(5,150,105,0.1)';
-  qrStatus.style.color = 'var(--green)';
-  qrStatus.hidden = false;
-}
+    qrCanvas.style.display = 'block';
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
 
-      const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-      if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.style.background='rgba(5,150,105,0.1)'; qrStatus.style.color='var(--green)'; qrStatus.hidden=false; }
-    } catch (err) {
-      console.error('QR render error:', err);
-      if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-      if (qrCanvas) qrCanvas.style.display = 'none';
-      if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.style.background='rgba(252,211,77,0.15)'; qrStatus.style.color='#92400E'; qrStatus.hidden=false; }
+    const offlineEl = $('offlineText');
+    if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+
+    if (qrStatus) {
+      qrStatus.textContent = 'QR Code generated successfully';
+      qrStatus.style.background = 'rgba(5,150,105,0.1)';
+      qrStatus.style.color = 'var(--green)';
+      qrStatus.hidden = false;
+    }
+  } catch (err) {
+    console.error('QR render error:', err);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas)      qrCanvas.style.display = 'none';
+    if (qrStatus) {
+      qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
+      qrStatus.style.background = 'rgba(252,211,77,0.15)';
+      qrStatus.style.color = '#92400E';
+      qrStatus.hidden = false;
     }
   }
+}
 
   /* ---------- ICE ---------- */
   function renderIceContacts(){
