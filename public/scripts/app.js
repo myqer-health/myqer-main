@@ -438,13 +438,132 @@
       });
     }).catch(e=>console.warn('Server load failed', e));
   }
-
   /* ------------------------- Buttons & logout -------------------------- */
-  function wireQRButtons(){
-    on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
-    on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
-    on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c||c.style.display==='none') return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
-    on($('dlSVG'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('Generate QR first','error'); /* SVG comes from serverless path or build later */ });
-    on($('printQR'),'click',()=>{ const canvas=$('qrCanvas'); const code=$('codeUnderQR')?.textContent||''; if(!canvas||canvas.style.display==='none'||!code) return toast('Generate QR first','error'); const dataUrl=canvas.toDataURL('image/png'); const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error'); w.document.write(`<html><head><title>MYQER Emergency Card - ${code}</title><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;text-align:center;padding:2rem}.code{font-weight:700;letter-spacing:.06em}img{width:300px;height:300px;image-rendering:pixelated}@media print{@page{size:auto;margin:12mm}}</style></head><body><h1>MYQER™ Emergency Card</h1><p class="code">Code: ${code}</p><img alt="QR Code" src="${dataUrl}"><p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">myqer.com</p><script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>`); w.document.close(); });
-    on($('copyOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to copy','error'); navigator.clipboard.writeText(t).then(()=>toast('Offline text copied','success')).catch(()=>toast('Copy failed','error')); });
-    on($('dlOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to download','error'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download='myqer-offline.txt'; a.click(); setTimeout(()=>URL.re
+function wireQRButtons(){
+  on($('copyLink'),'click',()=>{
+    const url=$('cardUrl')?.value||'';
+    if(!url) return toast('No link to copy','error');
+    navigator.clipboard.writeText(url)
+      .then(()=>toast('Link copied','success'))
+      .catch(()=>toast('Copy failed','error'));
+  });
+
+  on($('openLink'),'click',()=>{
+    const url=$('cardUrl')?.value||'';
+    if(!url) return toast('No link to open','error');
+    window.open(url,'_blank','noopener');
+  });
+
+  on($('dlPNG'),'click',()=>{
+    const c=$('qrCanvas');
+    if(!c||c.style.display==='none')
+      return toast('Generate QR first','error');
+    const a=document.createElement('a');
+    a.download='myqer-qr.png';
+    a.href=c.toDataURL('image/png');
+    a.click();
+    toast('PNG downloaded','success');
+  });
+
+  on($('dlSVG'),'click',()=>{
+    const url=$('cardUrl')?.value||'';
+    if(!url) return toast('Generate QR first','error');
+    const out=simpleQR.svg(url,260,4);
+    const blob=new Blob([out.svg],{type:'image/svg+xml'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='myqer-qr.svg';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('SVG downloaded','success');
+  });
+
+  on($('printQR'),'click',()=>{
+    const canvas=$('qrCanvas');
+    const code=$('codeUnderQR')?.textContent||'';
+    if(!canvas||canvas.style.display==='none'||!code)
+      return toast('Generate QR first','error');
+    const dataUrl=canvas.toDataURL('image/png');
+    const w=window.open('','_blank','noopener');
+    if(!w) return toast('Pop-up blocked','error');
+    w.document.write(`
+      <html><head><title>MYQER Emergency Card - ${code}</title>
+      <meta charset="utf-8">
+      <style>
+        body{font-family:Arial,sans-serif;text-align:center;padding:2rem}
+        .code{font-weight:700;letter-spacing:.06em}
+        img{width:300px;height:300px;image-rendering:pixelated}
+        @media print{@page{size:auto;margin:12mm}}
+      </style></head>
+      <body>
+        <h1>MYQER™ Emergency Card</h1>
+        <p class="code">Code: ${code}</p>
+        <img alt="QR Code" src="${dataUrl}">
+        <p>Scan this QR code for emergency information</p>
+        <p style="font-size:.8em;color:#666">myqer.com</p>
+        <script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script>
+      </body></html>`);
+    w.document.close();
+  });
+
+  on($('copyOffline'),'click',()=>{
+    const t=$('offlineText')?.value||'';
+    if(!t.trim()) return toast('No offline text to copy','error');
+    navigator.clipboard.writeText(t)
+      .then(()=>toast('Offline text copied','success'))
+      .catch(()=>toast('Copy failed','error'));
+  });
+
+  on($('dlOffline'),'click',()=>{
+    const t=$('offlineText')?.value||'';
+    if(!t.trim()) return toast('No offline text to download','error');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'}));
+    a.download='myqer-offline.txt';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('Offline text downloaded','success');
+  });
+}
+
+/* ------------------------- Delete & Logout -------------------------- */
+function deleteAccount(){
+  const phrase=($('deletePhrase')?.value||'').trim().toUpperCase();
+  if (phrase!=='DELETE MY ACCOUNT')
+    return toast('Type the phrase exactly','error');
+  if (!confirm('Are you sure? This permanently deletes your data?')) return;
+
+  (function(){
+    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+    return getUserId().then(uid=>{
+      if (!uid) return;
+      return supabase.from('ice_contacts').delete().eq('user_id',uid)
+        .then(()=>supabase.from('health_data').delete().eq('user_id',uid))
+        .then(()=>supabase.from('profiles').delete().eq('user_id',uid));
+    });
+  })()
+  .then(()=>{
+    try{ localStorage.clear(); sessionStorage.clear(); }catch{}
+    location.href='index.html';
+  })
+  .catch(e=>{
+    console.error(e);
+    toast('Delete failed','error');
+  });
+}
+
+function logout(){
+  if (!isSupabaseAvailable) {
+    try{ localStorage.clear(); sessionStorage.clear(); }catch{}
+    location.href='index.html';
+    return;
+  }
+  supabase.auth.signOut()
+    .catch(()=>{}) // ignore errors
+    .finally(()=>{
+      try{ localStorage.clear(); sessionStorage.clear(); }catch{}
+      location.href='index.html';
+    });
+}
+
+ 
