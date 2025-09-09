@@ -533,22 +533,45 @@
     on($('dlOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to download','error'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download='myqer-offline.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('Offline text downloaded','success'); });
   }
 
-  /* ---------- delete / logout ---------- */
-  function deleteAccount(){
-    const phrase=($('deletePhrase')?.value||'').trim().toUpperCase();
-    if (phrase!=='DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
-    if (!confirm('Are you sure? This permanently deletes your data.')) return;
-    (function(){
-      if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
-      return getUserId().then(uid=>{
-        if (!uid) return;
-        return supabase.from('ice_contacts').delete().eq('user_id',uid)
-          .then(()=>supabase.from('health_data').delete().eq('user_id',uid))
-          .then(()=>supabase.from('profiles').delete().eq('user_id',uid));
-      });
-    })().then(()=>{ try{ localStorage.clear(); sessionStorage.clear(); }catch{} location.href='index.html'; })
-      .catch(e=>{ console.error(e); toast('Delete failed','error'); });
-  }
+ /* ---------- delete / logout (now clears the local 6-char code too) ---------- */
+function deleteAccount(){
+  const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
+  if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
+  if (!confirm('Are you sure? This permanently deletes your data.')) return;
+
+  // helper: nuke local cache & code
+  const wipeLocal = () => {
+    try {
+      localStorage.removeItem('myqer_shortcode');   // 🔥 remove permanent QR code
+      localStorage.removeItem('myqer_profile');
+      localStorage.removeItem('myqer_health');
+      localStorage.removeItem('myqer_ice');
+      // fallback sledgehammer
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (_) {}
+  };
+
+  // server-side purge then sign out
+  (function(){
+    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+    return getUserId().then(uid=>{
+      if (!uid) return;
+      // delete child tables first, then profile
+      return supabase.from('ice_contacts').delete().eq('user_id',uid)
+        .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
+        .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
+        .catch(e => { console.warn('server delete failed', e); });
+    }).then(()=> {
+      // try to sign out (ignore errors)
+      return supabase.auth.signOut().catch(()=>{});
+    });
+  })()
+  .finally(()=>{
+    wipeLocal();                              // ✅ clears shortcode so a fresh one will be generated
+    location.href = 'index.html';             // back to landing / login
+  });
+}
 
   /* ---------- autosave wiring ---------- */
   function setupAutoSave(id, fn, delay) {
