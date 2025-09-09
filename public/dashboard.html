@@ -1,187 +1,58 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MYQER — MVP QR</title>
-
-  <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js" crossorigin="anonymous"></script>
-
   <style>
-    :root { --green:#059669; --red:#dc2626; }
-    body{font-family:system-ui,Segoe UI,Inter,Arial,sans-serif;max-width:760px;margin:0 auto;padding:24px}
-    h1{font-size:20px;margin:0 0 12px}
-    .wrap{border:1px solid #eee;border-radius:10px;padding:18px}
-    .row{display:flex;gap:16px;align-items:center}
-    .col{flex:1}
-    #qrBox{width:280px}
-    canvas{width:260px;height:260px;image-rendering:pixelated;border:10px solid #fff;box-shadow:0 0 0 1px #eee;border-radius:6px}
-    #status{display:inline-block;margin-top:10px;padding:8px 10px;border-radius:6px;background:#f3f4f6}
-    #status.ok{background:rgba(5,150,105,.1);color:var(--green)}
-    #status.err{background:rgba(252,211,77,.15);color:#92400E}
-    input[type=text]{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-family:ui-monospace,Consolas,monospace}
-    button{padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer}
-    button.primary{border-color:var(--green);color:#fff;background:var(--green)}
-    small.mono{font-family:ui-monospace,Consolas,monospace}
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: #fafafa;
+    }
+    h1 { margin-bottom: 1rem; }
+    canvas { 
+      border: 1px solid #ccc;
+      margin: 1rem 0;
+      image-rendering: pixelated;
+    }
+    input { width: 100%; padding: .5rem; margin-top: .5rem; }
   </style>
 </head>
 <body>
   <h1>MYQER — Minimal QR (MVP)</h1>
-<p>Short code: <span id="shortcode"></span></p>
-<canvas id="qr" width="260" height="260" style="border:1px solid #ccc"></canvas>
-<p><input id="payload" readonly style="width:100%"></p>
-  
-  <div class="wrap">
-    <div class="row">
-      <div id="qrBox"><canvas id="qrCanvas" width="260" height="260" aria-label="QR"></canvas></div>
-      <div class="col">
-        <div style="margin-bottom:8px;color:#6b7280">Short code</div>
-        <div id="code" class="mono" style="font-weight:600;letter-spacing:.06em">—</div>
 
-        <div style="margin:14px 0 6px;color:#6b7280">QR payload</div>
-        <input id="url" type="text" readonly placeholder="https://myqer.com/c/XXX-XXXX-XXX" />
+  <p>Short code: <span id="shortcode"></span></p>
+  <canvas id="qrCanvas" width="260" height="260"></canvas>
+  <input id="payload" readonly />
 
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button id="btnCopy">Copy Link</button>
-          <button id="btnOpen">Open Link</button>
-          <button id="btnRegen" class="primary">Regenerate</button>
-        </div>
-
-        <div id="status" role="status" aria-live="polite">Loading…</div>
-
-        <div style="margin-top:10px;color:#6b7280">
-          <small>Tip: aim your phone camera at the QR — it should show the <span class="mono">myqer.com</span> URL pop-up.</small>
-        </div>
-      </div>
-    </div>
-  </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
-  (function () {
-    /* ===== config (your project) ===== */
-    const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-    const SUPABASE_ANON= 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+    (function () {
+      const canvas = document.getElementById('qrCanvas');
 
-    /* ===== tiny helpers ===== */
-    const $ = (id) => document.getElementById(id);
-    const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
-    const CODE_VALID = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
-    const normalizeDashes = s => (s||'').replace(/[\u2010-\u2015\u2212]/g,'-').toUpperCase();
-    const makeShort = () => {
-      const pick = n => Array.from({length:n},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
-      return `${pick(3)}-${pick(4)}-${pick(3)}`;
-    };
-    const getStored = () => {
-      let c = normalizeDashes(localStorage.getItem('myqer_shortcode'));
-      if (!CODE_VALID.test(c)) { c = makeShort(); localStorage.setItem('myqer_shortcode', c); }
-      return c;
-    };
+      // 🔑 Hardcode a demo code for now
+      const code = "95Y-6RXS-3GQ";
+      const url  = `https://myqer.com/c/${code}`;
 
-    /* ===== supabase (optional) ===== */
-    let supabase = null;
-    try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON); } catch(_) {}
-    const getUID = async () => {
-      if (!supabase) return null;
-      try { const r = await supabase.auth.getUser(); return r.data?.user?.id || null; } catch { return null; }
-    };
-    const upsertCode = async (code) => {
-      try {
-        const uid = await getUID(); if (!uid) return false;
-        const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
-        if (error) console.warn('upsert error:', error);
-      } catch (e) { console.warn('upsert fail:', e); }
-      return true;
-    };
+      // show text
+      document.getElementById('shortcode').textContent = code;
+      document.getElementById('payload').value = url;
 
-    /* ===== draw QR (classic 3-squares) ===== */
-    async function drawQR(text) {
-      const canvas = $('qrCanvas');
-      const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-
-      await new Promise((resolve, reject) => {
-        QRCode.toCanvas(
-          canvas,
-          text.trim(),
-          { width: 260, margin: 2, errorCorrectionLevel: 'H', color: { dark:'#000', light:'#fff' } },
-          err => err ? reject(err) : resolve()
-        );
+      // draw QR
+      QRCode.toCanvas(canvas, url, {
+        width: 260,
+        margin: 2,
+        errorCorrectionLevel: 'H'
+      }, function (err) {
+        if (err) console.error("QR error:", err);
+        else console.log("✅ QR drawn:", url);
       });
-    }
-
-    /* ===== main ===== */
-    async function generate() {
-      const status = $('status');
-      status.className = ''; status.textContent = 'Generating…';
-      try {
-        let code = getStored();             // clean + valid
-        await upsertCode(code);             // optional
-
-        // force apex host so iOS shows “myqer.com” consistently
-        const base = 'https://myqer.com';
-        const url  = `${base}/c/${code}`;
-
-        $('code').textContent = code;
-        $('url').value = url;
-
-        await drawQR(url);
-
-        status.className = 'ok';
-        status.textContent = 'QR Code generated. Try scanning now.';
-        console.log('QR payload:', url);
-      } catch (e) {
-        console.error(e);
-        status.className = 'err';
-        status.textContent = 'Couldn’t draw QR. (But this page is designed to work even offline.)';
-      }
-    }
-
-    /* buttons */
-    $('btnCopy').onclick = () => {
-      const v = $('url').value; if (!v) return;
-      navigator.clipboard.writeText(v).catch(()=>{});
-    };
-    $('btnOpen').onclick = () => {
-      const v = $('url').value; if (!v) return;
-      window.open(v, '_blank', 'noopener');
-    };
-    $('btnRegen').onclick = () => {
-      // force a new code (useful for testing collisions)
-      const next = makeShort();
-      localStorage.setItem('myqer_shortcode', next);
-      generate();
-    };
-
-    // go!
-    generate();
-  })();
+    })();
   </script>
-  <!-- 1) QRCode library -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
-<!-- 2) Your MVP logic -->
-<script>
-(function () {
-  const canvas = document.getElementById('qr');
-  const code   = "95Y-6RXS-3GQ";  // hardcode a demo code for now
-  const url    = `https://myqer.com/c/${code}`;
-
-  document.getElementById('shortcode').textContent = code;
-  document.getElementById('payload').value = url;
-
-  // Draw QR
-  QRCode.toCanvas(canvas, url, {
-    width: 260,
-    margin: 2,
-    errorCorrectionLevel: 'H'
-  }, function (err) {
-    if (err) console.error(err);
-    else console.log("✅ QR drawn:", url);
-  });
-})();
-</script>
 </body>
 </html>
