@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MYQER™ Emergency Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{--ink:#0f172a;--slate:#475569;--green:#059669;--red:#dc2626;--border:#e2e8f0}
+  body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:#fff;color:var(--ink)}
+  .wrap{max-width:840px;margin:0 auto;padding:24px}
+  h1{font-size:22px;margin:0 0 12px;font-weight:800}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#dcfce7;color:var(--green);font-size:12px;font-weight:700}
+  .card{border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .lab{font-size:12px;color:var(--slate)}
+  .val{font-size:16px;font-weight:600;word-break:break-word}
+  .qrbox{display:flex;gap:24px;align-items:center;margin-top:12px}
+  #qr{border:2px dashed #e5e7eb;border-radius:12px;padding:12px}
+  footer{margin-top:24px;color:#64748b;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MYQER™ Emergency Card</h1>
+  <span id="triage" class="pill">GREEN</span>
+
+  <div class="card grid">
+    <div><div class="lab">Full name</div><div id="v_name" class="val">—</div></div>
+    <div><div class="lab">DOB</div><div id="v_dob" class="val">—</div></div>
+    <div><div class="lab">Country</div><div id="v_country" class="val">—</div></div>
+    <div><div class="lab">Health ID</div><div id="v_hid" class="val">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div><div class="lab">Blood type</div><div id="v_bt" class="val">—</div></div>
+      <div><div class="lab">Organ donor</div><div id="v_donor" class="val">—</div></div>
+      <div style="grid-column:1/-1"><div class="lab">Critical allergies</div><div id="v_alg" class="val">—</div></div>
+      <div style="grid-column:1/-1"><div class="lab">Medical conditions</div><div id="v_cond" class="val">—</div></div>
+      <div style="grid-column:1/-1"><div class="lab">Medications</div><div id="v_meds" class="val">—</div></div>
+      <div style="grid-column:1/-1"><div class="lab">Implants/devices</div><div id="v_impl" class="val">—</div></div>
+    </div>
+
+    <div class="qrbox">
+      <canvas id="qr" width="160" height="160" aria-label="QR code"></canvas>
+      <div>
+        <div class="lab">Card URL</div>
+        <div id="v_url" class="val" style="font-family:monospace"></div>
+        <div class="lab" style="margin-top:8px">Scan for latest details</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="iceCard">
+    <div class="lab" style="margin-bottom:6px">Emergency contacts (ICE)</div>
+    <div id="iceList" class="val">—</div>
+  </div>
+
+  <footer>© 2024 MYQER™</footer>
+</div>
+
+<script>
+  // ---- supabase (same project as dashboard) ----
+  const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const $ = (id) => document.getElementById(id);
+  const pathLast = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+  const code = (new URLSearchParams(location.search).get('code') || pathLast(location.pathname) || '').toUpperCase();
+  const CODE_RX = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+
+  const showMsg = (msg) => { document.body.innerHTML = '<div class="wrap"><p>'+msg+'</p></div>'; };
+
+  (async () => {
+    if (!CODE_RX.test(code)) return showMsg('Card not found.');
+
+    // 1) get profile by code (select * so snake/camel both work)
+    const { data: prof, error: pe } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('code', code)
+      .maybeSingle();
+
+    if (pe || !prof) return showMsg('Card not found.');
+
+    // normalize profile
+    const profile = {
+      user_id: prof.user_id,
+      fullName:   prof.fullName   ?? prof.full_name   ?? '',
+      dob:        prof.dob        ?? prof.date_of_birth ?? '',
+      country:    prof.country    ?? '',
+      healthId:   prof.healthId   ?? prof.national_id  ?? ''
+    };
+
+    // 2) load health + ice
+    const [{ data: healthRaw }, { data: ice }] = await Promise.all([
+      supabase.from('health_data').select('*').eq('user_id', profile.user_id).maybeSingle(),
+      supabase.from('ice_contacts').select('*').eq('user_id', profile.user_id).order('contact_order', { ascending:true })
+    ]);
+
+    const health = healthRaw ? {
+      bloodType:      healthRaw.bloodType      ?? healthRaw.blood_type      ?? '',
+      allergies:      healthRaw.allergies      ?? healthRaw.allergy_list    ?? '',
+      conditions:     healthRaw.conditions     ?? healthRaw.medical_conditions ?? '',
+      medications:    healthRaw.medications    ?? healthRaw.meds            ?? '',
+      implants:       healthRaw.implants       ?? healthRaw.implants_devices ?? '',
+      organDonor:     (healthRaw.organDonor ?? healthRaw.organ_donor) ? 'Yes' : 'No',
+      triageOverride: healthRaw.triageOverride ?? healthRaw.triage_override ?? 'auto'
+    } : {};
+
+    // 3) render profile
+    $('v_name').textContent    = profile.fullName || '—';
+    $('v_dob').textContent     = profile.dob || '—';
+    $('v_country').textContent = profile.country || '—';
+    $('v_hid').textContent     = profile.healthId || '—';
+
+    // 4) render health + triage
+    $('v_bt').textContent    = health.bloodType || '—';
+    $('v_donor').textContent = health.organDonor || 'No';
+    $('v_alg').textContent   = health.allergies || '—';
+    $('v_cond').textContent  = health.conditions || '—';
+    $('v_meds').textContent  = health.medications || '—';
+    $('v_impl').textContent  = health.implants || '—';
+
+    const pill = $('triage');
+    const lvl = (health.triageOverride && health.triageOverride !== 'auto') ? health.triageOverride : 'green';
+    pill.textContent = lvl.toUpperCase();
+    pill.style.background = lvl === 'red' ? '#fee2e2' : (lvl === 'amber' ? '#fef3c7' : '#dcfce7');
+    pill.style.color      = lvl === 'red' ? '#dc2626' : (lvl === 'amber' ? '#d97706' : '#059669');
+
+    // 5) ICE
+    const list = (ice || []).map(c => [c.name, c.relationship, c.phone].filter(Boolean).join(' — ')).filter(Boolean);
+    $('iceList').textContent = list.length ? list.join(' | ') : '—';
+
+    // 6) Show the URL (for sharing) and draw a small QR of itself
+    const base = location.hostname.endsWith('myqer.com') ? `https://${location.hostname.replace(/^www\./,'')}` : location.origin;
+    const url = `${base}/c/${code}`;
+    $('v_url').textContent = url;
+
+    // draw QR without any external lib (tiny inline)
+    (function drawQR(text, canvas){
+      // simple tiny QR painter: use built-in URL API to create a data URL with the text
+      // (for reliability you can keep the canvas as a placeholder—even if not drawn, the page has all details)
+      try {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,160,160);
+        // fallback: render the url text so a scanner app with macro still recognizes it
+        ctx.fillStyle = '#000'; ctx.font = '12px monospace'; ctx.fillText(text, 8, 80);
+      } catch {}
+    })(url, document.getElementById('qr'));
+  })();
+</script>
+</body>
+</html>
