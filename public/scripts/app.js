@@ -214,10 +214,17 @@
 
     try {
       const code = await ensureShortCode();
-      const shortUrl = `https://www.myqer.com/c/${code}`;
-      if (codeUnderQR) codeUnderQR.textContent = code;
-      if (cardUrlInput) cardUrlInput.value = shortUrl;
 
+// Build a base that matches the current host (avoids www/non-www mismatch)
+const base =
+  location.hostname.endsWith('myqer.com')
+    ? `https://${location.hostname.replace(/^www\./,'')}`  // force apex domain
+    : location.origin;                                      // works on localhost/previews too
+
+const shortUrl = `${base}/c/${code}`;
+
+if (codeUnderQR) codeUnderQR.textContent = code;
+if (cardUrlInput) cardUrlInput.value = shortUrl;
       // draw using embedded encoder
       await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
       qrCanvas.style.display = 'block';
