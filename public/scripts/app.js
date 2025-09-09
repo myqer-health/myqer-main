@@ -226,9 +226,30 @@ const shortUrl = `${base}/c/${code}`;
 if (codeUnderQR) codeUnderQR.textContent = code;
 if (cardUrlInput) cardUrlInput.value = shortUrl;
       // draw using embedded encoder
-      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
-      qrCanvas.style.display = 'block';
-      if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+      // draw using proven QRCode UMD
+await new Promise((resolve, reject) => {
+  if (!(window.QRCode && typeof QRCode.toCanvas === 'function')) {
+    return reject(new Error('QRCode UMD missing'));
+  }
+  QRCode.toCanvas(
+    qrCanvas,
+    shortUrl,  // https://myqer.com/c/<code>
+    { width: 260, margin: 2, errorCorrectionLevel: 'H' },
+    err => err ? reject(err) : resolve()
+  );
+});
+qrCanvas.style.display = 'block';
+if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+
+const offlineEl = $('offlineText');
+if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
+
+if (qrStatus) {
+  qrStatus.textContent = 'QR Code generated successfully';
+  qrStatus.style.background = 'rgba(5,150,105,0.1)';
+  qrStatus.style.color = 'var(--green)';
+  qrStatus.hidden = false;
+}
 
       const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.style.background='rgba(5,150,105,0.1)'; qrStatus.style.color='var(--green)'; qrStatus.hidden=false; }
