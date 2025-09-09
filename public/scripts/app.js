@@ -491,18 +491,40 @@ const hasICE = Array.isArray(iceContacts) && iceContacts.length > 0;
             set('profileHealthId', p.national_id ?? p.healthId);
           }
         }).then(()=>{
-          return withTimeout(supabase.from('health_data').select('*').eq('user_id',uid).maybeSingle(),4000,'health_data.select').then(rh=>{
-            const health=rh?.data||null;
-            if (health){ userData.health=Object.assign({}, userData.health, health); window.userData=userData;
-              localStorage.setItem('myqer_health', JSON.stringify(userData.health));
-              const h=userData.health; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-              set('hfBloodType',h.bloodType); set('hfAllergies',h.allergies); set('hfConditions',h.conditions);
-              set('hfMeds',h.medications); set('hfImplants',h.implants);
-              if ($('hfDonor')) $('hfDonor').checked=!!h.organDonor;
-              if ($('triageOverride')) $('triageOverride').value=h.triageOverride||'auto';
-              calculateTriage();
-            }
-          });
+          // health
+return withTimeout(
+  supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
+  4000,
+  'health_data.select'
+).then(function (rh) {
+  var raw = rh && rh.data ? rh.data : null;
+  if (!raw) return;
+
+  // normalize snake ⇄ camel to the shape the UI expects
+  var norm = {
+    bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
+    allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
+    conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
+    medications:    raw.medications    != null ? raw.medications    : raw.meds,
+    implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
+    organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
+    triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
+  };
+
+  userData.health = Object.assign({}, userData.health, norm);
+  localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+
+  var h = userData.health;
+  function set(id, v){ var el=$(id); if (el) el.value = v || ''; }
+  set('hfBloodType',  h.bloodType);
+  set('hfAllergies',  h.allergies);
+  set('hfConditions', h.conditions);
+  set('hfMeds',       h.medications);
+  set('hfImplants',   h.implants);
+  if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
+  if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
+  calculateTriage();
+});
         }).then(()=>{
           return withTimeout(supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),4000,'ice_contacts.select').then(ri=>{
             const ice=ri?.data||[];
@@ -543,9 +565,19 @@ const hasICE = Array.isArray(iceContacts) && iceContacts.length > 0;
       .catch(e=>{ console.error(e); toast('Delete failed','error'); });
   }
 
-  /* ---------- autosave wiring ---------- */
-  function setupAutoSave(id, fn){ const el=$(id); if(!el) return; const run=()=>Promise.resolve(fn()).catch(e=>console.warn('autosave err',e)); const h=debounce(run,600); on(el,'input',h); on(el,'change',h); }
-
+  function setupAutoSave(id, fn, delay) {
+  if (!delay && delay !== 0) delay = 600;
+  var el = $(id);
+  if (!el) return;
+  function run() {
+    clearTimeout(autoSaveTimers[id]);
+    autoSaveTimers[id] = setTimeout(function () {
+      fn().catch(function (e) { console.warn('autosave err', e); });
+    }, delay);
+  }
+  el.addEventListener('input', run);
+  el.addEventListener('change', run); // important for <select>, checkboxes, iOS
+}
   /* ---------- DOM ready ---------- */
   document.addEventListener('DOMContentLoaded', ()=>{
     updateNetworkStatus();
