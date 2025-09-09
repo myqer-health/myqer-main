@@ -7,6 +7,17 @@
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn, { passive: true });
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
+  // Wait for the UMD QRCode library (up to ~2s)
+function waitForQRCode(tries = 20, interval = 100) {
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (window.QRCode && typeof QRCode.toCanvas === 'function') return resolve(true);
+      if (tries-- <= 0) return resolve(false);
+      setTimeout(tick, interval);
+    };
+    tick();
+  });
+}
 
   // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
   function normalizeDOB(s) {
@@ -225,22 +236,23 @@
     if (codeUnderQR)  codeUnderQR.textContent = code;
     if (cardUrlInput) cardUrlInput.value      = shortUrl;
 
-    // Prefer UMD QRCode if present; otherwise fall back to embedded simpleQR.
-    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
-      await new Promise((resolve, reject) => {
-        QRCode.toCanvas(
-          qrCanvas,
-          shortUrl,
-          { width: 260, margin: 2, errorCorrectionLevel: 'H' },
-          err => err ? reject(err) : resolve()
-        );
-      });
-    } else {
-      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
-    }
-
-    qrCanvas.style.display = 'block';
-    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+// --- draw (prefer UMD library for classic 3-squares QR) ---
+const hasUMD = await waitForQRCode(20, 100);   // ~2s max
+if (hasUMD) {
+  await new Promise((resolve, reject) => {
+    QRCode.toCanvas(
+      qrCanvas,
+      shortUrl,                                // e.g. https://myqer.com/c/ABC-DEF0-GHI
+      { width: 260, margin: 2, errorCorrectionLevel: 'H' },
+      err => err ? reject(err) : resolve()
+    );
+  });
+} else {
+  // fallback — only if the UMD script truly isn't available
+  await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
+}
+qrCanvas.style.display = 'block';
+if (qrPlaceholder) qrPlaceholder.style.display = 'none';
 
     const offlineEl = $('offlineText');
     if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
