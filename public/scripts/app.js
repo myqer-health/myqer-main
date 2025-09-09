@@ -206,43 +206,62 @@
     return L.join('\n').slice(0,1200);
   }
 
-  /* ---------- QR: uses embedded encoder ---------- */
-  async function generateQRCode(){
-    const qrCanvas=$('qrCanvas'), qrPlaceholder=$('qrPlaceholder'), codeUnderQR=$('codeUnderQR'), cardUrlInput=$('cardUrl'), qrStatus=$('qrStatus');
-    if (!qrCanvas) return;
 
-    const hasProfile=!!(userData?.profile?.full_name ?? userData?.profile?.fullName);
-    const hasHealth=!!(userData?.health?.bloodType || userData?.health?.allergies);
-    const hasICE=Array.isArray(iceContacts) && iceContacts.length>0;
+ // ---------- QR: uses embedded encoder ----------
+async function generateQRCode() {
+  const qrCanvas = $('qrcodeCanvas'),
+        qrPlaceholder = $('qrPlaceholder'),
+        codeUnderQR = $('codeUnderQR'),
+        cardUrlInput = $('cardUrl'),
+        qrStatus = $('qrStatus');
+  if (!qrCanvas) return;
 
-    if (!(hasProfile||hasHealth||hasICE)){
-      if (qrPlaceholder) qrPlaceholder.style.display='flex';
-      if (qrCanvas) qrCanvas.style.display='none';
-      if (codeUnderQR) codeUnderQR.textContent='';
-      if (cardUrlInput) cardUrlInput.value='';
-      if (qrStatus) qrStatus.hidden=true;
-      return;
-    }
+  // Make sure we have some profile/health/ICE before generating
+  const hasProfile = !!(userData?.profile?.full_name || userData?.profile?.fullname);
+  const hasHealth  = !!(userData?.health?.bloodType || userData?.health?.allergies);
+  const hasICE     = Array.isArray(iceContacts) && iceContacts.length > 0;
 
-    const code = await ensureShortCode();
-    const shortUrl = `https://www.myqer.com/c/${code}`;
-    if (codeUnderQR) codeUnderQR.textContent = code;
-    if (cardUrlInput) cardUrlInput.value = shortUrl;
-
-    try{
-      await simpleQR.canvas(qrCanvas, shortUrl, 220, 1);
-      if (qrPlaceholder) qrPlaceholder.style.display='none';
-      qrCanvas.style.display='block';
-      if (qrStatus){ qrStatus.textContent='QR Code generated successfully'; qrStatus.style.background='rgba(5,150,105,0.1)'; qrStatus.style.color='var(--green)'; qrStatus.hidden=false; }
-      const offlineEl=$('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-    }catch(err){
-      console.error('QR render error:', err);
-      if (qrPlaceholder) qrPlaceholder.style.display='flex';
-      if (qrCanvas) qrCanvas.style.display='none';
-      if (qrStatus){ qrStatus.textContent='⚠️ Couldn’t draw QR.'; qrStatus.style.background='rgba(252,211,77,0.15)'; qrStatus.style.color='#92400E'; qrStatus.hidden=false; }
-    }
+  if (!(hasProfile || hasHealth || hasICE)) {
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas) qrCanvas.style.display = 'none';
+    if (codeUnderQR) codeUnderQR.textContent = '';
+    if (cardUrlInput) cardUrlInput.value = '';
+    if (qrStatus) qrStatus.hidden = true;
+    return;
   }
 
+  const code = await ensureShortCode();
+  const shortURL = `https://www.myqer.com/c/${code}`;
+
+  if (codeUnderQR) codeUnderQR.textContent = code;
+  if (cardUrlInput) cardUrlInput.value = shortURL;
+
+  try {
+    // Generate QR from URL
+    simpleQR.canvas(qrCanvas, shortURL, 220, 1);
+
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    qrCanvas.style.display = 'block';
+
+    if (qrStatus) {
+      qrStatus.textContent = 'QR Code generated successfully';
+      qrStatus.className = 'status success';
+      qrStatus.hidden = false;
+    }
+
+    const offLineEl = $('offlineText');
+    if (offLineEl) offLineEl.value = buildOfflineText(shortURL);
+  } catch (err) {
+    console.error("QR render error:", err);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    qrCanvas.style.display = 'none';
+    if (qrStatus) {
+      qrStatus.textContent = '⚠️ Couldn’t draw QR.';
+      qrStatus.className = 'status error';
+      qrStatus.hidden = false;
+    }
+  }
+}
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
