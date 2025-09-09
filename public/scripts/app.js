@@ -239,25 +239,30 @@ async function generateQRCode() {
     if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
   }
 }
-// put this near your QR helpers (after loadQRCodeLib)
-async function downloadOfflineQR() {
-  try {
-    await loadQRCodeLib();
-    const txt = document.getElementById('offlineText')?.value?.trim() || '';
-    if (!txt) { toast('No offline text to encode','error'); return; }
-    const canvas = document.createElement('canvas');
-    await new Promise((res, rej) =>
-      window.QRCode.toCanvas(canvas, txt, { width: 260, margin: 2, errorCorrectionLevel: 'M' }, err => err ? rej(err) : res())
-    );
-    const a = document.createElement('a');
-    a.download = 'myqer-offline-qr.png';
-    a.href = canvas.toDataURL('image/png');
-    a.click();
-    toast('Offline QR downloaded','success');
-  } catch (e) {
-    console.error(e);
-    toast('Couldn’t build offline QR','error');
-  }
+function buildOfflineText(shortUrl) {
+  const pf = userData?.profile || {};
+  const hd = userData?.health  || {};
+  const name    = pf.full_name ?? pf.fullName ?? '';
+  const dob     = pf.date_of_birth ?? pf.dob ?? '';
+  const nat     = pf.national_id ?? pf.healthId ?? '';
+  const country = pf.country ?? '';
+  const donor   = hd.organDonor ? 'Y' : 'N';
+
+  const L = [];
+  L.push(shortUrl); // ← URL FIRST so iOS recognizes it
+  const L1 = []; if (name) L1.push('Name: '+name); if (dob) L1.push('DOB: '+dob); if (country) L1.push('C: '+country); if (nat) L1.push('ID: '+nat);
+  if (L1.length) L.push(L1.join(' | '));
+  const L2 = []; if (hd.bloodType) L2.push('BT: '+hd.bloodType); if (hd.allergies) L2.push('ALG: '+hd.allergies);
+  if (L2.length) L.push(L2.join(' | '));
+  const L3 = []; if (hd.conditions) L3.push('COND: '+hd.conditions); if (hd.medications) L3.push('MED: '+hd.medications); if (hd.implants) L3.push('IMP: '+hd.implants);
+  L3.push('DONOR: '+donor);
+  if (L3.length) L.push(L3.join(' | '));
+  const ice = Array.isArray(iceContacts) ? iceContacts : [];
+  const iceLines = ice.filter(c => c && (c.name || c.phone))
+                      .map(c => `${c.name||''} — ${c.relationship||''} — ${c.phone||''}`.replace(/\s+—\s+—\s*$/,'').trim());
+  if (iceLines.length) L.push('ICE: '+iceLines.join(' | '));
+  // we already put the raw URL first; no need to repeat "URL: ..."
+  return L.join('\n').slice(0, 900); // keep it lighter so the QR isn’t too dense
 }
   /* ---------- ICE ---------- */
   function renderIceContacts(){
