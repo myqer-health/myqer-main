@@ -210,47 +210,41 @@ function getCleanStoredCode(){
     if (ctx) { ctx.imageSmoothingEnabled = false; ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height); }
 
     // 5) draw using the *modern* qrcode lib; fallback to embedded encoder
-    if (window.QRCode && typeof QRCode.toCanvas === 'function') {
-      await new Promise((resolve, reject) => {
-        QRCode.toCanvas(
-          qrCanvas,
-          shortUrl,
-          {
-            width: 260,
-            margin: 2,                 // good for phone cameras; not too small
-            errorCorrectionLevel: 'H', // robust
-            color: { dark: '#000', light: '#fff' }
-          },
-          err => err ? reject(err) : resolve()
-        );
-      });
-    } else {
-      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
-    }
+  if (window.QRCode && typeof QRCode.toCanvas === 'function') {
+   …
+} else {
+   await simpleQR.canvas(…);
+}
+```)  
+is exactly what’s causing the “fake QR” fallback.  
 
-    // 6) success UI
-    qrCanvas.style.display = 'block';
-    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
-    const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-    if (qrStatus) {
-      qrStatus.textContent = 'QR Code generated successfully';
-      qrStatus.style.background = 'rgba(5,150,105,0.1)';
-      qrStatus.style.color = 'var(--green)';
-      qrStatus.hidden = false;
-    }
-  } catch (err) {
-    console.error('QR render error:', err);
-    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-    if (qrCanvas)      qrCanvas.style.display = 'none';
-    if (qrStatus) {
-      qrStatus.textContent = '⚠️ Couldn’t draw QR. Please try again.';
-      qrStatus.style.background = 'rgba(252,211,77,0.15)';
-      qrStatus.style.color = '#92400E';
-      qrStatus.hidden = false;
-    }
-  }
+You should **replace that entire `if … else …` section with a strict version that only draws using the real QR library**.
+
+Here’s the safe replacement:
+
+```js
+// 5) draw using the proper qrcode lib only
+if (!window.QRCode || typeof QRCode.toCanvas !== 'function') {
+  throw new Error('QR library not loaded');
 }
 
+await new Promise((resolve, reject) => {
+  QRCode.toCanvas(
+    qrCanvas,
+    shortUrl.trim(),
+    {
+      width: 260,
+      margin: 4,                 // bigger quiet zone for scanning reliability
+      errorCorrectionLevel: 'H',
+      color: { dark: '#000000', light: '#ffffff' }
+    },
+    err => err ? reject(err) : resolve()
+  );
+});
+
+// optional: keep pixels sharp
+const ctx = qrCanvas.getContext('2d');
+if (ctx) ctx.imageSmoothingEnabled = false;
   /* ===== ICE ===== */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
