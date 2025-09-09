@@ -98,19 +98,55 @@
   }
 
   /* ---------- SHORT CODE / URL (UPDATED: 6-char permanent code) ---------- */
-  function makeShort6(){ return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join(''); }
-  function generateShortCode(){
-    // permanent: if exists, never change
-    const valid=/^[A-HJ-NP-Z2-9]{6}$/;
-    let code = localStorage.getItem('myqer_shortcode');
-    if (!valid.test(code||'')){ code = makeShort6(); localStorage.setItem('myqer_shortcode', code); }
-    return code;
-  }
-  function ensureShortCode(){
-    // no DB writes here; permanence is local and saves happen in profile upsert
-    return Promise.resolve(generateShortCode());
+ // 6-char maker stays the same
+function makeShort6(){
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
+  return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
+}
+
+async function ensureShortCode(){
+  const valid = /^[A-HJ-NP-Z2-9]{6}$/;
+  let local = localStorage.getItem('myqer_shortcode');
+
+  // If we’re offline / no Supabase, keep local (or mint once)
+  if (!(isSupabaseAvailable && isOnline)) {
+    if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
+    return local;
   }
 
+  const uid = await getUserId().catch(()=>null);
+  if (!uid) {
+    if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
+    return local;
+  }
+
+  // 1) Try to read existing code from server and adopt it
+  const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
+  if (prof && valid.test(prof.code||'')) {
+    localStorage.setItem('myqer_shortcode', prof.code);
+    return prof.code;
+  }
+
+  // 2) No server code -> create one (respecting uniqueness)
+  let code = valid.test(local||'') ? local : makeShort6();
+  localStorage.setItem('myqer_shortcode', code);
+
+  let attempt = 0;
+  while (attempt < 6) {
+    const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
+    if (!error) return code;
+    const msg = (error.message||'').toLowerCase() + ' ' + (error.details||'').toLowerCase();
+    if (msg.includes('duplicate') || msg.includes('unique')) {
+      code = makeShort6();
+      localStorage.setItem('myqer_shortcode', code);
+      attempt++;
+      continue;
+    }
+    console.warn('shortcode upsert err:', error);
+    return code; // fall back to local (shouldn’t happen often)
+  }
+  return code;
+}
   /* ============= QR CODE (UPDATED: use library like MVP, robust loader) =============
      - We load the same browser build you used in the minimal snippet.
      - If the first CDN fails, we try another, so a broken link won’t leave a blank canvas.
@@ -165,42 +201,44 @@
   }
 
   /* ---------- QR (UPDATED draw using the library) ---------- */
-  async function generateQRCode() {
-    const qrCanvas      = $('qrCanvas');
-    const qrPlaceholder = $('qrPlaceholder');
-    const codeUnderQR   = $('codeUnderQR');
-    const cardUrlInput  = $('cardUrl');
-    const qrStatus      = $('qrStatus');
-    if (!qrCanvas) return;
+async function generateQRCode() {
+  const qrCanvas = $('qrCanvas');
+  const qrPlaceholder = $('qrPlaceholder');
+  const codeUnderQR = $('codeUnderQR');
+  const cardUrlInput = $('cardUrl');
+  const qrStatus = $('qrStatus');
+  if (!qrCanvas) return;
 
-    try {
-      await loadQRCodeLib(); // ensure QRCode.* is available
+  try {
+    await loadQRCodeLib();
 
-      const code = await ensureShortCode();
-      const shortUrl = `https://www.myqer.com/c/${code}`;
-      if (codeUnderQR) codeUnderQR.textContent = code;
-      if (cardUrlInput) cardUrlInput.value = shortUrl;
+    const code = await ensureShortCode();
+    const shortUrl = `https://www.myqer.com/c/${code}`;
+    const payload = buildOfflineText(shortUrl);  // <- HYBRID PAYLOAD (text + URL as last line)
 
-      await new Promise((resolve, reject)=>{
-        window.QRCode.toCanvas(qrCanvas, shortUrl, {
-          width: 260,
-          margin: 2,
-          errorCorrectionLevel: 'H'
-        }, (err)=> err ? reject(err) : resolve());
-      });
+    if (codeUnderQR) codeUnderQR.textContent = code;
+    if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      qrCanvas.style.display = 'block';
-      if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    await new Promise((resolve, reject) =>
+      window.QRCode.toCanvas(qrCanvas, payload, {
+        width: 300,             // a bit larger for easy scanning
+        margin: 2,
+        errorCorrectionLevel: 'Q'
+      }, err => err ? reject(err) : resolve())
+    );
 
-      const offlineEl = $('offlineText'); if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
-      if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.style.background='rgba(5,150,105,0.1)'; qrStatus.style.color='var(--green)'; qrStatus.hidden=false; }
-    } catch (err) {
-      console.error('QR render error:', err);
-      if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-      if (qrCanvas) qrCanvas.style.display = 'none';
-      if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.style.background='rgba(252,211,77,0.15)'; qrStatus.style.color='#92400E'; qrStatus.hidden=false; }
-    }
+    if ($('offlineText')) $('offlineText').value = payload; // keep box in sync
+
+    qrCanvas.style.display = 'block';
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
+  } catch (err) {
+    console.error('QR render error:', err);
+    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
+    if (qrCanvas) qrCanvas.style.display = 'none';
+    if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
   }
+}
 // put this near your QR helpers (after loadQRCodeLib)
 async function downloadOfflineQR() {
   try {
@@ -480,6 +518,9 @@ async function downloadOfflineQR() {
             };
             userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
+            if (userData.profile && userData.profile.code) {
+  localStorage.setItem('myqer_shortcode', userData.profile.code);
+}
             localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
             const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
             set('profileFullName', p.full_name);
