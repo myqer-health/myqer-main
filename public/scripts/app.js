@@ -318,7 +318,7 @@ async function downloadOfflineQR() {
       if (!uid) return;
 
       // Permanent code: generate once if missing, otherwise keep as-is
-      const code = generateShortCode();
+      const code = await generateShortCode();
 
       // Detect schema: try a snake-only column; if it errors, assume camel
       let schema = 'snake';
