@@ -5,77 +5,196 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>MYQER — Minimal Dashboard</title>
 
-<!-- Supabase + QR -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script defer src="./app.js"></script>
+<!-- OPTIONAL: Supabase (used only if it loads) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 
 <style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; padding: 24px; }
-  h2 { margin: 16px 0 8px; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  input, textarea, select, button { font: inherit; padding: 8px; }
-  button { cursor: pointer; }
-  .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 16px 0; }
-  .qr { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: start; }
-  #qrCanvas { width: 160px; height: 160px; border: 1px dashed #d1d5db; background:#fff; }
-  .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#dcfce7; color:#065f46; font-weight:600; }
-  #toast { position:fixed; bottom:16px; right:16px; background:#111; color:#fff; padding:8px 12px; border-radius:8px; opacity:.92; display:none; }
+  :root { --b:#111827; --m:#6b7280; --br:#e5e7eb; --bg:#fff; --ok:#065f46; --pill:#dcfce7; }
+  body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:#fafafa; color:var(--b); }
+  .wrap { max-width:960px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 16px; }
+  .pill { display:inline-block; background:var(--pill); color:var(--ok); font-weight:700; padding:4px 10px; border-radius:999px; font-size:12px; }
+  .card { background:var(--bg); border:1px solid var(--br); border-radius:12px; padding:16px; margin:16px 0; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  input,textarea,button { font:inherit; padding:10px; border:1px solid var(--br); border-radius:10px; background:#fff; }
+  textarea { min-height:60px; }
+  button { background:#f3f4f6; cursor:pointer; }
+  button:active { transform: translateY(1px); }
+  .qrGrid { display:grid; grid-template-columns:180px 1fr; gap:16px; align-items:start; }
+  #qrCanvas { width:160px; height:160px; border:1px dashed #d1d5db; background:#fff; }
+  small { color:var(--m); }
+  #toast { position:fixed; bottom:16px; right:16px; background:#111; color:#fff; padding:8px 12px; border-radius:8px; display:none; }
 </style>
 </head>
 <body>
-<h1>MYQER — Minimal Dashboard <span id="net" class="pill">ONLINE</span></h1>
+<div class="wrap">
+  <h1>MYQER — Minimal Dashboard <span id="net" class="pill">ONLINE</span></h1>
 
-<div class="card">
-  <h2>Identity</h2>
-  <div class="row">
-    <input id="fullName" placeholder="Full name" />
-    <input id="dob" type="date" placeholder="YYYY-MM-DD" />
-  </div>
-  <div class="row">
-    <input id="country" placeholder="Country" />
-    <input id="nationalId" placeholder="National/Health ID (optional)" />
-  </div>
-  <button id="saveProfile">Save Profile</button>
-</div>
-
-<div class="card">
-  <h2>Health</h2>
-  <div class="row">
-    <input id="bloodType" placeholder="Blood type (e.g., O+)" />
-    <label><input type="checkbox" id="organDonor" /> Organ donor</label>
-  </div>
-  <textarea id="allergies" placeholder="Critical allergies"></textarea>
-  <textarea id="conditions" placeholder="Medical conditions"></textarea>
-  <textarea id="medications" placeholder="Medications"></textarea>
-  <textarea id="implants" placeholder="Implants/devices"></textarea>
-  <div style="margin-top:8px"><button id="saveHealth">Save Health</button></div>
-</div>
-
-<div class="card">
-  <h2>ICE (1 contact for MVP)</h2>
-  <div class="row">
-    <input id="iceName" placeholder="Name" />
-    <input id="icePhone" placeholder="Phone" />
-  </div>
-  <input id="iceRelation" placeholder="Relationship" />
-  <div style="margin-top:8px"><button id="saveICE">Save ICE</button></div>
-</div>
-
-<div class="card qr">
-  <canvas id="qrCanvas"></canvas>
-  <div>
-    <div style="font-size:12px;color:#64748b">Card URL</div>
-    <input id="cardUrl" readonly />
-    <div style="display:flex; gap:8px; margin-top:8px">
-      <button id="copyLink">Copy Link</button>
-      <button id="openLink">Open Link</button>
-      <button id="logout">Logout</button>
+  <div class="card">
+    <h2>Identity</h2>
+    <div class="row">
+      <input id="fullName" placeholder="Full name" />
+      <input id="dob" type="date" placeholder="YYYY-MM-DD" />
     </div>
-    <div id="code" style="margin-top:8px; font-family:monospace;"></div>
+    <div class="row">
+      <input id="country" placeholder="Country" />
+      <input id="nationalId" placeholder="National/Health ID (optional)" />
+    </div>
+    <button id="saveProfile">Save Profile</button>
+  </div>
+
+  <div class="card">
+    <h2>Health</h2>
+    <div class="row">
+      <input id="bloodType" placeholder="Blood type (e.g., O+)" />
+      <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="organDonor" /> Organ donor</label>
+    </div>
+    <textarea id="allergies"  placeholder="Critical allergies"></textarea>
+    <textarea id="conditions" placeholder="Medical conditions"></textarea>
+    <textarea id="medications" placeholder="Medications"></textarea>
+    <textarea id="implants"   placeholder="Implants/devices"></textarea>
+    <div style="margin-top:8px"><button id="saveHealth">Save Health</button></div>
+  </div>
+
+  <div class="card">
+    <h2>ICE (MVP: 1 contact)</h2>
+    <div class="row">
+      <input id="iceName" placeholder="Name" />
+      <input id="icePhone" placeholder="Phone" />
+    </div>
+    <input id="iceRelation" placeholder="Relationship" />
+    <div style="margin-top:8px"><button id="saveICE">Save ICE</button></div>
+  </div>
+
+  <div class="card qrGrid">
+    <canvas id="qrCanvas" aria-label="QR code"></canvas>
+    <div>
+      <div style="font-size:12px;color:#64748b">Card URL</div>
+      <input id="cardUrl" readonly />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="copyLink">Copy Link</button>
+        <button id="openLink">Open Link</button>
+        <button id="logout">Logout</button>
+      </div>
+      <div id="code" style="margin-top:8px;font-family:monospace"></div>
+      <small>QR shows <code>/c/&lt;CODE&gt;</code> — scan with any phone camera.</small>
+    </div>
   </div>
 </div>
 
 <div id="toast"></div>
+
+<script>
+/* ====================== Tiny utilities ====================== */
+const $ = id => document.getElementById(id);
+const toast = m => { const t=$('toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',1500); };
+$('net').textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+addEventListener('online', () => $('net').textContent='ONLINE');
+addEventListener('offline',() => $('net').textContent='OFFLINE');
+
+/* ---- 6-char codes ABC-123 (no O/0/I/1) ---- */
+const CODE_VALID=/^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}$/;
+const clean = s => (s||'').toUpperCase().replace(/[\u2010-\u2015\u2212]/g,'-');           // smart dashes -> hyphen
+function makeCode(){ const CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const p=n=>Array.from({length:n},()=>CH[Math.random()*CH.length|0]).join(''); return `${p(3)}-${p(3)}`; }
+function getOrCreateCode(){ let c=clean(localStorage.getItem('myqer_shortcode')); if(!CODE_VALID.test(c)) c=makeCode(); localStorage.setItem('myqer_shortcode',c); return c; }
+
+/* ====================== Embedded QR (SVG → Canvas) ====================== */
+const simpleQR = (function(){ // compact encoder (H EC), enough for short URLs
+  function QR8(d){this.mode=4;this.d=d} QR8.prototype={len(){return new TextEncoder().encode(this.d).length},w(b){for(const x of new TextEncoder().encode(this.d))b.put(x,8)}};
+  function B(){this.b=[];this.l=0} B.prototype.put=function(n,L){for(let i=0;i<L;i++)this.putBit(((n>>(L-i-1))&1)===1)}; B.prototype.putBit=function(v){this.b.push(v?1:0);this.l++};
+  const PAD0=0xEC,PAD1=0x11,RS={1:[1,9,7],2:[1,16,10],3:[1,26,15],4:[1,36,20],5:[1,44,26],6:[2,60,36],7:[2,66,43],8:[2,86,54],9:[2,100,69],10:[4,122,84],11:[4,140,93],12:[4,158,107],13:[4,180,115],14:[4,197,131]};
+  function blocks(t){const a=RS[t];const R=[];for(let i=0;i<a[0];i++)R.push({total:a[1],data:a[2]});return R}
+  function Q(t){this.t=t||0;this.m=null;this.n=0;this.L=[]}
+  Q.prototype={add(s){this.L.push(new QR8(s))},make(){if(this.t<1){for(let k=1;k<=14;k++){this.t=k;if(this.max()>=this.len())break}}
+    this.n=this.t*4+17;this.m=Array.from({length:this.n},()=>Array(this.n).fill(null));
+    this.probe(0,0);this.probe(this.n-7,0);this.probe(0,this.n-7);this.time();this.map(this.data());this.mask()},
+    probe(r,c){for(let y=-1;y<=7;y++)for(let x=-1;x<=7;x++){const R=r+y,C=c+x;if(R<0||R>=this.n||C<0||C>=this.n)continue;this.m[R][C]=(y>=0&&y<=6&&(x===0||x===6))||(x>=0&&x<=6&&(y===0||y===6))||(y>=2&&y<=4&&x>=2&&x<=4)}},
+    time(){for(let i=8;i<this.n-8;i++){const v=i%2===0;if(this.m[i][6]==null)this.m[i][6]=v;if(this.m[6][i]==null)this.m[6][i]=v}},
+    len(){return this.L.reduce((n,d)=>n+d.len(),0)}, max(){return blocks(this.t).reduce((n,b)=>n+b.data,0)*8-4},
+    data(){const bs=blocks(this.t), b=new B(); for(const d of this.L){b.put(4,4);b.put(d.len(),8);d.w(b)} const total=bs.reduce((n,x)=>n+x.data,0); const max=total*8;
+      if(b.l+4<=max)b.put(0,4); while(b.l%8) b.put(0,1); let f=true; while(b.l<max){b.put(f?PAD0:PAD1,8); f=!f}
+      const out=[]; for(let i=0;i<b.l;i+=8){let v=0; for(let j=0;j<8;j++) v=(v<<1)|b.b[i+j]; out.push(v)} return out},
+    map(d){let r=this.n-1,c=this.n-1,dir=-1,bi=0,bb=7; const next=()=>{const v=(d[bi]>>>bb)&1; if(--bb<0){bi++;bb=7} return v};
+      while(c>0){if(c===6)c--; for(let i=0;i<this.n;i++){const R=r+dir*i; for(const C of [c,c-1]) if(this.m[R]&&this.m[R][C]==null) this.m[R][C]=next()===1 } r+=dir*this.n; dir=-dir; c-=2}},
+    mask(){const S=[]; for(let m=0;m<4;m++){const cp=this.m.map(r=>r.slice()); for(let r=0;r<this.n;r++)for(let c=0;c<this.n;c++){ if(cp[r][c]==null)continue;
+      if(m===0) cp[r][c]=((r+c)%2===0)?!cp[r][c]:cp[r][c]; if(m===1) cp[r][c]=(r%2===0)?!cp[r][c]:cp[r][c]; if(m===2) cp[r][c]=(c%3===0)?!cp[r][c]:cp[r][c]; if(m===3) cp[r][c]=((r+c)%3===0)?!cp[r][c]:cp[r][c]; }
+      S.push({m,cp,score:this.score(cp)}) } S.sort((a,b)=>a.score-b.score); this.m=S[0].cp},
+    score(mat){const n=mat.length; let dark=0,runs=0; for(let r=0;r<n;r++)for(let c=0;c<n;c++){ if(mat[r][c]) dark++; if(c&&mat[r][c]===mat[r][c-1]) runs++ } for(let c=0;c<n;c++)for(let r=0;r<n;r++) if(r&&mat[r][c]===mat[r-1][c]) runs++; const ratio=Math.abs(dark/(n*n)-0.5)*100; return runs+ratio;}
+  };
+  function matrix(text){const q=new Q(0); q.add(text||''); q.make(); return q.m.map(r=>r.map(v=>!!v))}
+  function drawCanvas(canvas,text,size=260,margin=4){ const m=matrix(text), n=m.length, scale=Math.max(1,Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
+    const ctx=canvas.getContext('2d'); canvas.width=dim; canvas.height=dim; ctx.fillStyle='#fff'; ctx.fillRect(0,0,dim,dim); ctx.fillStyle='#000';
+    for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(m[r][c]) ctx.fillRect((c+margin)*scale,(r+margin)*scale,scale,scale);
+  }
+  return { canvas: drawCanvas };
+})();
+
+/* ====================== Supabase client (optional) ====================== */
+const SB_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+const hasSupabase = !!window.supabase;
+const sb = hasSupabase ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+
+async function getUser(){ if(!sb) return null; const {data}=await sb.auth.getUser(); return data?.user||null; }
+
+/* ====================== QR & URL ====================== */
+async function drawQR(){
+  const code = getOrCreateCode();
+  const base = `https://${location.hostname.replace(/^www\./,'')}`;
+  const url  = `${base}/c/${code}`;
+  $('cardUrl').value = url;
+  $('code').textContent = code;
+  simpleQR.canvas($('qrCanvas'), url, 260, 4);
+}
+
+/* ====================== Saves (snake_case) ====================== */
+async function saveProfile(){
+  const u=await getUser(); if(!u){ toast('Saved locally (not signed in)'); return drawQR(); }
+  const row = {
+    user_id: u.id,
+    code: getOrCreateCode(),
+    full_name: $('fullName').value.trim(),
+    date_of_birth: $('dob').value.trim(),
+    country: $('country').value.trim(),
+    national_id: $('nationalId').value.trim()
+  };
+  const {error}=await sb.from('profiles').upsert(row,{onConflict:'user_id'}); if(error) return toast('Profile error'); toast('Profile saved'); drawQR();
+}
+async function saveHealth(){
+  const u=await getUser(); if(!u){ toast('Saved locally (not signed in)'); return drawQR(); }
+  const row = {
+    user_id: u.id,
+    blood_type: $('bloodType').value.trim(),
+    allergies: $('allergies').value.trim(),
+    conditions:$('conditions').value.trim(),
+    medications:$('medications').value.trim(),
+    implants: $('implants').value.trim(),
+    organ_donor: !!$('organDonor').checked,
+    triage_override: 'auto'
+  };
+  const {error}=await sb.from('health_data').upsert(row,{onConflict:'user_id'}); if(error) return toast('Health error'); toast('Health saved'); drawQR();
+}
+async function saveICE(){
+  const u=await getUser(); if(!u){ toast('Saved locally (not signed in)'); return drawQR(); }
+  await sb.from('ice_contacts').delete().eq('user_id',u.id);
+  const row={ user_id:u.id, contact_order:0, name:$('iceName').value.trim(), phone:$('icePhone').value.trim(), relationship:$('iceRelation').value.trim() };
+  if(row.name||row.phone) await sb.from('ice_contacts').insert(row);
+  toast('ICE saved'); drawQR();
+}
+
+/* ====================== Logout ====================== */
+async function doLogout(){ if(sb){ try{ await sb.auth.signOut(); }catch{} } localStorage.removeItem('myqer_shortcode'); location.href='./index.html'; }
+
+/* ====================== Wire & boot ====================== */
+addEventListener('DOMContentLoaded', ()=>{
+  $('saveProfile').onclick = saveProfile;
+  $('saveHealth').onclick  = saveHealth;
+  $('saveICE').onclick     = saveICE;
+  $('copyLink').onclick    = ()=>{ navigator.clipboard.writeText($('cardUrl').value); toast('Link copied'); };
+  $('openLink').onclick    = ()=> window.open($('cardUrl').value,'_blank','noopener');
+  $('logout').onclick      = doLogout;
+  drawQR();
+});
+</script>
 </body>
 </html>
