@@ -215,7 +215,7 @@ function waitForQRCode(tries = 20, interval = 100) {
   }
 
   /* ---------- QR (always draw) ---------- */
-  async function generateQRCode() {
+async function generateQRCode() {
   const qrCanvas      = $('qrCanvas');
   const qrPlaceholder = $('qrPlaceholder');
   const codeUnderQR   = $('codeUnderQR');
@@ -226,48 +226,36 @@ function waitForQRCode(tries = 20, interval = 100) {
   try {
     const code = await ensureShortCode();
 
-    // Match current host so iOS sees exactly the same domain (apex vs www)
-    const base = location.hostname.endsWith('myqer.com')
-      ? `https://${location.hostname.replace(/^www\./,'')}`
-      : location.origin;
-
-    const shortUrl = `${base}/c/${code}`;
+    // 👇 Force canonical host (no www). This is the string that the QR encodes.
+    const shortUrl = `https://myqer.com/c/${code}`;
 
     if (codeUnderQR)  codeUnderQR.textContent = code;
     if (cardUrlInput) cardUrlInput.value      = shortUrl;
 
-// --- draw (prefer UMD library for classic 3-squares QR) ---
-// --- draw (prefer UMD for classic 3-squares) ---
-const payload = String(shortUrl).trim();               // clean
-const useUMD  = !!(window.QRCode && QRCode.toCanvas);
+    // Prefer UMD qrcode (classic 3 squares). Fallback to embedded encoder.
+    const useUMD = !!(window.QRCode && typeof QRCode.toCanvas === 'function');
+    if (useUMD) {
+      await new Promise((resolve, reject) => {
+        QRCode.toCanvas(
+          qrCanvas,
+          shortUrl,
+          {
+            width: 320,                 // bigger = easier to scan
+            margin: 4,                  // proper quiet zone
+            errorCorrectionLevel: 'H',  // robust
+            color: { dark: '#000000', light: '#FFFFFF' } // pure B/W
+          },
+          err => (err ? reject(err) : resolve())
+        );
+      });
+      const ctx = qrCanvas.getContext('2d');
+      if (ctx) ctx.imageSmoothingEnabled = false;
+    } else {
+      await simpleQR.canvas(qrCanvas, shortUrl, 320, 4);
+    }
 
-if (useUMD) {
-  await new Promise((resolve, reject) => {
-    QRCode.toCanvas(
-      qrCanvas,
-      payload,
-      {
-        // very camera-friendly settings
-        errorCorrectionLevel: 'M',   // M scans faster than H for short URLs
-        margin: 4,                   // clear quiet zone
-        scale: 8,                    // crisp modules
-        color: { dark: '#000000', light: '#ffffff' } // force pure white bg
-      },
-      err => err ? reject(err) : resolve()
-    );
-  });
-
-  // make sure the browser doesn't blur modules
-  const ctx = qrCanvas.getContext('2d');
-  if (ctx) ctx.imageSmoothingEnabled = false;
-
-} else {
-  // fallback encoder; also draw on pure white
-  await simpleQR.canvas(qrCanvas, payload, 260, 4);
-}
-
-qrCanvas.style.display = 'block';
-if (qrPlaceholder) qrPlaceholder.style.display = 'none';
+    qrCanvas.style.display = 'block';
+    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
 
     const offlineEl = $('offlineText');
     if (offlineEl) offlineEl.value = buildOfflineText(shortUrl);
