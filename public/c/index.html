@@ -1,1 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>MYQER — Emergency Info</title>
+  <style>
+    :root{
+      --bg: #fafafa; --panel:#fff; --muted:#6b7280; --red:#ef4444; --green:#059669; --ink:#111827; --bd:#e5e7eb;
+    }
+    *{ box-sizing:border-box }
+    body{
+      margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif;
+      background:var(--bg); color:var(--ink);
+    }
+    header{
+      padding:16px 20px; border-bottom:1px solid var(--bd); background:#fff; position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; gap:12px; justify-content:space-between;
+    }
+    .brand{ font-weight:800; letter-spacing:.02em }
+    .code{ font-family: ui-monospace,SFMono-Regular,Menlo,monospace; background:#f3f4f6; padding:4px 8px; border-radius:6px }
+    main{ max-width:920px; margin:24px auto; padding:0 16px 48px }
+    .card{ background:var(--panel); border:1px solid var(--bd); border-radius:16px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,.04) }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr } }
+    h2{ margin:0 0 8px 0; font-size:20px }
+    .muted{ color:var(--muted) }
+    .kv{ display:grid; grid-template-columns:140px 1fr; gap:10px 14px; margin:6px 0 0 }
+    .kv div{ padding:6px 0; border-bottom:1px dashed #eee }
+    .pill{ display:inline-block; padding:3px 8px; border-radius:10px; font-size:12px; border:1px solid var(--bd) }
+    .pill.green{ color:var(--green); border-color:rgba(5,150,105,.35); background:rgba(5,150,105,.06) }
+    .pill.red{ color:#b91c1c; border-color:#fecaca; background:#fef2f2 }
+    .ice li{ list-style:none; padding:10px 12px; border:1px solid var(--bd); border-radius:10px; margin:10px 0; display:flex; justify-content:space-between; gap:12px; background:#fff }
+    .ice small{ color:var(--muted) }
+    .error{ color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; padding:12px 14px; border-radius:10px }
+    .spin{ width:18px; height:18px; border:3px solid #e5e7eb; border-top-color:#9ca3af; border-radius:50%; animation:sp 1s linear infinite }
+    @keyframes sp{ to{ transform:rotate(360deg) } }
+    footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:18px }
+    a.btn{ text-decoration:none; padding:8px 10px; border:1px solid var(--bd); border-radius:8px; font-size:14px }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">MYQER<span class="muted" style="font-weight:600">™</span></div>
+    <div><span class="muted">Code:</span> <span id="code" class="code">—</span></div>
+  </header>
 
+  <main>
+    <div class="card" id="panel-loading">
+      <div style="display:flex; align-items:center; gap:10px">
+        <div class="spin"></div><div>Loading emergency info…</div>
+      </div>
+    </div>
+
+    <div class="card" id="panel-error" style="display:none">
+      <div class="error" id="errorText">Could not load this code.</div>
+    </div>
+
+    <div class="card" id="panel" style="display:none">
+      <div class="grid">
+        <section>
+          <h2>Patient</h2>
+          <div class="kv">
+            <div class="muted">Name</div><div id="pName">—</div>
+            <div class="muted">DOB</div><div id="pDob">—</div>
+            <div class="muted">Country</div><div id="pCountry">—</div>
+            <div class="muted">National ID</div><div id="pNat">—</div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Medical</h2>
+          <div class="kv">
+            <div class="muted">Blood type</div><div id="hBt">—</div>
+            <div class="muted">Allergies</div><div id="hAlg">—</div>
+            <div class="muted">Conditions</div><div id="hCond">—</div>
+            <div class="muted">Medications</div><div id="hMeds">—</div>
+            <div class="muted">Implants</div><div id="hImpl">—</div>
+            <div class="muted">Organ donor</div><div id="hDonor"><span class="pill">N/A</span></div>
+          </div>
+        </section>
+      </div>
+
+      <section style="margin-top:18px">
+        <h2>Emergency Contacts (ICE)</h2>
+        <ul class="ice" id="iceList"></ul>
+      </section>
+
+      <footer>
+        <a class="btn" href="/" rel="noopener">Open MYQER</a>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Supabase client (browser build) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="" crossorigin="anonymous"></script>
+  <script>
+  (function(){
+    const $ = (id)=>document.getElementById(id);
+
+    // Accept new 6-char (no dashes) and legacy 3-4-3 forms
+    const RX6   = /^[A-HJ-NP-Z2-9]{6}$/i;
+    const RX343 = /^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/i;
+
+    function getCodeFromURL(){
+      // Support /c/XXXXXX (preferred) and /c/?code=XXXXXX as fallback
+      const path = location.pathname.replace(/\/+$/,''); // trim trailing slash
+      const m = path.match(/\/c\/([^\/?#]+)/i);
+      if (m && (RX6.test(m[1]) || RX343.test(m[1]))) return m[1].toUpperCase();
+
+      const p = new URLSearchParams(location.search).get('code');
+      if (p && (RX6.test(p) || RX343.test(p))) return p.toUpperCase();
+
+      return null;
+    }
+
+    const code = getCodeFromURL();
+    $('code').textContent = code || '—';
+
+    if (!code){
+      showError('Invalid or missing code in URL. Example: https://www.myqer.com/c/ABC123');
+      return;
+    }
+
+    // Supabase project (same as your app.js)
+    const SUPABASE_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    loadCard(code).catch(err=>{
+      console.error(err);
+      showError('Could not load data for this code.');
+    });
+
+    async function loadCard(code){
+      // 1) Look up profile by code (snake or camel fields are already normalized in your DB; code exists).
+      const { data: profile, error: e1 } =
+        await sb.from('profiles').select('*').eq('code', code).maybeSingle();
+
+      if (e1) throw e1;
+      if (!profile){ showError('No card found for this code.'); return; }
+
+      // Normalize profile keys (handle snake/camel for safety)
+      const p = {
+        user_id:      profile.user_id,
+        full_name:    profile.full_name ?? profile.fullName ?? '',
+        date_of_birth:profile.date_of_birth ?? profile.dob ?? '',
+        country:      profile.country ?? '',
+        national_id:  profile.national_id ?? profile.healthId ?? ''
+      };
+
+      // 2) Health
+      const { data: hdRaw } =
+        await sb.from('health_data').select('*').eq('user_id', p.user_id).maybeSingle();
+
+      const h = hdRaw ? {
+        bloodType:      hdRaw.bloodType      ?? hdRaw.blood_type      ?? '',
+        allergies:      hdRaw.allergies      ?? hdRaw.alergy_list     ?? hdRaw.allergy_list ?? '',
+        conditions:     hdRaw.conditions     ?? hdRaw.medical_conditions ?? '',
+        medications:    hdRaw.medications    ?? hdRaw.meds            ?? '',
+        implants:       hdRaw.implants       ?? hdRaw.implants_devices ?? '',
+        organDonor:     (hdRaw.organDonor ?? hdRaw.organ_donor) ? 'Yes' : 'No'
+      } : { bloodType:'', allergies:'', conditions:'', medications:'', implants:'', organDonor:'No' };
+
+      // 3) ICE list
+      const { data: iceRows } =
+        await sb.from('ice_contacts').select('*').eq('user_id', p.user_id).order('contact_order', { ascending:true });
+
+      // Fill UI
+      $('pName').textContent    = p.full_name || '—';
+      $('pDob').textContent     = p.date_of_birth || '—';
+      $('pCountry').textContent = p.country || '—';
+      $('pNat').textContent     = p.national_id || '—';
+
+      $('hBt').textContent   = h.bloodType || '—';
+      $('hAlg').textContent  = h.allergies || '—';
+      $('hCond').textContent = h.conditions || '—';
+      $('hMeds').textContent = h.medications || '—';
+      $('hImpl').textContent = h.implants || '—';
+      $('hDonor').innerHTML  = (h.organDonor==='Yes')
+        ? '<span class="pill green">YES</span>' : '<span class="pill">NO</span>';
+
+      const ul = $('iceList'); ul.innerHTML = '';
+      (iceRows||[]).forEach(r=>{
+        const name = r.name || '—';
+        const rel  = r.relationship || '';
+        const phone= (r.phone||'').trim();
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div>
+            <div><strong>${escapeHtml(name)}</strong> ${rel ? `<small>— ${escapeHtml(rel)}</small>`:''}</div>
+            ${phone ? `<div class="muted">${escapeHtml(phone)}</div>`:''}
+          </div>
+          ${phone ? `<a class="btn" href="tel:${encodeURIComponent(phone)}">Call</a>`:''}
+        `;
+        ul.appendChild(li);
+      });
+
+      showPanel();
+    }
+
+    function showPanel(){
+      $('panel-loading').style.display='none';
+      $('panel-error').style.display='none';
+      $('panel').style.display='block';
+    }
+    function showError(msg){
+      $('panel-loading').style.display='none';
+      $('panel').style.display='none';
+      $('errorText').textContent = msg || 'Error';
+      $('panel-error').style.display='block';
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[ch]));
+    }
+  })();
+  </script>
+</body>
+</html>
