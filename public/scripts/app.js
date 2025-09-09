@@ -1,6 +1,5 @@
-
 // /public/scripts/app.js
-// One-file dashboard logic. Self-contained QR; no external QR lib required.
+// One-file dashboard logic. QR now uses external lib like the MVP demo; 6-char codes.
 
 (function () {
   /* ---------- tiny helpers ---------- */
@@ -28,7 +27,10 @@
   let isOnline = navigator.onLine;
   let userData = { profile: {}, health: {} };
   let iceContacts = [];
-  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
+
+  // Allowed chars (no O/0/I/1). We now use a 6-character code.
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
   const autoSaveTimers = {}; // needed for autosave debounce
   window.userData = userData; window.iceContacts = iceContacts;
 
@@ -85,12 +87,12 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- short code / URL ---------- */
-  function makeShort_3_4_3(){ const pick=n=>Array.from({length:n},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join(''); return `${pick(3)}-${pick(4)}-${pick(3)}`; }
+  /* ---------- SHORT CODE / URL (UPDATED: 6-char code) ---------- */
+  function makeShort6(){ return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join(''); }
   function generateShortCode(){
-    const valid=/^[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{3}$/;
+    const valid=/^[A-HJ-NP-Z2-9]{6}$/; // 6 chars, no O/I/0/1
     let code = localStorage.getItem('myqer_shortcode');
-    if (!valid.test(code||'')){ code = makeShort_3_4_3(); localStorage.setItem('myqer_shortcode', code); }
+    if (!valid.test(code||'')){ code = makeShort6(); localStorage.setItem('myqer_shortcode', code); }
     return code;
   }
   function ensureShortCode(){
@@ -104,7 +106,7 @@
         return supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' }).then(res=>{
           if (!res.error) return code;
           const m = ((res.error.message||'')+' '+(res.error.details||'')).toLowerCase();
-          if ((m.includes('duplicate')||m.includes('unique')) && attempt<6){ code = makeShort_3_4_3(); localStorage.setItem('myqer_shortcode', code); return tryUpsert(); }
+          if ((m.includes('duplicate')||m.includes('unique')) && attempt<6){ code = makeShort6(); localStorage.setItem('myqer_shortcode', code); return tryUpsert(); }
           console.warn('shortcode upsert err:', res.error); return code;
         }).catch(e=>{ console.warn('ensureShortCode failed', e); return code; });
       };
@@ -112,75 +114,36 @@
     });
   }
 
-  /* ============= EMBEDDED QR ENCODER ============= */
-  const simpleQR = (function(){ /* compact QR encoder (H EC), SVG/Canvas output */
-    function QR8bitByte(data){this.mode=4;this.data=data}
-    QR8bitByte.prototype={getLength:function(){return new TextEncoder().encode(this.data).length},
-    write:function(buff){for(const b of new TextEncoder().encode(this.data))buff.put(b,8)}};
-    function QRBitBuffer(){this.buffer=[],this.length=0}
-    QRBitBuffer.prototype.put=function(num,length){for(let i=0;i<length;i++)this.putBit(((num>>> (length-i-1))&1)===1)};
-    QRBitBuffer.prototype.putBit=function(bit){this.buffer.push(bit?1:0);this.length++};
-    function RSBlock(totalCount,dataCount){this.totalCount=totalCount;this.dataCount=dataCount}
-    const PAD0=0xEC,PAD1=0x11;
-    const RS_BLOCK_TABLE={
-     1:[1,9,7],2:[1,16,10],3:[1,26,15],4:[1,36,20],5:[1,44,26],6:[2,60,36],7:[2,66,43],8:[2,86,54],
-     9:[2,100,69],10:[4,122,84],11:[4,140,93],12:[4,158,107],13:[4,180,115],14:[4,197,131]
-    };
-    function getRSBlocks(typeNum){const t=RS_BLOCK_TABLE[typeNum];const list=[];for(let i=0;i<t[0];i++)list.push(new RSBlock(t[1],t[2]));return list}
-    function QRCode(typeNumber){this.typeNumber=typeNumber||0;this.modules=null;this.moduleCount=0;this.dataList=[]}
-    QRCode.prototype={addData:function(data){this.dataList.push(new QR8bitByte(data))},
-    make:function(){if(this.typeNumber<1){for(let t=1;t<=14;t++){this.typeNumber=t; if(this.getMaxDataBits()>=this.getDataLength()){break}}}
-      this.moduleCount=this.typeNumber*4+17;this.modules=Array.from({length:this.moduleCount},()=>Array(this.moduleCount).fill(null));
-      this.setupPositionProbePattern(0,0);this.setupPositionProbePattern(this.moduleCount-7,0);this.setupPositionProbePattern(0,this.moduleCount-7);
-      this.setupTimingPattern();this.mapData(this.createData());this.applyBestMask()},
-    isDark:function(r,c){return this.modules[r][c]},
-    getDataLength:function(){return this.dataList.reduce((n,d)=>n+d.getLength(),0)},
-    getMaxDataBits:function(){return getRSBlocks(this.typeNumber).reduce((n,b)=>n+b.dataCount,0)*8-4},
-    setupPositionProbePattern:function(row,col){for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){const rr=row+r,cc=col+c;if(rr<0||rr>=this.moduleCount||cc<0||cc>=this.moduleCount)continue;this.modules[rr][cc]= (r>=0&&r<=6&&(c===0||c===6))||(c>=0&&c<=6&&(r===0||r===6))||(r>=2&&r<=4&&c>=2&&c<=4)}},
-    setupTimingPattern:function(){for(let i=8;i<this.moduleCount-8;i++){const v=i%2===0; if(this.modules[i][6]==null)this.modules[i][6]=v; if(this.modules[6][i]==null)this.modules[6][i]=v}},
-    createData:function(){const rsBlocks=getRSBlocks(this.typeNumber);const buffer=new QRBitBuffer();
-      for(const d of this.dataList){buffer.put(4,4);buffer.put(d.getLength(),8);d.write(buffer)}
-      const totalDataCount=rsBlocks.reduce((n,b)=>n+b.dataCount,0); const maxBits=totalDataCount*8;
-      if(buffer.length+4<=maxBits)buffer.put(0,4); while(buffer.length%8!==0)buffer.put(0,1);
-      let padFlag=true; while(buffer.length<maxBits){buffer.put(padFlag?PAD0:PAD1,8);padFlag=!padFlag}
-      const data=[]; for(let i=0;i<buffer.length;i+=8){let v=0;for(let j=0;j<8;j++)v=(v<<1)|buffer.buffer[i+j]; data.push(v)} return data},
-    mapData:function(data){let row=this.moduleCount-1,col=this.moduleCount-1,dir=-1,byteIdx=0,bitIdx=7;
-      const nextBit=()=>{const v=(data[byteIdx]>>>bitIdx)&1; if(--bitIdx<0){byteIdx++;bitIdx=7} return v};
-      while(col>0){if(col===6)col--; for(let i=0;i<this.moduleCount;i++){const r=row+dir*i,c1=col,c2=col-1;
-          for(const c of [c1,c2]) if(this.modules[r] && this.modules[r][c]==null) this.modules[r][c]= nextBit()===1;
-        } row+=dir*(this.moduleCount); dir=-dir; col-=2;}
-    },
-    applyBestMask:function(){const scores=[]; for(let m=0;m<4;m++){const cp=this.modules.map(r=>r.slice());
-        for(let r=0;r<this.moduleCount;r++)for(let c=0;c<this.moduleCount;c++){
-          if(cp[r][c]==null)continue;
-          if(m===0) cp[r][c] = ((r+c)%2===0)? !cp[r][c]: cp[r][c];
-          if(m===1) cp[r][c] = (r%2===0)? !cp[r][c]: cp[r][c];
-          if(m===2) cp[r][c] = (c%3===0)? !cp[r][c]: cp[r][c];
-          if(m===3) cp[r][c] = ((r+c)%3===0)? !cp[r][c]: cp[r][c];
-        }
-        scores.push({m,cp,score:this.score(cp)});
-      }
-      scores.sort((a,b)=>a.score-b.score); this.modules = scores[0].cp;
-    },
-    score:function(mat){const n=mat.length; let dark=0, runs=0;
-      for(let r=0;r<n;r++)for(let c=0;c<n;c++){ if(mat[r][c]) dark++; if(c&&mat[r][c]===mat[r][c-1]) runs++; }
-      for(let c=0;c<n;c++)for(let r=0;r<n;r++) if(r&&mat[r][c]===mat[r-1][c]) runs++;
-      const ratio=Math.abs(dark/(n*n)-0.5)*100; return runs + ratio;
-    }};
-    function matrix(text){ const q=new QRCode(0); q.addData(text||''); q.make(); return q.modules.map(r=>r.map(v=>!!v)); }
-    function svg(text,size=220,margin=1){
-      const m=matrix(text), n=m.length, scale=Math.max(1, Math.floor(size/(n+2*margin))), dim=scale*(n+2*margin);
-      let d=''; for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(m[r][c]) d+=`M${(c+margin)*scale} ${(r+margin)*scale}h${scale}v${scale}h-${scale}z`;
-      return { width:dim, height:dim, svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>` };
-    }
-    function drawCanvas(canvas, text, size=220, margin=1){
-      const out=svg(text,size,margin); const img=new Image(); const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(out.svg);
-      return new Promise((res,rej)=>{ img.onload=()=>{ canvas.width=out.width; canvas.height=out.height; const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,out.width,out.height); ctx.drawImage(img,0,0,out.width,out.height); res(); }; img.onerror=rej; img.src=url; });
-    }
-    return { svg, canvas: drawCanvas };
-  })();
+  /* ============= QR CODE (UPDATED: use library like MVP, robust loader) =============
+     - We load the same browser build you used in the minimal snippet.
+     - If the first CDN fails, we try another, so a broken link won’t leave a blank canvas.
+     - We always draw a proper QR with 3 finder squares and real data.
+  */
+  let qrLibReady = null;
+  function loadQRCodeLib(){
+    if (window.QRCode) return Promise.resolve();
+    if (qrLibReady) return qrLibReady;
+    const srcs = [
+      // Primary
+      'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
+      // Fallbacks
+      'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js',
+      'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js'
+    ];
+    qrLibReady = new Promise((resolve, reject)=>{
+      let i=0;
+      const tryNext=()=>{
+        if (i>=srcs.length) return reject(new Error('QRCode library failed to load'));
+        const s=document.createElement('script');
+        s.src=srcs[i++]; s.async=true; s.onload=()=> resolve(); s.onerror=tryNext;
+        document.head.appendChild(s);
+      };
+      tryNext();
+    });
+    return qrLibReady;
+  }
 
-  /* ---------- Offline text builder ---------- */
+  // Build offline text (unchanged)
   function buildOfflineText(shortUrl) {
     const pf = userData?.profile || {};
     const hd = userData?.health  || {};
@@ -204,7 +167,7 @@
     return L.join('\n').slice(0,1200);
   }
 
-  /* ---------- QR (always draw) ---------- */
+  /* ---------- QR (UPDATED draw using the library) ---------- */
   async function generateQRCode() {
     const qrCanvas      = $('qrCanvas');
     const qrPlaceholder = $('qrPlaceholder');
@@ -214,13 +177,22 @@
     if (!qrCanvas) return;
 
     try {
+      await loadQRCodeLib(); // ensure QRCode.* is available
+
       const code = await ensureShortCode();
-      const shortUrl = `https://www.myqer.com/c/${code}`;
+      const shortUrl = `https://www.myqer.com/c/${code}`; // keep domain as-is
       if (codeUnderQR) codeUnderQR.textContent = code;
       if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      // draw using embedded encoder
-      await simpleQR.canvas(qrCanvas, shortUrl, 260, 2);
+      // Draw a proper QR with data using the same options as your MVP page.
+      await new Promise((resolve, reject)=>{
+        window.QRCode.toCanvas(qrCanvas, shortUrl, {
+          width: 260,
+          margin: 2,
+          errorCorrectionLevel: 'H'
+        }, (err)=> err ? reject(err) : resolve());
+      });
+
       qrCanvas.style.display = 'block';
       if (qrPlaceholder) qrPlaceholder.style.display = 'none';
 
@@ -466,7 +438,20 @@
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
     on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c||c.style.display==='none') return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
-    on($('dlSVG'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('Generate QR first','error'); const out=simpleQR.svg(url,220,1); const blob=new Blob([out.svg],{type:'image/svg+xml'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='myqer-emergency-qr.svg'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('SVG downloaded','success'); });
+
+    // SVG download using the library. If QR lib is missing (shouldn't be), we fall back with a warning.
+    on($('dlSVG'),'click',async ()=>{ 
+      const url=$('cardUrl')?.value||''; if(!url) return toast('Generate QR first','error');
+      try{
+        await loadQRCodeLib();
+        window.QRCode.toString(url,{ type:'svg', width:220, margin:1, errorCorrectionLevel:'H' }, (err, svg)=>{
+          if (err) { console.error(err); toast('SVG build failed','error'); return; }
+          const blob=new Blob([svg],{type:'image/svg+xml'});
+          const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='myqer-emergency-qr.svg'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('SVG downloaded','success');
+        });
+      }catch(e){ console.error(e); toast('QR library not loaded','error'); }
+    });
+
     on($('printQR'),'click',()=>{ const canvas=$('qrCanvas'); const code=$('codeUnderQR')?.textContent||''; if(!canvas||canvas.style.display==='none'||!code) return toast('Generate QR first','error'); const dataUrl=canvas.toDataURL('image/png'); const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error'); w.document.write(`<html><head><title>MYQER Emergency Card - ${code}</title><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;text-align:center;padding:2rem}.code{font-weight:700;letter-spacing:.06em}img{width:300px;height:300px;image-rendering:pixelated}@media print{@page{size:auto;margin:12mm}}</style></head><body><h1>MYQER™ Emergency Card</h1><p class="code">Code: ${code}</p><img alt="QR Code" src="${dataUrl}"><p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p><script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>`); w.document.close(); });
     on($('copyOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to copy','error'); navigator.clipboard.writeText(t).then(()=>toast('Offline text copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('dlOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to download','error'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download='myqer-offline.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('Offline text downloaded','success'); });
