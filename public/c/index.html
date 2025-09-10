@@ -34,15 +34,13 @@
       border:1px solid var(--border);border-radius:20px;
       box-shadow:0 16px 32px rgba(0,0,0,.06),0 6px 20px rgba(211,47,47,.05);
       padding:1.5rem;
-      /* glass with safe fallbacks */
       -webkit-backdrop-filter: blur(18px);
       backdrop-filter: blur(18px);
-      /* flicker fixes */
       will-change:opacity,transform;
       transform:translateZ(0);
       contain:content;
-      opacity:0; /* start hidden, fade in */
-      transition:opacity .18s ease-out; /* moved here to prevent first-frame pop */
+      opacity:0;
+      transition:opacity .18s ease-out;
     }
     .card.show{opacity:1}
 
@@ -61,22 +59,27 @@
     .glass{background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.3);border-radius:14px;
       padding:1rem;margin:.75rem 0;box-shadow:0 8px 24px rgba(211,47,47,.08)}
 
-    /* Stability on some iOS Safari builds */
     .card, .glass { -webkit-transform: translateZ(0); }
 
     .disclaimer{font-size:.95rem}
     .error,.loading{margin:1rem 0 1.25rem;text-align:center;font-weight:700;border-radius:14px;padding:1rem}
     .error{background:#fdecec;color:#b71c1c;border:1px solid #f6b2b2}
     .loading{background:#fff6f6;color:#b71c1c;border:1px solid #f8d6d6}
-    .grid{display:grid;grid-template-columns:120px 1fr;gap:1rem;align-items:start}
-    .avatar{width:110px;height:110px;border-radius:12px;background:#f1f5f9;border:1px dashed #e5e7eb;
-      display:flex;align-items:center;justify-content:center;color:#9ca3af;font-weight:700}
-    @media (max-width:640px){.wrap{padding:0 .75rem}.grid{grid-template-columns:1fr}.avatar{width:100%;height:140px}}
+    .grid{display:grid;grid-template-columns:1fr;gap:1rem;align-items:start}
+    @media (max-width:640px){.wrap{padding:0 .75rem}.grid{grid-template-columns:1fr}}
 
-    /* If the browser can’t do backdrop-filter well, reduce glassiness to avoid flicker */
     @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
       .card{background:#ffffff; box-shadow:0 8px 16px rgba(0,0,0,.06)}
       .glass{background:#ffffff}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *{
+        animation-duration:0.001ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.001ms !important;
+        scroll-behavior:auto !important;
+      }
     }
   </style>
 </head>
@@ -144,10 +147,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (function(){
-      /* Safer non-www redirect (prevents infinite ping-pong with edge rewrites)
-         - Only runs once per session
-         - Only redirects if the host actually changes
-      */
       (function guardWWW(){
         try{
           var host = location.hostname;
@@ -157,13 +156,12 @@
             if (target !== location.href) {
               sessionStorage.setItem('strip_www_once','1');
               location.replace(target);
-              return; // stop executing rest of script on this pass
+              return;
             }
           }
-        }catch(_){} // fail open; never loop
+        }catch(_){} 
       })();
 
-      // Helpers
       const $ = id => document.getElementById(id);
       const show = el => el && (el.style.display = '');
       const hide = el => el && (el.style.display = 'none');
@@ -179,7 +177,6 @@
         return a;
       };
 
-      // Parse /c/<CODE> or ?code=
       const codeFromPath = () => {
         const seg = location.pathname.replace(/\/+$/,'').split('/').filter(Boolean);
         const i = seg.findIndex(s => s.toLowerCase()==='c');
@@ -206,7 +203,6 @@
       function showCard(){
         hide(loading);
         hide(msg);
-        // Fade-in only once, batch DOM writes to avoid flicker
         if (!card.classList.contains('show')) {
           requestAnimationFrame(()=> {
             card.classList.add('show');
@@ -220,12 +216,10 @@
         return;
       }
 
-      // Supabase
       const SB_URL = 'https://dmntmhkncldgynufajei.supabase.co';
       const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
       const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
-      // Triage
       function computeTriage(allergies, conditions){
         const a=(allergies||'').toLowerCase(), c=(conditions||'').toLowerCase();
         if (a.includes('anaphylaxis') || a.includes('severe')) return 'red';
@@ -241,7 +235,6 @@
 
       (async function load(){
         try{
-          // profiles by code (single fetches; no polling)
           let r = await supabase.from('profiles').select('*').eq('code', CODE).maybeSingle();
           if (r.error) console.warn('profiles error', r.error);
           const prof = r.data || null;
@@ -256,7 +249,6 @@
             health_id: prof.national_id ?? prof.healthId ?? ''
           };
 
-          // Parallel fetch health + ICE to reduce UI shuffle
           const [rh, ri] = await Promise.all([
             supabase.from('health_data').select('*').eq('user_id', p.user_id).maybeSingle(),
             supabase.from('ice_contacts').select('*').eq('user_id', p.user_id).order('contact_order', { ascending:true })
@@ -276,7 +268,6 @@
             .map(r => `${r.name||'—'} — ${r.relationship||''} — ${r.phone||''}`.replace(/\s+—\s+—\s*$/,'').trim())
             .filter(Boolean);
 
-          // Batch DOM updates in one frame to prevent flashes
           requestAnimationFrame(() => {
             const metaBits=[];
             const age = ageFromDob(p.dob);
