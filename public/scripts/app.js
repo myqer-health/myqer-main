@@ -340,32 +340,26 @@ async function renderVCardQR() {
 
     const vcard = buildVCardPayload(shortUrl);
     const dark  = currentTriageHex();
+await new Promise((resolve, reject) =>
+  window.QRCode.toCanvas(
+    canvas,
+    vcard,
+    {
+      width: 240,          // match the black QR tile
+      margin: 1,
+      errorCorrectionLevel: 'Q',
+      color: { dark, light: '#FFFFFF' }
+    },
+    err => err ? reject(err) : resolve()
+  )
+);
 
-    await new Promise((resolve, reject) =>
-      window.QRCode.toCanvas(
-        canvas,
-        vcard,
-        {
-          width: 200,              // SAME as black QR
-          margin: 1,
-          errorCorrectionLevel: 'Q',
-          color: { dark, light: '#FFFFFF' }
-        },
-        err => err ? reject(err) : resolve()
-      )
-    );
+// ✅ After drawing QR, show canvas + hide placeholder
+canvas.style.display = 'block';
+const ph = document.getElementById('vcardPlaceholder');
+if (ph) ph.hidden = true;
 
-    // Reveal canvas, hide placeholder
-    canvas.style.display = 'block';
-    if (ph) ph.hidden = true;
-
-    // visual polish (must not set width/height here)
-    styleVcardCanvas();
-  } catch (e) {
-    console.error('vCard QR error:', e);
-  }
-}
-
+styleVcardCanvas();
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
