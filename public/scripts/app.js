@@ -1,5 +1,8 @@
 // /public/scripts/app.js
-// Dashboard logic with stable URL QR + separate offline vCard QR (NOW unified A4/wallet/wallpaper export from vCard panel).
+// Dashboard logic with stable URL QR + separate offline vCard QR.
+// Updated: equal QR sizes, inline aligned vCard QR next to the Online QR,
+// and vCard panel shows 4 buttons (Open Link, Regenerate, Download PNG, Print).
+// Download/Print output the single branded card that contains BOTH QRs.
 (function () {
   /* ---------- tiny helpers ---------- */
   const $  = (id) => document.getElementById(id);
@@ -265,7 +268,6 @@
     canvas.style.display = 'block';
     canvas.style.background = '#fff';
     canvas.style.imageRendering = 'pixelated';
-    // Keep borders/rounded only for vCard visual in panel (optional)
   }
 
   /* ---------- URL QR (online) ---------- */
@@ -302,6 +304,9 @@
 
       qrCanvas.style.display = 'block';
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
+
+      // Keep inline alignment updated
+      ensureDualQrInline();
     } catch (err) {
       console.error('URL QR error:', err);
       if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
@@ -312,7 +317,7 @@
   function styleVcardCanvas () {
     const c = $('vcardCanvas');
     if (!c) return;
-    // Match visual container but keep equal size 220×220
+    // Visual
     c.style.background      = '#fff';
     c.style.borderRadius    = '12px';
     c.style.padding         = '0';
@@ -335,13 +340,14 @@
     if (help) {
       help.textContent = ready
         ? 'Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage or ICE change.'
-        : 'Needs Country, Blood, Donor and one ICE contact before generating.';
+        : 'Generated when Country, Blood, Donor and an ICE phone are set. Re-generate and re-print if any change.';
     }
     if (regen) regen.disabled = !ready;
 
     if (!ready || !canvas) {
       if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
+      ensureDualQrInline(); // still show placeholders + buttons row
       return;
     }
 
@@ -364,7 +370,7 @@
           canvas,
           vcard,
           {
-            width: renderPx,          // equal to URL QR render size
+            width: renderPx,
             margin: 1,
             errorCorrectionLevel: 'Q',
             color: { dark, light: '#FFFFFF' }
@@ -376,134 +382,168 @@
       canvas.style.display = 'block';
       if (ph) ph.hidden = true; // hide grey placeholder when real QR is present
       styleVcardCanvas();
+
+      ensureDualQrInline();
     } catch (e) {
       console.error('vCard QR error:', e);
       if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
+      ensureDualQrInline();
     }
   }
-// --- Inline dual layout inside the vCard section (no HTML edits required)
-function ensureDualQrInline() {
-  const vcardCanvas = document.getElementById('vcardCanvas');
-  if (!vcardCanvas) return;
-  const vcardPanel = vcardCanvas.closest('.card, .panel, .section, #vcardSlot') || vcardCanvas.parentElement;
 
-  // create host container (once)
-  let host = document.getElementById('dualQrInline');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'dualQrInline';
-    host.style.display = 'grid';
-    host.style.gridTemplateColumns = 'repeat(2, minmax(220px, 1fr))';
-    host.style.gap = '16px';
-    host.style.alignItems = 'start';
-    host.style.justifyItems = 'center';
-    host.style.marginTop = '8px';
-    // insert host just above the vCard buttons row
-    const btnRow = document.getElementById('printVcard')?.parentElement || vcardCanvas.parentElement;
-    btnRow.parentElement.insertBefore(host, btnRow);
-  }
+  /* ---------- Inline aligned QRs + buttons under vCard ---------- */
+  function ensureDualQrInline(){
+    const vcardCanvas = $('vcardCanvas');
+    const regenBtn    = $('regenVcardBtn');
+    const dlBtn       = $('dlVcardPNG');
+    const printBtn    = $('printVcard');
 
-  // helper to build a QR cell
-  function makeCell(titleTop, titleSub, color, imgOrNode) {
-    const cell = document.createElement('div');
-    cell.style.display = 'flex';
-    cell.style.flexDirection = 'column';
-    cell.style.alignItems = 'center';
-    cell.style.background = '#fff';
-    cell.style.border = '1px solid #e5e7eb';
-    cell.style.borderRadius = '12px';
-    cell.style.padding = '12px';
-    cell.style.width = '100%';
-    const h1 = document.createElement('div');
-    h1.textContent = titleTop;
-    h1.style.fontWeight = '800';
-    h1.style.fontSize = '14px';
-    h1.style.color = color;
-    const h2 = document.createElement('div');
-    h2.textContent = titleSub;
-    h2.style.fontSize = '11px';
-    h2.style.color = '#6b7280';
-    h2.style.marginBottom = '8px';
+    // We need a host in the vCard section. Use the nearest container around the vCard controls.
+    // We'll insert the inline row just ABOVE the buttons, and then put a unified buttons row right under it.
+    if (!(regenBtn || dlBtn || printBtn)) return;
+    const btnRow = (printBtn && printBtn.parentElement) || (dlBtn && dlBtn.parentElement) || (regenBtn && regenBtn.parentElement);
+    if (!btnRow || !btnRow.parentElement) return;
+    const vcardSection = btnRow.parentElement;
 
-    const frame = document.createElement('div');
-    frame.style.width = '220px';
-    frame.style.height = '220px';
-    frame.style.border = `3px solid ${color}`;
-    frame.style.borderRadius = '12px';
-    frame.style.background = '#fff';
-    frame.style.display = 'flex';
-    frame.style.alignItems = 'center';
-    frame.style.justifyContent = 'center';
-    frame.style.boxShadow = '0 8px 18px rgba(0,0,0,.06)';
-
-    if (imgOrNode) {
-      imgOrNode.style.width = '220px';
-      imgOrNode.style.height = '220px';
-      imgOrNode.style.display = 'block';
-      imgOrNode.style.imageRendering = 'pixelated';
-      frame.appendChild(imgOrNode);
+    // Create inline row if not present
+    let inlineRow = $('inlineQrRow');
+    if (!inlineRow) {
+      inlineRow = document.createElement('div');
+      inlineRow.id = 'inlineQrRow';
+      inlineRow.style.display = 'grid';
+      inlineRow.style.gridTemplateColumns = 'repeat(2, minmax(240px, 1fr))';
+      inlineRow.style.gap = '20px';
+      inlineRow.style.alignItems = 'start';
+      inlineRow.style.justifyItems = 'center';
+      inlineRow.style.marginTop = '12px';
+      vcardSection.insertBefore(inlineRow, btnRow); // place above buttons
     } else {
-      const ph = document.createElement('div');
-      ph.textContent = 'Not ready';
-      ph.style.color = color;
-      ph.style.fontWeight = '700';
-      frame.appendChild(ph);
+      // make sure it remains above buttons
+      if (inlineRow.nextElementSibling !== btnRow) {
+        vcardSection.insertBefore(inlineRow, btnRow);
+      }
     }
 
-    cell.append(h1, h2, frame);
-    return cell;
+    // Helper to build a labeled cell for a QR
+    function buildCell(titleTop, titleSub, accentColor, contentNode){
+      const cell = document.createElement('div');
+      cell.style.display = 'flex';
+      cell.style.flexDirection = 'column';
+      cell.style.alignItems = 'center';
+      cell.style.background = '#fff';
+      cell.style.border = '1px solid #e5e7eb';
+      cell.style.borderRadius = '12px';
+      cell.style.padding = '12px';
+
+      const t1 = document.createElement('div');
+      t1.textContent = titleTop;
+      t1.style.fontWeight = '800';
+      t1.style.fontSize = '14px';
+      t1.style.letterSpacing = '.06em';
+      t1.style.color = accentColor;
+      const t2 = document.createElement('div');
+      t2.textContent = titleSub;
+      t2.style.fontSize = '11px';
+      t2.style.color = '#6b7280';
+      t2.style.marginBottom = '8px';
+
+      const frame = document.createElement('div');
+      frame.style.width = DISPLAY_QR_SIZE + 'px';
+      frame.style.height = DISPLAY_QR_SIZE + 'px';
+      frame.style.border = '3px solid ' + accentColor;
+      frame.style.borderRadius = '12px';
+      frame.style.background = '#fff';
+      frame.style.display = 'flex';
+      frame.style.alignItems = 'center';
+      frame.style.justifyContent = 'center';
+      frame.style.boxShadow = '0 8px 18px rgba(0,0,0,.06)';
+
+      if (contentNode) {
+        contentNode.style.width = DISPLAY_QR_SIZE + 'px';
+        contentNode.style.height = DISPLAY_QR_SIZE + 'px';
+        contentNode.style.display = 'block';
+        contentNode.style.imageRendering = 'pixelated';
+        frame.appendChild(contentNode);
+      } else {
+        const ph = document.createElement('div');
+        ph.textContent = 'Not ready';
+        ph.style.fontWeight = '700';
+        ph.style.color = accentColor;
+        frame.appendChild(ph);
+      }
+
+      cell.append(t1, t2, frame);
+      return cell;
+    }
+
+    // Rebuild row content from current canvases (do not move the original URL canvas).
+    inlineRow.innerHTML = '';
+
+    // ONLINE (black) — source from qrCanvas (clone to <img>)
+    const urlCanvas = $('qrCanvas');
+    let onlineNode = null;
+    if (urlCanvas && urlCanvas.width) {
+      onlineNode = new Image();
+      try { onlineNode.src = urlCanvas.toDataURL('image/png'); } catch(_) {}
+    }
+    inlineRow.appendChild(buildCell('ONLINE QR', 'When Network', '#059669', onlineNode));
+
+    // OFFLINE (red) — use vCard QR if ready, else placeholder
+    const vReady = vcardCanvas && vcardCanvas.style.display !== 'none' && vcardCanvas.width;
+    let offlineNode = null;
+    if (vReady) {
+      offlineNode = new Image();
+      try { offlineNode.src = vcardCanvas.toDataURL('image/png'); } catch(_) {}
+    }
+    inlineRow.appendChild(buildCell('OFFLINE QR', 'When Offline', '#d32f2f', offlineNode));
+
+    // --- Buttons row under the QRs: Open Link + Regenerate + Download + Print
+    let unifiedBtns = $('vcardUnifiedBtns');
+    if (!unifiedBtns) {
+      unifiedBtns = document.createElement('div');
+      unifiedBtns.id = 'vcardUnifiedBtns';
+      unifiedBtns.style.display = 'flex';
+      unifiedBtns.style.flexWrap = 'wrap';
+      unifiedBtns.style.gap = '12px';
+      unifiedBtns.style.marginTop = '10px';
+      unifiedBtns.style.alignItems = 'center';
+      unifiedBtns.style.justifyContent = 'flex-start';
+      vcardSection.insertBefore(unifiedBtns, btnRow.nextSibling);
+    }
+
+    // Ensure we have an "Open Link" button here as well (do not remove the original)
+    let openLinkInline = $('openLinkInline');
+    if (!openLinkInline) {
+      const original = $('openLink');
+      openLinkInline = document.createElement('button');
+      openLinkInline.id = 'openLinkInline';
+      openLinkInline.type = 'button';
+      openLinkInline.textContent = 'Open Link';
+      // Try to copy some visual class from original if present
+      if (original && original.className) openLinkInline.className = original.className;
+      openLinkInline.style.minWidth = '120px';
+      on(openLinkInline, 'click', ()=> {
+        const url = $('cardUrl')?.value || '';
+        if(!url) return toast('No link to open','error');
+        window.open(url,'_blank','noopener');
+      });
+    }
+
+    // Move existing vCard buttons into the unified row (keeps DOM single source)
+    function moveBtn(btn) {
+      if (!btn) return;
+      btn.style.minWidth = '120px';
+      if (btn.parentElement !== unifiedBtns) unifiedBtns.appendChild(btn);
+    }
+
+    unifiedBtns.innerHTML = '';
+    unifiedBtns.appendChild(openLinkInline);
+    moveBtn(regenBtn);
+    moveBtn(dlBtn);
+    moveBtn(printBtn);
   }
 
-  // Build ONLINE cell from URL QR canvas (clone to <img> so we don't move it)
-  const urlC = document.getElementById('qrCanvas');
-  let onlineNode = null;
-  if (urlC && urlC.width > 0) {
-    onlineNode = new Image();
-    onlineNode.src = urlC.toDataURL('image/png');
-  }
-
-  // Build OFFLINE cell from vCard canvas if ready
-  const offlineReady = !document.getElementById('vcardPlaceholder') || document.getElementById('vcardPlaceholder').hidden;
-  let offlineNode = null;
-  if (offlineReady && vcardCanvas && vcardCanvas.width > 0) {
-    offlineNode = new Image();
-    offlineNode.src = vcardCanvas.toDataURL('image/png');
-  }
-
-  // Render/replace cells
-  host.innerHTML = '';
-  host.appendChild(makeCell('ONLINE QR', 'When Network', '#059669', onlineNode));
-  host.appendChild(makeCell('OFFLINE QR', 'When Offline', '#d32f2f', offlineNode));
-}
-
-// Make sure canvases render at 220×220 on screen (equal size)
-function normalizeCanvasSize220(canvas) {
-  if (!canvas) return;
-  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-  const css = 220;
-  const px = Math.round(css * dpr);
-  if (canvas.width !== px) canvas.width = px;
-  if (canvas.height !== px) canvas.height = px;
-  canvas.style.width = css + 'px';
-  canvas.style.height = css + 'px';
-  canvas.style.imageRendering = 'pixelated';
-}
-
-  // In renderUrlQR() AFTER successful toCanvas:
-normalizeCanvasSize220(qrCanvas);
-ensureDualQrInline();
-
-// In renderVCardQR() AFTER successful toCanvas:
-normalizeCanvasSize220(canvas);
-if (ph) ph.hidden = true;
-ensureDualQrInline();
-
-// Also call once on DOMContentLoaded after initial renders:
-renderUrlQR();
-renderVCardQR();
-ensureDualQrInline();
-  
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
@@ -678,7 +718,7 @@ ensureDualQrInline();
         const session = r?.data?.session;
         if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no session'); }
         return getUserId();
-      })
+           })
       .then((uid) => {
         if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no uid'); }
 
@@ -722,11 +762,12 @@ ensureDualQrInline();
       }
       window.userData = userData;
       const h = userData.health;
-      set('hfBloodType',  h.bloodType);
-      set('hfAllergies',  h.allergies);
-      set('hfConditions', h.conditions);
-      set('hfMeds',       h.medications);
-      set('hfImplants',   h.implants);
+      const set2=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+      set2('hfBloodType',  h.bloodType);
+      set2('hfAllergies',  h.allergies);
+      set2('hfConditions', h.conditions);
+      set2('hfMeds',       h.medications);
+      set2('hfImplants',   h.implants);
       if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
@@ -799,12 +840,12 @@ ensureDualQrInline();
             userData.health = Object.assign({}, userData.health, norm);
             localStorage.setItem('myqer_health', JSON.stringify(userData.health));
 
-            const h=userData.health; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-            set('hfBloodType',  h.bloodType);
-            set('hfAllergies',  h.allergies);
-            set('hfConditions', h.conditions);
-            set('hfMeds',       h.medications);
-            set('hfImplants',   h.implants);
+            const h=userData.health; const setH=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            setH('hfBloodType',  h.bloodType);
+            setH('hfAllergies',  h.allergies);
+            setH('hfConditions', h.conditions);
+            setH('hfMeds',       h.medications);
+            setH('hfImplants',   h.implants);
             if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
             if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
             calculateTriage();
@@ -833,20 +874,77 @@ ensureDualQrInline();
     }).catch(e=>console.warn('Server load failed', e));
   }
 
-  /* ---------- Card composer (for Print/Download) ---------- */
+  /* ---------- Layout helpers: keep QRs aligned + move buttons under red QR ---------- */
+  const DISPLAY_QR_SIZE = 220;
+  const getDPR = () => Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+  function normalizeCanvasSize220(canvas){
+    if (!canvas) return;
+    const dpr = getDPR();
+    const px = Math.round(DISPLAY_QR_SIZE * dpr);
+    canvas.width = px;
+    canvas.height = px;
+    canvas.style.width = DISPLAY_QR_SIZE + 'px';
+    canvas.style.height = DISPLAY_QR_SIZE + 'px';
+    canvas.style.imageRendering = 'pixelated';
+  }
+
+  function placeVcardNextToUrl(){
+    // Keep black QR where it is; align red (vCard) to same size + top edge visually
+    const url = $('qrCanvas');
+    const red = $('vcardCanvas');
+    const ph  = $('vcardPlaceholder');
+    if (url) normalizeCanvasSize220(url);
+    if (red && (!ph || ph.hidden)) {
+      normalizeCanvasSize220(red);
+      red.style.marginTop = (url ? url.getBoundingClientRect().top - red.getBoundingClientRect().top : 0) + 'px';
+      // Guard if negative or NaN
+      if (!/^-?\d+px$/.test(red.style.marginTop)) red.style.marginTop = '0px';
+    }
+  }
+
+  function moveButtonsUnderVcard(){
+    // We want 4 buttons under the red QR: Open Link, Regenerate, Download PNG, Print
+    const openLinkBtn = $('openLink');
+    const regenBtn    = $('regenVcardBtn');
+    const dlBtn       = $('dlVcardPNG');
+    const printBtn    = $('printVcard');
+    const red         = $('vcardCanvas') || $('vcardPlaceholder');
+
+    if (!red) return;
+
+    // Create/locate target row
+    let row = $('vcardActionRow');
+    if (!row) {
+      row = document.createElement('div');
+      row.id = 'vcardActionRow';
+      row.style.display = 'flex';
+      row.style.flexWrap = 'wrap';
+      row.style.gap = '10px';
+      row.style.marginTop = '10px';
+      // Insert after the red QR canvas/placeholder
+      red.parentElement && red.parentElement.appendChild(row);
+    }
+
+    // Move buttons into the row (not cloning—preserve handlers)
+    [openLinkBtn, regenBtn, dlBtn, printBtn].forEach(btn=>{
+      if (btn && btn.parentElement !== row) row.appendChild(btn);
+      if (btn) btn.style.display = ''; // ensure visible
+    });
+  }
+
+  /* ---------- Card composer (both QRs into one image) ---------- */
   function composeEmergencyCardCanvas(){
-    // Pull current canvases
     const urlC   = $('qrCanvas');
     const vcardC = $('vcardCanvas');
-    const vReady = isOfflineReady() && vcardC && vcardC.width > 0 && vcardC.height > 0;
+    const vReady = (!$('vcardPlaceholder') || $('vcardPlaceholder').hidden) && vcardC && vcardC.width>0;
 
-    // Canvas layout (approx A4 artboard at ~96dpi)
     const dpr = getDPR();
-    const W = Math.round(794 * dpr);         // width
-    const H = Math.round(560 * dpr);         // height tuned for header/body/footer
+    const W = Math.round(794 * dpr);
+    const H = Math.round(560 * dpr);
     const PAD = Math.round(24 * dpr);
     const GUT = Math.round(24 * dpr);
-    const QRBOX = Math.round(220 * dpr);     // QR target box equal for both
+    const QRBOX = Math.round(220 * dpr);
     const HEADER_H = Math.round(72 * dpr);
     const FOOTER_H = Math.round(56 * dpr);
     const COL_W = Math.floor((W - PAD*2 - GUT) / 2);
@@ -856,7 +954,6 @@ ensureDualQrInline();
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
 
-    // helpers
     function roundedRect(x,y,w,h,r, strokeColor, fillColor){
       ctx.beginPath();
       ctx.moveTo(x+r, y);
@@ -868,9 +965,9 @@ ensureDualQrInline();
       if (fillColor){ ctx.fillStyle = fillColor; ctx.fill(); }
       if (strokeColor){ ctx.strokeStyle = strokeColor; ctx.lineWidth = Math.max(2, Math.round(2*dpr)); ctx.stroke(); }
     }
-    function centerText(text, xCenter, y, sizePx, weight=600, color='#111'){
+    function centerText(text, xCenter, y, sizePx, weight=800, color='#111'){
       ctx.fillStyle = color;
-      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, xCenter, y);
@@ -879,119 +976,89 @@ ensureDualQrInline();
     }
     function labelText(text, x, y, sizePx, weight=800, color='#111'){
       ctx.fillStyle = color;
-      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(text, x, y);
     }
 
-    // background
+    // Background + header
     ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,W,H);
-
-    // header
     const brandRed = '#d32f2f', brandDark = '#b91c1c';
     const grad = ctx.createLinearGradient(0,0,W,0);
     grad.addColorStop(0, brandRed); grad.addColorStop(1, brandDark);
     ctx.fillStyle = grad; ctx.fillRect(0,0,W,HEADER_H);
     centerText('MYQER™ Emergency Card', W/2, HEADER_H/2, 22*dpr, 800, '#fff');
 
-    // body panels
+    // Panels
     const bodyTop = HEADER_H + PAD;
     const leftX = PAD, rightX = PAD + COL_W + GUT;
-    // ONLINE panel (green tint)
     roundedRect(leftX, bodyTop, COL_W, COL_H, Math.round(16*dpr), '#bbf7d0', '#f0fdf4');
-    // OFFLINE panel (red tint)
     roundedRect(rightX, bodyTop, COL_W, COL_H, Math.round(16*dpr), '#fecaca', '#fff1f1');
 
     // Labels
     const lblPad = Math.round(16*dpr);
     labelText('ONLINE QR', leftX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, '#059669');
     labelText('When Network', leftX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
-
     labelText('OFFLINE QR', rightX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, brandRed);
     labelText('When Offline', rightX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
 
-    // QR frames
-    const frameBorder = Math.max(3, Math.round(3*dpr));
-    function drawQrInPanel(srcCanvas, panelX){
-      const slotW = QRBOX, slotH = QRBOX;
-      const slotX = panelX + Math.round((COL_W - slotW)/2);
-      const slotY = bodyTop + lblPad + Math.round(36*dpr);
-      // frame
-      ctx.lineWidth = frameBorder;
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.fillStyle = '#ffffff';
-      roundedRect(slotX, slotY, slotW, slotH, Math.round(16*dpr), '#e5e7eb', '#ffffff');
-      // content
-      if (srcCanvas){
-        // fit keeping square
-        ctx.drawImage(srcCanvas, 0, 0, srcCanvas.width, srcCanvas.height, slotX, slotY, slotW, slotH);
-      } else {
-        // placeholder
-        ctx.fillStyle = '#9ca3af';
-        ctx.font = `${600} ${Math.round(12*dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('QR not available', slotX + slotW/2, slotY + slotH/2);
-        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      }
+    // QR slots
+    const slotW = QRBOX, slotH = QRBOX;
+    const slotY = bodyTop + lblPad + Math.round(36*dpr);
+    const leftSlotX  = leftX  + Math.round((COL_W - slotW)/2);
+    const rightSlotX = rightX + Math.round((COL_W - slotW)/2);
+
+    function drawFrame(x,y){
+      roundedRect(x, y, slotW, slotH, Math.round(16*dpr), '#e5e7eb', '#ffffff');
     }
 
-    drawQrInPanel(urlC && urlC.width ? urlC : null, leftX);
+    // Left QR
+    drawFrame(leftSlotX, slotY);
+    if (urlC && urlC.width>0){
+      ctx.drawImage(urlC, 0,0,urlC.width,urlC.height, leftSlotX, slotY, slotW, slotH);
+    }
 
+    // Right QR or Not ready
+    drawFrame(rightSlotX, slotY);
     if (vReady){
-      drawQrInPanel(vcardC, rightX);
+      ctx.drawImage(vcardC, 0,0,vcardC.width,vcardC.height, rightSlotX, slotY, slotW, slotH);
     } else {
-      // "Not ready" panel with checklist
-      const slotW = QRBOX, slotH = QRBOX;
-      const slotX = rightX + Math.round((COL_W - slotW)/2);
-      const slotY = bodyTop + lblPad + Math.round(36*dpr);
-      roundedRect(slotX, slotY, slotW, slotH, Math.round(16*dpr), '#fecaca', '#fff');
-      // checklist text
-      const lines = [
-        'Not ready',
-        '• Country set',
-        '• Blood type set',
-        '• Donor status set',
-        '• At least 1 ICE contact'
-      ];
       ctx.fillStyle = brandRed;
-      ctx.font = `${800} ${Math.round(16*dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+      ctx.font = `${800} ${Math.round(16*dpr)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(lines[0], slotX + slotW/2, slotY + Math.round(28*dpr));
+      ctx.fillText('Not ready', rightSlotX + slotW/2, slotY + Math.round(28*dpr));
       ctx.fillStyle = '#6b7280';
-      ctx.font = `${600} ${Math.round(12*dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+      ctx.font = `${600} ${Math.round(12*dpr)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
+      const lines = ['• Country set', '• Blood type set', '• Donor status set', '• 1+ ICE contact'];
       let yy = slotY + Math.round(58*dpr);
-      for (let i=1;i<lines.length;i++){ ctx.fillText(lines[i], slotX + slotW/2, yy); yy += Math.round(20*dpr); }
-      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      lines.forEach(line => { ctx.fillText(line, rightSlotX + slotW/2, yy); yy += Math.round(20*dpr); });
+      ctx.textAlign = 'start';
     }
 
-    // footer
-    const footerY = H - FOOTER_H;
-    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0, footerY, W, FOOTER_H);
+    // Footer
+    const FOOTER_Y = H - FOOTER_H;
+    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0, FOOTER_Y, W, FOOTER_H);
     ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = Math.max(1, Math.round(1*dpr));
-    ctx.beginPath(); ctx.moveTo(0, footerY); ctx.lineTo(W, footerY); ctx.stroke();
-    centerText('This card provides critical information to first responders. Verify details with official records.', W/2, footerY + FOOTER_H/2, 12*dpr, 600, '#6b7280');
+    ctx.beginPath(); ctx.moveTo(0, FOOTER_Y); ctx.lineTo(W, FOOTER_Y); ctx.stroke();
+    centerText('This card provides critical information to first responders. Verify details with official records.', W/2, FOOTER_Y + FOOTER_H/2, 12*dpr, 600, '#6b7280');
 
     return c;
   }
 
   /* ---------- buttons ---------- */
   function wireQRButtons(){
-    // URL panel actions
+    // URL panel
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
-    // Per spec: URL panel should be Open Link only — hide any URL download/print if present
-    const hideEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
-    hideEl('dlPNG');       // legacy URL PNG download
-    hideEl('dlSVG');       // legacy URL SVG
-    hideEl('printQR');     // legacy URL print
 
-    // Offline vCard actions
+    // Hide legacy URL-only downloads if present
+    const hide = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
+    hide('dlPNG'); hide('dlSVG'); hide('printQR');
+
+    // vCard actions
     on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
 
-    // Download: BOTH QRs in branded layout (single PNG)
     on($('dlVcardPNG'),'click',()=> {
       const composed = composeEmergencyCardCanvas();
       try {
@@ -1006,77 +1073,16 @@ ensureDualQrInline();
       }
     });
 
-    // Print: BOTH QRs in branded layout (same as download)
     on($('printVcard'),'click',()=> {
       const composed = composeEmergencyCardCanvas();
       const dataUrl = composed.toDataURL('image/png');
       const w=window.open('','_blank','noopener');
       if(!w) return toast('Pop-up blocked','error');
-      const tri = ($('triagePill')?.classList.contains('red') ? 'RED' :
-                   $('triagePill')?.classList.contains('amber') ? 'AMBER' :
-                   $('triagePill')?.classList.contains('black') ? 'BLACK' : 'GREEN');
       w.document.write(`<html><head><meta charset="utf-8"><title>MYQER Emergency Card</title>
-        <style>
-          @page{margin:12mm}
-          body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:0;text-align:center;background:#fff}
-          .wrap{padding:16px}
-          img{max-width:100%;height:auto}
-          .sub{color:#666;margin-top:8px;font-size:12px}
-        </style></head>
-        <body><div class="wrap">
-          <img src="${dataUrl}" alt="MYQER™ Emergency Card">
-          <div class="sub">Triage: ${tri}</div>
-        </div>
-        <script>window.onload=()=>setTimeout(()=>print(),250)</script></body></html>`);
+        <style>@page{margin:12mm}body{margin:0;text-align:center;font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial}</style></head>
+        <body><img src="${dataUrl}" alt="MYQER™ Emergency Card" style="max-width:100%;height:auto"/><script>onload=()=>setTimeout(()=>print(),250)</script></body></html>`);
       w.document.close();
     });
-  }
-
-  /* ---------- delete / logout (clears local 6-char code too) ---------- */
-  function deleteAccount(){
-    const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
-    if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
-    if (!confirm('Are you sure? This permanently deletes your data.')) return;
-
-    const wipeLocal = () => {
-      try {
-        localStorage.removeItem('myqer_shortcode');
-        localStorage.removeItem('myqer_profile');
-        localStorage.removeItem('myqer_health');
-        localStorage.removeItem('myqer_ice');
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (_) {}
-    };
-
-    (function(){
-      if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
-      return getUserId().then(uid=>{
-        if (!uid) return;
-        return supabase.from('ice_contacts').delete().eq('user_id',uid)
-          .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
-          .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
-          .catch(e => { console.warn('server delete failed', e); });
-      }).then(()=> supabase.auth.signOut().catch(()=>{}));
-    })().finally(()=>{
-      wipeLocal();
-      location.href = 'index.html';
-    });
-  }
-
-  /* ---------- autosave wiring ---------- */
-  function setupAutoSave(id, fn, delay) {
-    if (!delay && delay !== 0) delay = 600;
-    const el = $(id);
-    if (!el) return;
-    function run() {
-      clearTimeout(autoSaveTimers[id]);
-      autoSaveTimers[id] = setTimeout(() => {
-        Promise.resolve(fn()).catch(e => console.warn('autosave err', e));
-      }, delay);
-    }
-    el.addEventListener('input',  run);
-    el.addEventListener('change', run);
   }
 
   /* ---------- DOM ready ---------- */
@@ -1107,9 +1113,14 @@ ensureDualQrInline();
     wireQRButtons();
 
     fillFromLocal();
-    renderUrlQR();             // draw URL QR from whatever we have (equal size 220)
-    renderVCardQR();           // draw offline QR if ready (equal size 220)
-    loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); });
+    renderUrlQR();
+    renderVCardQR();
+
+    // Align layout and buttons
+    placeVcardNextToUrl();
+    moveButtonsUnderVcard();
+
+    loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); placeVcardNextToUrl(); moveButtonsUnderVcard(); });
 
     const loading=$('loadingState'); if (loading) loading.style.display='none';
     setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
