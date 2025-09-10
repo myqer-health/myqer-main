@@ -241,8 +241,8 @@ function styleVcardCanvas () {
   c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
 
   // size (CSS size – QR is drawn at same width in toCanvas below)
-  c.style.width           = '240px';
-  c.style.height          = '240px';
+  c.style.width           = '300px';
+  c.style.height          = '300px';
   c.style.imageRendering  = 'pixelated';
   c.style.display         = 'block';
 }
@@ -341,7 +341,7 @@ function currentTriageHex() {
     canvas,
     vcard,
     {
-      width: 240,          // bigger than before (was 200)
+      width: 300,          // bigger than before (was 200)
       margin: 1,           // a bit more quiet zone
       errorCorrectionLevel: 'Q',
       color: { dark, light: '#FFFFFF' }
