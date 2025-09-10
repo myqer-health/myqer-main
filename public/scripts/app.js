@@ -312,13 +312,13 @@ async function renderVCardQR() {
   const canvas = $('vcardCanvas');
   const help   = $('vcardHelp');
   const regen  = $('regenVcardBtn');
-  const ph     = $('vcardPlaceholder');
+  const ph     = $('vcardPlaceholder');   // ⬅ placeholder div
   const ready  = isOfflineReady();
 
-  // If panel not in DOM yet, bail
-  if (!canvas && !help && !regen) return;
+  // If UI isn’t in the page yet, bail quietly
+  if (!canvas && !help && !regen && !ph) return;
 
-  // Helper text + button state
+  // Update helper text + button state
   if (help) {
     help.textContent = ready
       ? 'Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage or ICE change.'
@@ -326,40 +326,51 @@ async function renderVCardQR() {
   }
   if (regen) regen.disabled = !ready;
 
-  // If not ready, show placeholder and stop
-  if (!ready) { if (ph) ph.hidden = false; return; }
+  // Not ready → show placeholder, hide canvas, stop here
+  if (!ready || !canvas) {
+    if (ph) ph.hidden = false;
+    if (canvas) canvas.style.display = 'none';
+    return;
+  }
 
   try {
     await loadQRCodeLib();
-
     const code = await ensureShortCode();
     const base = (location?.origin || 'https://myqer.com')
       .replace(/\/$/, '')
       .replace('://www.', '://');
     const shortUrl = `${base}/c/${code}`;
-
     const vcard = buildVCardPayload(shortUrl);
     const dark  = currentTriageHex();
-await new Promise((resolve, reject) =>
-  window.QRCode.toCanvas(
-    canvas,
-    vcard,
-    {
-      width: 240,          // match the black QR tile
-      margin: 1,
-      errorCorrectionLevel: 'Q',
-      color: { dark, light: '#FFFFFF' }
-    },
-    err => err ? reject(err) : resolve()
-  )
-);
 
-// ✅ After drawing QR, show canvas + hide placeholder
-canvas.style.display = 'block';
-const ph = document.getElementById('vcardPlaceholder');
-if (ph) ph.hidden = true;
+    await new Promise((resolve, reject) =>
+      window.QRCode.toCanvas(
+        canvas,
+        vcard,
+        {
+          // Match the black QR tile (canvas 200px inside 240px box)
+          width: 200,
+          margin: 1,
+          errorCorrectionLevel: 'Q',
+          color: { dark, light: '#FFFFFF' }
+        },
+        err => err ? reject(err) : resolve()
+      )
+    );
 
-styleVcardCanvas();
+    // ✅ Show the QR, hide the placeholder
+    canvas.style.display = 'block';
+    if (ph) ph.hidden = true;
+
+    // Match the nice rounded tile / shadow
+    styleVcardCanvas();
+  } catch (e) {
+    console.error('vCard QR error:', e);
+    // On error, fall back to placeholder so user sees next step
+    if (ph) ph.hidden = false;
+    canvas.style.display = 'none';
+  }
+}
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
