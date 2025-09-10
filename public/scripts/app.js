@@ -307,54 +307,64 @@ function currentTriageHex() {
     }
   }
 
-  /* ---------- vCard QR (offline ICE) ---------- */
-  async function renderVCardQR() {
-    const canvas = $('vcardCanvas');
-    const help   = $('vcardHelp');
-    const regen  = $('regenVcardBtn');
-    const ready  = isOfflineReady();      // <-- existed now
+/* ---------- vCard QR (offline ICE) ---------- */
+async function renderVCardQR() {
+  const canvas = $('vcardCanvas');
+  const help   = $('vcardHelp');
+  const regen  = $('regenVcardBtn');
+  const ph     = $('vcardPlaceholder');
+  const ready  = isOfflineReady();
 
-    // If UI isn’t in the page yet, bail quietly
-    if (!canvas && !help && !regen) return;
+  // If panel not in DOM yet, bail
+  if (!canvas && !help && !regen) return;
 
-    if (help) {
-      help.textContent = ready
-        ? 'Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage or ICE change.'
-        : 'Needs Country, Blood, Donor and one ICE contact before generating.';
-    }
-    if (regen) regen.disabled = !ready;
-
-    if (!canvas || !ready) return;
-
-    try {
-      await loadQRCodeLib();
-      const code = await ensureShortCode();
-      const base = (location?.origin || 'https://myqer.com')
-        .replace(/\/$/, '')
-        .replace('://www.', '://');
-      const shortUrl = `${base}/c/${code}`;
-      const vcard = buildVCardPayload(shortUrl);
-      const dark  = currentTriageHex();   // <-- existed now
-
-      await new Promise((resolve, reject) =>
-  window.QRCode.toCanvas(
-    canvas,
-    vcard,
-    {
-      width: 200,          // bigger than before (was 200)
-      margin: 1,           // a bit more quiet zone
-      errorCorrectionLevel: 'Q',
-      color: { dark, light: '#FFFFFF' }
-    },
-    err => err ? reject(err) : resolve()
-  )
-);
-
-      styleVcardCanvas(); // make it look like the main tile
-    } catch (e) {
-      console.error('vCard QR error:', e);
-    }
+  // Helper text + button state
+  if (help) {
+    help.textContent = ready
+      ? 'Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage or ICE change.'
+      : 'Needs Country, Blood, Donor and one ICE contact before generating.';
   }
+  if (regen) regen.disabled = !ready;
+
+  // If not ready, show placeholder and stop
+  if (!ready) { if (ph) ph.hidden = false; return; }
+
+  try {
+    await loadQRCodeLib();
+
+    const code = await ensureShortCode();
+    const base = (location?.origin || 'https://myqer.com')
+      .replace(/\/$/, '')
+      .replace('://www.', '://');
+    const shortUrl = `${base}/c/${code}`;
+
+    const vcard = buildVCardPayload(shortUrl);
+    const dark  = currentTriageHex();
+
+    await new Promise((resolve, reject) =>
+      window.QRCode.toCanvas(
+        canvas,
+        vcard,
+        {
+          width: 200,              // SAME as black QR
+          margin: 1,
+          errorCorrectionLevel: 'Q',
+          color: { dark, light: '#FFFFFF' }
+        },
+        err => err ? reject(err) : resolve()
+      )
+    );
+
+    // Reveal canvas, hide placeholder
+    canvas.style.display = 'block';
+    if (ph) ph.hidden = true;
+
+    // visual polish (must not set width/height here)
+    styleVcardCanvas();
+  } catch (e) {
+    console.error('vCard QR error:', e);
+  }
+}
 
   /* ---------- ICE ---------- */
   function renderIceContacts(){
