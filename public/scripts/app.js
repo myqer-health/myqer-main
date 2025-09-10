@@ -170,7 +170,7 @@
   }
 
 /* ---------- OFFLINE VCARD HELPERS ---------- */
-function vcardEscape(s='') {
+function vCardEscape(s='') {
   // vCard 3.0 escaping: backslash, comma, semicolon, newline
   return String(s)
     .replace(/\\/g, '\\\\')
