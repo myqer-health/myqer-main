@@ -1,5 +1,6 @@
 // /public/scripts/app.js
-// One-file dashboard logic. QR now uses external lib like the MVP demo; 6-char codes.
+// One-file dashboard logic. Two QRs per profile: URL (online) + vCard (offline).
+// Sizes fixed to 220px, margin 1. URL: ECC M black/white. vCard: ECC Q triage-red on white.
 
 (function () {
   /* ---------- tiny helpers ---------- */
@@ -18,7 +19,7 @@
     return out;
   }
 
-  // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
+  // Normalize date input to YYYY-MM-DD
   function normalizeDOB(s) {
     if (!s) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -97,69 +98,61 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- SHORT CODE / URL (UPDATED: 6-char permanent code) ---------- */
- // 6-char maker stays the same
-function makeShort6(){
-  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/I/1
-  return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
-}
-
-async function ensureShortCode(){
-  const valid = /^[A-HJ-NP-Z2-9]{6}$/;
-  let local = localStorage.getItem('myqer_shortcode');
-
-  // If we’re offline / no Supabase, keep local (or mint once)
-  if (!(isSupabaseAvailable && isOnline)) {
-    if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
-    return local;
+  /* ---------- SHORT CODE / URL (6-char permanent code) ---------- */
+  function makeShort6(){
+    return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
   }
 
-  const uid = await getUserId().catch(()=>null);
-  if (!uid) {
-    if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
-    return local;
-  }
+  async function ensureShortCode(){
+    const valid = /^[A-HJ-NP-Z2-9]{6}$/;
+    let local = localStorage.getItem('myqer_shortcode');
 
-  // 1) Try to read existing code from server and adopt it
-  const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
-  if (prof && valid.test(prof.code||'')) {
-    localStorage.setItem('myqer_shortcode', prof.code);
-    return prof.code;
-  }
-
-  // 2) No server code -> create one (respecting uniqueness)
-  let code = valid.test(local||'') ? local : makeShort6();
-  localStorage.setItem('myqer_shortcode', code);
-
-  let attempt = 0;
-  while (attempt < 6) {
-    const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
-    if (!error) return code;
-    const msg = (error.message||'').toLowerCase() + ' ' + (error.details||'').toLowerCase();
-    if (msg.includes('duplicate') || msg.includes('unique')) {
-      code = makeShort6();
-      localStorage.setItem('myqer_shortcode', code);
-      attempt++;
-      continue;
+    if (!(isSupabaseAvailable && isOnline)) {
+      if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
+      return local;
     }
-    console.warn('shortcode upsert err:', error);
-    return code; // fall back to local (shouldn’t happen often)
+
+    const uid = await getUserId().catch(()=>null);
+    if (!uid) {
+      if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
+      return local;
+    }
+
+    // 1) adopt existing server code
+    const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
+    if (prof && valid.test(prof.code||'')) {
+      localStorage.setItem('myqer_shortcode', prof.code);
+      return prof.code;
+    }
+
+    // 2) mint once, persist
+    let code = valid.test(local||'') ? local : makeShort6();
+    localStorage.setItem('myqer_shortcode', code);
+
+    let attempt = 0;
+    while (attempt < 6) {
+      const { error } = await supabase.from('profiles').upsert({ user_id: uid, code }, { onConflict: 'user_id' });
+      if (!error) return code;
+      const msg = (error.message||'').toLowerCase() + ' ' + (error.details||'').toLowerCase();
+      if (msg.includes('duplicate') || msg.includes('unique')) {
+        code = makeShort6();
+        localStorage.setItem('myqer_shortcode', code);
+        attempt++;
+        continue;
+      }
+      console.warn('shortcode upsert err:', error);
+      return code;
+    }
+    return code;
   }
-  return code;
-}
-  /* ============= QR CODE (UPDATED: use library like MVP, robust loader) =============
-     - We load the same browser build you used in the minimal snippet.
-     - If the first CDN fails, we try another, so a broken link won’t leave a blank canvas.
-     - We always draw a proper QR with 3 finder squares and real data.
-  */
+
+  /* ---------- QR lib loader ---------- */
   let qrLibReady = null;
   function loadQRCodeLib(){
     if (window.QRCode) return Promise.resolve();
     if (qrLibReady) return qrLibReady;
     const srcs = [
-      // Primary
       'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
-      // Fallbacks
       'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js',
       'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js'
     ];
@@ -176,100 +169,129 @@ async function ensureShortCode(){
     return qrLibReady;
   }
 
-  /* ---------- Offline text builder ---------- */
-  function buildOfflineText(shortUrl) {
-    const pf = userData?.profile || {};
-    const hd = userData?.health  || {};
-    const name    = pf.full_name ?? pf.fullName ?? '';
-    const dob     = pf.date_of_birth ?? pf.dob ?? '';
-    const nat     = pf.national_id ?? pf.healthId ?? '';
-    const country = pf.country ?? '';
-    const donor   = hd.organDonor ? 'Y' : 'N';
-
-    const L = [];
-    const L1 = []; if (name) L1.push('Name: '+name); if (dob) L1.push('DOB: '+dob); if (country) L1.push('C: '+country); if (nat) L1.push('ID: '+nat);
-    if (L1.length) L.push(L1.join(' | '));
-    const L2 = []; if (hd.bloodType) L2.push('BT: '+hd.bloodType); if (hd.allergies) L2.push('ALG: '+hd.allergies);
-    if (L2.length) L.push(L2.join(' | '));
-    const L3 = []; if (hd.conditions) L3.push('COND: '+hd.conditions); if (hd.medications) L3.push('MED: '+hd.medications); if (hd.implants) L3.push('IMP: '+hd.implants);
-    L3.push('DONOR: '+donor); if (L3.length) L.push(L3.join(' | '));
-    const ice = Array.isArray(iceContacts) ? iceContacts : [];
-    const iceLines = ice.filter(c => c && (c.name || c.phone)).map(c => `${c.name||''} — ${c.relationship||''} — ${c.phone||''}`.replace(/\s+—\s+—\s*$/,'').trim());
-    if (iceLines.length) L.push('ICE: '+iceLines.join(' | '));
-    L.push('URL: '+shortUrl);
-    return L.join('\n').slice(0,1200);
+  /* ---------- Offline vCard readiness ---------- */
+  function isOfflineReady() {
+    const p = userData?.profile || {};
+    const h = userData?.health  || {};
+    const hasICE = (Array.isArray(iceContacts) && iceContacts[0] && iceContacts[0].name && iceContacts[0].phone);
+    const donorSet = (h.organDonor === true || h.organDonor === false);
+    return Boolean(p.country && h.bloodType && donorSet && hasICE);
   }
 
-  /* ---------- QR (UPDATED draw using the library) ---------- */
-async function generateQRCode() {
-  const qrCanvas = $('qrCanvas');
-  const qrPlaceholder = $('qrPlaceholder');
-  const codeUnderQR = $('codeUnderQR');
-  const cardUrlInput = $('cardUrl');
-  const qrStatus = $('qrStatus');
-  if (!qrCanvas) return;
-
-  try {
-    await loadQRCodeLib();
-const code = await ensureShortCode();
-
-// Always non-www; strip trailing slash just in case
-const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
-const shortUrl = `${base}/c/${code}`;
-
-// URL-ONLY QR for now
-const payload = shortUrl;
-
-if (codeUnderQR) codeUnderQR.textContent = code;
-if (cardUrlInput) cardUrlInput.value = shortUrl;
-
-await new Promise((resolve, reject) =>
-  window.QRCode.toCanvas(
-    qrCanvas,
-    payload,
-    { width: 220, margin: 2, errorCorrectionLevel: 'M' }, // easier to scan
-    err => err ? reject(err) : resolve()
-  )
-);
-
-    if ($('offlineText')) $('offlineText').value = payload; // keep box in sync
-
-    qrCanvas.style.display = 'block';
-    if (qrPlaceholder) qrPlaceholder.style.display = 'none';
-    if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
-  } catch (err) {
-    console.error('QR render error:', err);
-    if (qrPlaceholder) qrPlaceholder.style.display = 'flex';
-    if (qrCanvas) qrCanvas.style.display = 'none';
-    if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
+  /* ---------- vCard helpers ---------- */
+  function vEsc(s=''){ return String(s).replace(/\\/g,'\\\\').replace(/,/g,'\\,').replace(/;/g,'\\;'); }
+  const TRIAGE_COLOR = { RED:'#E11D48', YELLOW:'#F59E0B', AMBER:'#F59E0B', GREEN:'#16A34A', BLACK:'#111827' };
+  function currentTriageHex() {
+    const t = (document.getElementById('triagePill')?.textContent || 'GREEN').toUpperCase();
+    return TRIAGE_COLOR[t] || TRIAGE_COLOR.GREEN;
   }
-}
-function buildOfflineText(shortUrl) {
-  const pf = userData?.profile || {};
-  const hd = userData?.health  || {};
-  const name    = pf.full_name ?? pf.fullName ?? '';
-  const dob     = pf.date_of_birth ?? pf.dob ?? '';
-  const nat     = pf.national_id ?? pf.healthId ?? '';
-  const country = pf.country ?? '';
-  const donor   = hd.organDonor ? 'Y' : 'N';
+  function currentTriageText() {
+    return (document.getElementById('triagePill')?.textContent || 'GREEN').toUpperCase();
+  }
 
-  const L = [];
-  L.push(shortUrl); // ← URL FIRST so iOS recognizes it
-  const L1 = []; if (name) L1.push('Name: '+name); if (dob) L1.push('DOB: '+dob); if (country) L1.push('C: '+country); if (nat) L1.push('ID: '+nat);
-  if (L1.length) L.push(L1.join(' | '));
-  const L2 = []; if (hd.bloodType) L2.push('BT: '+hd.bloodType); if (hd.allergies) L2.push('ALG: '+hd.allergies);
-  if (L2.length) L.push(L2.join(' | '));
-  const L3 = []; if (hd.conditions) L3.push('COND: '+hd.conditions); if (hd.medications) L3.push('MED: '+hd.medications); if (hd.implants) L3.push('IMP: '+hd.implants);
-  L3.push('DONOR: '+donor);
-  if (L3.length) L.push(L3.join(' | '));
-  const ice = Array.isArray(iceContacts) ? iceContacts : [];
-  const iceLines = ice.filter(c => c && (c.name || c.phone))
-                      .map(c => `${c.name||''} — ${c.relationship||''} — ${c.phone||''}`.replace(/\s+—\s+—\s*$/,'').trim());
-  if (iceLines.length) L.push('ICE: '+iceLines.join(' | '));
-  // we already put the raw URL first; no need to repeat "URL: ..."
-  return L.join('\n').slice(0, 900); // keep it lighter so the QR isn’t too dense
-}
-  /* ---------- ICE ---------- */
+  function buildVCardPayload(shortUrl) {
+    const p = userData?.profile || {};
+    const h = userData?.health  || {};
+    const ice = Array.isArray(iceContacts) ? iceContacts[0] : null; // first ICE
+
+    const name = p.full_name ?? p.fullName ?? '';
+    const [first, ...rest] = (name || '').trim().split(' ');
+    const last = rest.length ? rest[rest.length - 1] : '';
+
+    const note = [
+      `Country: ${vEsc(p.country || '—')}`,
+      `Blood type: ${vEsc(h.bloodType || '—')}`,
+      `Donor: ${h.organDonor ? 'Y' : 'N'}`,
+      `Triage: ${currentTriageText()}`,
+      `Allergies: ${vEsc(h.allergies || '—')}`,
+      `Conditions: ${vEsc(h.conditions || '—')}`,
+      `Medication: ${vEsc(h.medications || '—')}`,
+      `ICE contact: ${vEsc(ice?.phone || '—')}`
+    ].join('\\n'); // literal \n in vCard NOTE
+
+    // CRLF join
+    return [
+      'BEGIN:VCARD','VERSION:3.0',
+      `N:${vEsc(last)};${vEsc(first)};;;`,
+      `FN:${vEsc(name)}`,
+      `BDAY:${(p.date_of_birth ?? p.dob ?? '').trim()}`,
+      `TEL;TYPE=CELL:${(ice?.phone || '').trim()}`,
+      `URL:${shortUrl}`,
+      `NOTE:${note}`,
+      'END:VCARD'
+    ].join('\r\n');
+  }
+
+  /* ---------- URL QR (online) ---------- */
+  async function renderUrlQR() {
+    const qrCanvas = $('qrCanvas');
+    const codeUnderQR = $('codeUnderQR');
+    const cardUrlInput = $('cardUrl');
+    const qrStatus = $('qrStatus');
+    if (!qrCanvas) return;
+
+    try {
+      await loadQRCodeLib();
+      const code = await ensureShortCode();
+      const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
+      const shortUrl = `${base}/c/${code}`;
+
+      if (codeUnderQR) codeUnderQR.textContent = code;
+      if (cardUrlInput) cardUrlInput.value = shortUrl;
+
+      await new Promise((resolve, reject) =>
+        window.QRCode.toCanvas(
+          qrCanvas,
+          shortUrl,
+          { width: 220, margin: 1, errorCorrectionLevel: 'M' },
+          err => err ? reject(err) : resolve()
+        )
+      );
+
+      if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
+    } catch (err) {
+      console.error('URL QR error:', err);
+      if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
+    }
+  }
+
+  /* ---------- vCard QR (offline) ---------- */
+  async function renderVCardQR() {
+    const canvas = $('vcardCanvas');
+    const help   = $('vcardHelp');
+    const regen  = $('regenVcardBtn');
+    const ready  = isOfflineReady();
+
+    if (help) {
+      help.innerHTML = ready
+        ? 'Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage, Allergies, Conditions, Medication or ICE change.'
+        : 'Needs Country, Blood, Donor and at least one ICE contact to generate.';
+    }
+    if (regen) regen.disabled = !ready;
+    if (!canvas || !ready) return;
+
+    try {
+      await loadQRCodeLib();
+      const code = await ensureShortCode();
+      const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
+      const shortUrl = `${base}/c/${code}`;
+      const vcard = buildVCardPayload(shortUrl);
+      const dark = currentTriageHex();
+
+      await new Promise((resolve, reject) =>
+        window.QRCode.toCanvas(
+          canvas,
+          vcard,
+          { width: 220, margin: 1, errorCorrectionLevel: 'Q', color: { dark, light: '#FFFFFF' } },
+          err => err ? reject(err) : resolve()
+        )
+      );
+    } catch (e) {
+      console.error('vCard QR error:', e);
+    }
+  }
+
+  /* ---------- ICE UI ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
     box.innerHTML='';
@@ -291,7 +313,7 @@ function buildOfflineText(shortUrl) {
            <input type="text" class="iceRelation" data-field="relationship" data-idx="${idx}" value="${c.relationship||''}" placeholder="Spouse, Parent">
          </div>
          <div class="form-group"><label>Phone</label>
-           <input type="tel" class="icePhone" data-field="phone" data-idx="${idx}" value="${c.phone||''}" placeholder="+1 555 123 4567">
+           <input type="tel" class="icePhone" data-field="phone" data-idx="${idx}" value="${c.phone||''}" placeholder="+44 7700 900123">
          </div>
        </div>`;
       box.appendChild(row);
@@ -300,8 +322,11 @@ function buildOfflineText(shortUrl) {
     if (addBtn){ if (iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; } else { addBtn.disabled=false; addBtn.textContent='Add Emergency Contact'; } }
   }
   const persistIceLocally = ()=>{ localStorage.setItem('myqer_ice', JSON.stringify(iceContacts||[])); window.iceContacts=iceContacts; };
+
   function addIceContact(){ if (!Array.isArray(iceContacts)) iceContacts=[]; if (iceContacts.length>=3) return toast('Maximum 3 emergency contacts allowed','error'); iceContacts.push({name:'',relationship:'',phone:''}); persistIceLocally(); renderIceContacts(); }
+
   function updateIceContact(idx, field, value){ if (!iceContacts[idx]) return; iceContacts[idx][field]=value; persistIceLocally(); }
+
   function saveICEToServer(){
     if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
     return getUserId().then(uid=>{
@@ -313,24 +338,22 @@ function buildOfflineText(shortUrl) {
       });
     });
   }
+
   function saveICE(){
     const entries=(iceContacts||[]).map(c=>({ name:(c.name||'').trim(), relationship:(c.relationship||'').trim(), phone:(c.phone||'').trim() })).filter(c=>c.name||c.phone);
     if (entries.length>3) return toast('Maximum 3 emergency contacts allowed','error');
     for (const e of entries){ if (!(e.name && e.phone)) return toast('Each contact needs a name and phone','error'); }
     iceContacts=entries; persistIceLocally();
-    saveICEToServer().then(()=>{ toast('Emergency contacts saved','success'); generateQRCode(); }).catch(e=>{ console.error(e); toast('Error saving emergency contacts','error'); });
+    saveICEToServer().then(()=>{ toast('Emergency contacts saved','success'); renderUrlQR(); renderVCardQR(); }).catch(e=>{ console.error(e); toast('Error saving emergency contacts','error'); });
   }
 
-  /* ---------- Profile & Health ---------- */
-  // Upsert profile (identity) for both schema variants, without ever regenerating code
+  /* ---------- Profile & Health (your existing logic, calls renderers) ---------- */
   function upsertProfileSmart(rowBase){
     return getUserId().then(async (uid)=>{
       if (!uid) return;
 
-      // Permanent code: generate once if missing, otherwise keep as-is
       const code = await ensureShortCode();
 
-      // Detect schema: try a snake-only column; if it errors, assume camel
       let schema = 'snake';
       try {
         const probe = await supabase.from('profiles').select('user_id').limit(1);
@@ -401,7 +424,6 @@ function buildOfflineText(shortUrl) {
     });
   }
 
-  // Save Identity (the function that was missing in your last paste)
   function saveProfile(){
     const profile={
       full_name:     $('profileFullName')?.value.trim() || '',
@@ -413,13 +435,13 @@ function buildOfflineText(shortUrl) {
     window.userData  = userData;
     localStorage.setItem('myqer_profile', JSON.stringify(profile));
 
-    if (!isSupabaseAvailable){ toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+    if (!isSupabaseAvailable){ toast('Saved locally (offline mode)','info'); renderUrlQR(); renderVCardQR(); return; }
 
     supabase.auth.getSession().then(r=>{
       const session=r?.data?.session || null;
-      if (!session){ toast('Saved locally — please sign in to sync','info'); generateQRCode(); return; }
+      if (!session){ toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); return; }
       upsertProfileSmart(profile)
-        .then(()=>{ toast('Profile saved','success'); generateQRCode(); })
+        .then(()=>{ toast('Profile saved','success'); renderUrlQR(); renderVCardQR(); })
         .catch(e=>{ console.error(e); toast('Error saving profile: ' + (e?.message || 'Unknown'), 'error'); });
     });
   }
@@ -438,16 +460,16 @@ function buildOfflineText(shortUrl) {
     userData.health = health;
     localStorage.setItem('myqer_health', JSON.stringify(health));
 
-    if (!isSupabaseAvailable) { calculateTriage(); toast('Saved locally (offline mode)','info'); generateQRCode(); return; }
+    if (!isSupabaseAvailable) { calculateTriage(); toast('Saved locally (offline mode)','info'); renderUrlQR(); renderVCardQR(); return; }
 
     supabase.auth.getSession()
       .then((r) => {
         const session = r?.data?.session;
-        if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); throw new Error('no session'); }
+        if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no session'); }
         return getUserId();
       })
       .then((uid) => {
-        if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); generateQRCode(); throw new Error('no uid'); }
+        if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no uid'); }
 
         const snake = { user_id: uid, blood_type: health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organ_donor: health.organDonor, triage_override: health.triageOverride };
         const camel = { user_id: uid, bloodType:   health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organDonor: health.organDonor, triageOverride: health.triageOverride };
@@ -455,7 +477,7 @@ function buildOfflineText(shortUrl) {
         return supabase.from('health_data').upsert(snake, { onConflict: 'user_id' })
           .then(({ error }) => { if (!error) return; return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' }).then(({ error:e2 }) => { if (e2) throw e2; }); });
       })
-      .then(() => { calculateTriage(); toast('Health info saved','success'); generateQRCode(); })
+      .then(() => { calculateTriage(); toast('Health info saved','success'); renderUrlQR(); renderVCardQR(); })
       .catch((e) => { if (e && (e.message==='no session' || e.message==='no uid')) return; console.error(e); toast('Error saving health','error'); });
   }
 
@@ -529,8 +551,8 @@ function buildOfflineText(shortUrl) {
             userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
             if (userData.profile && userData.profile.code) {
-  localStorage.setItem('myqer_shortcode', userData.profile.code);
-}
+              localStorage.setItem('myqer_shortcode', userData.profile.code);
+            }
             localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
             const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
             set('profileFullName', p.full_name);
@@ -574,83 +596,65 @@ function buildOfflineText(shortUrl) {
               localStorage.setItem('myqer_ice', JSON.stringify(iceContacts)); renderIceContacts();
             }
           });
-        });
+        }).then(()=> { renderUrlQR(); renderVCardQR(); });
       });
     }).catch(e=>console.warn('Server load failed', e));
   }
 
   /* ---------- buttons ---------- */
   function wireQRButtons(){
+    // URL QR buttons (keep only these three)
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
-    on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c||c.style.display==='none') return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-emergency-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
+    on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
 
-// inside wireQRButtons() -> dlSVG handler
-on($('dlSVG'),'click', async ()=>{
-  const shortUrl = $('cardUrl')?.value || '';
-  if (!shortUrl) return toast('Generate QR first','error');
-  const payload = $('offlineText')?.value || buildOfflineText(shortUrl); // use hybrid
-  try {
-    await loadQRCodeLib();
-    window.QRCode.toString(payload, { type: 'svg', width: 220, margin: 1, errorCorrectionLevel: 'Q' }, (err, svg)=>{
-      if (err) { console.error(err); return toast('SVG build failed','error'); }
-      const blob = new Blob([svg], { type: 'image/svg+xml' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'myqer-emergency-qr.svg';
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-      toast('SVG downloaded','success');
+    // vCard QR buttons
+    on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
+    on($('dlVcardPNG'),'click',()=> {
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const a=document.createElement('a'); a.download='myqer-offline-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('Offline PNG downloaded','success');
     });
-  } catch(e) {
-    console.error(e); toast('QR library not loaded','error');
-  }
-});
-
-    on($('printQR'),'click',()=>{ const canvas=$('qrCanvas'); const code=$('codeUnderQR')?.textContent||''; if(!canvas||canvas.style.display==='none'||!code) return toast('Generate QR first','error'); const dataUrl=canvas.toDataURL('image/png'); const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error'); w.document.write(`<html><head><title>MYQER Emergency Card - ${code}</title><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;text-align:center;padding:2rem}.code{font-weight:700;letter-spacing:.06em}img{width:300px;height:300px;image-rendering:pixelated}@media print{@page{size:auto;margin:12mm}}</style></head><body><h1>MYQER™ Emergency Card</h1><p class="code">Code: ${code}</p><img alt="QR Code" src="${dataUrl}"><p>Scan this QR code for emergency information</p><p style="font-size:.8em;color:#666">www.myqer.com</p><script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script></body></html>`); w.document.close(); });
-    on($('copyOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to copy','error'); navigator.clipboard.writeText(t).then(()=>toast('Offline text copied','success')).catch(()=>toast('Copy failed','error')); });
-    on($('dlOffline'),'click',()=>{ const t=$('offlineText')?.value||''; if(!t.trim()) return toast('No offline text to download','error'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'})); a.download='myqer-offline.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('Offline text downloaded','success'); });
+    on($('printVcard'),'click',()=> {
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const dataUrl=c.toDataURL('image/png');
+      const tri = (document.getElementById('triagePill')?.textContent || '').toUpperCase();
+      const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error');
+      w.document.write(`<html><head><meta charset="utf-8"><title>MYQER Offline ICE QR</title>
+        <style>body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
+        img{width:300px;height:300px;image-rendering:pixelated} .sub{color:#666}</style></head>
+        <body><h1>MYQER™ Offline ICE QR</h1><img src="${dataUrl}" alt="Offline QR">
+        <div class="sub">Triage: ${tri}</div><script>window.onload=()=>setTimeout(()=>print(),200)</script></body></html>`);
+      w.document.close();
+    });
   }
 
- /* ---------- delete / logout (now clears the local 6-char code too) ---------- */
-function deleteAccount(){
-  const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
-  if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
-  if (!confirm('Are you sure? This permanently deletes your data.')) return;
+  /* ---------- delete / logout (clears local 6-char code too) ---------- */
+  function deleteAccount(){
+    const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
+    if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
+    if (!confirm('Are you sure? This permanently deletes your data.')) return;
 
-  // helper: nuke local cache & code
-  const wipeLocal = () => {
-    try {
-      localStorage.removeItem('myqer_shortcode');   // 🔥 remove permanent QR code
-      localStorage.removeItem('myqer_profile');
-      localStorage.removeItem('myqer_health');
-      localStorage.removeItem('myqer_ice');
-      // fallback sledgehammer
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch (_) {}
-  };
+    const wipeLocal = () => {
+      try {
+        localStorage.removeItem('myqer_shortcode');
+        localStorage.removeItem('myqer_profile');
+        localStorage.removeItem('myqer_health');
+        localStorage.removeItem('myqer_ice');
+        localStorage.clear(); sessionStorage.clear();
+      } catch (_) {}
+    };
 
-  // server-side purge then sign out
-  (function(){
-    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
-    return getUserId().then(uid=>{
-      if (!uid) return;
-      // delete child tables first, then profile
-      return supabase.from('ice_contacts').delete().eq('user_id',uid)
-        .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
-        .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
-        .catch(e => { console.warn('server delete failed', e); });
-    }).then(()=> {
-      // try to sign out (ignore errors)
-      return supabase.auth.signOut().catch(()=>{});
-    });
-  })()
-  .finally(()=>{
-    wipeLocal();                              // ✅ clears shortcode so a fresh one will be generated
-    location.href = 'index.html';             // back to landing / login
-  });
-}
+    (function(){
+      if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+      return getUserId().then(uid=>{
+        if (!uid) return;
+        return supabase.from('ice_contacts').delete().eq('user_id',uid)
+          .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
+          .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
+          .catch(e => { console.warn('server delete failed', e); });
+      }).then(()=> supabase.auth.signOut().catch(()=>{}));
+    })().finally(()=>{ wipeLocal(); location.href = 'index.html'; });
+  }
 
   /* ---------- autosave wiring ---------- */
   function setupAutoSave(id, fn, delay) {
@@ -659,12 +663,10 @@ function deleteAccount(){
     if (!el) return;
     function run() {
       clearTimeout(autoSaveTimers[id]);
-      autoSaveTimers[id] = setTimeout(() => {
-        Promise.resolve(fn()).catch(e => console.warn('autosave err', e));
-      }, delay);
+      autoSaveTimers[id] = setTimeout(() => { Promise.resolve(fn()).catch(e => console.warn('autosave err', e)); }, delay);
     }
     el.addEventListener('input',  run);
-    el.addEventListener('change', run); // important for date/select/checkbox/iOS
+    el.addEventListener('change', run);
   }
 
   /* ---------- DOM ready ---------- */
@@ -681,7 +683,10 @@ function deleteAccount(){
     on($('btnSignOut'),'click',()=> (isSupabaseAvailable ? supabase.auth.signOut().catch(()=>{}) : Promise.resolve()).then(()=>{ location.href='index.html'; }));
 
     on($('iceContactsList'),'input',(e)=>{ const t=e.target, idx=+t.dataset.idx, field=t.dataset.field; if(Number.isInteger(idx)&&field) updateIceContact(idx, field, t.value); });
-    on($('iceContactsList'),'click',(e)=>{ const btn=e.target.closest?.('[data-act]'); if(!btn) return; const idx=+btn.dataset.idx; if(btn.dataset.act==='del'){ iceContacts.splice(idx,1); persistIceLocally(); renderIceContacts(); saveICEToServer().catch(()=>{}); generateQRCode(); toast('Contact removed','success'); } else if(btn.dataset.act==='save'){ saveICE(); } });
+    on($('iceContactsList'),'click',(e)=>{ const btn=e.target.closest?.('[data-act]'); if(!btn) return; const idx=+btn.dataset.idx;
+      if(btn.dataset.act==='del'){ iceContacts.splice(idx,1); persistIceLocally(); renderIceContacts(); saveICEToServer().catch(()=>{}); renderUrlQR(); renderVCardQR(); toast('Contact removed','success'); }
+      else if(btn.dataset.act==='save'){ saveICE(); }
+    });
 
     ['hfAllergies','hfConditions'].forEach(id=> on($(id),'input',calculateTriage));
     on($('triageOverride'),'change',()=>{ calculateTriage(); saveHealth(); });
@@ -692,8 +697,8 @@ function deleteAccount(){
     wireQRButtons();
 
     fillFromLocal();
-    generateQRCode();              // draw from whatever we have
-    loadFromServer().then(()=> generateQRCode()); // redraw after server sync
+    renderUrlQR(); renderVCardQR();          // draw from whatever we have
+    loadFromServer();                        // will re-render after load
 
     const loading=$('loadingState'); if (loading) loading.style.display='none';
     setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
@@ -703,6 +708,6 @@ function deleteAccount(){
   window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
   window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 
-  // light heartbeat (helps some hosting keep the worker warm)
+  // keep-alive ping
   setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
 })();
