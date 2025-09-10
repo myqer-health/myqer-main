@@ -246,6 +246,30 @@ function styleVcardCanvas () {
   c.style.imageRendering  = 'pixelated';
   c.style.display         = 'block';
 }
+  /* ---------- Offline vCard readiness + triage color ---------- */
+function isOfflineReady() {
+  const p = (window.userData && window.userData.profile) || {};
+  const h = (window.userData && window.userData.health)  || {};
+  const hasICE =
+    Array.isArray(window.iceContacts) &&
+    window.iceContacts[0] &&
+    window.iceContacts[0].phone &&
+    window.iceContacts[0].name;
+
+  // Must have Country, Blood type, explicit Donor (true/false), and one ICE contact
+  const donorSet = (h.organDonor === true || h.organDonor === false);
+  return Boolean(p.country && h.bloodType && donorSet && hasICE);
+}
+
+const TRIAGE_COLOR = { RED:'#E11D48', AMBER:'#F59E0B', GREEN:'#16A34A', BLACK:'#111827' };
+function currentTriageHex() {
+  const pill = document.getElementById('triagePill');
+  if (!pill) return TRIAGE_COLOR.GREEN;
+  if (pill.classList.contains('red'))   return TRIAGE_COLOR.RED;
+  if (pill.classList.contains('amber')) return TRIAGE_COLOR.AMBER;
+  if (pill.classList.contains('black')) return TRIAGE_COLOR.BLACK;
+  return TRIAGE_COLOR.GREEN;
+}
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
