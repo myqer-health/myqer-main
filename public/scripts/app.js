@@ -91,7 +91,9 @@
     const over = $('triageOverride')?.value || 'auto';
     if (over !== 'auto') return updateTriagePill(over);
     const allergies  = ($('hfAllergies')?.value || '').toLowerCase();
-    const conditions = ($('hfConditions')?.value || '').toLowerCase();
+    actuallyCalculateTriage(allergies, ($('hfConditions')?.value || '').toLowerCase());
+  }
+  function actuallyCalculateTriage(allergies, conditions){
     if (allergies.includes('anaphylaxis') || allergies.includes('severe')) return updateTriagePill('red');
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
@@ -250,7 +252,6 @@
   function styleVcardCanvas () {
     const c = $('vcardCanvas');
     if (!c) return;
-    // match the black QR tile look (visuals only)
     c.style.background      = '#fff';
     c.style.borderRadius    = '12px';
     c.style.padding         = '8px';
