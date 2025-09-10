@@ -211,22 +211,26 @@ async function generateQRCode() {
 
   try {
     await loadQRCodeLib();
+const code = await ensureShortCode();
 
-    const code = await ensureShortCode();
-    const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '');
+// Always non-www; strip trailing slash just in case
+const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
 const shortUrl = `${base}/c/${code}`;
-    const payload = buildOfflineText(shortUrl);  // <- HYBRID PAYLOAD (text + URL as last line)
 
-    if (codeUnderQR) codeUnderQR.textContent = code;
-    if (cardUrlInput) cardUrlInput.value = shortUrl;
+// URL-ONLY QR for now
+const payload = shortUrl;
 
-    await new Promise((resolve, reject) =>
-      window.QRCode.toCanvas(qrCanvas, payload, {
-        width: 200,             // a bit larger for easy scanning
-        margin: 2,
-        errorCorrectionLevel: 'Q'
-      }, err => err ? reject(err) : resolve())
-    );
+if (codeUnderQR) codeUnderQR.textContent = code;
+if (cardUrlInput) cardUrlInput.value = shortUrl;
+
+await new Promise((resolve, reject) =>
+  window.QRCode.toCanvas(
+    qrCanvas,
+    payload,
+    { width: 220, margin: 2, errorCorrectionLevel: 'M' }, // easier to scan
+    err => err ? reject(err) : resolve()
+  )
+);
 
     if ($('offlineText')) $('offlineText').value = payload; // keep box in sync
 
