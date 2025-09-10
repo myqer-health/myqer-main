@@ -309,13 +309,18 @@
       const dark  = currentTriageHex();   // <-- existed now
 
       await new Promise((resolve, reject) =>
-        window.QRCode.toCanvas(
-          canvas,
-          vcard,
-          { width: 200, margin: 1, errorCorrectionLevel: 'Q', color: { dark, light: '#FFFFFF' } },
-          err => err ? reject(err) : resolve()
-        )
-      );
+  window.QRCode.toCanvas(
+    canvas,
+    vcard,
+    {
+      width: 240,          // bigger than before (was 200)
+      margin: 2,           // a bit more quiet zone
+      errorCorrectionLevel: 'Q',
+      color: { dark, light: '#FFFFFF' }
+    },
+    err => err ? reject(err) : resolve()
+  )
+);
 
       styleVcardCanvas(); // make it look like the main tile
     } catch (e) {
