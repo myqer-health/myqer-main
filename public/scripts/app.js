@@ -1,7 +1,7 @@
 // /public/scripts/app.js
 // Dashboard logic with stable URL QR + separate offline vCard QR.
-// Updated: align vCard QR next to URL QR (same size/height) and move 4 buttons under the vCard QR.
-// Download/Print from the vCard panel output a single branded card containing BOTH QRs.
+// Updated: align vCard QR to URL QR (same size/top). Put 4 actions under vCard in a 2×2 grid.
+// Download/Print from vCard panel exports one branded card with BOTH QRs.
 
 (function () {
   /* ---------- tiny helpers ---------- */
@@ -20,7 +20,7 @@
     return out;
   }
 
-  // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
+  // Normalize date input to YYYY-MM-DD
   function normalizeDOB(s) {
     if (!s) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -40,10 +40,8 @@
   let userData = { profile: {}, health: {} };
   let iceContacts = [];
 
-  // Allowed chars (no O/0/I/1). We use a 6-character code.
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-  const autoSaveTimers = {}; // needed for autosave debounce
+  const autoSaveTimers = {};
   window.userData = userData; window.iceContacts = iceContacts;
 
   /* ---------- Supabase init ---------- */
@@ -101,7 +99,7 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- SHORT CODE / URL (permanent 6-char code) ---------- */
+  /* ---------- short code ---------- */
   function makeShort6(){
     return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
   }
@@ -110,7 +108,6 @@
     const valid = /^[A-HJ-NP-Z2-9]{6}$/;
     let local = localStorage.getItem('myqer_shortcode');
 
-    // If we’re offline / no Supabase, keep local (or mint once)
     if (!(isSupabaseAvailable && isOnline)) {
       if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
       return local;
@@ -122,14 +119,12 @@
       return local;
     }
 
-    // 1) Try to read existing code from server and adopt it
     const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
     if (prof && valid.test(prof.code||'')) {
       localStorage.setItem('myqer_shortcode', prof.code);
       return prof.code;
     }
 
-    // 2) No server code -> create one (respecting uniqueness)
     let code = valid.test(local||'') ? local : makeShort6();
     localStorage.setItem('myqer_shortcode', code);
 
@@ -146,12 +141,12 @@
         continue;
       }
       console.warn('shortcode upsert err:', error);
-      return code; // fallback
+      return code;
     }
     return code;
   }
 
-  /* ============= QR CODE loader ============= */
+  /* ============= QR library ============= */
   let qrLibReady = null;
   function loadQRCodeLib(){
     if (window.QRCode) return Promise.resolve();
@@ -174,13 +169,9 @@
     return qrLibReady;
   }
 
-  /* ---------- OFFLINE VCARD HELPERS ---------- */
+  /* ---------- vCard helpers ---------- */
   function vCardEscape(s='') {
-    return String(s)
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\r?\n/g, '\\n');
+    return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
   }
   function formatBDAY(d='') {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
@@ -214,7 +205,7 @@
     const fullName = (p.full_name ?? p.fullName ?? '').trim();
     const parts = fullName.split(/\s+/);
     const first = parts[0] || '';
-    const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+    const last  = parts.length > 1 ? parts[parts.length-1] : '';
 
     const triageText = (() => {
       const pill = $('triagePill');
@@ -253,9 +244,9 @@
     ].join('\r\n');
   }
 
-  /* ---------- Display sizing + layout helpers ---------- */
-  const DISPLAY_QR_SIZE = 220; // CSS size
-  const getDPR = () => Math.max(1, Math.min(3, window.devicePixelRatio || 1)); // clamp for perf
+  /* ---------- Layout helpers (QRs & buttons) ---------- */
+  const DISPLAY_QR_SIZE = 220;
+  const getDPR = () => Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 
   function sizeQrCanvas(canvas){
     if (!canvas) return;
@@ -270,65 +261,57 @@
     canvas.style.background = '#fff';
   }
 
-  // Align the vCard QR to the same top height as the URL QR (keep URL QR where it is)
+  // Pull the vCard tile to match the URL QR tile top
   function alignVcardToUrlTop(){
-    const redSlot = $('vcardSlot') || $('vcardCanvas')?.parentElement;
-    const urlTile = $('qrSlot')    || $('qrCanvas')?.parentElement;
-    if (!redSlot || !urlTile) return;
-
-    // reset any previous offset
-    redSlot.style.marginTop = '';
-
-    // compute offset to pull the vcardSlot up/down so its top matches urlTile top
+    const urlTile = $('qrSlot') || $('qrCanvas')?.parentElement;
+    const vTile   = $('vcardSlot') || $('vcardCanvas')?.parentElement;
+    if (!urlTile || !vTile) return;
+    vTile.style.marginTop = ''; // reset
     const a = urlTile.getBoundingClientRect();
-    const b = redSlot.getBoundingClientRect();
+    const b = vTile.getBoundingClientRect();
     const diff = Math.round(a.top - b.top);
-
-    if (Number.isFinite(diff) && Math.abs(diff) > 2) {
-      redSlot.style.marginTop = `${diff}px`;
-    }
+    if (Number.isFinite(diff) && Math.abs(diff) > 2) vTile.style.marginTop = `${diff}px`;
   }
 
-  // Build the 4-button row directly under the red QR
-  function ensureVcardButtonsRow(){
-    const redContainer = $('vcardSlot') || $('vcardCanvas')?.parentElement;
-    if (!redContainer) return;
+  // Buttons under vCard in a 2×2 grid: Open Link, Regenerate, Download PNG, Print
+  function ensureVcardButtonsGrid(){
+    const vTile = $('vcardSlot') || $('vcardCanvas')?.parentElement;
+    if (!vTile) return;
 
-    let row = $('vcardActionRow');
-    if (!row) {
-      row = document.createElement('div');
-      row.id = 'vcardActionRow';
-      row.style.display = 'flex';
-      row.style.flexWrap = 'wrap';
-      row.style.gap = '10px';
-      row.style.marginTop = '12px';
-      redContainer.appendChild(row);
+    let grid = $('vcardButtonsGrid');
+    if (!grid){
+      grid = document.createElement('div');
+      grid.id = 'vcardButtonsGrid';
+      grid.style.display = 'grid';
+      grid.style.gridTemplateColumns = '1fr 1fr';
+      grid.style.gap = '10px';
+      grid.style.marginTop = '12px';
+      grid.style.width = DISPLAY_QR_SIZE + 'px'; // align to QR width
+      vTile.appendChild(grid);
     }
 
-    // Buttons in order: Open Link, Regenerate, Download PNG, Print
     const openLinkBtn = $('openLink');
     const regenBtn    = $('regenVcardBtn');
     const dlBtn       = $('dlVcardPNG');
     const printBtn    = $('printVcard');
 
     [openLinkBtn, regenBtn, dlBtn, printBtn].forEach(btn=>{
-      if (btn && btn.parentElement !== row) row.appendChild(btn);
-      if (btn) btn.style.display = ''; // make sure they’re visible
+      if (btn && btn.parentElement !== grid) grid.appendChild(btn);
+      if (btn) btn.style.display = ''; // make sure visible
     });
   }
 
   function layoutQRArea(){
     sizeQrCanvas($('qrCanvas'));
-    const v = $('vcardCanvas');
-    const ph = $('vcardPlaceholder');
+    const v = $('vcardCanvas'); const ph = $('vcardPlaceholder');
     if (v && (!ph || ph.hidden)) sizeQrCanvas(v);
     alignVcardToUrlTop();
-    ensureVcardButtonsRow();
+    ensureVcardButtonsGrid();
   }
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
-    const qrCanvas    = $('qrCanvas');        // URL QR canvas (inside #qrSlot 240px)
+    const qrCanvas    = $('qrCanvas');
     const codeUnderQR = $('codeUnderQR');
     const cardUrlInput= $('cardUrl');
     const qrStatus    = $('qrStatus');
@@ -338,8 +321,7 @@
       await loadQRCodeLib();
       const code = await ensureShortCode();
       const base = (location?.origin || 'https://myqer.com')
-        .replace(/\/$/, '')
-        .replace('://www.', '://');
+        .replace(/\/$/, '').replace('://www.', '://');
       const shortUrl = `${base}/c/${code}`;
 
       if (codeUnderQR) codeUnderQR.textContent = code;
@@ -357,7 +339,6 @@
       );
 
       sizeQrCanvas(qrCanvas);
-
       qrCanvas.style.display = 'block';
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
       layoutQRArea();
@@ -367,21 +348,20 @@
     }
   }
 
-  /* ---------- vCard QR (offline ICE) ---------- */
+  /* ---------- vCard QR (offline) ---------- */
   function styleVcardCanvas () {
     const c = $('vcardCanvas');
     if (!c) return;
-    // subtle styling; size handled by sizeQrCanvas()
     c.style.borderRadius    = '12px';
     c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
     c.style.padding         = '0';
   }
 
   async function renderVCardQR() {
-    const canvas = $('vcardCanvas');       // offline canvas (inside #vcardSlot 240px)
-    const help   = $('vcardHelp');         // helper text
-    const regen  = $('regenVcardBtn');     // regenerate button
-    const ph     = $('vcardPlaceholder');  // placeholder message
+    const canvas = $('vcardCanvas');
+    const help   = $('vcardHelp');
+    const regen  = $('regenVcardBtn');
+    const ph     = $('vcardPlaceholder');
     const ready  = isOfflineReady();
 
     if (!canvas && !help && !regen && !ph) return;
@@ -404,14 +384,14 @@
       await loadQRCodeLib();
       const code = await ensureShortCode();
       const base = (location?.origin || 'https://myqer.com')
-        .replace(/\/$/, '')
-        .replace('://www.', '://');
+        .replace(/\/$/, '').replace('://www.', '://');
       const shortUrl = `${base}/c/${code}`;
       const vcard = buildVCardPayload(shortUrl);
       const dark  = currentTriageHex();
 
       const dpr = getDPR();
       const renderPx = Math.round(DISPLAY_QR_SIZE * dpr);
+
       await new Promise((resolve, reject) =>
         window.QRCode.toCanvas(
           canvas,
@@ -427,7 +407,7 @@
       );
 
       canvas.style.display = 'block';
-      if (ph) ph.hidden = true; // hide grey placeholder when real vCard QR exists
+      if (ph) ph.hidden = true; // hide placeholder once ready
       sizeQrCanvas(canvas);
       styleVcardCanvas();
       layoutQRArea();
@@ -499,44 +479,27 @@
       if (!uid) return;
       const code = await ensureShortCode();
 
-      // Detect schema
       let schema = 'snake';
       try {
         const probe = await supabase.from('profiles').select('user_id').limit(1);
         if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
       } catch (_) { schema = 'camel'; }
 
-      const snakeRow = {
-        user_id:       uid,
-        code,
-        full_name:     rowBase.full_name,
-        date_of_birth: rowBase.date_of_birth,
-        country:       rowBase.country,
-        national_id:   rowBase.national_id
-      };
-      const camelRow = {
-        userId:   uid,
-        code,
-        fullName: rowBase.full_name,
-        dob:      rowBase.date_of_birth,
-        country:  rowBase.country,
-        healthId: rowBase.national_id
-      };
+      const snakeRow = { user_id: uid, code,
+        full_name: rowBase.full_name, date_of_birth: rowBase.date_of_birth,
+        country: rowBase.country, national_id: rowBase.national_id };
+      const camelRow = { userId: uid, code,
+        fullName: rowBase.full_name, dob: rowBase.date_of_birth,
+        country: rowBase.country, healthId: rowBase.national_id };
 
       async function upsertSnake(){
         const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
         if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
-
         if (existing.data){
-          const { error } = await supabase.from('profiles')
-            .update({
-              full_name:     snakeRow.full_name,
-              date_of_birth: snakeRow.date_of_birth,
-              country:       snakeRow.country,
-              national_id:   snakeRow.national_id,
-              code:          snakeRow.code
-            })
-            .eq('user_id', uid);
+          const { error } = await supabase.from('profiles').update({
+            full_name: snakeRow.full_name, date_of_birth: snakeRow.date_of_birth,
+            country: snakeRow.country, national_id: snakeRow.national_id, code: snakeRow.code
+          }).eq('user_id', uid);
           if (error) throw error;
         } else {
           const { error } = await supabase.from('profiles').insert(snakeRow);
@@ -547,17 +510,11 @@
       async function upsertCamel(){
         const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
         if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
-
         if (existing.data){
-          const { error } = await supabase.from('profiles')
-            .update({
-              fullName: camelRow.fullName,
-              dob:      camelRow.dob,
-              country:  camelRow.country,
-              healthId: camelRow.healthId,
-              code:     camelRow.code
-            })
-            .eq('userId', uid);
+          const { error } = await supabase.from('profiles').update({
+            fullName: camelRow.fullName, dob: camelRow.dob,
+            country: camelRow.country, healthId: camelRow.healthId, code: camelRow.code
+          }).eq('userId', uid);
           if (error) throw error;
         } else {
           const { error } = await supabase.from('profiles').insert(camelRow);
@@ -630,7 +587,6 @@
   /* ---------- Load (local-first, server-sync) ---------- */
   function fillFromLocal(){
     try{
-      // profile
       const lp=localStorage.getItem('myqer_profile'); if (lp) userData.profile=JSON.parse(lp)||{};
       window.userData=userData;
       const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
@@ -639,7 +595,6 @@
       set('profileCountry',  p.country);
       set('profileHealthId', p.national_id ?? p.healthId);
 
-      // health
       const lh = localStorage.getItem('myqer_health');
       if (lh) {
         try {
@@ -667,7 +622,6 @@
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
 
-      // ice
       const li=localStorage.getItem('myqer_ice');
       iceContacts = li ? (JSON.parse(li)||[]) : [];
       window.iceContacts=iceContacts;
@@ -682,7 +636,6 @@
       return withTimeout(getUserId(),3000,'getUserId').then(uid=>{
         if (!uid) return;
 
-        // profiles (try snake first, then camel; merge non-empty)
         const selSnake = supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle();
         return withTimeout(selSnake,4000,'profiles.select.snake').then(rp=>{
           if (rp?.data) return rp;
@@ -701,7 +654,6 @@
             userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
 
-            // adopt server short code if present
             if (userData.profile && userData.profile.code) {
               localStorage.setItem('myqer_shortcode', userData.profile.code);
             }
@@ -714,7 +666,6 @@
             set('profileHealthId', p.national_id);
           }
         }).then(()=>{
-          // health
           return withTimeout(
             supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
             4000,
@@ -746,7 +697,6 @@
             calculateTriage();
           });
         }).then(()=>{
-          // ice
           return withTimeout(
             supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),
             4000,
@@ -761,7 +711,6 @@
             }
           });
         }).then(()=>{
-          // after all loads, draw both QRs and align
           renderUrlQR();
           renderVCardQR();
           layoutQRArea();
@@ -770,7 +719,7 @@
     }).catch(e=>console.warn('Server load failed', e));
   }
 
-  /* ---------- Branded card composer (for vCard Download/Print) ---------- */
+  /* ---------- Branded card (both QRs) ---------- */
   function composeEmergencyCardCanvas(){
     const urlC   = $('qrCanvas');
     const vcardC = $('vcardCanvas');
@@ -805,17 +754,14 @@
     function centerText(text, xCenter, y, sizePx, weight=800, color='#111'){
       ctx.fillStyle = color;
       ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(text, xCenter, y);
-      ctx.textAlign = 'start';
-      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
     }
     function labelText(text, x, y, sizePx, weight=800, color='#111'){
       ctx.fillStyle = color;
       ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       ctx.fillText(text, x, y);
     }
 
@@ -837,7 +783,7 @@
     const lblPad = Math.round(16*dpr);
     labelText('ONLINE QR', leftX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, '#059669');
     labelText('When Network', leftX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
-    labelText('OFFLINE QR', rightX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, brandRed);
+    labelText('OFFLINE QR', rightX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, '#d32f2f');
     labelText('When Offline', rightX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
 
     // QR slots
@@ -850,18 +796,16 @@
       roundedRect(x, y, slotW, slotH, Math.round(16*dpr), '#e5e7eb', '#ffffff');
     }
 
-    // Left QR
     drawFrame(leftSlotX, slotY);
     if (urlC && urlC.width>0){
       ctx.drawImage(urlC, 0,0,urlC.width,urlC.height, leftSlotX, slotY, slotW, slotH);
     }
 
-    // Right QR or Not ready
     drawFrame(rightSlotX, slotY);
     if (vReady){
       ctx.drawImage(vcardC, 0,0,vcardC.width,vcardC.height, rightSlotX, slotY, slotW, slotH);
     } else {
-      ctx.fillStyle = brandRed;
+      ctx.fillStyle = '#d32f2f';
       ctx.font = `${800} ${Math.round(16*dpr)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText('Not ready', rightSlotX + slotW/2, slotY + Math.round(28*dpr));
@@ -874,12 +818,11 @@
     }
 
     // Footer
-    const FOOTER_HH = H - Math.round(56 * dpr);
-    const FOOTER_Y = FOOTER_HH;
+    const FOOTER_Y = H - Math.round(56 * dpr);
     ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0, FOOTER_Y, W, H - FOOTER_Y);
     ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = Math.max(1, Math.round(1*dpr));
     ctx.beginPath(); ctx.moveTo(0, FOOTER_Y); ctx.lineTo(W, FOOTER_Y); ctx.stroke();
-    centerText('This card provides critical information to first responders. Verify details with official records.', W/2, FOOTER_Y + (H-FOOTER_Y)/2, 12*dpr, 600, '#6b7280');
+    centerText('This card provides critical information to first responders. Verify details with official records.', W/2, FOOTER_Y + Math.round(28*dpr), 12*dpr, 600, '#6b7280');
 
     return c;
   }
@@ -890,9 +833,8 @@
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
 
-    // Hide legacy URL-only download/print (we export from vCard panel)
-    const hide = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
-    hide('dlPNG'); hide('dlSVG'); hide('printQR');
+    // Hide legacy URL-only download/print
+    ['dlPNG','dlSVG','printQR'].forEach(id => { const el=$(id); if (el) el.style.display='none'; });
 
     // vCard actions
     on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); layoutQRArea(); });
@@ -923,7 +865,7 @@
     });
   }
 
-  /* ---------- delete / logout (clears local 6-char code too) ---------- */
+  /* ---------- delete / logout ---------- */
   function deleteAccount(){
     const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
     if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
@@ -1004,9 +946,9 @@
     // First layout pass
     layoutQRArea();
 
-    // Re-apply layout after server sync and on resize
+    // After server sync and on resize
     loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); layoutQRArea(); });
-    window.addEventListener('resize', ()=> layoutQRArea());
+    window.addEventListener('resize', layoutQRArea);
 
     const loading=$('loadingState'); if (loading) loading.style.display='none';
     setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
@@ -1016,6 +958,6 @@
   window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
   window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 
-  // light heartbeat (helps some hosting keep the worker warm)
+  // light heartbeat
   setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
 })();
