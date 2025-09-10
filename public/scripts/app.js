@@ -169,64 +169,70 @@
     return qrLibReady;
   }
 
-  /* ---------- OFFLINE VCARD HELPERS ---------- */
-  function isOfflineReady() {
-    const p = userData?.profile || {};
-    const h = userData?.health  || {};
-    const hasICE = (Array.isArray(iceContacts) && iceContacts[0] && iceContacts[0].phone && iceContacts[0].name);
-    return Boolean(p.country && h.bloodType && (h.organDonor === true || h.organDonor === false) && hasICE);
-  }
+/* ---------- OFFLINE VCARD HELPERS ---------- */
+function vcardEscape(s='') {
+  // vCard 3.0 escaping: backslash, comma, semicolon, newline
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
 
-  const TRIAGE_COLOR = { RED:'#E11D48', AMBER:'#F59E0B', GREEN:'#16A34A', BLACK:'#111827' };
-  function currentTriageHex() {
-    // read dashboard pill class to decide
+function formatBDAY(d='') {
+  // Prefer YYYYMMDD for best compatibility (falls back to raw if unknown)
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
+}
+
+function buildVCardPayload(shortUrl) {
+  const p   = userData?.profile || {};
+  const h   = userData?.health  || {};
+  const ice = Array.isArray(iceContacts) ? iceContacts[0] : null; // first ICE
+
+  const fullName = (p.full_name ?? p.fullName ?? '').trim();
+  const parts = fullName.split(/\s+/);
+  const first = parts[0] || '';
+  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+
+  // TRIAGE text from the pill classes
+  const triageText = (()=>{
     const pill = $('triagePill');
-    if (!pill) return TRIAGE_COLOR.GREEN;
-    if (pill.classList.contains('red'))   return TRIAGE_COLOR.RED;
-    if (pill.classList.contains('amber')) return TRIAGE_COLOR.AMBER;
-    if (pill.classList.contains('black')) return TRIAGE_COLOR.BLACK;
-    return TRIAGE_COLOR.GREEN;
-  }
+    if (!pill) return 'GREEN';
+    if (pill.classList.contains('red'))   return 'RED';
+    if (pill.classList.contains('amber')) return 'AMBER';
+    if (pill.classList.contains('black')) return 'BLACK';
+    return 'GREEN';
+  })();
 
-  function buildVCardPayload(shortUrl) {
-    const p = userData?.profile || {};
-    const h = userData?.health  || {};
-    const ice = Array.isArray(iceContacts) ? iceContacts[0] : null; // first ICE
+  // Build ordered, compact NOTE (include only when present)
+  const noteParts = [
+    `Country: ${p.country || '—'}`,
+    `Blood type: ${h.bloodType || '—'}`,
+    `Donor: ${h.organDonor ? 'Y' : 'N'}`,
+    `Triage: ${triageText}`,
+    h.allergies   ? `Allergies: ${h.allergies}`     : '',
+    h.conditions  ? `Conditions: ${h.conditions}`   : '',
+    h.medications ? `Medication: ${h.medications}`  : '',
+    ice?.phone    ? `ICE: ${ice.phone}`             : ''
+  ].filter(Boolean);
 
-    const name = (p.full_name ?? p.fullName ?? '').trim();
-    const parts = name.split(/\s+/);
-    const first = parts[0] || '';
-    const last  = parts.length > 1 ? parts[parts.length-1] : '';
+  let note = noteParts.join(' • ');
+  if (note.length > 340) note = note.slice(0, 337) + '…';   // keep QR readable
+  note = vcardEscape(note);
 
-    const triageText = (()=>{
-      if ($('triagePill')?.classList.contains('red'))   return 'RED';
-      if ($('triagePill')?.classList.contains('amber')) return 'AMBER';
-      if ($('triagePill')?.classList.contains('black')) return 'BLACK';
-      return 'GREEN';
-    })();
-
-    const note = [
-      `Country: ${p.country || '—'}`,
-      `Blood type: ${h.bloodType || '—'}`,
-      `Donor: ${h.organDonor ? 'Y' : 'N'}`,
-      `Triage: ${triageText}`,
-      `Allergies: ${h.allergies || '—'}`,
-      `Conditions: ${h.conditions || '—'}`,
-      `Medication: ${h.medications || '—'}`,
-      `ICE contact: ${ice?.phone || '—'}`
-    ].join('\n');
-
-    return [
-      'BEGIN:VCARD','VERSION:3.0',
-      `N:${last};${first};;;`,
-      `FN:${name}`,
-      `BDAY:${p.date_of_birth ?? p.dob ?? ''}`,
-      `TEL;TYPE=CELL:${ice?.phone || ''}`,
-      `URL:${shortUrl}`,
-      `NOTE:${note}`,
-      'END:VCARD'
-    ].join('\r\n');
-  }
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${vcardEscape(last)};${vcardEscape(first)};;;`,
+    `FN:${vcardEscape(fullName || `${first} ${last}`.trim())}`,
+    `BDAY:${formatBDAY(p.date_of_birth ?? p.dob ?? '')}`,
+    `TEL;TYPE=CELL:${vcardEscape(ice?.phone || '')}`,
+    `URL:${vcardEscape(shortUrl)}`,
+    `NOTE:${note}`,
+    'END:VCARD'
+  ].join('\r\n');
+}
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
