@@ -229,19 +229,23 @@
   ].join('\r\n');
 }
   // Make offline canvas visually match main QR tile (rounded, white, shadow)
-  function styleVcardCanvas() {
-    const c = $('vcardCanvas');
-    if (!c) return;
-    c.style.background = '#fff';
-    c.style.borderRadius = '12px';
-    c.style.padding = '8px';
-    c.style.boxShadow = '0 8px 32px rgba(220, 38, 38, 0.10)';
-    // Ensure it stays crisp but sized like the main one
-    c.style.width = '200px';
-    c.style.height = '200px';
-    c.style.imageRendering = 'pixelated';
-    c.style.display = 'block';
-  }
+// Make offline canvas visually match the main QR tile (rounded, white, shadow)
+function styleVcardCanvas () {
+  const c = $('vcardCanvas');
+  if (!c) return;
+
+  // visual style (same look as black QR tile)
+  c.style.background      = '#fff';
+  c.style.borderRadius    = '12px';
+  c.style.padding         = '8px';
+  c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
+
+  // size (CSS size – QR is drawn at same width in toCanvas below)
+  c.style.width           = '240px';
+  c.style.height          = '240px';
+  c.style.imageRendering  = 'pixelated';
+  c.style.display         = 'block';
+}
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
@@ -314,7 +318,7 @@
     vcard,
     {
       width: 240,          // bigger than before (was 200)
-      margin: 1,           // a bit more quiet zone
+      margin: 2,           // a bit more quiet zone
       errorCorrectionLevel: 'Q',
       color: { dark, light: '#FFFFFF' }
     },
