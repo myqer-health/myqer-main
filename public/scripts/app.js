@@ -314,7 +314,7 @@
     vcard,
     {
       width: 240,          // bigger than before (was 200)
-      margin: 2,           // a bit more quiet zone
+      margin: 1,           // a bit more quiet zone
       errorCorrectionLevel: 'Q',
       color: { dark, light: '#FFFFFF' }
     },
