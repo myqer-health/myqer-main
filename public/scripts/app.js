@@ -200,53 +200,60 @@
     return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
   }
 
-  function buildVCardPayload(shortUrl) {
-    const p   = userData?.profile || {};
-    const h   = userData?.health  || {};
-    const ice = Array.isArray(iceContacts) ? iceContacts[0] : null;
+// Replace your existing buildVCardPayload() with this:
+function buildVCardPayload(shortUrl) {
+  const p   = (window.userData && window.userData.profile) || {};
+  const h   = (window.userData && window.userData.health)  || {};
+  const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null; // first ICE
 
-    const fullName = (p.full_name ?? p.fullName ?? '').trim();
-    const parts = fullName.split(/\s+/).filter(Boolean);
-    const first = parts[0] || '';
-    const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+  // use whichever escape helper exists (vCardEscape or vcardEscape)
+  const esc = (typeof window.vCardEscape === 'function')
+    ? window.vCardEscape
+    : (typeof window.vcardEscape === 'function' ? window.vcardEscape : (s)=>String(s));
 
-    const triageText = (()=>{
-      const pill = $('triagePill');
-      if (!pill) return 'GREEN';
-      if (pill.classList.contains('red'))   return 'RED';
-      if (pill.classList.contains('amber')) return 'AMBER';
-      if (pill.classList.contains('black')) return 'BLACK';
-      return 'GREEN';
-    })();
+  const fullName = (p.full_name ?? p.fullName ?? '').trim();
+  const parts = fullName.split(/\s+/);
+  const first = parts[0] || '';
+  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
 
-    const noteParts = [
-      `Country: ${p.country || '—'}`,
-      `Blood type: ${h.bloodType || '—'}`,
-      `Donor: ${h.organDonor ? 'Y' : 'N'}`,
-      `Triage: ${triageText}`,
-      h.allergies   ? `Allergies: ${h.allergies}`     : '',
-      h.conditions  ? `Conditions: ${h.conditions}`   : '',
-      h.medications ? `Medication: ${h.medications}`  : '',
-      ice?.phone    ? `ICE: ${ice.phone}`             : ''
-    ].filter(Boolean);
+  // TRIAGE text from the pill classes
+  const triageText = (() => {
+    const pill = document.getElementById('triagePill');
+    if (!pill) return 'GREEN';
+    if (pill.classList.contains('red'))   return 'RED';
+    if (pill.classList.contains('amber')) return 'AMBER';
+    if (pill.classList.contains('black')) return 'BLACK';
+    return 'GREEN';
+  })();
 
-    let note = noteParts.join(' • ');
-    if (note.length > 340) note = note.slice(0, 337) + '…';
-    note = vCardEscape(note);
+  // Structured NOTE — one line per item (clean and readable)
+  const noteParts = [
+    `Country: ${p.country || '—'}`,
+    `Blood type: ${h.bloodType || '—'}`,
+    `Donor: ${h.organDonor ? 'Y' : 'N'}`,
+    `Triage: ${triageText}`,
+    h.allergies   ? `Allergies: ${h.allergies}`     : '',
+    h.conditions  ? `Conditions: ${h.conditions}`   : '',
+    h.medications ? `Medication: ${h.medications}`  : '',
+    ice?.phone    ? `ICE: ${ice.phone}`             : ''
+  ].filter(Boolean);
 
-    return [
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-      `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
-      `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
-      `BDAY:${formatBDAY(p.date_of_birth ?? p.dob ?? '')}`,
-      `TEL;TYPE=CELL:${vCardEscape(ice?.phone || '')}`,
-      `URL:${vCardEscape(shortUrl)}`,
-      `NOTE:${note}`,
-      'END:VCARD'
-    ].join('\r\n');
-  }
+  // join with newline; keep a safe length so the QR stays easy to scan
+  let note = noteParts.join('\n');
+  if (note.length > 600) note = note.slice(0, 597) + '…';
 
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${esc(last)};${esc(first)};;;`,
+    `FN:${esc(fullName || `${first} ${last}`.trim())}`,
+    `BDAY:${typeof formatBDAY === 'function' ? formatBDAY(p.date_of_birth ?? p.dob ?? '') : (p.date_of_birth ?? p.dob ?? '')}`,
+    `TEL;TYPE=CELL:${esc(ice?.phone || '')}`,
+    `URL:${esc(shortUrl)}`,
+    `NOTE:${esc(note)}`,
+    'END:VCARD'
+  ].join('\r\n');
+}
   // Make offline canvas visually match main QR tile (rounded, white, shadow)
   function styleVcardCanvas() {
     const c = $('vcardCanvas');
