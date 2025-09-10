@@ -258,7 +258,7 @@ function buildVCardPayload(shortUrl) {
         window.QRCode.toCanvas(
           qrCanvas,
           shortUrl,
-          { width: 220, margin: 1, errorCorrectionLevel: 'M' },
+          { width: 200, margin: 1, errorCorrectionLevel: 'M' },
           err => err ? reject(err) : resolve()
         )
       );
@@ -304,7 +304,7 @@ function buildVCardPayload(shortUrl) {
         window.QRCode.toCanvas(
           canvas,
           vcard,
-          { width: 220, margin: 1, errorCorrectionLevel: 'Q', color: { dark, light: '#FFFFFF' } },
+          { width: 200, margin: 1, errorCorrectionLevel: 'Q', color: { dark, light: '#FFFFFF' } },
           err => err ? reject(err) : resolve()
         )
       );
