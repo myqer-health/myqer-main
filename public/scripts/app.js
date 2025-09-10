@@ -382,7 +382,128 @@
       if (canvas) canvas.style.display = 'none';
     }
   }
+// --- Inline dual layout inside the vCard section (no HTML edits required)
+function ensureDualQrInline() {
+  const vcardCanvas = document.getElementById('vcardCanvas');
+  if (!vcardCanvas) return;
+  const vcardPanel = vcardCanvas.closest('.card, .panel, .section, #vcardSlot') || vcardCanvas.parentElement;
 
+  // create host container (once)
+  let host = document.getElementById('dualQrInline');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'dualQrInline';
+    host.style.display = 'grid';
+    host.style.gridTemplateColumns = 'repeat(2, minmax(220px, 1fr))';
+    host.style.gap = '16px';
+    host.style.alignItems = 'start';
+    host.style.justifyItems = 'center';
+    host.style.marginTop = '8px';
+    // insert host just above the vCard buttons row
+    const btnRow = document.getElementById('printVcard')?.parentElement || vcardCanvas.parentElement;
+    btnRow.parentElement.insertBefore(host, btnRow);
+  }
+
+  // helper to build a QR cell
+  function makeCell(titleTop, titleSub, color, imgOrNode) {
+    const cell = document.createElement('div');
+    cell.style.display = 'flex';
+    cell.style.flexDirection = 'column';
+    cell.style.alignItems = 'center';
+    cell.style.background = '#fff';
+    cell.style.border = '1px solid #e5e7eb';
+    cell.style.borderRadius = '12px';
+    cell.style.padding = '12px';
+    cell.style.width = '100%';
+    const h1 = document.createElement('div');
+    h1.textContent = titleTop;
+    h1.style.fontWeight = '800';
+    h1.style.fontSize = '14px';
+    h1.style.color = color;
+    const h2 = document.createElement('div');
+    h2.textContent = titleSub;
+    h2.style.fontSize = '11px';
+    h2.style.color = '#6b7280';
+    h2.style.marginBottom = '8px';
+
+    const frame = document.createElement('div');
+    frame.style.width = '220px';
+    frame.style.height = '220px';
+    frame.style.border = `3px solid ${color}`;
+    frame.style.borderRadius = '12px';
+    frame.style.background = '#fff';
+    frame.style.display = 'flex';
+    frame.style.alignItems = 'center';
+    frame.style.justifyContent = 'center';
+    frame.style.boxShadow = '0 8px 18px rgba(0,0,0,.06)';
+
+    if (imgOrNode) {
+      imgOrNode.style.width = '220px';
+      imgOrNode.style.height = '220px';
+      imgOrNode.style.display = 'block';
+      imgOrNode.style.imageRendering = 'pixelated';
+      frame.appendChild(imgOrNode);
+    } else {
+      const ph = document.createElement('div');
+      ph.textContent = 'Not ready';
+      ph.style.color = color;
+      ph.style.fontWeight = '700';
+      frame.appendChild(ph);
+    }
+
+    cell.append(h1, h2, frame);
+    return cell;
+  }
+
+  // Build ONLINE cell from URL QR canvas (clone to <img> so we don't move it)
+  const urlC = document.getElementById('qrCanvas');
+  let onlineNode = null;
+  if (urlC && urlC.width > 0) {
+    onlineNode = new Image();
+    onlineNode.src = urlC.toDataURL('image/png');
+  }
+
+  // Build OFFLINE cell from vCard canvas if ready
+  const offlineReady = !document.getElementById('vcardPlaceholder') || document.getElementById('vcardPlaceholder').hidden;
+  let offlineNode = null;
+  if (offlineReady && vcardCanvas && vcardCanvas.width > 0) {
+    offlineNode = new Image();
+    offlineNode.src = vcardCanvas.toDataURL('image/png');
+  }
+
+  // Render/replace cells
+  host.innerHTML = '';
+  host.appendChild(makeCell('ONLINE QR', 'When Network', '#059669', onlineNode));
+  host.appendChild(makeCell('OFFLINE QR', 'When Offline', '#d32f2f', offlineNode));
+}
+
+// Make sure canvases render at 220×220 on screen (equal size)
+function normalizeCanvasSize220(canvas) {
+  if (!canvas) return;
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const css = 220;
+  const px = Math.round(css * dpr);
+  if (canvas.width !== px) canvas.width = px;
+  if (canvas.height !== px) canvas.height = px;
+  canvas.style.width = css + 'px';
+  canvas.style.height = css + 'px';
+  canvas.style.imageRendering = 'pixelated';
+}
+
+  // In renderUrlQR() AFTER successful toCanvas:
+normalizeCanvasSize220(qrCanvas);
+ensureDualQrInline();
+
+// In renderVCardQR() AFTER successful toCanvas:
+normalizeCanvasSize220(canvas);
+if (ph) ph.hidden = true;
+ensureDualQrInline();
+
+// Also call once on DOMContentLoaded after initial renders:
+renderUrlQR();
+renderVCardQR();
+ensureDualQrInline();
+  
   /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
