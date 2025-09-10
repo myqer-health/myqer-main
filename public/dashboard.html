@@ -106,47 +106,87 @@
     #triagePill{padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
     #triagePill.green{background:#DCFCE7;color:var(--green)} #triagePill.amber{background:#FEF3C7;color:#D97706} #triagePill.red{background:#FEE2E2;color:#DC2626} #triagePill.black{background:#F1F5F9;color:var(--slate)}
     #triageOverride{padding:.5rem 1rem;border:1px solid var(--border);border-radius:8px;font-size:.875rem;background:#fff}
+    
+<!-- Emergency Card & QR (REPLACEMENT BLOCK) -->
+    
+<section class="card emergency emergency-card">
+  <div class="ribbon emergency">Emergency</div>
 
-    /* Emergency / QR */
-    .emergency-card{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15)}
-    .qr-section{display:grid;grid-template-columns:auto 1fr;gap:3rem;margin-top:2rem;align-items:start}
-    #qrSlot{position:relative;width:240px;height:240px;background:#fff;border:3px solid rgba(220,38,38,.1);border-radius:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(220,38,38,.1)}
-    #qrSlot::before{content:'';position:absolute;inset:-8px;background:conic-gradient(from 0deg,transparent,rgba(220,38,38,.2),transparent);border-radius:24px;z-index:-1;animation:rotate 3s linear infinite}
-    @keyframes rotate{to{transform:rotate(360deg)}}
-    #qrCanvas{width:200px;height:200px;image-rendering:pixelated;background:#fff;display:none}
-    .qr-placeholder{width:200px;height:200px;background:rgba(220,38,38,.05);border:2px dashed rgba(220,38,38,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:.875rem;text-align:center;font-weight:500}
-    #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
-    #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
+  <div class="card-header">
+    <h2 class="card-title" id="qrTitle">Emergency Card & QR</h2>
+    <p class="card-subtitle" id="qrExplain">QR never changes; it always opens your latest info.</p>
+  </div>
 
-    .qr-controls{display:flex;flex-direction:column;gap:2rem}
-    .qr-url-section{background:rgba(220,38,38,.03);border:1px solid rgba(220,38,38,.1);border-radius:16px;padding:1.5rem}
-    .qr-url-section h4{font-size:.875rem;font-weight:600;color:var(--ink);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
-    #cardUrl{width:100%;padding:.75rem 1rem;border:1px solid rgba(220,38,38,.2);border-radius:8px;font-family:Monaco,Menlo,monospace;font-size:.875rem;background:#fff;color:var(--slate);margin-bottom:1rem}
-    .url-actions{display:flex;gap:.75rem}
-    .btn-secondary{background:#fff;color:var(--red);border:2px solid var(--red);border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer;transition:.2s}
-    .btn-secondary:hover{background:var(--red);color:#fff}
+  <div class="qr-section">
+    <!-- LEFT: URL QR canvas (unchanged) -->
+    <div>
+      <div id="qrSlot">
+        <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code"></canvas>
+        <div class="qr-placeholder" id="qrPlaceholder">
+          <span>QR Code will appear here<br>after saving your profile</span>
+        </div>
+      </div>
+      <p id="codeUnderQR" class="text-mono text-muted"></p>
+      <p id="qrStatus" role="status" aria-live="polite" hidden></p>
+    </div>
 
-  <!-- OFFLINE VCARD PANEL -->
-<div class="vcard-panel">
-  <h4 style="text-transform:uppercase;letter-spacing:.05em;font-size:.875rem;margin-bottom:.75rem;">
-    Offline ICE QR
-  </h4>
-  <div id="vcardSlot">
-    <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"></canvas>
-    <div class="qr-placeholder" id="vcardPlaceholder" hidden>
-      Generate the offline QR
+    <!-- RIGHT: URL controls + vCard trio row -->
+    <div class="qr-controls">
+      <!-- URL section (unchanged) -->
+      <div class="qr-url-section">
+        <h4>Card URL</h4>
+        <input type="text" id="cardUrl" readonly placeholder="https://myqer.com/c/ABC123">
+        <div class="url-actions">
+          <button class="btn-secondary" id="copyLink">Copy Link</button>
+          <button class="btn-secondary" id="openLink">Open Link</button>
+          <button class="btn-secondary" id="dlPNG">Download PNG</button>
+        </div>
+      </div>
+
+      <!-- OFFLINE VCARD PANEL (aligned as: [ONLINE mirror] [OFFLINE QR] [Buttons]) -->
+      <div class="vcard-panel">
+        <h4 style="text-transform:uppercase;letter-spacing:.05em;font-size:.875rem;margin-bottom:.75rem;">
+          Offline ICE QR
+        </h4>
+
+        <!-- Trio row -->
+        <div id="vcardTrioRow"
+             style="display:grid;grid-template-columns:min-content min-content 1fr;gap:24px;align-items:start;">
+          <!-- LEFT: ONLINE QR mirror (JS injects an <img> from #qrCanvas here) -->
+          <div id="vcardMirrorOnline"
+               style="width:220px;height:220px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:center;">
+            <!-- JS will insert <img> -->
+          </div>
+
+          <!-- MIDDLE: OFFLINE vCard QR (real canvas stays here) -->
+          <div id="vcardSlot"
+               style="width:220px;height:220px;border-radius:12px;border:1px solid #fecaca;background:#fff;display:flex;align-items:center;justify-content:center;">
+            <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"
+                    style="display:block;width:220px;height:220px;image-rendering:pixelated;background:#fff;"></canvas>
+            <div class="qr-placeholder" id="vcardPlaceholder" hidden>Generate the offline QR</div>
+          </div>
+
+          <!-- RIGHT: 2×2 actions; JS will ensure the four buttons are here -->
+          <div class="vcard-actions"
+               style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start;">
+            <!-- The script will move these four buttons here (order preserved): -->
+            <button class="btn-secondary" id="openLink"        style="display:none">Open Link</button>
+            <button class="btn-secondary" id="regenVcardBtn"   disabled>Regenerate</button>
+            <button class="btn-secondary" id="dlVcardPNG">Download PNG</button>
+            <button class="btn-secondary" id="printVcard">Print</button>
+          </div>
+        </div>
+        <!-- /Trio row -->
+
+        <p id="vcardHelp" class="help" style="margin-top:10px;">
+          Generated when Country, Blood, Donor and an ICE phone are set. Re-generate and re-print if any change.
+        </p>
+      </div>
+      <!-- /OFFLINE VCARD PANEL -->
     </div>
   </div>
-  <p id="vcardHelp" class="help">
-    Generated when Country, Blood, Donor and an ICE phone are set. Re-generate and re-print if any change.
-  </p>
-  <div class="vcard-actions">
-    <button class="btn-secondary" id="regenVcardBtn" disabled>Regenerate</button>
-    <button class="btn-secondary" id="dlVcardPNG">Download PNG</button>
-    <button class="btn-secondary" id="printVcard">Print</button>
-  </div>
-</div>
-<!-- /OFFLINE VCARD PANEL -->
+</section>
+<!-- /Emergency Card & QR -->
     /* ICE */
     .ice-row{background:rgba(234,88,12,.03);border:1px solid rgba(234,88,12,.1);border-radius:16px;padding:2rem;margin-bottom:1.5rem;transition:.3s;position:relative}
     .ice-row:hover{background:rgba(234,88,12,.05);border-color:rgba(234,88,12,.2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(234,88,12,.1)}
