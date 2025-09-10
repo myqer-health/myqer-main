@@ -875,9 +875,6 @@
   }
 
   /* ---------- Layout helpers: keep QRs aligned + move buttons under red QR ---------- */
-  const DISPLAY_QR_SIZE = 220;
-  const getDPR = () => Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-
   function normalizeCanvasSize220(canvas){
     if (!canvas) return;
     const dpr = getDPR();
