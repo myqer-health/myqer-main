@@ -568,5 +568,225 @@
       if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
+ // ice
+      const li=localStorage.getItem('myqer_ice'); iceContacts=li ? (JSON.parse(li)||[]) : []; window.iceContacts=iceContacts; renderIceContacts();
+    }catch(e){ console.warn('Local fill failed', e); }
+    }
+    function loadFromServer(){
+    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+    return withTimeout(supabase.auth.getSession(),3000,'getSession').then(res=>{
+      if (!res.data?.session) return;
+      return withTimeout(getUserId(),3000,'getUserId').then(uid=>{
+        if (!uid) return;
 
+        // profiles (try snake first, then camel; merge non-empty)
+        const selSnake = supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle();
+        return withTimeout(selSnake,4000,'profiles.select.snake').then(rp=>{
+          if (rp?.data) return rp;
+          const selCamel = supabase.from('profiles').select('*').eq('userId',uid).maybeSingle();
+          return withTimeout(selCamel,4000,'profiles.select.camel');
+        }).then(rp=>{
+          const prof = rp?.data || null;
+          if (prof){
+            const serverProfile = {
+              full_name:     prof.full_name     ?? prof.fullName     ?? '',
+              date_of_birth: prof.date_of_birth ?? prof.dob          ?? '',
+              country:       prof.country       ?? '',
+              national_id:   prof.national_id   ?? prof.healthId     ?? '',
+              code:          prof.code          ?? ''
+            };
+            userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
+            window.userData=userData;
+
+            // adopt server short code if present
+            if (userData.profile && userData.profile.code) {
+              localStorage.setItem('myqer_shortcode', userData.profile.code);
+            }
+            localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
+
+            const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            set('profileFullName', p.full_name);
+            set('profileDob',      p.date_of_birth);
+            set('profileCountry',  p.country);
+            set('profileHealthId', p.national_id);
+          }
+        }).then(()=>{
+          // health
+          return withTimeout(
+            supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
+            4000,
+            'health_data.select'
+          ).then((rh) => {
+            const raw = rh?.data || null; if (!raw) return;
+
+            const norm = {
+              bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
+              allergies:      raw.allergies      != null ? raw.allergies      : (raw.alergy_list || raw.allergy_list),
+              conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
+              medications:    raw.medications    != null ? raw.medications    : raw.meds,
+              implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
+              organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
+              triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
+            };
+
+            userData.health = Object.assign({}, userData.health, norm);
+            localStorage.setItem('myqer_health', JSON.stringify(userData.health));
+
+            const h=userData.health; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            set('hfBloodType',  h.bloodType);
+            set('hfAllergies',  h.allergies);
+            set('hfConditions', h.conditions);
+            set('hfMeds',       h.medications);
+            set('hfImplants',   h.implants);
+            if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
+            if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
+            calculateTriage();
+          });
+        }).then(()=>{
+          // ice
+          return withTimeout(
+            supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),
+            4000,
+            'ice_contacts.select'
+          ).then(ri=>{
+            const ice=ri?.data||[];
+            if (Array.isArray(ice)){
+              iceContacts = ice.map(r=>({name:r.name||'',relationship:r.relationship||'',phone:r.phone||''}));
+              window.iceContacts = iceContacts;
+              localStorage.setItem('myqer_ice', JSON.stringify(iceContacts));
+              renderIceContacts();
+            }
+          });
+        }).then(()=>{
+          // after all loads, draw both QRs
+          renderUrlQR();
+          renderVCardQR();
+        });
+      });
+    }).catch(e=>console.warn('Server load failed', e));
+  }
+
+  /* ---------- buttons ---------- */
+  function wireQRButtons(){
+    // URL QR actions (keep simple)
+    on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
+    on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
+    on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
+
+    // REMOVE old URL SVG/Print handlers if buttons are still present (guarded)
+    const killEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
+    killEl('dlSVG'); killEl('printQR');
+
+    // Offline vCard actions (new)
+    on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
+    on($('dlVcardPNG'),'click',()=> {
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const a=document.createElement('a'); a.download='myqer-offline-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('Offline PNG downloaded','success');
+    });
+    on($('printVcard'),'click',()=> {
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const dataUrl=c.toDataURL('image/png');
+      const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error');
+      const tri = ($('triagePill')?.classList.contains('red') ? 'RED' :
+                   $('triagePill')?.classList.contains('amber') ? 'AMBER' :
+                   $('triagePill')?.classList.contains('black') ? 'BLACK' : 'GREEN');
+      w.document.write(`<html><head><meta charset="utf-8"><title>MYQER Offline ICE QR</title>
+        <style>body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
+        img{width:300px;height:300px;image-rendering:pixelated} .sub{color:#666}</style></head>
+        <body><h1>MYQER™ Offline ICE QR</h1><img src="${dataUrl}" alt="Offline QR">
+        <div class="sub">Triage: ${tri}</div><script>window.onload=()=>setTimeout(()=>print(),200)</script></body></html>`);
+      w.document.close();
+    });
+  }
+
+  /* ---------- delete / logout (clears local 6-char code too) ---------- */
+  function deleteAccount(){
+    const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
+    if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
+    if (!confirm('Are you sure? This permanently deletes your data.')) return;
+
+    const wipeLocal = () => {
+      try {
+        localStorage.removeItem('myqer_shortcode');
+        localStorage.removeItem('myqer_profile');
+        localStorage.removeItem('myqer_health');
+        localStorage.removeItem('myqer_ice');
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (_) {}
+    };
+
+    (function(){
+      if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+      return getUserId().then(uid=>{
+        if (!uid) return;
+        return supabase.from('ice_contacts').delete().eq('user_id',uid)
+          .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
+          .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
+          .catch(e => { console.warn('server delete failed', e); });
+      }).then(()=> supabase.auth.signOut().catch(()=>{}));
+    })().finally(()=>{
+      wipeLocal();
+      location.href = 'index.html';
+    });
+  }
+
+  /* ---------- autosave wiring ---------- */
+  function setupAutoSave(id, fn, delay) {
+    if (!delay && delay !== 0) delay = 600;
+    const el = $(id);
+    if (!el) return;
+    function run() {
+      clearTimeout(autoSaveTimers[id]);
+      autoSaveTimers[id] = setTimeout(() => {
+        Promise.resolve(fn()).catch(e => console.warn('autosave err', e));
+      }, delay);
+    }
+    el.addEventListener('input',  run);
+    el.addEventListener('change', run);
+  }
+
+  /* ---------- DOM ready ---------- */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    updateNetworkStatus();
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+
+    on($('saveProfile'),'click',saveProfile);
+    on($('saveHealth'),'click',saveHealth);
+    on($('saveIce'),'click',saveICE);
+    on($('addIce'),'click',addIceContact);
+    on($('deleteBtn'),'click',deleteAccount);
+    on($('btnSignOut'),'click',()=> (isSupabaseAvailable ? supabase.auth.signOut().catch(()=>{}) : Promise.resolve()).then(()=>{ location.href='index.html'; }));
+
+    on($('iceContactsList'),'input',(e)=>{ const t=e.target, idx=+t.dataset.idx, field=t.dataset.field; if(Number.isInteger(idx)&&field) updateIceContact(idx, field, t.value); });
+    on($('iceContactsList'),'click',(e)=>{ const btn=e.target.closest?.('[data-act]'); if(!btn) return; const idx=+btn.dataset.idx;
+      if(btn.dataset.act==='del'){ iceContacts.splice(idx,1); persistIceLocally(); renderIceContacts(); saveICEToServer().catch(()=>{}); renderUrlQR(); renderVCardQR(); toast('Contact removed','success'); }
+      else if(btn.dataset.act==='save'){ saveICE(); }
+    });
+
+    ['hfAllergies','hfConditions'].forEach(id=> on($(id),'input',calculateTriage));
+    on($('triageOverride'),'change',()=>{ calculateTriage(); saveHealth(); });
+
+    ['profileFullName','profileDob','profileCountry','profileHealthId'].forEach(id=> setupAutoSave(id, saveProfile));
+    ['hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants','hfDonor'].forEach(id=> setupAutoSave(id, saveHealth));
+
+    wireQRButtons();
+
+    fillFromLocal();
+    renderUrlQR();             // draw URL QR from whatever we have
+    renderVCardQR();           // draw offline QR if ready
+    loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); });
+
+    const loading=$('loadingState'); if (loading) loading.style.display='none';
+    setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
+  });
+
+  // never-stuck loader guards
+  window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
+  window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
+
+  // light heartbeat (helps some hosting keep the worker warm)
+  setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
+})();
       
