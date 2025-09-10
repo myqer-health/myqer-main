@@ -171,52 +171,16 @@
 
   /* ---------- OFFLINE VCARD HELPERS ---------- */
   // NEW: readiness + triage color (the missing bits that stopped drawing)
-  function isOfflineReady() {
-    const p = userData?.profile || {};
-    const h = userData?.health  || {};
-    const hasICE = (Array.isArray(iceContacts) && iceContacts[0] && iceContacts[0].phone && iceContacts[0].name);
-    return Boolean(p.country && h.bloodType && (h.organDonor === true || h.organDonor === false) && hasICE);
-  }
-  const TRIAGE_COLOR = { RED:'#E11D48', AMBER:'#F59E0B', GREEN:'#16A34A', BLACK:'#111827' };
-  function currentTriageHex() {
-    const pill = $('triagePill');
-    if (!pill) return TRIAGE_COLOR.GREEN;
-    if (pill.classList.contains('red'))   return TRIAGE_COLOR.RED;
-    if (pill.classList.contains('amber')) return TRIAGE_COLOR.AMBER;
-    if (pill.classList.contains('black')) return TRIAGE_COLOR.BLACK;
-    return TRIAGE_COLOR.GREEN;
-  }
-
-  // vCard escaping + date format
-  function vCardEscape(s='') {
-    return String(s)
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\r?\n/g, '\\n');
-  }
-  function formatBDAY(d='') {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
-    return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
-  }
-
-// Replace your existing buildVCardPayload() with this:
-function buildVCardPayload(shortUrl) {
+  function buildVCardPayload(shortUrl) {
   const p   = (window.userData && window.userData.profile) || {};
   const h   = (window.userData && window.userData.health)  || {};
-  const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null; // first ICE
-
-  // use whichever escape helper exists (vCardEscape or vcardEscape)
-  const esc = (typeof window.vCardEscape === 'function')
-    ? window.vCardEscape
-    : (typeof window.vcardEscape === 'function' ? window.vcardEscape : (s)=>String(s));
+  const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null;
 
   const fullName = (p.full_name ?? p.fullName ?? '').trim();
-  const parts = fullName.split(/\s+/);
-  const first = parts[0] || '';
-  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+  const [first = '', ...rest] = fullName.split(/\s+/);
+  const last = rest.length ? rest[rest.length - 1] : '';
 
-  // TRIAGE text from the pill classes
+  // Pill -> TRIAGE text
   const triageText = (() => {
     const pill = document.getElementById('triagePill');
     if (!pill) return 'GREEN';
@@ -226,8 +190,8 @@ function buildVCardPayload(shortUrl) {
     return 'GREEN';
   })();
 
-  // Structured NOTE — one line per item (clean and readable)
-  const noteParts = [
+  // Compose a multiline NOTE first (real \n), then escape to vCard-safe with \n -> \\n
+  const rawNote = [
     `Country: ${p.country || '—'}`,
     `Blood type: ${h.bloodType || '—'}`,
     `Donor: ${h.organDonor ? 'Y' : 'N'}`,
@@ -236,21 +200,31 @@ function buildVCardPayload(shortUrl) {
     h.conditions  ? `Conditions: ${h.conditions}`   : '',
     h.medications ? `Medication: ${h.medications}`  : '',
     ice?.phone    ? `ICE: ${ice.phone}`             : ''
-  ].filter(Boolean);
+  ].filter(Boolean).join('\n');
 
-  // join with newline; keep a safe length so the QR stays easy to scan
-  let note = noteParts.join('\n');
-  if (note.length > 600) note = note.slice(0, 597) + '…';
+  // Keep QR compact; then escape (vCard 3.0: \\, \;, \,, \n)
+  let trimmed = rawNote.length > 400 ? (rawNote.slice(0, 397) + '…') : rawNote;
+  const note = trimmed
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+
+  const bday = (() => {
+    const d = p.date_of_birth ?? p.dob ?? '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
+  })();
 
   return [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    `N:${esc(last)};${esc(first)};;;`,
-    `FN:${esc(fullName || `${first} ${last}`.trim())}`,
-    `BDAY:${typeof formatBDAY === 'function' ? formatBDAY(p.date_of_birth ?? p.dob ?? '') : (p.date_of_birth ?? p.dob ?? '')}`,
-    `TEL;TYPE=CELL:${esc(ice?.phone || '')}`,
-    `URL:${esc(shortUrl)}`,
-    `NOTE:${esc(note)}`,
+    `N:${last.replace(/,/g,'\\,')};${first.replace(/,/g,'\\,')};;;`,
+    `FN:${(fullName || `${first} ${last}`.trim()).replace(/,/g,'\\,')}`,
+    `BDAY:${bday}`,
+    `TEL;TYPE=CELL:${(ice?.phone || '').replace(/,/g,'\\,')}`,
+    `URL:${(shortUrl || '').replace(/,/g,'\\,')}`,
+    `NOTE:${note}`,
     'END:VCARD'
   ].join('\r\n');
 }
