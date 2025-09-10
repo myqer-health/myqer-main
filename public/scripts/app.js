@@ -1,19 +1,13 @@
-<script>
 // /public/scripts/app.js
-// Dashboard logic with stable URL QR + separate offline vCard QR.
-// IMPORTANT: vCard QR size is controlled by QR_VCARD_PX (AND CSS #vcardCanvas width/height).
+// Dashboard logic with stable URL QR + separate offline vCard QR (200px inside 240px tile).
 (function () {
-  /* ===== CONFIG (edit size here & in CSS #vcardCanvas) ===== */
-  const QR_URL_PX   = 200;   // black URL QR actual pixels
-  const QR_VCARD_PX = 200;   // orange vCard QR actual pixels (keep equal to black to match visually)
-  const QR_MARGIN   = 1;
-
   /* ---------- tiny helpers ---------- */
   const $  = (id) => document.getElementById(id);
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn, { passive: true });
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
 
+  // Merge only non-empty values from src into target (prevents blanking fields)
   function mergeNonEmpty(target, src){
     const out = { ...(target || {}) };
     for (const k in src){
@@ -23,6 +17,7 @@
     return out;
   }
 
+  // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
   function normalizeDOB(s) {
     if (!s) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -42,8 +37,10 @@
   let userData = { profile: {}, health: {} };
   let iceContacts = [];
 
+  // Allowed chars (no O/0/I/1). We use a 6-character code.
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const autoSaveTimers = {};
+
+  const autoSaveTimers = {}; // needed for autosave debounce
   window.userData = userData; window.iceContacts = iceContacts;
 
   /* ---------- Supabase init ---------- */
@@ -99,7 +96,7 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- short code ---------- */
+  /* ---------- SHORT CODE / URL (permanent 6-char code) ---------- */
   function makeShort6(){
     return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
   }
@@ -108,6 +105,7 @@
     const valid = /^[A-HJ-NP-Z2-9]{6}$/;
     let local = localStorage.getItem('myqer_shortcode');
 
+    // If we’re offline / no Supabase, keep local (or mint once)
     if (!(isSupabaseAvailable && isOnline)) {
       if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
       return local;
@@ -119,12 +117,14 @@
       return local;
     }
 
+    // 1) Try to read existing code from server and adopt it
     const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
     if (prof && valid.test(prof.code||'')) {
       localStorage.setItem('myqer_shortcode', prof.code);
       return prof.code;
     }
 
+    // 2) No server code -> create one (respecting uniqueness)
     let code = valid.test(local||'') ? local : makeShort6();
     localStorage.setItem('myqer_shortcode', code);
 
@@ -141,7 +141,7 @@
         continue;
       }
       console.warn('shortcode upsert err:', error);
-      return code;
+      return code; // fallback
     }
     return code;
   }
@@ -169,7 +169,18 @@
     return qrLibReady;
   }
 
-  /* ---------- Offline vCard readiness + triage color ---------- */
+  /* ---------- OFFLINE VCARD HELPERS ---------- */
+  function vCardEscape(s='') {
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
+  function formatBDAY(d='') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
+  }
   function isOfflineReady() {
     const p = (window.userData && window.userData.profile) || {};
     const h = (window.userData && window.userData.health)  || {};
@@ -178,11 +189,9 @@
       window.iceContacts[0] &&
       window.iceContacts[0].phone &&
       window.iceContacts[0].name;
-
     const donorSet = (h.organDonor === true || h.organDonor === false);
     return Boolean(p.country && h.bloodType && donorSet && hasICE);
   }
-
   const TRIAGE_COLOR = { RED:'#E11D48', AMBER:'#F59E0B', GREEN:'#16A34A', BLACK:'#111827' };
   function currentTriageHex() {
     const pill = $('triagePill');
@@ -192,30 +201,17 @@
     if (pill.classList.contains('black')) return TRIAGE_COLOR.BLACK;
     return TRIAGE_COLOR.GREEN;
   }
-
-  /* ---------- vCard helpers ---------- */
-  function vcardEscape(s=''){
-    return String(s)
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\r?\n/g, '\\n');
-  }
-  function formatBDAY(d=''){
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
-    return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
-  }
   function buildVCardPayload(shortUrl) {
-    const p   = window.userData?.profile || {};
-    const h   = window.userData?.health  || {};
+    const p   = (window.userData && window.userData.profile) || {};
+    const h   = (window.userData && window.userData.health)  || {};
     const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null;
 
     const fullName = (p.full_name ?? p.fullName ?? '').trim();
     const parts = fullName.split(/\s+/);
     const first = parts[0] || '';
-    const last  = parts.length > 1 ? parts[parts.length-1] : '';
+    const last  = parts.length > 1 ? parts[parts.length - 1] : '';
 
-    const triageText = (()=>{
+    const triageText = (() => {
       const pill = $('triagePill');
       if (!pill) return 'GREEN';
       if (pill.classList.contains('red'))   return 'RED';
@@ -224,7 +220,7 @@
       return 'GREEN';
     })();
 
-    const rawNote = [
+    const noteParts = [
       `Country: ${p.country || '—'}`,
       `Blood type: ${h.bloodType || '—'}`,
       `Donor: ${h.organDonor ? 'Y' : 'N'}`,
@@ -233,27 +229,41 @@
       h.conditions  ? `Conditions: ${h.conditions}`   : '',
       h.medications ? `Medication: ${h.medications}`  : '',
       ice?.phone    ? `ICE: ${ice.phone}`             : ''
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean);
 
-    let trimmed = rawNote.length > 400 ? (rawNote.slice(0, 397) + '…') : rawNote;
-    const note = vcardEscape(trimmed);
+    let note = noteParts.join('\n');
+    if (note.length > 400) note = note.slice(0, 397) + '…';
+    note = vCardEscape(note);
 
     return [
       'BEGIN:VCARD',
       'VERSION:3.0',
-      `N:${vcardEscape(last)};${vcardEscape(first)};;;`,
-      `FN:${vcardEscape(fullName || `${first} ${last}`.trim())}`,
+      `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
+      `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
       `BDAY:${formatBDAY(p.date_of_birth ?? p.dob ?? '')}`,
-      `TEL;TYPE=CELL:${vcardEscape(ice?.phone || '')}`,
-      `URL:${vcardEscape(shortUrl)}`,
+      `TEL;TYPE=CELL:${vCardEscape(ice?.phone || '')}`,
+      `URL:${vCardEscape(shortUrl)}`,
       `NOTE:${note}`,
       'END:VCARD'
     ].join('\r\n');
   }
+  function styleVcardCanvas () {
+    const c = $('vcardCanvas');
+    if (!c) return;
+    // match the black QR tile look (visuals only)
+    c.style.background      = '#fff';
+    c.style.borderRadius    = '12px';
+    c.style.padding         = '8px';
+    c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
+    c.style.width           = '200px';
+    c.style.height          = '200px';
+    c.style.imageRendering  = 'pixelated';
+    c.style.display         = 'block';
+  }
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
-    const qrCanvas    = $('qrCanvas');
+    const qrCanvas    = $('qrCanvas');        // URL QR canvas (inside #qrSlot 240px)
     const codeUnderQR = $('codeUnderQR');
     const cardUrlInput= $('cardUrl');
     const qrStatus    = $('qrStatus');
@@ -274,7 +284,7 @@
         window.QRCode.toCanvas(
           qrCanvas,
           shortUrl,
-          { width: QR_URL_PX, margin: QR_MARGIN, errorCorrectionLevel: 'M' },
+          { width: 200, margin: 1, errorCorrectionLevel: 'M' }, // 200px canvas inside 240px tile
           err => err ? reject(err) : resolve()
         )
       );
@@ -289,10 +299,10 @@
 
   /* ---------- vCard QR (offline ICE) ---------- */
   async function renderVCardQR() {
-    const canvas = $('vcardCanvas');
-    const help   = $('vcardHelp');
-    const regen  = $('regenVcardBtn');
-    const ph     = $('vcardPlaceholder');
+    const canvas = $('vcardCanvas');       // offline canvas (inside #vcardSlot 240px)
+    const help   = $('vcardHelp');         // helper text
+    const regen  = $('regenVcardBtn');     // regenerate button
+    const ph     = $('vcardPlaceholder');  // placeholder message
     const ready  = isOfflineReady();
 
     if (!canvas && !help && !regen && !ph) return;
@@ -325,8 +335,8 @@
           canvas,
           vcard,
           {
-            width: QR_VCARD_PX,         // keep in sync with CSS #vcardCanvas width/height
-            margin: QR_MARGIN,
+            width: 200,          // draw 200px canvas inside 240px tile (same as URL QR)
+            margin: 1,
             errorCorrectionLevel: 'Q',
             color: { dark, light: '#FFFFFF' }
           },
@@ -334,9 +344,9 @@
         )
       );
 
-      // Show the QR, hide the placeholder
       canvas.style.display = 'block';
       if (ph) ph.hidden = true;
+      styleVcardCanvas();
     } catch (e) {
       console.error('vCard QR error:', e);
       if (ph) ph.hidden = false;
@@ -372,10 +382,7 @@
       box.appendChild(row);
     });
     const addBtn=$('addIce');
-    if (addBtn){
-      if (iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; }
-      else { addBtn.disabled=false; addBtn.textContent='Add Emergency Contact'; }
-    }
+    if (addBtn){ if (iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; } else { addBtn.disabled=false; addBtn.textContent='Add Emergency Contact'; } }
   }
   const persistIceLocally = ()=>{ localStorage.setItem('myqer_ice', JSON.stringify(iceContacts||[])); window.iceContacts=iceContacts; };
   function addIceContact(){ if (!Array.isArray(iceContacts)) iceContacts=[]; if (iceContacts.length>=3) return toast('Maximum 3 emergency contacts allowed','error'); iceContacts.push({name:'',relationship:'',phone:''}); persistIceLocally(); renderIceContacts(); }
@@ -407,6 +414,7 @@
       if (!uid) return;
       const code = await ensureShortCode();
 
+      // Detect schema
       let schema = 'snake';
       try {
         const probe = await supabase.from('profiles').select('user_id').limit(1);
@@ -537,6 +545,7 @@
   /* ---------- Load (local-first, server-sync) ---------- */
   function fillFromLocal(){
     try{
+      // profile
       const lp=localStorage.getItem('myqer_profile'); if (lp) userData.profile=JSON.parse(lp)||{};
       window.userData=userData;
       const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
@@ -545,6 +554,7 @@
       set('profileCountry',  p.country);
       set('profileHealthId', p.national_id ?? p.healthId);
 
+      // health
       const lh = localStorage.getItem('myqer_health');
       if (lh) {
         try {
@@ -571,8 +581,9 @@
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
 
+      // ice
       const li=localStorage.getItem('myqer_ice');
-      iceContacts=li ? (JSON.parse(li)||[]) : [];
+      iceContacts = li ? (JSON.parse(li)||[]) : [];
       window.iceContacts=iceContacts;
       renderIceContacts();
     }catch(e){ console.warn('Local fill failed', e); }
@@ -585,6 +596,7 @@
       return withTimeout(getUserId(),3000,'getUserId').then(uid=>{
         if (!uid) return;
 
+        // profiles (try snake first, then camel; merge non-empty)
         const selSnake = supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle();
         return withTimeout(selSnake,4000,'profiles.select.snake').then(rp=>{
           if (rp?.data) return rp;
@@ -603,6 +615,7 @@
             userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
 
+            // adopt server short code if present
             if (userData.profile && userData.profile.code) {
               localStorage.setItem('myqer_shortcode', userData.profile.code);
             }
@@ -615,11 +628,14 @@
             set('profileHealthId', p.national_id);
           }
         }).then(()=>{
+          // health
           return withTimeout(
             supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
-            4000,'health_data.select'
+            4000,
+            'health_data.select'
           ).then((rh) => {
             const raw = rh?.data || null; if (!raw) return;
+
             const norm = {
               bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
               allergies:      raw.allergies      != null ? raw.allergies      : (raw.alergy_list || raw.allergy_list),
@@ -629,6 +645,7 @@
               organDonor:     raw.organDonor     != null ? raw.organDonor     : raw.organ_donor,
               triageOverride: raw.triageOverride != null ? raw.triageOverride : raw.triage_override
             };
+
             userData.health = Object.assign({}, userData.health, norm);
             localStorage.setItem('myqer_health', JSON.stringify(userData.health));
 
@@ -643,9 +660,11 @@
             calculateTriage();
           });
         }).then(()=>{
+          // ice
           return withTimeout(
             supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),
-            4000,'ice_contacts.select'
+            4000,
+            'ice_contacts.select'
           ).then(ri=>{
             const ice=ri?.data||[];
             if (Array.isArray(ice)){
@@ -656,6 +675,7 @@
             }
           });
         }).then(()=>{
+          // after all loads, draw both QRs
           renderUrlQR();
           renderVCardQR();
         });
@@ -665,13 +685,16 @@
 
   /* ---------- buttons ---------- */
   function wireQRButtons(){
+    // URL QR actions
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
     on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
 
+    // Guard: hide legacy URL SVG/Print buttons if present
     const killEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
     killEl('dlSVG'); killEl('printQR');
 
+    // Offline vCard actions
     on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
     on($('dlVcardPNG'),'click',()=> {
       const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
@@ -690,6 +713,38 @@
         <body><h1>MYQER™ Offline ICE QR</h1><img src="${dataUrl}" alt="Offline QR">
         <div class="sub">Triage: ${tri}</div><script>window.onload=()=>setTimeout(()=>print(),200)</script></body></html>`);
       w.document.close();
+    });
+  }
+
+  /* ---------- delete / logout (clears local 6-char code too) ---------- */
+  function deleteAccount(){
+    const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
+    if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
+    if (!confirm('Are you sure? This permanently deletes your data.')) return;
+
+    const wipeLocal = () => {
+      try {
+        localStorage.removeItem('myqer_shortcode');
+        localStorage.removeItem('myqer_profile');
+        localStorage.removeItem('myqer_health');
+        localStorage.removeItem('myqer_ice');
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (_) {}
+    };
+
+    (function(){
+      if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+      return getUserId().then(uid=>{
+        if (!uid) return;
+        return supabase.from('ice_contacts').delete().eq('user_id',uid)
+          .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
+          .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
+          .catch(e => { console.warn('server delete failed', e); });
+      }).then(()=> supabase.auth.signOut().catch(()=>{}));
+    })().finally(()=>{
+      wipeLocal();
+      location.href = 'index.html';
     });
   }
 
@@ -736,17 +791,18 @@
     wireQRButtons();
 
     fillFromLocal();
-    renderUrlQR();
-    renderVCardQR();
+    renderUrlQR();             // draw URL QR from whatever we have
+    renderVCardQR();           // draw offline QR if ready
     loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); });
 
     const loading=$('loadingState'); if (loading) loading.style.display='none';
     setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
   });
 
+  // never-stuck loader guards
   window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
   window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 
+  // light heartbeat (helps some hosting keep the worker warm)
   setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
 })();
-</script>
