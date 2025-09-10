@@ -328,7 +328,7 @@ function buildOfflineText(shortUrl) {
       if (!uid) return;
 
       // Permanent code: generate once if missing, otherwise keep as-is
-      const code = await generateShortCode();
+      const code = await ensureShortCode();
 
       // Detect schema: try a snake-only column; if it errors, assume camel
       let schema = 'snake';
