@@ -1,8 +1,5 @@
 // /public/scripts/app.js
-// Dashboard logic with stable URL QR + separate offline vCard QR.
-// Updated: vCard section shows a 3-column row: [ONLINE QR] [OFFLINE QR] [Buttons 2×2].
-// Download/Print from vCard outputs a single branded card containing BOTH QRs.
-
+// Dashboard logic with stable URL QR + separate offline vCard QR (200px inside 240px tile).
 (function () {
   /* ---------- tiny helpers ---------- */
   const $  = (id) => document.getElementById(id);
@@ -10,6 +7,7 @@
   const withTimeout = (p, ms, label) =>
     Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error((label||'promise')+' timed out')), ms))]);
 
+  // Merge only non-empty values from src into target (prevents blanking fields)
   function mergeNonEmpty(target, src){
     const out = { ...(target || {}) };
     for (const k in src){
@@ -19,6 +17,7 @@
     return out;
   }
 
+  // Normalize date input to YYYY-MM-DD (for <input type="date"> + server)
   function normalizeDOB(s) {
     if (!s) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -38,8 +37,10 @@
   let userData = { profile: {}, health: {} };
   let iceContacts = [];
 
+  // Allowed chars (no O/0/I/1). We use a 6-character code.
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const autoSaveTimers = {};
+
+  const autoSaveTimers = {}; // needed for autosave debounce
   window.userData = userData; window.iceContacts = iceContacts;
 
   /* ---------- Supabase init ---------- */
@@ -97,7 +98,7 @@
     updateTriagePill((allergies || conditions) ? 'amber' : 'green');
   }
 
-  /* ---------- short code ---------- */
+  /* ---------- SHORT CODE / URL (permanent 6-char code) ---------- */
   function makeShort6(){
     return Array.from({length:6},()=>CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)]).join('');
   }
@@ -106,6 +107,7 @@
     const valid = /^[A-HJ-NP-Z2-9]{6}$/;
     let local = localStorage.getItem('myqer_shortcode');
 
+    // If we’re offline / no Supabase, keep local (or mint once)
     if (!(isSupabaseAvailable && isOnline)) {
       if (!valid.test(local||'')) { local = makeShort6(); localStorage.setItem('myqer_shortcode', local); }
       return local;
@@ -117,12 +119,14 @@
       return local;
     }
 
+    // 1) Try to read existing code from server and adopt it
     const { data: prof } = await supabase.from('profiles').select('code').eq('user_id', uid).maybeSingle();
     if (prof && valid.test(prof.code||'')) {
       localStorage.setItem('myqer_shortcode', prof.code);
       return prof.code;
     }
 
+    // 2) No server code -> create one (respecting uniqueness)
     let code = valid.test(local||'') ? local : makeShort6();
     localStorage.setItem('myqer_shortcode', code);
 
@@ -139,12 +143,12 @@
         continue;
       }
       console.warn('shortcode upsert err:', error);
-      return code;
+      return code; // fallback
     }
     return code;
   }
 
-  /* ============= QR library ============= */
+  /* ============= QR CODE loader ============= */
   let qrLibReady = null;
   function loadQRCodeLib(){
     if (window.QRCode) return Promise.resolve();
@@ -167,9 +171,13 @@
     return qrLibReady;
   }
 
-  /* ---------- vCard helpers ---------- */
+  /* ---------- OFFLINE VCARD HELPERS ---------- */
   function vCardEscape(s='') {
-    return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
   }
   function formatBDAY(d='') {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
@@ -203,8 +211,7 @@
     const fullName = (p.full_name ?? p.fullName ?? '').trim();
     const parts = fullName.split(/\s+/);
     const first = parts[0] || '';
-    theLast = parts.length > 1 ? parts[parts.length - 1] : ''; // keep variable unique
-    const last = theLast;
+    const last  = parts.length > 1 ? parts[parts.length - 1] : '';
 
     const triageText = (() => {
       const pill = $('triagePill');
@@ -242,133 +249,22 @@
       'END:VCARD'
     ].join('\r\n');
   }
-
-  /* ---------- Layout (three-column row in vCard section) ---------- */
-  const DISPLAY_QR_SIZE = 220;
-  const getDPR = () => Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-
-  function prepQrCanvas(canvas){
-    if (!canvas) return;
-    const dpr = getDPR();
-    const px = Math.round(DISPLAY_QR_SIZE * dpr);
-    if (canvas.width !== px) canvas.width = px;  // set once before drawing
-    if (canvas.height !== px) canvas.height = px;
-    canvas.style.width  = DISPLAY_QR_SIZE + 'px';
-    canvas.style.height = DISPLAY_QR_SIZE + 'px';
-    canvas.style.imageRendering = 'pixelated';
-    canvas.style.display = 'block';
-    canvas.style.background = '#fff';
+  function styleVcardCanvas () {
+    const c = $('vcardCanvas');
+    if (!c) return;
+    c.style.background      = '#fff';
+    c.style.borderRadius    = '12px';
+    c.style.padding         = '8px';
+    c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
+    c.style.width           = '200px';
+    c.style.height          = '200px';
+    c.style.imageRendering  = 'pixelated';
+    c.style.display         = 'block';
   }
 
-  function ensureVcardTrioRow(){
-    const vcardCanvas = $('vcardCanvas');
-    const vcardContainer = vcardCanvas ? vcardCanvas.parentElement : null;
-    if (!vcardContainer) return;
-
-    // Host row inside the vCard section (grid: 3 columns)
-    let host = $('vcardTrioRow');
-    if (!host){
-      host = document.createElement('div');
-      host.id = 'vcardTrioRow';
-      host.style.display = 'grid';
-      host.style.gridTemplateColumns = `min-content min-content 1fr`;
-      host.style.alignItems = 'start';
-      host.style.columnGap = '24px';
-      host.style.rowGap = '8px';
-      host.style.marginTop = '8px';
-      // Insert host at top of vCard container
-      vcardContainer.parentElement && vcardContainer.parentElement.insertBefore(host, vcardContainer);
-    }
-
-    // Left: ONLINE QR mirror (image cloned from #qrCanvas)
-    let left = $('vcardMirrorOnline');
-    if (!left){
-      left = document.createElement('div');
-      left.id = 'vcardMirrorOnline';
-      left.style.width = DISPLAY_QR_SIZE + 'px';
-      left.style.height = DISPLAY_QR_SIZE + 'px';
-      left.style.borderRadius = '12px';
-      left.style.border = '1px solid #e5e7eb';
-      left.style.background = '#fff';
-      left.style.display = 'flex';
-      left.style.alignItems = 'center';
-      left.style.justifyContent = 'center';
-      host.appendChild(left);
-    }
-
-    // Middle: OFFLINE QR slot (we move the actual canvas here)
-    let mid = $('vcardQrCell');
-    if (!mid){
-      mid = document.createElement('div');
-      mid.id = 'vcardQrCell';
-      mid.style.width = DISPLAY_QR_SIZE + 'px';
-      mid.style.height = DISPLAY_QR_SIZE + 'px';
-      mid.style.borderRadius = '12px';
-      mid.style.border = '1px solid #fecaca';
-      mid.style.background = '#fff';
-      mid.style.display = 'flex';
-      mid.style.alignItems = 'center';
-      mid.style.justifyContent = 'center';
-      host.appendChild(mid);
-    }
-
-    // Right: 2×2 buttons grid
-    let actions = $('vcardButtonsCol');
-    if (!actions){
-      actions = document.createElement('div');
-      actions.id = 'vcardButtonsCol';
-      actions.style.display = 'grid';
-      actions.style.gridTemplateColumns = '1fr 1fr';
-      actions.style.gap = '10px 12px';
-      actions.style.alignContent = 'start';
-      host.appendChild(actions);
-    }
-
-    // Mount/mirror nodes
-    // Mirror ONLINE QR as <img> so we don't move the original canvas
-    const urlC = $('qrCanvas');
-    if (urlC && urlC.width > 0){
-      const src = urlC.toDataURL('image/png');
-      let img = left.querySelector('img');
-      if (!img){ img = new Image(); img.alt = 'ONLINE QR'; img.style.width='220px'; img.style.height='220px'; img.style.imageRendering='pixelated'; left.appendChild(img); }
-      if (img.src !== src) img.src = src;
-    }
-
-    // Move the real vcardCanvas into the middle cell (keeps existing IDs/handlers)
-    if (vcardCanvas && vcardCanvas.parentElement !== mid){
-      mid.innerHTML = '';
-      mid.appendChild(vcardCanvas);
-      vcardCanvas.style.borderRadius = '12px';
-      vcardCanvas.style.boxShadow = '0 8px 32px rgba(220,38,38,.10)';
-    }
-
-    // Buttons: Open Link, Regenerate, Download PNG, Print
-    const order = ['openLink','regenVcardBtn','dlVcardPNG','printVcard'];
-    order.forEach(id => {
-      const btn = $(id);
-      if (btn && btn.parentElement !== actions) actions.appendChild(btn);
-      if (btn) btn.style.display = '';
-    });
-
-    // Hide the old dashed placeholder when QR is real
-    const ph = $('vcardPlaceholder');
-    if (ph && vcardCanvas && vcardCanvas.style.display !== 'none') ph.hidden = true;
-  }
-
-  function refreshVcardTrioMirror(){
-    // Update the left mirrored ONLINE QR image
-    const left = $('vcardMirrorOnline');
-    const urlC = $('qrCanvas');
-    if (!left || !urlC || urlC.width === 0) return;
-    const img = left.querySelector('img');
-    if (!img) return;
-    const src = urlC.toDataURL('image/png');
-    if (img.src !== src) img.src = src;
-  }
-
-  /* ---------- URL QR ---------- */
+  /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
-    const qrCanvas    = $('qrCanvas');
+    const qrCanvas    = $('qrCanvas');        // URL QR canvas (inside #qrSlot 240px)
     const codeUnderQR = $('codeUnderQR');
     const cardUrlInput= $('cardUrl');
     const qrStatus    = $('qrStatus');
@@ -377,38 +273,37 @@
     try {
       await loadQRCodeLib();
       const code = await ensureShortCode();
-      const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
+      const base = (location?.origin || 'https://myqer.com')
+        .replace(/\/$/, '')
+        .replace('://www.', '://');
       const shortUrl = `${base}/c/${code}`;
 
       if (codeUnderQR) codeUnderQR.textContent = code;
       if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      prepQrCanvas(qrCanvas);
       await new Promise((resolve, reject) =>
         window.QRCode.toCanvas(
           qrCanvas,
           shortUrl,
-          { width: qrCanvas.width, margin: 1, errorCorrectionLevel: 'M' },
+          { width: 200, margin: 1, errorCorrectionLevel: 'M' }, // 200px canvas inside 240px tile
           err => err ? reject(err) : resolve()
         )
       );
 
       qrCanvas.style.display = 'block';
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
-      ensureVcardTrioRow();
-      refreshVcardTrioMirror();
     } catch (err) {
       console.error('URL QR error:', err);
       if (qrStatus) { qrStatus.textContent='⚠️ Couldn’t draw QR. Please try again.'; qrStatus.hidden=false; }
     }
   }
 
-  /* ---------- vCard QR ---------- */
+  /* ---------- vCard QR (offline ICE) ---------- */
   async function renderVCardQR() {
-    const canvas = $('vcardCanvas');
-    const help   = $('vcardHelp');
-    const regen  = $('regenVcardBtn');
-    const ph     = $('vcardPlaceholder');
+    const canvas = $('vcardCanvas');       // offline canvas (inside #vcardSlot 240px)
+    const help   = $('vcardHelp');         // helper text
+    const regen  = $('regenVcardBtn');     // regenerate button
+    const ph     = $('vcardPlaceholder');  // placeholder message
     const ready  = isOfflineReady();
 
     if (!canvas && !help && !regen && !ph) return;
@@ -423,45 +318,44 @@
     if (!ready || !canvas) {
       if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
-      ensureVcardTrioRow(); // still builds row so buttons are visible (educational)
-      refreshVcardTrioMirror();
       return;
     }
 
     try {
       await loadQRCodeLib();
-
       const code = await ensureShortCode();
-      const base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
+      const base = (location?.origin || 'https://myqer.com')
+        .replace(/\/$/, '')
+        .replace('://www.', '://');
       const shortUrl = `${base}/c/${code}`;
       const vcard = buildVCardPayload(shortUrl);
       const dark  = currentTriageHex();
 
-      prepQrCanvas(canvas);
       await new Promise((resolve, reject) =>
         window.QRCode.toCanvas(
           canvas,
           vcard,
-          { width: canvas.width, margin: 1, errorCorrectionLevel: 'Q', color: { dark, light: '#FFFFFF' } },
+          {
+            width: 200,          // draw 200px canvas inside 240px tile (same as URL QR)
+            margin: 1,
+            errorCorrectionLevel: 'Q',
+            color: { dark, light: '#FFFFFF' }
+          },
           err => err ? reject(err) : resolve()
         )
       );
 
       canvas.style.display = 'block';
       if (ph) ph.hidden = true;
-
-      ensureVcardTrioRow();
-      refreshVcardTrioMirror();
+      styleVcardCanvas();
     } catch (e) {
       console.error('vCard QR error:', e);
       if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
-      ensureVcardTrioRow();
-      refreshVcardTrioMirror();
     }
   }
 
-  /* ---------- Emergency contacts (unchanged) ---------- */
+  /* ---------- ICE ---------- */
   function renderIceContacts(){
     const box=$('iceContactsList'); if (!box) return;
     box.innerHTML='';
@@ -515,33 +409,50 @@
       .catch(e=>{ console.error(e); toast('Error saving emergency contacts','error'); });
   }
 
-  /* ---------- Profile & Health (unchanged) ---------- */
+  /* ---------- Profile & Health ---------- */
   function upsertProfileSmart(rowBase){
     return getUserId().then(async (uid)=>{
       if (!uid) return;
       const code = await ensureShortCode();
 
+      // Detect schema
       let schema = 'snake';
       try {
         const probe = await supabase.from('profiles').select('user_id').limit(1);
         if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
       } catch (_) { schema = 'camel'; }
 
-      const snakeRow = { user_id: uid, code,
-        full_name: rowBase.full_name, date_of_birth: rowBase.date_of_birth,
-        country: rowBase.country, national_id: rowBase.national_id };
-      const camelRow = { userId: uid, code,
-        fullName: rowBase.full_name, dob: rowBase.date_of_birth,
-        country: rowBase.country, healthId: rowBase.national_id };
+      const snakeRow = {
+        user_id:       uid,
+        code,
+        full_name:     rowBase.full_name,
+        date_of_birth: rowBase.date_of_birth,
+        country:       rowBase.country,
+        national_id:   rowBase.national_id
+      };
+      const camelRow = {
+        userId:   uid,
+        code,
+        fullName: rowBase.full_name,
+        dob:      rowBase.date_of_birth,
+        country:  rowBase.country,
+        healthId: rowBase.national_id
+      };
 
       async function upsertSnake(){
         const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
         if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+
         if (existing.data){
-          const { error } = await supabase.from('profiles').update({
-            full_name: snakeRow.full_name, date_of_birth: snakeRow.date_of_birth,
-            country: snakeRow.country, national_id: snakeRow.national_id, code: snakeRow.code
-          }).eq('user_id', uid);
+          const { error } = await supabase.from('profiles')
+            .update({
+              full_name:     snakeRow.full_name,
+              date_of_birth: snakeRow.date_of_birth,
+              country:       snakeRow.country,
+              national_id:   snakeRow.national_id,
+              code:          snakeRow.code
+            })
+            .eq('user_id', uid);
           if (error) throw error;
         } else {
           const { error } = await supabase.from('profiles').insert(snakeRow);
@@ -552,11 +463,17 @@
       async function upsertCamel(){
         const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
         if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+
         if (existing.data){
-          const { error } = await supabase.from('profiles').update({
-            fullName: camelRow.fullName, dob: camelRow.dob,
-            country: camelRow.country, healthId: camelRow.healthId, code: camelRow.code
-          }).eq('userId', uid);
+          const { error } = await supabase.from('profiles')
+            .update({
+              fullName: camelRow.fullName,
+              dob:      camelRow.dob,
+              country:  camelRow.country,
+              healthId: camelRow.healthId,
+              code:     camelRow.code
+            })
+            .eq('userId', uid);
           if (error) throw error;
         } else {
           const { error } = await supabase.from('profiles').insert(camelRow);
@@ -629,6 +546,7 @@
   /* ---------- Load (local-first, server-sync) ---------- */
   function fillFromLocal(){
     try{
+      // profile
       const lp=localStorage.getItem('myqer_profile'); if (lp) userData.profile=JSON.parse(lp)||{};
       window.userData=userData;
       const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
@@ -637,13 +555,14 @@
       set('profileCountry',  p.country);
       set('profileHealthId', p.national_id ?? p.healthId);
 
+      // health
       const lh = localStorage.getItem('myqer_health');
       if (lh) {
         try {
           const raw = JSON.parse(lh) || {};
           userData.health = {
             bloodType:      raw.bloodType      != null ? raw.bloodType      : raw.blood_type,
-            allergies:      raw.allergies      != null ? raw.allergies      : raw.alergy_list || raw.allergy_list,
+            allergies:      raw.allergies      != null ? raw.allergies      : raw.allergy_list,
             conditions:     raw.conditions     != null ? raw.conditions     : raw.medical_conditions,
             medications:    raw.medications    != null ? raw.medications    : raw.meds,
             implants:       raw.implants       != null ? raw.implants       : raw.implants_devices,
@@ -654,16 +573,16 @@
       }
       window.userData = userData;
       const h = userData.health;
-      const set2=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-      set2('hfBloodType',  h.bloodType);
-      set2('hfAllergies',  h.allergies);
-      set2('hfConditions', h.conditions);
-      set2('hfMeds',       h.medications);
-      set2('hfImplants',   h.implants);
+      set('hfBloodType',  h.bloodType);
+      set('hfAllergies',  h.allergies);
+      set('hfConditions', h.conditions);
+      set('hfMeds',       h.medications);
+      set('hfImplants',   h.implants);
       if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
 
+      // ice
       const li=localStorage.getItem('myqer_ice');
       iceContacts = li ? (JSON.parse(li)||[]) : [];
       window.iceContacts=iceContacts;
@@ -678,6 +597,7 @@
       return withTimeout(getUserId(),3000,'getUserId').then(uid=>{
         if (!uid) return;
 
+        // profiles (try snake first, then camel; merge non-empty)
         const selSnake = supabase.from('profiles').select('*').eq('user_id',uid).maybeSingle();
         return withTimeout(selSnake,4000,'profiles.select.snake').then(rp=>{
           if (rp?.data) return rp;
@@ -696,6 +616,7 @@
             userData.profile = mergeNonEmpty(userData.profile || {}, serverProfile);
             window.userData=userData;
 
+            // adopt server short code if present
             if (userData.profile && userData.profile.code) {
               localStorage.setItem('myqer_shortcode', userData.profile.code);
             }
@@ -708,6 +629,7 @@
             set('profileHealthId', p.national_id);
           }
         }).then(()=>{
+          // health
           return withTimeout(
             supabase.from('health_data').select('*').eq('user_id', uid).maybeSingle(),
             4000,
@@ -728,17 +650,18 @@
             userData.health = Object.assign({}, userData.health, norm);
             localStorage.setItem('myqer_health', JSON.stringify(userData.health));
 
-            const h=userData.health; const setH=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-            setH('hfBloodType',  h.bloodType);
-            setH('hfAllergies',  h.allergies);
-            setH('hfConditions', h.conditions);
-            setH('hfMeds',       h.medications);
-            setH('hfImplants',   h.implants);
+            const h=userData.health; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            set('hfBloodType',  h.bloodType);
+            set('hfAllergies',  h.allergies);
+            set('hfConditions', h.conditions);
+            set('hfMeds',       h.medications);
+            set('hfImplants',   h.implants);
             if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
             if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
             calculateTriage();
           });
         }).then(()=>{
+          // ice
           return withTimeout(
             supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),
             4000,
@@ -753,146 +676,48 @@
             }
           });
         }).then(()=>{
+          // after all loads, draw both QRs
           renderUrlQR();
           renderVCardQR();
-          ensureVcardTrioRow();
-          refreshVcardTrioMirror();
         });
       });
     }).catch(e=>console.warn('Server load failed', e));
   }
 
-  /* ---------- Branded card composer (both QRs) ---------- */
-  function composeEmergencyCardCanvas(){
-    const urlC   = $('qrCanvas');
-    const vcardC = $('vcardCanvas');
-    const vReady = (!$('vcardPlaceholder') || $('vcardPlaceholder').hidden) && vcardC && vcardC.width>0;
-
-    const dpr = getDPR();
-    const W = Math.round(794 * dpr);
-    const H = Math.round(560 * dpr);
-    const PAD = Math.round(24 * dpr);
-    const GUT = Math.round(24 * dpr);
-    const QRBOX = Math.round(220 * dpr);
-    const HEADER_H = Math.round(72 * dpr);
-    const FOOTER_H = Math.round(56 * dpr);
-    const COL_W = Math.floor((W - PAD*2 - GUT) / 2);
-    const COL_H = H - HEADER_H - FOOTER_H - PAD*2;
-
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const ctx = c.getContext('2d');
-
-    function roundedRect(x,y,w,h,r, strokeColor, fillColor){
-      ctx.beginPath();
-      ctx.moveTo(x+r, y);
-      ctx.arcTo(x+w, y,   x+w, y+h, r);
-      ctx.arcTo(x+w, y+h, x,   y+h, r);
-      ctx.arcTo(x,   y+h, x,   y,   r);
-      ctx.arcTo(x,   y,   x+w, y,   r);
-      ctx.closePath();
-      if (fillColor){ ctx.fillStyle = fillColor; ctx.fill(); }
-      if (strokeColor){ ctx.strokeStyle = strokeColor; ctx.lineWidth = Math.max(2, Math.round(2*dpr)); ctx.stroke(); }
-    }
-    function centerText(text, xCenter, y, sizePx, weight=800, color='#111'){
-      ctx.fillStyle = color;
-      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(text, xCenter, y);
-      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-    }
-    function labelText(text, x, y, sizePx, weight=800, color='#111'){
-      ctx.fillStyle = color;
-      ctx.font = `${weight} ${Math.round(sizePx)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(text, x, y);
-    }
-
-    ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,W,H);
-    const brandRed = '#d32f2f', brandDark = '#b91c1c';
-    const grad = ctx.createLinearGradient(0,0,W,0);
-    grad.addColorStop(0, brandRed); grad.addColorStop(1, brandDark);
-    ctx.fillStyle = grad; ctx.fillRect(0,0,W,HEADER_H);
-    centerText('MYQER™ Emergency Card', W/2, HEADER_H/2, 22*dpr, 800, '#fff');
-
-    const bodyTop = HEADER_H + PAD;
-    const leftX = PAD, rightX = PAD + COL_W + GUT;
-    roundedRect(leftX, bodyTop, COL_W, COL_H, Math.round(16*dpr), '#bbf7d0', '#f0fdf4');
-    roundedRect(rightX, bodyTop, COL_W, COL_H, Math.round(16*dpr), '#fecaca', '#fff1f1');
-
-    const lblPad = Math.round(16*dpr);
-    labelText('ONLINE QR', leftX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, '#059669');
-    labelText('When Network', leftX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
-    labelText('OFFLINE QR', rightX + lblPad, bodyTop + lblPad + Math.round(4*dpr), 14*dpr, 800, '#d32f2f');
-    labelText('When Offline', rightX + lblPad, bodyTop + lblPad + Math.round(22*dpr), 11*dpr, 600, '#6b7280');
-
-    const slotW = QRBOX, slotH = QRBOX;
-    const slotY = bodyTop + lblPad + Math.round(36*dpr);
-    const leftSlotX  = leftX  + Math.round((COL_W - slotW)/2);
-    const rightSlotX = rightX + Math.round((COL_W - slotW)/2);
-
-    function drawFrame(x,y){ roundedRect(x, y, slotW, slotH, Math.round(16*dpr), '#e5e7eb', '#ffffff'); }
-
-    drawFrame(leftSlotX, slotY);
-    if ($('qrCanvas')?.width>0) ctx.drawImage($('qrCanvas'), 0,0,$('qrCanvas').width,$('qrCanvas').height, leftSlotX, slotY, slotW, slotH);
-
-    drawFrame(rightSlotX, slotY);
-    if ($('vcardCanvas')?.width>0){
-      ctx.drawImage($('vcardCanvas'), 0,0,$('vcardCanvas').width,$('vcardCanvas').height, rightSlotX, slotY, slotW, slotH);
-    } else {
-      ctx.fillStyle = '#d32f2f';
-      ctx.font = `${800} ${Math.round(16*dpr)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('Not ready', rightSlotX + slotW/2, slotY + Math.round(28*dpr));
-      ctx.fillStyle = '#6b7280';
-      ctx.font = `${600} ${Math.round(12*dpr)}px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif`;
-      const lines = ['• Country set', '• Blood type set', '• Donor status set', '• 1+ ICE contact'];
-      let yy = slotY + Math.round(58*dpr);
-      lines.forEach(line => { ctx.fillText(line, rightSlotX + slotW/2, yy); yy += Math.round(20*dpr); });
-      ctx.textAlign = 'start';
-    }
-
-    const FOOTER_Y = H - Math.round(56 * dpr);
-    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0, FOOTER_Y, W, H - FOOTER_Y);
-    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = Math.max(1, Math.round(1*dpr));
-    ctx.beginPath(); ctx.moveTo(0, FOOTER_Y); ctx.lineTo(W, FOOTER_Y); ctx.stroke();
-    centerText('This card provides critical information to first responders. Verify details with official records.', W/2, FOOTER_Y + Math.round(28*dpr), 12*dpr, 600, '#6b7280');
-
-    return c;
-  }
-
   /* ---------- buttons ---------- */
   function wireQRButtons(){
+    // URL QR actions
     on($('copyLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to copy','error'); navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error')); });
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
+    on($('dlPNG'),'click',()=>{ const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error'); const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('PNG downloaded','success'); });
 
-    // hide legacy URL-only download/print
-    ['dlPNG','dlSVG','printQR'].forEach(id => { const el=$(id); if (el) el.style.display='none'; });
+    // Guard: hide legacy URL SVG/Print buttons if present
+    const killEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
+    killEl('dlSVG'); killEl('printQR');
 
-    on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); ensureVcardTrioRow(); refreshVcardTrioMirror(); });
-
+    // Offline vCard actions
+    on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
     on($('dlVcardPNG'),'click',()=> {
-      const composed = composeEmergencyCardCanvas();
-      const a=document.createElement('a');
-      a.download='myqer-emergency-card.png';
-      a.href=composed.toDataURL('image/png');
-      a.click();
-      toast('Emergency card PNG downloaded','success');
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const a=document.createElement('a'); a.download='myqer-offline-qr.png'; a.href=c.toDataURL('image/png'); a.click(); toast('Offline PNG downloaded','success');
     });
-
     on($('printVcard'),'click',()=> {
-      const composed = composeEmergencyCardCanvas();
-      const dataUrl = composed.toDataURL('image/png');
-      const w=window.open('','_blank','noopener');
-      if(!w) return toast('Pop-up blocked','error');
-      w.document.write(`<html><head><meta charset="utf-8"><title>MYQER Emergency Card</title>
-        <style>@page{margin:12mm}body{margin:0;text-align:center;font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial}</style></head>
-        <body><img src="${dataUrl}" alt="MYQER™ Emergency Card" style="max-width:100%;height:auto"/><script>onload=()=>setTimeout(()=>print(),250)</script></body></html>`);
+      const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+      const dataUrl=c.toDataURL('image/png');
+      const w=window.open('','_blank','noopener'); if(!w) return toast('Pop-up blocked','error');
+      const tri = ($('triagePill')?.classList.contains('red') ? 'RED' :
+                   $('triagePill')?.classList.contains('amber') ? 'AMBER' :
+                   $('triagePill')?.classList.contains('black') ? 'BLACK' : 'GREEN');
+      w.document.write(`<html><head><meta charset="utf-8"><title>MYQER Offline ICE QR</title>
+        <style>body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
+        img{width:300px;height:300px;image-rendering:pixelated} .sub{color:#666}</style></head>
+        <body><h1>MYQER™ Offline ICE QR</h1><img src="${dataUrl}" alt="Offline QR">
+        <div class="sub">Triage: ${tri}</div><script>window.onload=()=>setTimeout(()=>print(),200)</script></body></html>`);
       w.document.close();
     });
   }
 
-  /* ---------- delete / logout ---------- */
+  /* ---------- delete / logout (clears local 6-char code too) ---------- */
   function deleteAccount(){
     const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
     if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
@@ -924,7 +749,7 @@
     });
   }
 
-  /* ---------- autosave ---------- */
+  /* ---------- autosave wiring ---------- */
   function setupAutoSave(id, fn, delay) {
     if (!delay && delay !== 0) delay = 600;
     const el = $(id);
@@ -967,20 +792,18 @@
     wireQRButtons();
 
     fillFromLocal();
-    renderUrlQR();
-    renderVCardQR();
-
-    ensureVcardTrioRow();
-    refreshVcardTrioMirror();
-
-    loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); ensureVcardTrioRow(); refreshVcardTrioMirror(); });
+    renderUrlQR();             // draw URL QR from whatever we have
+    renderVCardQR();           // draw offline QR if ready
+    loadFromServer().then(()=> { renderUrlQR(); renderVCardQR(); });
 
     const loading=$('loadingState'); if (loading) loading.style.display='none';
     setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
   });
 
+  // never-stuck loader guards
   window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
   window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 
+  // light heartbeat (helps some hosting keep the worker warm)
   setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
 })();
