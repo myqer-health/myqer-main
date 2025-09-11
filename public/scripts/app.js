@@ -280,7 +280,7 @@
       window.QRCode.toCanvas(
         canvas,
         text,
-        { width: px, margin: 4, ...options },  // << quiet zone increased
+        { width: px, margin: 6, ...options },   // ← bigger quiet zone so it scans reliably
         err => (err ? reject(err) : resolve())
       )
     );
@@ -521,7 +521,7 @@
   function printBranded(){
     const card = composeEmergencyCardCanvas();
     const dataUrl = card.toDataURL('image/png');
-    const w = window.open('about:blank', '_blank', 'noopener');
+    const w = window.open('', '_blank', 'noopener');
     if (!w) { toast('Pop-up blocked','error'); return; }
     w.document.write(`
       <html><head><meta charset="utf-8"><title>MYQER Emergency Card</title>
@@ -932,24 +932,16 @@
     });
 
     on($('openLink'),'click',()=>{ 
-      // Open a blank tab synchronously (prevents popup blocking on Safari)
-      const win = window.open('about:blank', '_blank', 'noopener');
-      if (!win) { toast('Pop-up blocked','error'); return; }
       (async () => {
-        try {
-          const input = $('cardUrl');
-          let url = input?.value || '';
-          if (!url) {
-            const code = await ensureShortCode();
-            const base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
-            url = `${base}/c/${code}`;
-          }
-          if(!url) throw new Error('nolink');
-          win.location.href = url;
-        } catch {
-          win.close();
-          toast('No link to open','error');
+        const input = $('cardUrl');
+        let url = input?.value || '';
+        if (!url) {
+          const code = await ensureShortCode();
+          const base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
+          url = `${base}/c/${code}`;
         }
+        if(!url) return toast('No link to open','error');
+        window.open(url,'_blank','noopener'); 
       })();
     });
 
