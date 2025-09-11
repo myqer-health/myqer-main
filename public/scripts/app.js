@@ -1,6 +1,6 @@
 // /public/scripts/app.js
 // Dashboard logic with stable URL QR + offline vCard QR.
-// Buttons open a styled Emergency Card page (with both QRs) and optionally auto-print.
+// Buttons open a styled Emergency Card (both QRs) and optionally auto-print.
 (function () {
 /* ---------- tiny helpers ---------- */
 const $  = (id) => document.getElementById(id);
@@ -241,9 +241,23 @@ function buildVCardPayload(shortUrl) {
   ].join('\r\n');
 }
 
-/* ---------- Hi-DPI QR drawing helper ---------- */
+/* ---------- Ensure QR tiles won't crop ---------- */
+function ensureQrTilesHaveBreathingRoom(){
+  const slots = [$('#qrSlot'), $('#vcardSlot')].filter(Boolean);
+  slots.forEach(slot=>{
+    // Only *add* padding / un-hide overflow; don't break your layout if you already changed CSS
+    if (!slot) return;
+    // if width/height look like 200x200, give them extra padding
+    const cs = getComputedStyle(slot);
+    // Force a comfy interior and no clipping
+    slot.style.padding = slot.style.padding || '20px';
+    slot.style.overflow = 'visible';
+  });
+}
+
+/* ---------- Hi-DPI QR drawing helper (de-zoomed) ---------- */
 async function drawQRToCanvas(canvas, text, options = {}) {
-  const cssSize = 200;                         // visual size inside tile
+  const cssSize = 180;                      // smaller visual size -> room for quiet zone
   const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
   const px = cssSize * dpr;
 
@@ -258,7 +272,7 @@ async function drawQRToCanvas(canvas, text, options = {}) {
     window.QRCode.toCanvas(
       canvas,
       text,
-      { width: px, margin: 6, ...options },   // robust quiet zone
+      { width: px, margin: 8, ...options },   // bigger quiet zone = easier scanning
       err => (err ? reject(err) : resolve())
     )
   );
@@ -282,6 +296,7 @@ async function renderUrlQR() {
     if (codeUnderQR) codeUnderQR.textContent = code;
     if (cardUrlInput) cardUrlInput.value = shortUrl;
 
+    ensureQrTilesHaveBreathingRoom();
     await drawQRToCanvas(qrCanvas, shortUrl, { errorCorrectionLevel: 'M' });
 
     if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
@@ -321,6 +336,7 @@ async function renderVCardQR() {
     const vcard = buildVCardPayload(shortUrl);
     const dark  = currentTriageHex();
 
+    ensureQrTilesHaveBreathingRoom();
     await drawQRToCanvas(canvas, vcard, {
       errorCorrectionLevel: 'Q',
       color: { dark, light: '#FFFFFF' }
@@ -333,26 +349,30 @@ async function renderVCardQR() {
   }
 }
 
-/* ---------- turn a canvas into a Blob URL ---------- */
+/* ---------- Canvas → Blob URL ---------- */
 function canvasToBlobURL(canvas) {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return resolve(null);
-      resolve(URL.createObjectURL(blob));
-    }, 'image/png');
+    if (!canvas) return resolve(null);
+    if (canvas.toBlob) {
+      canvas.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : null), 'image/png');
+    } else {
+      try { resolve(canvas.toDataURL('image/png')); } catch { resolve(null); }
+    }
   });
 }
 
-/* ---------- Build the pretty Emergency Card page (HTML string) ---------- */
-function buildEmergencyCardHTML({ onlineImg, offlineImg }) {
-  // inline CSS only, no external fonts (CSP-safe)
-  return `
+/* ---------- Popup: scaffold-first + postMessage (iPad-safe) ---------- */
+async function openEmergencyCardWindow({ targetWindow, autoPrint = false } = {}) {
+  const w = targetWindow || window.open('about:blank', '_blank', 'noopener');
+  if (!w) { toast('Pop-up blocked','error'); return; }
+
+  const html = `
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><title>MYQER™ Emergency Card</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family: -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;background:#f8fafc;padding:40px 20px;min-height:100vh;display:flex;align-items:center;justify-content:center}
+  body{font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#f8fafc;padding:40px 20px;min-height:100vh;display:flex;align-items:center;justify-content:center}
   .emergency-card{width:640px;height:400px;border-radius:20px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.1);background:linear-gradient(135deg,#fff 0%,#fef2f2 100%);border:3px solid #dc2626;position:relative}
   .header{height:120px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;border-bottom:4px solid #dc2626;background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#fff}
   .brand-title{font-size:26px;font-weight:700;letter-spacing:1px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.1)}
@@ -391,70 +411,50 @@ function buildEmergencyCardHTML({ onlineImg, offlineImg }) {
         </div>
       </div>
     </div>
-    <div class="footer">
-      This card provides critical information to first responders. Verify details with official records.
-    </div>
+    <div class="footer">This card provides critical information to first responders. Verify details with official records.</div>
   </div>
-<script>
-  // Fill images once the page loads
-  window.addEventListener('DOMContentLoaded', function(){
-    var o = document.getElementById('imgOnline');
-    var f = document.getElementById('imgOffline');
-    o.src = ${JSON.stringify(onlineImg)};
-    f.src = ${JSON.stringify(offlineImg)};
-  });
-</script>
+  <script>
+    window.addEventListener('message', function(ev){
+      try{
+        var d = ev.data || {};
+        var o = document.getElementById('imgOnline');
+        var f = document.getElementById('imgOffline');
+        if (d.online)  o.src = d.online;
+        if (d.offline) f.src = d.offline;
+
+        if (d.autoPrint){
+          var loaded = 0;
+          function done(){ if (++loaded === 2) setTimeout(function(){ window.focus(); window.print(); }, 50); }
+          if (o.complete) done(); else o.onload = done;
+          if (f.complete) done(); else f.onload = done;
+        }
+      }catch(_){}
+    }, false);
+  </script>
 </body></html>`;
-}
+  w.document.open(); w.document.write(html); w.document.close();
 
-/* ---------- Open a new card window (and optionally auto-print) ---------- */
-async function openEmergencyCardWindow({ autoPrint=false } = {}) {
-  // Make sure both canvases exist and are drawn
-  const urlCanvas   = $('qrCanvas');
-  const vcardCanvas = $('vcardCanvas');
-
-  if (!urlCanvas) await renderUrlQR();
-  if (!vcardCanvas) await renderVCardQR();
-
-  // If still missing, bail gracefully
-  if (!($('qrCanvas') && $('vcardCanvas'))) {
-    toast('Generate both QRs first','error'); return;
-  }
+  // Ensure canvases exist/drawn
+  if (!$('qrCanvas')) await renderUrlQR();
+  if (!$('vcardCanvas')) await renderVCardQR();
 
   const onlineURL  = await canvasToBlobURL($('qrCanvas'));
   const offlineURL = await canvasToBlobURL($('vcardCanvas'));
   if (!onlineURL || !offlineURL) { toast('Could not prepare images','error'); return; }
 
-  const html = buildEmergencyCardHTML({ onlineImg: onlineURL, offlineImg: offlineURL });
+  // Send images into child
+  w.postMessage({ online: onlineURL, offline: offlineURL, autoPrint }, '*');
 
-  // Open popup synchronously to avoid blockers
-  const w = window.open('', '_blank', 'noopener');
-  if (!w) { toast('Pop-up blocked','error'); URL.revokeObjectURL(onlineURL); URL.revokeObjectURL(offlineURL); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-
-  // Auto-print once images load (if requested)
-  if (autoPrint) {
-    const tryPrint = () => {
-      const o = w.document.getElementById('imgOnline');
-      const f = w.document.getElementById('imgOffline');
-      if (!o || !f) return;
-      let loaded = 0;
-      const done = () => { loaded++; if (loaded === 2) { w.focus(); w.print(); } };
-      o.onload = done; f.onload = done;
-    };
-    // If the page is already loaded, hook now; otherwise wait
-    if (w.document.readyState === 'complete') { tryPrint(); }
-    else { w.addEventListener('load', tryPrint); }
-  }
-
-  // Clean up blob URLs when the window closes
-  const cleanup = () => { URL.revokeObjectURL(onlineURL); URL.revokeObjectURL(offlineURL); };
-  try { w.addEventListener('beforeunload', cleanup); } catch(_) { /* best effort */ }
+  // Revoke blobs when window closes
+  try {
+    w.addEventListener('beforeunload', () => {
+      if (typeof onlineURL === 'string' && onlineURL.startsWith('blob:')) URL.revokeObjectURL(onlineURL);
+      if (typeof offlineURL === 'string' && offlineURL.startsWith('blob:')) URL.revokeObjectURL(offlineURL);
+    });
+  } catch(_) {}
 }
 
-/* ---------- ICE / Profile / Health (unchanged core) ---------- */
+/* ---------- ICE ---------- */
 function renderIceContacts(){
   const box=$('iceContactsList'); if (!box) return;
   box.innerHTML='';
@@ -508,7 +508,7 @@ function saveICE(){
     .catch(e=>{ console.error(e); toast('Error saving emergency contacts','error'); });
 }
 
-/* ---------- Profile & Health save/load (same behavior) ---------- */
+/* ---------- Profile & Health ---------- */
 function upsertProfileSmart(rowBase){
   return getUserId().then(async (uid)=>{
     if (!uid) return;
@@ -794,7 +794,7 @@ function loadFromServer(){
 
 /* ---------- buttons ---------- */
 function wireQRButtons(){
-  // COPY LINK (unchanged; just builds/uses the short URL)
+  // COPY LINK
   on($('copyLink'),'click',()=>{ 
     (async () => {
       const input = $('cardUrl');
@@ -810,33 +810,28 @@ function wireQRButtons(){
     })();
   });
 
-  // OPEN LINK → open the styled Emergency Card page (no auto-print)
+  // OPEN CARD (no auto-print)
   on($('openLink'),'click', () => {
-    const w = window.open('', '_blank', 'noopener'); // user-gesture popup
+    const w = window.open('about:blank', '_blank', 'noopener');   // open synchronously
     if (!w) { toast('Pop-up blocked','error'); return; }
-    // Immediately close the temp tab and reopen via our builder to avoid blank
-    w.close();
-    openEmergencyCardWindow({ autoPrint:false });
+    openEmergencyCardWindow({ targetWindow: w, autoPrint: false });
   });
 
-  // DOWNLOAD PNG (optional: keep your existing one, or export from the card page if you prefer)
+  // PRINT CARD (auto-print)
+  on($('printVcard'),'click', () => {
+    const w = window.open('about:blank', '_blank', 'noopener');   // open synchronously
+    if (!w) { toast('Pop-up blocked','error'); return; }
+    openEmergencyCardWindow({ targetWindow: w, autoPrint: true });
+  });
+
+  // Optional: legacy single-QR PNG download
   on($('dlVcardPNG'),'click',()=> {
-    // Export the online QR only (legacy). If you prefer the full card PNG, you can capture via html2canvas,
-    // but that adds a lib. Keeping this simple for now:
     const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error');
     const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); 
     toast('PNG downloaded','success'); 
   });
 
-  // PRINT → open the same card page and auto-print once images are loaded
-  on($('printVcard'),'click', () => {
-    const w = window.open('', '_blank', 'noopener');
-    if (!w) { toast('Pop-up blocked','error'); return; }
-    w.close();
-    openEmergencyCardWindow({ autoPrint:true });
-  });
-
-  // Legacy guards
+  // Guard: hide legacy URL SVG/Print buttons if present
   const killEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
   killEl('dlSVG'); killEl('printQR');
 
