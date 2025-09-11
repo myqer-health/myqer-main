@@ -778,47 +778,57 @@
   }
 
   // Compose both QRs on one clean sheet and open print dialog
-  function composeAndPrintBoth(){
-    const online  = $('qrCanvas');
-    const offline = $('vcardCanvas');
-    if (!online || !offline) return toast('Generate both QRs first','error');
+function composeAndPrintBoth(){
+  const online  = $('qrCanvas');
+  const offline = $('vcardCanvas');
+  if (!online || !offline) return toast('Generate both QRs first','error');
 
-    const urlPng = online.toDataURL('image/png');
-    const vcdPng = offline.toDataURL('image/png');
+  const urlPng = online.toDataURL('image/png');
+  const vcdPng = offline.toDataURL('image/png');
 
-    const w = window.open('', '_blank', 'noopener');
-    if (!w) return toast('Pop-up blocked','error');
-
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-      <title>MYQER™ Emergency QRs</title>
-      <style>
-        body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
-        h1{color:#dc2626;margin:0 0 10px}
-        .hint{color:#6b7280;margin-bottom:20px}
-        .wrap{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
-        .tile{border:2px solid #e5e7eb;border-radius:12px;padding:16px}
-        .tile.online{border-color:#059669}
-        .tile.offline{border-color:#dc2626}
-        .label{font-weight:600;margin:8px 0 12px}
-        img{width:220px;height:220px;image-rendering:pixelated}
-        @media print {.tile{page-break-inside:avoid}}
-      </style></head><body>
-      <h1>MYQER™ Emergency QR Codes</h1>
-      <div class="hint">Online (needs network) & Offline (works without network)</div>
-      <div class="wrap">
-        <div class="tile online">
-          <div class="label">Online QR</div>
-          <img alt="Online QR" src="${urlPng}">
-        </div>
-        <div class="tile offline">
-          <div class="label">Offline QR</div>
-          <img alt="Offline QR" src="${vcdPng}">
-        </div>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>MYQER™ Emergency QRs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
+      h1{color:#dc2626;margin:0 0 10px}
+      .hint{color:#6b7280;margin-bottom:20px}
+      .wrap{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+      .tile{border:2px solid #e5e7eb;border-radius:12px;padding:16px}
+      .tile.online{border-color:#059669}
+      .tile.offline{border-color:#dc2626}
+      .label{font-weight:600;margin:8px 0 12px}
+      img{width:220px;height:220px;image-rendering:pixelated}
+      @media print {.tile{page-break-inside:avoid}}
+    </style>
+  </head><body>
+    <h1>MYQER™ Emergency QR Codes</h1>
+    <div class="hint">Online (needs network) & Offline (works without network)</div>
+    <div class="wrap">
+      <div class="tile online">
+        <div class="label">Online QR</div>
+        <img alt="Online QR" src="${urlPng}">
       </div>
-      <script>window.onload=()=>setTimeout(()=>window.print(),400)</script>
-    </body></html>`);
-    w.document.close();
-  }
+      <div class="tile offline">
+        <div class="label">Offline QR</div>
+        <img alt="Offline QR" src="${vcdPng}">
+      </div>
+    </div>
+  </body></html>`;
+
+  // Create a blob page and open it (works reliably on iOS Safari)
+  const blob = new Blob([html], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const w = window.open(blobUrl, '_blank', 'noopener');
+
+  if (!w) return toast('Pop-up blocked','error');
+
+  // Give the new tab a moment to load images, then print
+  setTimeout(() => { try { w.focus(); w.print(); } catch(_) {} }, 500);
+
+  // Cleanup
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+}
 
   /* ---------- delete / logout (clears local 6-char code too) ---------- */
   function deleteAccount(){
