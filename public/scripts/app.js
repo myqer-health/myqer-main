@@ -555,7 +555,59 @@
       .then(() => { calculateTriage(); toast('Health info saved','success'); renderUrlQR(); renderVCardQR(); })
       .catch((e) => { if (e && (e.message==='no session' || e.message==='no uid')) return; console.error(e); toast('Error saving health','error'); });
   }
+function saveCare() {
+  const care = {
+    lifeSupport: $('lifeSupport')?.value || '',
+    intubation:  $('intubation')?.value  || '',
+    comaCare:    $('comaCare')?.value    || '',
+    burial:      $('burial')?.value      || '',
+    religion:    $('religion')?.value    || ''
+  };
 
+  // local
+  userData.care = care;
+  localStorage.setItem('myqer_care', JSON.stringify(care));
+
+  // server (optional offline-tolerant)
+  if (!isSupabaseAvailable) { toast('Saved locally (offline mode)','info'); return; }
+
+  supabase.auth.getSession()
+    .then(r => {
+      const session = r?.data?.session;
+      if (!session) { toast('Saved locally — please sign in to sync','info'); return Promise.reject('no session'); }
+      return getUserId();
+    })
+    .then(uid => {
+      if (!uid) { toast('Saved locally — please sign in to sync','info'); return Promise.reject('no uid'); }
+
+      // snake first, then camel (like your other upserts)
+      const snake = {
+        user_id: uid,
+        life_support: care.lifeSupport,
+        intubation:   care.intubation,
+        coma_care:    care.comaCare,
+        burial:       care.burial,
+        religion:     care.religion
+      };
+      const camel = {
+        user_id:   uid,
+        lifeSupport: care.lifeSupport,
+        intubation:  care.intubation,
+        comaCare:    care.comaCare,
+        burial:      care.burial,
+        religion:    care.religion
+      };
+
+      return supabase.from('care_directives').upsert(snake, { onConflict:'user_id' })
+        .then(({ error }) => {
+          if (!error) return;
+          return supabase.from('care_directives').upsert(camel, { onConflict:'user_id' })
+            .then(({ error:e2 }) => { if (e2) throw e2; });
+        });
+    })
+    .then(() => toast('Care preferences saved','success'))
+    .catch(e => { if (e!=='no session' && e!=='no uid') console.warn(e); });
+}
   /* ---------- My Care (save/sync) ---------- */
   function saveCare() {
     const care = {
@@ -625,6 +677,18 @@
       if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
+      // === CARE (local) ===
+try {
+  const lc = localStorage.getItem('myqer_care');
+  if (lc) userData.care = JSON.parse(lc) || {};
+} catch (_) { userData.care = userData.care || {}; }
+const c = userData.care || {};
+const setCare = (id,v)=>{ const el=$(id); if (el) el.value = v || ''; };
+setCare('lifeSupport', c.lifeSupport);
+setCare('intubation',  c.intubation);
+setCare('comaCare',    c.comaCare);
+setCare('burial',      c.burial);
+setCare('religion',    c.religion);
 
       // care (local)
       const lc = localStorage.getItem('myqer_care');
@@ -716,6 +780,32 @@
             if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
             calculateTriage();
           });
+
+          // === CARE (server) ===
+return withTimeout(
+  supabase.from('care_directives').select('*').eq('user_id', uid).maybeSingle(),
+  4000,
+  'care_directives.select'
+).then(rc => {
+  const raw = rc?.data || null; if (!raw) return;
+  const care = {
+    lifeSupport: raw.lifeSupport ?? raw.life_support ?? '',
+    intubation:  raw.intubation  ?? '',
+    comaCare:    raw.comaCare    ?? raw.coma_care ?? '',
+    burial:      raw.burial      ?? '',
+    religion:    raw.religion    ?? ''
+  };
+  userData.care = Object.assign({}, userData.care, care);
+  localStorage.setItem('myqer_care', JSON.stringify(userData.care));
+
+  const setCare = (id,v)=>{ const el=$(id); if (el) el.value = v || ''; };
+  setCare('lifeSupport', userData.care.lifeSupport);
+  setCare('intubation',  userData.care.intubation);
+  setCare('comaCare',    userData.care.comaCare);
+  setCare('burial',      userData.care.burial);
+  setCare('religion',    userData.care.religion);
+});
+          
         }).then(()=>{
           // care_directives
           return withTimeout(
