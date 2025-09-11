@@ -1,7 +1,6 @@
 // /public/scripts/app.js
 // Dashboard logic with stable URL QR + offline vCard QR.
 // Buttons open a styled Emergency Card page (with both QRs) and optionally auto-print.
-
 (function () {
 /* ---------- tiny helpers ---------- */
 const $  = (id) => document.getElementById(id);
@@ -142,19 +141,21 @@ async function ensureShortCode(){
   return code;
 }
 
-async function getShortUrl(){
-  const valid = /^[A-HJ-NP-Z2-9]{6}$/;
-  let code = localStorage.getItem('myqer_shortcode');
-  if (!valid.test(code||'')) {
-    if (typeof ensureShortCode === 'function') code = await ensureShortCode();
+/* ---------- helper: sync short URL (gesture-safe) ---------- */
+function getShortUrlSync() {
+  const input = $('cardUrl');
+  let url = input?.value || '';
+  if (!url) {
+    const code = localStorage.getItem('myqer_shortcode') || '';
+    let base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
+    if (!code) return '';
+    if (String(base).startsWith('file://')) base = 'https://myqer.com';
+    url = `${base}/c/${code}`;
   }
-  if (!code) return null;
-  let base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
-  if (String(base).startsWith('file://')) base = 'https://myqer.com';
-  return `${base}/c/${code}`;
+  return url;
 }
 
-/* ============= QR CODE loader & drawing ============= */
+/* ============= QR CODE loader & drawing (newer set) ============= */
 let qrLibReady = null;
 function loadQRCodeLib(){
   if (window.QRCode) return Promise.resolve();
@@ -202,9 +203,18 @@ async function drawQR(canvas, text, { cssSize=200, ecl='M', colorDark='#000000',
 }
 
 /* ---------- OFFLINE VCARD HELPERS ---------- */
-function vCardEscape(s=''){ return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
-function formatBDAY(d=''){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d); return m ? `${m[1]}${m[2]}${m[3]}` : (d||''); }
-function isOfflineReady(){
+function vCardEscape(s='') {
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+function formatBDAY(d='') {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  return m ? `${m[1]}${m[2]}${m[3]}` : (d || '');
+}
+function isOfflineReady() {
   const p = (window.userData && window.userData.profile) || {};
   const h = (window.userData && window.userData.health)  || {};
   const hasICE =
@@ -224,7 +234,7 @@ function currentTriageHex() {
   if (pill.classList.contains('black')) return TRIAGE_COLOR.BLACK;
   return TRIAGE_COLOR.GREEN;
 }
-function buildVCardPayload(shortUrl){
+function buildVCardPayload(shortUrl) {
   const p   = (window.userData && window.userData.profile) || {};
   const h   = (window.userData && window.userData.health)  || {};
   const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null;
@@ -281,10 +291,16 @@ async function renderUrlQR(){
 
   try {
     await loadQRCodeLib();
-    const shortUrl = await getShortUrl();
-    if (!shortUrl) throw new Error('no short url');
+    const valid = /^[A-HJ-NP-Z2-9]{6}$/;
+    let code = localStorage.getItem('myqer_shortcode');
+    if (!valid.test(code||'')) {
+      if (typeof ensureShortCode === 'function') code = await ensureShortCode();
+    }
+    if (!code) throw new Error('no short url');
+    let base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
+    if (String(base).startsWith('file://')) base = 'https://myqer.com';
+    const shortUrl = `${base}/c/${code}`;
 
-    const code = shortUrl.split('/').pop();
     if (codeUnderQR) codeUnderQR.textContent = code;
     if (cardUrlInput) cardUrlInput.value = shortUrl;
 
@@ -297,8 +313,8 @@ async function renderUrlQR(){
   }
 }
 
-/* ---------- vCard QR (offline, triage-colour 160px) ---------- */
-async function renderVCardQR(){
+/* ---------- vCard QR (offline, orange 160px) ---------- */
+async function renderVCardQR() {
   const canvas = $('vcardCanvas');
   const help   = $('vcardHelp');
   const regen  = $('regenVcardBtn');
@@ -313,15 +329,26 @@ async function renderVCardQR(){
   }
   if (regen) regen.disabled = !ready;
 
-  if (!ready || !canvas) { if (canvas) canvas.style.display = 'none'; return; }
+  if (!ready || !canvas) {
+    if (canvas) canvas.style.display = 'none';
+    return;
+  }
 
   try {
     await loadQRCodeLib();
-    const shortUrl = await getShortUrl(); // ok if present; vCard still useful without network
-    const vcard = buildVCardPayload(shortUrl || '');
-    const dark  = currentTriageHex();
+
+    const shortUrl = getShortUrlSync() || (()=>{
+      const code = localStorage.getItem('myqer_shortcode') || '';
+      let base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
+      if (String(base).startsWith('file://')) base = 'https://myqer.com';
+      return code ? `${base}/c/${code}` : '';
+    })();
+
+    const vcard = buildVCardPayload(shortUrl);
+    const dark  = '#DC5A0E'; // strong orange
 
     await drawQR(canvas, vcard, { cssSize: 160, ecl:'Q', margin: 3, colorDark: dark, colorLight:'#FFFFFF' });
+
     canvas.style.display = 'block';
   } catch (e) {
     console.error('vCard QR error:', e);
@@ -329,7 +356,7 @@ async function renderVCardQR(){
   }
 }
 
-/* ---------- Styled Emergency Card (HTML) for print/popout ---------- */
+/* ---------- Styled Emergency Card (HTML) for print/popout — newer one ---------- */
 function buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL) {
   return (
 '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'+
@@ -368,26 +395,32 @@ function buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL) {
 ' <div class="footer">This card provides critical information to first responders. Verify details with official records.</div>'+
 '</div>'+
 '<script>document.addEventListener("DOMContentLoaded",function(){'+
-'  document.getElementById("imgOnline").src='+JSON.stringify(onlineDataURL)+';'+
-'  document.getElementById("imgOffline").src='+JSON.stringify(offlineDataURL)+';'+
+'  document.getElementById("imgOnline").src='+JSON.stringify('')+';'+
+'  document.getElementById("imgOffline").src='+JSON.stringify('')+';'+
 '});<\/script>'+
 '</body></html>'
   );
 }
 
-/* ---------- Synchronous popout for print ---------- */
+/* Synchronous (gesture-safe) popout using data: URLs */
 function openCardNow({ autoPrint=false } = {}) {
-  const o = $('qrCanvas');
-  const f = $('vcardCanvas');
+  const o = document.getElementById('qrCanvas');
+  const f = document.getElementById('vcardCanvas');
   if (!(o && f)) { toast('Generate both QRs first','error'); return; }
 
   const onlineDataURL  = o.toDataURL('image/png');
   const offlineDataURL = f.toDataURL('image/png');
 
-  const html = buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL);
+  let html = buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL);
+  // inject actual data URLs into the tiny script
+  html = html.replace(JSON.stringify(''), JSON.stringify(onlineDataURL))
+             .replace(JSON.stringify(''), JSON.stringify(offlineDataURL));
+
   const w = window.open('', '_blank', 'noopener');
   if (!w) { toast('Pop-up blocked','error'); return; }
-  w.document.open(); w.document.write(html); w.document.close();
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 
   if (autoPrint) {
     const tryPrint = () => {
@@ -403,7 +436,7 @@ function openCardNow({ autoPrint=false } = {}) {
   }
 }
 
-/* ---------- ICE (UI & persistence) ---------- */
+/* ---------- ICE (single kept copy) ---------- */
 function renderIceContacts(){
   const box=$('iceContactsList'); if (!box) return;
   box.innerHTML='';
@@ -431,9 +464,9 @@ function renderIceContacts(){
     box.appendChild(row);
   });
   const addBtn=$('addIce');
-  if (addBtn){ 
-    if (iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; } 
-    else { addBtn.disabled=false; addBtn.textContent='Add Emergency Contact'; } 
+  if (addBtn){
+    if (iceContacts.length>=3){ addBtn.disabled=true; addBtn.textContent='Maximum 3 contacts reached'; }
+    else { addBtn.disabled=false; addBtn.textContent='Add Emergency Contact'; }
   }
 }
 const persistIceLocally = ()=>{ localStorage.setItem('myqer_ice', JSON.stringify(iceContacts||[])); window.iceContacts=iceContacts; };
@@ -460,53 +493,40 @@ function saveICE(){
     .catch(e=>{ console.error(e); toast('Error saving emergency contacts','error'); });
 }
 
-/* ---------- Profile & Health ---------- */
-async function upsertProfileSmart(rowBase){
-  const uid = await getUserId();
-  if (!uid) return;
-  const code = await ensureShortCode();
+/* ---------- Profile & Health (as in your code) ---------- */
+function upsertProfileSmart(rowBase){
+  return getUserId().then(async (uid)=>{
+    if (!uid) return;
+    const code = await ensureShortCode();
 
-  // Detect schema: snake (user_id) vs camel (userId)
-  let schema = 'snake';
-  try {
-    const probe = await supabase.from('profiles').select('user_id').limit(1);
-    if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
-  } catch (_) { schema = 'camel'; }
+    let schema = 'snake';
+    try {
+      const probe = await supabase.from('profiles').select('user_id').limit(1);
+      if (probe.error && /does not exist/i.test(probe.error.message)) schema = 'camel';
+    } catch (_) { schema = 'camel'; }
 
-  const snakeRow = { user_id: uid, code, full_name: rowBase.full_name, date_of_birth: rowBase.date_of_birth, country: rowBase.country, national_id: rowBase.national_id };
-  const camelRow = { userId: uid, code, fullName: rowBase.full_name, dob: rowBase.date_of_birth, country: rowBase.country, healthId: rowBase.national_id };
+    const snakeRow = { user_id: uid, code, full_name: rowBase.full_name, date_of_birth: rowBase.date_of_birth, country: rowBase.country, national_id: rowBase.national_id };
+    const camelRow = { userId: uid, code, fullName: rowBase.full_name, dob: rowBase.date_of_birth, country: rowBase.country, healthId: rowBase.national_id };
 
-  async function upsertSnake(){
-    const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
-    if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
-    if (existing.data){
-      const { error } = await supabase.from('profiles')
-        .update({ full_name: snakeRow.full_name, date_of_birth: snakeRow.date_of_birth, country: snakeRow.country, national_id: snakeRow.national_id, code: snakeRow.code })
-        .eq('user_id', uid);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from('profiles').insert(snakeRow);
-      if (error) throw error;
+    async function upsertSnake(){
+      const existing = await supabase.from('profiles').select('user_id').eq('user_id', uid).maybeSingle();
+          async function upsertCamel(){
+      const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
+      if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
+      if (existing.data){
+        const { error } = await supabase.from('profiles')
+          .update({ fullName: camelRow.fullName, dob: camelRow.dob, country: camelRow.country, healthId: camelRow.healthId, code: camelRow.code })
+          .eq('userId', uid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('profiles').insert(camelRow);
+        if (error) throw error;
+      }
     }
-  }
-  async function upsertCamel(){
-    const existing = await supabase.from('profiles').select('userId').eq('userId', uid).maybeSingle();
-    if (existing.error && !/no rows/i.test(existing.error.message)) throw existing.error;
-    if (existing.data){
-      const { error } = await supabase.from('profiles')
-        .update({ fullName: camelRow.fullName, dob: camelRow.dob, country: camelRow.country, healthId: camelRow.healthId, code: camelRow.code })
-        .eq('userId', uid);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from('profiles').insert(camelRow);
-      if (error) throw error;
-    }
-  }
-
-  if (schema === 'snake') { await upsertSnake(); } else { await upsertCamel(); }
-  return code;
+    if (schema === 'snake') { await upsertSnake(); } else { await upsertCamel(); }
+    return code;
+  });
 }
-
 function saveProfile(){
   const profile={
     full_name:     $('profileFullName')?.value.trim() || '',
@@ -612,7 +632,7 @@ function saveHealth() {
     });
 }
 
-/* ---------- local-first fill ---------- */
+/* ---------------- local-first fill ---------------- */
 function fillFromLocal(){
   try{
     // profile
@@ -663,7 +683,7 @@ function fillFromLocal(){
   }catch(e){ console.warn('Local fill failed', e); }
 }
 
-/* ---------- server sync load ---------- */
+/* ---------------- server sync load ---------------- */
 function loadFromServer(){
   if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
   return withTimeout(supabase.auth.getSession(),3000,'getSession').then(res=>{
@@ -753,27 +773,12 @@ function loadFromServer(){
   }).catch(e=>console.warn('Server load failed', e));
 }
 
-/* ---------- autosave helpers ---------- */
-function setupAutoSave(id, fn, delay) {
-  if (!delay && delay !== 0) delay = 600;
-  const el = $(id);
-  if (!el) return;
-  function run() {
-    clearTimeout(autoSaveTimers[id]);
-    autoSaveTimers[id] = setTimeout(() => {
-      Promise.resolve(fn()).catch(e => console.warn('autosave err', e));
-    }, delay);
-  }
-  el.addEventListener('input',  run);
-  el.addEventListener('change', run);
-}
-
-/* ---------- Buttons wiring ---------- */
+/* ---------------- Buttons wiring ---------------- */
 function wireQRButtons(){
   // COPY LINK
   on($('copyLink'),'click',()=>{ 
     (async () => {
-      let url = $('cardUrl')?.value || await getShortUrl();
+      let url = $('cardUrl')?.value || getShortUrlSync();
       if(!url) return toast('No link to copy','error');
       navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error'));
     })();
@@ -781,14 +786,14 @@ function wireQRButtons(){
 
   // OPEN LINK → ONLY the online /c/<CODE> page (no card)
   on($('openLink'),'click', async () => {
-    const url = await getShortUrl();
+    const url = getShortUrlSync();
     if (!url) return toast('No link to open','error');
-    window.open(url, '_blank', 'noopener');
+    window.open(url, '_blank', 'noopener');   // direct
   });
 
   // PNG → render full card with both QRs and download as PNG
   on($('dlVcardPNG'),'click', async () => {
-    await renderUrlQR(); await renderVCardQR(); // ensure fresh
+    await renderUrlQR(); await renderVCardQR();   // ensure fresh
     downloadCardPNG();
   });
 
@@ -806,99 +811,54 @@ function wireQRButtons(){
   killEl('dlSVG'); killEl('printQR');
 }
 
-/* ---------- quick PNG export of the card (canvas) ---------- */
-async function downloadCardPNG(){
-  const o = $('qrCanvas');
-  const f = $('vcardCanvas');
-  if (!(o && f)) { toast('Generate both QRs first','error'); return; }
-  const onlineImg  = new Image(); onlineImg.src  = o.toDataURL('image/png');
-  const offlineImg = new Image(); offlineImg.src = f.toDataURL('image/png');
+/* ---------------- delete / logout ---------------- */
+function deleteAccount(){
+  const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
+  if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
+  if (!confirm('Are you sure? This permanently deletes your data.')) return;
 
-  await new Promise(r=>{ let n=0; const done=()=>{ if(++n===2) r(); }; onlineImg.onload=done; offlineImg.onload=done; });
+  const wipeLocal = () => {
+    try {
+      localStorage.removeItem('myqer_shortcode');
+      localStorage.removeItem('myqer_profile');
+      localStorage.removeItem('myqer_health');
+      localStorage.removeItem('myqer_ice');
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (_) {}
+  };
 
-  // 2× for sharpness vs CSS card
-  const W=1440, H=880;                  
-  const pad=80;
-
-  const cv = document.createElement('canvas');
-  cv.width=W; cv.height=H;
-  const ctx = cv.getContext('2d');
-
-  // background
-  ctx.fillStyle='#f8fafc'; ctx.fillRect(0,0,W,H);
-
-  // card
-  const cardX=pad, cardY=pad, cardW=W-2*pad, cardH=H-2*pad, r=40;
-  ctx.fillStyle='#ffffff';
-  ctx.strokeStyle='#dc2626'; ctx.lineWidth=12;
-  ctx.beginPath();
-  ctx.moveTo(cardX+r,cardY);
-  ctx.arcTo(cardX+cardW,cardY,cardX+cardW,cardY+cardH,r);
-  ctx.arcTo(cardX+cardW,cardY+cardH,cardX,cardY+cardH,r);
-  ctx.arcTo(cardX,cardY+cardH,cardX,cardY,r);
-  ctx.arcTo(cardX,cardY,cardX+cardW,cardY,r);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-
-  // header bar
-  ctx.fillStyle='#dc2626';
-  ctx.fillRect(cardX+6, cardY+6, cardW-12, 220);
-  ctx.fillStyle='#ffffff';
-  ctx.font='bold 64px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.textAlign='center';
-  ctx.fillText('MYQER™ Emergency Card', cardX+cardW/2, cardY+135);
-  ctx.font='600 28px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.fillText('SCAN EITHER QR IN AN EMERGENCY', cardX+cardW/2, cardY+185);
-
-  // body panels
-  const bodyTop = cardY+240, bodyH = cardH-320, colW = (cardW-80)/2, colGap=80;
-  const leftX = cardX+40, rightX = leftX+colW+colGap;
-
-  function panel(x, color){
-    ctx.fillStyle='#ffffff';
-    ctx.strokeStyle=color; ctx.lineWidth=10;
-    ctx.beginPath();
-    ctx.moveTo(x+24, bodyTop+24);
-    ctx.lineTo(x+colW-24, bodyTop+24);
-    ctx.lineTo(x+colW-24, bodyTop+bodyH-24);
-    ctx.lineTo(x+24, bodyTop+bodyH-24);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-  }
-  panel(leftX,  '#059669');
-  panel(rightX, '#dc2626');
-
-  // titles
-  ctx.fillStyle='#059669';
-  ctx.font='900 42px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.textAlign='center';
-  ctx.fillText('ONLINE QR', leftX+colW/2, bodyTop+100);
-  ctx.fillStyle='#6b7280'; ctx.font='700 28px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.fillText('NETWORK AVAILABLE', leftX+colW/2, bodyTop+145);
-
-  ctx.fillStyle='#dc2626';
-  ctx.font='900 42px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.fillText('OFFLINE QR', rightX+colW/2, bodyTop+100);
-  ctx.fillStyle='#6b7280'; ctx.font='700 28px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.fillText('NO NETWORK NEEDED', rightX+colW/2, bodyTop+145);
-
-  // place QR images (black 200 → 400px @2x; orange 160 → 320px @2x)
-  const blackSize = 400, orangeSize = 320;
-  ctx.drawImage(onlineImg,  leftX+colW/2 - blackSize/2,  bodyTop+bodyH/2 - blackSize/2 + 20,  blackSize,  blackSize);
-  ctx.drawImage(offlineImg, rightX+colW/2 - orangeSize/2, bodyTop+bodyH/2 - orangeSize/2 + 20, orangeSize, orangeSize);
-
-  // footer
-  ctx.fillStyle='#f3f4f6'; ctx.fillRect(cardX+6, cardY+cardH-80, cardW-12, 70);
-  ctx.fillStyle='#6b7280'; ctx.font='600 24px -apple-system,Segoe UI,Roboto,Inter,Arial';
-  ctx.fillText('This card provides critical information to first responders. Verify details with official records.', cardX+cardW/2, cardY+cardH-32);
-
-  // download
-  const a=document.createElement('a');
-  a.download='myqer-emergency-card.png';
-  a.href = cv.toDataURL('image/png');
-  a.click();
-  toast('Card PNG downloaded','success');
+  (function(){
+    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
+    return getUserId().then(uid=>{
+      if (!uid) return;
+      return supabase.from('ice_contacts').delete().eq('user_id',uid)
+        .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
+        .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
+        .catch(e => { console.warn('server delete failed', e); });
+    }).then(()=> supabase.auth.signOut().catch(()=>{}));
+  })().finally(()=>{
+    wipeLocal();
+    location.href = 'index.html';
+  });
 }
 
-/* ---------- DOM ready ---------- */
+/* ---------------- autosave helpers ---------------- */
+function setupAutoSave(id, fn, delay) {
+  if (!delay && delay !== 0) delay = 600;
+  const el = $(id);
+  if (!el) return;
+  function run() {
+    clearTimeout(autoSaveTimers[id]);
+    autoSaveTimers[id] = setTimeout(() => {
+      Promise.resolve(fn()).catch(e => console.warn('autosave err', e));
+    }, delay);
+  }
+  el.addEventListener('input',  run);
+  el.addEventListener('change', run);
+}
+
+/* ---------------- DOM ready ---------------- */
 document.addEventListener('DOMContentLoaded', ()=>{
   updateNetworkStatus();
   window.addEventListener('online', updateNetworkStatus);
@@ -934,43 +894,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setTimeout(()=>{ const l=$('loadingState'); if (l) l.style.display='none'; }, 4000);
 });
 
-/* ---------- delete / logout ---------- */
-function deleteAccount(){
-  const phrase = ($('deletePhrase')?.value || '').trim().toUpperCase();
-  if (phrase !== 'DELETE MY ACCOUNT') return toast('Type the phrase exactly','error');
-  if (!confirm('Are you sure? This permanently deletes your data.')) return;
-
-  const wipeLocal = () => {
-    try {
-      localStorage.removeItem('myqer_shortcode');
-      localStorage.removeItem('myqer_profile');
-      localStorage.removeItem('myqer_health');
-      localStorage.removeItem('myqer_ice');
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch (_) {}
-  };
-
-  (function(){
-    if (!(isSupabaseAvailable && isOnline)) return Promise.resolve();
-    return getUserId().then(uid=>{
-      if (!uid) return;
-      return supabase.from('ice_contacts').delete().eq('user_id',uid)
-        .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
-        .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
-        .catch(e => { console.warn('server delete failed', e); });
-    }).then(()=> supabase.auth.signOut().catch(()=>{}));
-  })().finally(()=>{
-    wipeLocal();
-    location.href = 'index.html';
-  });
-}
-
-/* ---------- never-stuck loader guards ---------- */
+/* ---------------- never-stuck loader guards ---------------- */
 window.addEventListener('error', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 window.addEventListener('unhandledrejection', ()=>{ const el=$('loadingState'); if (el) el.style.display='none'; });
 
-/* ---------- light heartbeat ---------- */
+/* ---------------- light heartbeat ---------------- */
 setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
-
 })();
