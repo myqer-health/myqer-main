@@ -1,4 +1,4 @@
-<!-- /public/scripts/app.js -->
+
 /* ========================================================================
    MYQER™ Dashboard App — full script
    Online QR (black) 200px / Offline vCard QR (orange) 140px
