@@ -119,62 +119,59 @@
       justify-items: center;
       margin-top: 2rem;
     }
-/* Animated outer wrapper for rotating ring */
-.qr-wrap{
-  position: relative;
-  width: 260px;   /* slightly larger than the 240px tile */
-  height: 260px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-/* Rotating conic ring around the tile (not clipped) */
-.qr-wrap::before{
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 28px;
-  padding: 10px;   /* ring thickness */
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(220,38,38,.25) 120deg,
-    transparent 240deg,
-    rgba(220,38,38,.25) 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: spin 3s linear infinite;
-  pointer-events: none;
-}
+    /* Keep first two columns from stretching */
+    .qr-section > :nth-child(1),
+    .qr-section > :nth-child(2){ width:260px; }
+    #codeUnderQR, #qrStatus{ max-width:260px; box-sizing:border-box; }
+
+    /* Animated outer wrapper for rotating ring */
+    .qr-wrap{
+      position: relative;
+      width: 260px;
+      height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-wrap::before{
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      padding: 10px; /* ring thickness */
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        rgba(220,38,38,.25) 120deg,
+        transparent 240deg,
+        rgba(220,38,38,.25) 360deg
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      animation: spin 3s linear infinite;
+      pointer-events: none;
+    }
+
     /* QR tiles (visual container) */
     #qrSlot, #vcardSlot{
       position:relative;
       width:240px;height:240px;
-      background:#fff;
-      border:3px solid rgba(220,38,38,.1);
-      border-radius:20px;
+      background:#fff;border:3px solid rgba(220,38,38,.1);border-radius:20px;
       display:flex;align-items:center;justify-content:center;
       box-shadow:0 8px 32px rgba(220,38,38,.1);
-      overflow:hidden; /* IMPORTANT: keep canvas inside rounded box */
+      overflow:hidden; /* keep QR inside rounded box */
     }
 
-    /* Removed rotating glow that could bleed outside the clip
-    #qrSlot::before, #vcardSlot::before{ ... }
-    */
-
-    /* Canvas size matches JS CSS size; Hi-DPI handled in JS */
+    /* Canvas size matches JS CSS size; Hi-DPI handled in JS
+       IMPORTANT: no border-radius so the 3 finder squares aren't clipped. */
     #qrCanvas,#vcardCanvas{
       width:220px;height:220px;display:block;
-      image-rendering:pixelated;background:#fff;border-radius:12px;
+      image-rendering:pixelated;background:#fff;border-radius:0;
     }
-
-    /* Placeholders disabled per request (kept for markup compatibility) */
-    .qr-placeholder{ display:none !important; }
 
     #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
     #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
@@ -190,10 +187,9 @@
       width:100%;
       align-self:center; /* vertically centered next to QRs */
       justify-self:end;  /* align to the right column edge */
-      transform: translateY(-26px); /* subtle nudge to visually center against tiles */
+      transform: translateY(-26px);
     }
 
-    /* pretty pill buttons (force override on iOS) */
     .vcard-actions .btn-secondary{
       appearance:none !important; -webkit-appearance:none !important; -moz-appearance:none !important;
       display:inline-flex; align-items:center; justify-content:center;
@@ -261,6 +257,7 @@
       .card{padding:1.5rem 1.5rem 1.5rem 2rem;margin-left:.5rem}
       .form-grid.two-col{grid-template-columns:1fr}
       .qr-section{grid-template-columns:1fr;gap:18px;justify-items:center;text-align:center}
+      .qr-wrap{width:260px;height:260px}
       #qrSlot,#vcardSlot{width:240px;height:240px}
       .vcard-actions{max-width:460px;width:100%;grid-template-columns:1fr 1fr;justify-self:center;align-self:start;transform:none}
       .ice-form-grid{grid-template-columns:1fr}
@@ -272,7 +269,7 @@
 
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     button:focus,input:focus,select:focus,textarea:focus{outline:2px solid var(--red);outline-offset:2px}
-    .card.emergency { overflow: visible; } /* allow any outer glows (not used on QR tiles) */
+    .card.emergency { overflow: visible; }
   </style>
 </head>
 <body>
@@ -430,7 +427,7 @@
       <div class="status-msg" id="iceMsg"></div>
     </section>
 
-    <!-- Emergency Card & QR (CLEAN 3-COLUMN) -->
+    <!-- Emergency Card & QR -->
     <section class="card emergency emergency-card">
       <div class="ribbon emergency">Emergency</div>
 
@@ -443,17 +440,19 @@
         <!-- LEFT: Online QR -->
         <div>
           <div class="qr-wrap">
-          <div id="qrSlot">
-            <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code"></canvas>
+            <div id="qrSlot">
+              <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code"></canvas>
+            </div>
           </div>
           <p id="codeUnderQR" class="text-mono text-muted"></p>
           <p id="qrStatus" role="status" aria-live="polite" hidden></p>
         </div>
 
         <!-- MIDDLE: Offline vCard QR -->
-          <div class="qr-wrap">
-        <div id="vcardSlot">
-          <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"></canvas>
+        <div class="qr-wrap">
+          <div id="vcardSlot">
+            <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"></canvas>
+          </div>
         </div>
 
         <!-- RIGHT: 4 buttons in 2×2 grid -->
