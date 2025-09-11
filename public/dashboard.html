@@ -109,40 +109,42 @@
 
     /* Emergency / QR */
     .emergency-card{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15)}
-    /* Equal three columns: Online | Offline | Buttons */
+
+    /* QR grid: two fixed squares + right column */
     .qr-section{
       display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 260px 260px 1fr;
       gap: 28px;
       align-items: start;
-      justify-items: center;   /* center each column content */
+      justify-items: center;
       margin-top: 2rem;
     }
-    /* QR tiles (same size) */
+
+    /* QR tiles (visual container) */
     #qrSlot, #vcardSlot{
       position:relative;
       width:240px;height:240px;
-      background:#fff;border:3px solid rgba(220,38,38,.1);border-radius:20px;
+      background:#fff;
+      border:3px solid rgba(220,38,38,.1);
+      border-radius:20px;
       display:flex;align-items:center;justify-content:center;
       box-shadow:0 8px 32px rgba(220,38,38,.1);
-      overflow:visible;
+      overflow:hidden; /* IMPORTANT: keep canvas inside rounded box */
     }
-    #qrSlot::before, #vcardSlot::before{
-      content:'';position:absolute;inset:-6px;border-radius:24px;
-      background:conic-gradient(from 0deg,transparent,rgba(220,38,38,.2),transparent);
-      z-index:-1;animation:rotate 3s linear infinite;
-    }
-    @keyframes rotate{to{transform:rotate(360deg)}}
+
+    /* Removed rotating glow that could bleed outside the clip
+    #qrSlot::before, #vcardSlot::before{ ... }
+    */
+
+    /* Canvas size matches JS CSS size; Hi-DPI handled in JS */
     #qrCanvas,#vcardCanvas{
       width:220px;height:220px;display:block;
       image-rendering:pixelated;background:#fff;border-radius:12px;
     }
-    .qr-placeholder{
-      width:200px;height:200px;background:rgba(220,38,38,.05);
-      border:2px dashed rgba(220,38,38,.2);border-radius:12px;
-      display:flex;align-items:center;justify-content:center;
-      color:var(--slate);font-size:.875rem;text-align:center;font-weight:500
-    }
+
+    /* Placeholders disabled per request (kept for markup compatibility) */
+    .qr-placeholder{ display:none !important; }
+
     #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
     #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
 
@@ -156,7 +158,10 @@
       max-width:360px;
       width:100%;
       align-self:center; /* vertically centered next to QRs */
+      justify-self:end;  /* align to the right column edge */
+      transform: translateY(-26px); /* subtle nudge to visually center against tiles */
     }
+
     /* pretty pill buttons (force override on iOS) */
     .vcard-actions .btn-secondary{
       appearance:none !important; -webkit-appearance:none !important; -moz-appearance:none !important;
@@ -226,7 +231,7 @@
       .form-grid.two-col{grid-template-columns:1fr}
       .qr-section{grid-template-columns:1fr;gap:18px;justify-items:center;text-align:center}
       #qrSlot,#vcardSlot{width:240px;height:240px}
-      .vcard-actions{max-width:460px;width:100%;grid-template-columns:1fr 1fr}
+      .vcard-actions{max-width:460px;width:100%;grid-template-columns:1fr 1fr;justify-self:center;align-self:start;transform:none}
       .ice-form-grid{grid-template-columns:1fr}
       .disclaimers{padding:0 1rem} .disclaimer-content{padding:1.5rem}
       .footer{padding:1.5rem 1rem}
@@ -236,31 +241,7 @@
 
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     button:focus,input:focus,select:focus,textarea:focus{outline:2px solid var(--red);outline-offset:2px}
-    .card.emergency { overflow: visible; } /* allow glow to show */
-    
-    /* Center the 3rd column (buttons) to the middle height of the QR tiles */
-/* Keep QR grid with 2 fixed squares + 1 right column */
-.qr-section { 
-  grid-template-columns: 260px 260px 1fr; 
-  align-items: start; /* don’t force centering across the whole row */
-}
-
-/* Buttons on the right side, vertically centered */
-.qr-section > .vcard-actions {
-  justify-self: end;      /* stick to the right side */
-  align-self: center;     /* vertical middle alignment */
-  transform: translateY(-26px); /* nudge further up; tweak -24, -28, etc. */
-}
-
-/* On mobile, stack cleanly under */
-@media (max-width: 768px) {
-  .qr-section { grid-template-columns: 1fr; }
-  .qr-section > .vcard-actions {
-    justify-self: center;
-    align-self: start;
-    transform: none;
-  }
-}
+    .card.emergency { overflow: visible; } /* allow any outer glows (not used on QR tiles) */
   </style>
 </head>
 <body>
@@ -432,9 +413,6 @@
         <div>
           <div id="qrSlot">
             <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code"></canvas>
-            <div class="qr-placeholder" id="qrPlaceholder">
-              <span>QR Code will appear here<br>after saving your profile</span>
-            </div>
           </div>
           <p id="codeUnderQR" class="text-mono text-muted"></p>
           <p id="qrStatus" role="status" aria-live="polite" hidden></p>
@@ -443,9 +421,6 @@
         <!-- MIDDLE: Offline vCard QR -->
         <div id="vcardSlot">
           <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"></canvas>
-          <div class="qr-placeholder" id="vcardPlaceholder" hidden>
-            Generate the offline QR
-          </div>
         </div>
 
         <!-- RIGHT: 4 buttons in 2×2 grid -->
