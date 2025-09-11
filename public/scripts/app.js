@@ -1,5 +1,4 @@
 <!-- /public/scripts/app.js -->
-<script>
 /* ========================================================================
    MYQER™ Dashboard App — full script
    Online QR (black) 200px / Offline vCard QR (orange) 140px
@@ -1047,4 +1046,4 @@
   /* ---------- light heartbeat ---------- */
   setInterval(()=>{ try{ navigator.sendBeacon?.('/ping',''); }catch{} }, 120000);
 })();
-</script>
+
