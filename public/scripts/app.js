@@ -931,19 +931,25 @@
       })();
     });
 
-    on($('openLink'),'click',()=>{ 
-      (async () => {
-        const input = $('cardUrl');
-        let url = input?.value || '';
-        if (!url) {
-          const code = await ensureShortCode();
-          const base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
-          url = `${base}/c/${code}`;
-        }
-        if(!url) return toast('No link to open','error');
-        window.open(url,'_blank','noopener'); 
-      })();
-    });
+   on($('openLink'),'click', () => {
+  // Open the tab synchronously so it counts as a user gesture
+  const w = window.open('', '_blank', 'noopener');
+  if (!w) { toast('Pop-up blocked','error'); return; }
+
+  (async () => {
+    // build URL (same logic you already have, but after the popup is open)
+    const input = $('cardUrl');
+    let url = input?.value || '';
+    if (!url) {
+      const code = await ensureShortCode();
+      let base = (location?.origin || 'https://myqer.com').replace(/\/$/, '').replace('://www.', '://');
+      // avoid file:// origins when testing locally
+      if (String(base).startsWith('file://')) base = 'https://myqer.com';
+      url = `${base}/c/${code}`;
+    }
+    w.location.href = url;
+  })();
+});
 
     on($('dlPNG'),'click',()=>{ 
       const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error'); 
