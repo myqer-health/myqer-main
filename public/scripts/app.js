@@ -463,10 +463,10 @@
       ctx.font = '14px Inter, Arial, sans-serif';
       ctx.fillText(sub, x, y + 340);
 
-      // QR image (scale to 220×220)
+      // QR image (scale to 200×200)
       if (img) {
         try {
-          ctx.drawImage(img, x + 30, y + 30, 220, 220);
+          ctx.drawImage(img, x + 30, y + 30, 200, 200);
         } catch {}
       }
     }
