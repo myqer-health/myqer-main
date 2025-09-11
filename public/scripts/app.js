@@ -249,17 +249,41 @@
       'END:VCARD'
     ].join('\r\n');
   }
+
+  // Keep canvas visuals minimal (no shadows/padding on the canvas itself)
   function styleVcardCanvas () {
     const c = $('vcardCanvas');
     if (!c) return;
-    c.style.background      = '#fff';
-    c.style.borderRadius    = '12px';
-    c.style.padding         = '8px';
-    c.style.boxShadow       = '0 8px 32px rgba(220, 38, 38, 0.10)';
-    c.style.width           = '220px';
-    c.style.height          = '220px';
-    c.style.imageRendering  = 'pixelated';
-    c.style.display         = 'block';
+    c.style.background     = '#fff';
+    c.style.borderRadius   = '0';    // visuals should live in the wrapper, not the canvas
+    c.style.padding        = '0';
+    c.style.boxShadow      = 'none';
+    c.style.imageRendering = 'pixelated';
+    c.style.display        = 'block';
+  }
+
+  /* ---------- Hi-DPI QR drawing helper (used by both QRs) ---------- */
+  async function drawQRToCanvas(canvas, text, options = {}) {
+    const cssSize = 220;                         // final visual size inside 240px tile
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    const px = cssSize * dpr;
+
+    // Set real pixel buffer for crispness, but keep CSS size stable
+    canvas.width = px;
+    canvas.height = px;
+    canvas.style.width = cssSize + 'px';
+    canvas.style.height = cssSize + 'px';
+    canvas.style.display = 'block';
+    canvas.style.imageRendering = 'pixelated';
+
+    await new Promise((resolve, reject) =>
+      window.QRCode.toCanvas(
+        canvas,
+        text,
+        { width: px, margin: 1, ...options },
+        err => (err ? reject(err) : resolve())
+      )
+    );
   }
 
   /* ---------- URL QR (online) ---------- */
@@ -281,19 +305,7 @@
       if (codeUnderQR) codeUnderQR.textContent = code;
       if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      await new Promise((resolve, reject) =>
-        window.QRCode.toCanvas(
-          qrCanvas,
-          shortUrl,
-          { width: 200, margin: 1, errorCorrectionLevel: 'M' }, // 200px canvas inside 240px tile
-          err => err ? reject(err) : resolve()
-        )
-      );
-
-      // lock visual size equal to vCard
-      qrCanvas.style.width = '220px';
-      qrCanvas.style.height = '220px';
-      qrCanvas.style.display = 'block';
+      await drawQRToCanvas(qrCanvas, shortUrl, { errorCorrectionLevel: 'M' });
 
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
     } catch (err) {
@@ -307,10 +319,9 @@
     const canvas = $('vcardCanvas');       // offline canvas (inside #vcardSlot 240px)
     const help   = $('vcardHelp');         // helper text
     const regen  = $('regenVcardBtn');     // regenerate button
-    const ph     = $('vcardPlaceholder');  // placeholder message
     const ready  = isOfflineReady();
 
-    if (!canvas && !help && !regen && !ph) return;
+    if (!canvas && !help && !regen) return;
 
     if (help) {
       help.textContent = ready
@@ -320,7 +331,6 @@
     if (regen) regen.disabled = !ready;
 
     if (!ready || !canvas) {
-      if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
       return;
     }
@@ -335,28 +345,15 @@
       const vcard = buildVCardPayload(shortUrl);
       const dark  = currentTriageHex();
 
-      await new Promise((resolve, reject) =>
-        window.QRCode.toCanvas(
-          canvas,
-          vcard,
-          {
-            width: 200,          // draw 200px canvas inside 240px tile (same as URL QR)
-            margin: 1,
-            errorCorrectionLevel: 'Q',
-            color: { dark, light: '#FFFFFF' }
-          },
-          err => err ? reject(err) : resolve()
-        )
-      );
+      await drawQRToCanvas(canvas, vcard, {
+        errorCorrectionLevel: 'Q',
+        color: { dark, light: '#FFFFFF' }
+      });
 
-      canvas.style.width = '220px';
-      canvas.style.height = '220px';
       canvas.style.display = 'block';
-      if (ph) ph.hidden = true;
-      styleVcardCanvas();
+      styleVcardCanvas(); // ensure no canvas padding/shadow etc.
     } catch (e) {
       console.error('vCard QR error:', e);
-      if (ph) ph.hidden = false;
       if (canvas) canvas.style.display = 'none';
     }
   }
@@ -695,7 +692,7 @@
       allergies:      $('hfAllergies')?.value || '',
       conditions:     $('hfConditions')?.value || '',
       medications:    $('hfMeds')?.value || '',
-      implants:       $('hfImplants')?.value || '',
+            implants:       $('hfImplants')?.value || '',
       organDonor:     !!$('hfDonor')?.checked,
       triageOverride: $('triageOverride')?.value || 'auto'
     };
@@ -703,34 +700,84 @@
     userData.health = health;
     localStorage.setItem('myqer_health', JSON.stringify(health));
 
-    if (!isSupabaseAvailable) { calculateTriage(); toast('Saved locally (offline mode)','info'); renderUrlQR(); renderVCardQR(); return; }
+    if (!isSupabaseAvailable) { 
+      calculateTriage(); 
+      toast('Saved locally (offline mode)','info'); 
+      renderUrlQR(); 
+      renderVCardQR(); 
+      return; 
+    }
 
     supabase.auth.getSession()
       .then((r) => {
         const session = r?.data?.session;
-        if (!session) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no session'); }
+        if (!session) { 
+          calculateTriage(); 
+          toast('Saved locally — please sign in to sync','info'); 
+          renderUrlQR(); 
+          renderVCardQR(); 
+          throw new Error('no session'); 
+        }
         return getUserId();
       })
       .then((uid) => {
-        if (!uid) { calculateTriage(); toast('Saved locally — please sign in to sync','info'); renderUrlQR(); renderVCardQR(); throw new Error('no uid'); }
+        if (!uid) { 
+          calculateTriage(); 
+          toast('Saved locally — please sign in to sync','info'); 
+          renderUrlQR(); 
+          renderVCardQR(); 
+          throw new Error('no uid'); 
+        }
 
-        const snake = { user_id: uid, blood_type: health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organ_donor: health.organDonor, triage_override: health.triageOverride };
-        const camel = { user_id: uid, bloodType:   health.bloodType, allergies: health.allergies, conditions: health.conditions, medications: health.medications, implants: health.implants, organDonor: health.organDonor, triageOverride: health.triageOverride };
+        const snake = { 
+          user_id: uid, 
+          blood_type: health.bloodType, 
+          allergies: health.allergies, 
+          conditions: health.conditions, 
+          medications: health.medications, 
+          implants: health.implants, 
+          organ_donor: health.organDonor, 
+          triage_override: health.triageOverride 
+        };
+        const camel = { 
+          user_id: uid, 
+          bloodType: health.bloodType, 
+          allergies: health.allergies, 
+          conditions: health.conditions, 
+          medications: health.medications, 
+          implants: health.implants, 
+          organDonor: health.organDonor, 
+          triageOverride: health.triageOverride 
+        };
 
         return supabase.from('health_data').upsert(snake, { onConflict: 'user_id' })
-          .then(({ error }) => { if (!error) return; return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' }).then(({ error:e2 }) => { if (e2) throw e2; }); });
+          .then(({ error }) => { 
+            if (!error) return; 
+            return supabase.from('health_data').upsert(camel, { onConflict: 'user_id' }).then(({ error:e2 }) => { if (e2) throw e2; }); 
+          });
       })
-      .then(() => { calculateTriage(); toast('Health info saved','success'); renderUrlQR(); renderVCardQR(); })
-      .catch((e) => { if (e && (e.message==='no session' || e.message==='no uid')) return; console.error(e); toast('Error saving health','error'); });
+      .then(() => { 
+        calculateTriage(); 
+        toast('Health info saved','success'); 
+        renderUrlQR(); 
+        renderVCardQR(); 
+      })
+      .catch((e) => { 
+        if (e && (e.message==='no session' || e.message==='no uid')) return; 
+        console.error(e); 
+        toast('Error saving health','error'); 
+      });
   }
 
   /* ---------- Load (local-first, server-sync) ---------- */
   function fillFromLocal(){
     try{
       // profile
-      const lp=localStorage.getItem('myqer_profile'); if (lp) userData.profile=JSON.parse(lp)||{};
+      const lp=localStorage.getItem('myqer_profile'); 
+      if (lp) userData.profile=JSON.parse(lp)||{};
       window.userData=userData;
-      const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+      const p=userData.profile; 
+      const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
       set('profileFullName', p.full_name ?? p.fullName);
       set('profileDob',      p.date_of_birth ?? p.dob);
       set('profileCountry',  p.country);
@@ -803,7 +850,8 @@
             }
             localStorage.setItem('myqer_profile', JSON.stringify(userData.profile));
 
-            const p=userData.profile; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            const p=userData.profile; 
+            const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
             set('profileFullName', p.full_name);
             set('profileDob',      p.date_of_birth);
             set('profileCountry',  p.country);
@@ -831,7 +879,8 @@
             userData.health = Object.assign({}, userData.health, norm);
             localStorage.setItem('myqer_health', JSON.stringify(userData.health));
 
-            const h=userData.health; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
+            const h=userData.health; 
+            const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
             set('hfBloodType',  h.bloodType);
             set('hfAllergies',  h.allergies);
             set('hfConditions', h.conditions);
@@ -867,7 +916,7 @@
 
   /* ---------- buttons ---------- */
   function wireQRButtons(){
-    // URL QR actions (keep copyLink/dlPNG if present in DOM; harmless if removed)
+    // URL QR actions (keep copyLink/openLink/dlPNG if present in DOM)
     on($('copyLink'),'click',()=>{ 
       (async () => {
         const input = $('cardUrl');
