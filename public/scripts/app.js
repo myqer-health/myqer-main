@@ -1,10 +1,4 @@
 
-/* ========================================================================
-   MYQER™ Dashboard App — full script
-   Online QR (black) 200px / Offline vCard QR (orange) 140px
-   Open Link => only /c/<CODE>
-   Print/PNG => styled card with both QRs
-   ======================================================================== */
 (function () {
   /* ---------- tiny helpers ---------- */
   const $  = (id) => document.getElementById(id);
@@ -271,7 +265,7 @@
   }
 
   /* ---------- Hi-DPI QR drawing ---------- */
-  async function drawQRToCanvas(canvas, text, cssSize = 200, options = {}) {
+  async function drawQRToCanvas(canvas, text, cssSize = 160, options = {}) {
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     const px = cssSize * dpr;
 
@@ -311,7 +305,7 @@
       if (codeUnderQR) codeUnderQR.textContent = code;
       if (cardUrlInput) cardUrlInput.value = shortUrl;
 
-      await drawQRToCanvas(qrCanvas, shortUrl, 200, { errorCorrectionLevel: 'M' });
+      await drawQRToCanvas(qrCanvas, shortUrl, 160, { errorCorrectionLevel: 'M' });
 
       if (qrStatus) { qrStatus.textContent = 'QR Code generated successfully'; qrStatus.hidden = false; }
     } catch (err) {
@@ -349,7 +343,7 @@
       const vcard = buildVCardPayload(shortUrl);
       const dark  = '#EA580C'; // strong orange
 
-      await drawQRToCanvas(canvas, vcard, 140, {
+      await drawQRToCanvas(canvas, vcard, 120, {
         errorCorrectionLevel: 'Q',
         color: { dark, light: '#FFFFFF' }
       });
@@ -519,7 +513,7 @@
     ctx.fillStyle='#6b7280'; ctx.font='600 18px -apple-system,Segoe UI,Roboto,Inter,Arial';
     ctx.fillText('NO NETWORK NEEDED', right.x+right.w/2, right.y+100);
 
-    // QRs on card (black 200px => 400 at 2x; orange 140px => 280 at 2x)
+    // QRs on card (black 160px => 400 at 2x; orange 120px => 280 at 2x)
     const black2x = 400, orange2x = 280;
     ctx.drawImage(onlineImg,  left.x + left.w/2 - black2x/2,  left.y + left.h/2 - black2x/2 + 10,  black2x,  black2x);
     ctx.drawImage(offlineImg, right.x + right.w/2 - orange2x/2, right.y + right.h/2 - orange2x/2 + 10, orange2x, orange2x);
