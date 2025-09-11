@@ -1,521 +1,409 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-  connect-src 'self' https://*.supabase.co https://*.supabase.io;
-  img-src     'self' data: blob:;
-  style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src    'self' https://fonts.gstatic.com data:;
-  object-src  'none';
-  base-uri    'self';
-  form-action 'self';
-  frame-ancestors 'self';
-  child-src 'self' blob:;
-  worker-src 'self' blob:;
-">
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MYQER™ Dashboard — Your Emergency Profile</title>
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- Supabase + QR -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
-  <!-- App -->
-  <script defer src="/scripts/app.js?v=11"></script>
-
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    :root{
-      --red:#DC2626; --green:#059669; --orange:#EA580C; --ink:#0F172A; --slate:#475569; --light-slate:#94A3B8;
-      --bg:linear-gradient(135deg,#F8FAFC 0%,#F1F5F9 100%); --white:#fff; --glass:rgba(255,255,255,.95);
-      --border:rgba(148,163,184,.15); --shadow:0 8px 32px rgba(15,23,42,.08); --shadow-lg:0 20px 64px rgba(15,23,42,.12);
-      --shadow-xl:0 32px 80px rgba(15,23,42,.15); --gradient-red:linear-gradient(135deg,#DC2626 0%,#B91C1C 100%);
-      --gradient-green:linear-gradient(135deg,#059669 0%,#047857 100%); --gradient-orange:linear-gradient(135deg,#EA580C 0%,#C2410C 100%)
-    }
-    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;min-height:100vh}
-
-    /* Loading */
-    #loadingState{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
-    .spinner{width:48px;height:48px;border:4px solid var(--border);border-top:4px solid var(--red);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:1rem}
-    @keyframes spin{to{transform:rotate(360deg)}} .loading-text{font-size:1.125rem;color:var(--slate);font-weight:500}
-
-    /* Error box */
-    #errorBox{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #EF4444;border-radius:16px;padding:2rem;max-width:400px;width:90%;text-align:center;box-shadow:var(--shadow-lg);z-index:9998;display:none}
-    #errorBox h3{color:#EF4444;margin-bottom:1rem;font-size:1.25rem;font-weight:600} #errorMsg{color:var(--slate);margin-bottom:1.5rem}
-    .error-actions{display:flex;gap:1rem;justify-content:center}
-
-    /* Toasts */
-    #toastArea{position:fixed;top:1rem;right:1rem;z-index:9997;pointer-events:none}
-    .toast{background:#fff;border-radius:12px;padding:1rem 1.5rem;margin-bottom:.5rem;box-shadow:var(--shadow);border-left:4px solid var(--green);font-size:.875rem;font-weight:500;opacity:0;transform:translateX(100%);transition:.3s;pointer-events:auto;max-width:320px}
-    .toast.show{opacity:1;transform:translateX(0)} .toast.error{border-left-color:#EF4444;color:#991B1B} .toast.success{border-left-color:var(--green);color:#166534}
-
-    /* Header */
-    header{background:#fff;border-bottom:1px solid var(--border);padding:1rem 2rem;position:sticky;top:0;z-index:1000;backdrop-filter:blur(20px)}
-    .header-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
-    .logo{display:flex;align-items:center;gap:.5rem}
-    .logo h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
-    .logo-myq{color:var(--ink)} .logo-er{color:var(--red)} .logo-tm{color:var(--ink);font-size:.8em;vertical-align:super}
-    .logo-hint{font-size:.75rem;color:var(--light-slate);font-style:italic;font-weight:400}
-    .header-controls{display:flex;align-items:center;gap:1rem}
-    #langSelector{position:relative;background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:.5rem 1rem;font-size:.875rem;cursor:pointer;backdrop-filter:blur(10px)}
-    .lang-dropdown{position:absolute;top:100%;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);z-index:1001;min-width:120px;display:none}
-    .lang-dropdown button{width:100%;padding:.75rem 1rem;border:none;background:none;text-align:left;cursor:pointer;font-size:.875rem;transition:background .2s}
-    .lang-dropdown button:hover{background:var(--bg)}
-    #netStatus{padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-    #netStatus.online{background:#DCFCE7;color:var(--green)} #netStatus.offline{background:#FEF3C7;color:#D97706}
-    #btnSignOut{background:var(--red);color:#fff;border:none;border-radius:8px;padding:.75rem 1.5rem;font-weight:600;cursor:pointer;transition:.2s}
-    #btnSignOut:hover{background:#B71C1C;transform:translateY(-1px)}
-
-    /* Offline banner */
-    #offlineBanner{background:#FEF3C7;color:#92400E;padding:.75rem 2rem;text-align:center;font-size:.875rem;font-weight:500;border-bottom:1px solid #F59E0B;display:none}
-
-    /* Layout */
-    main{max-width:1200px;margin:0 auto;padding:2rem;display:grid;gap:2rem}
-    .card{background:var(--glass);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:24px;padding:3rem 3rem 3rem 4rem;box-shadow:var(--shadow-lg);position:relative;overflow:hidden;transition:.3s cubic-bezier(.4,0,.2,1);margin-left:1rem}
-    .card:hover{transform:translateY(-4px);box-shadow:var(--shadow-xl)}
-    .card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:6px;background:var(--gradient-green);border-radius:0 4px 4px 0}
-    .card.ice::before{background:var(--gradient-orange)} .card.critical::before{background:var(--gradient-red)} .card.emergency::before{background:var(--gradient-red)}
-    .ribbon{position:absolute;top:2rem;left:-.5rem;background:var(--gradient-green);color:#fff;padding:.75rem 1.5rem .75rem 2rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;border-radius:0 12px 12px 0;box-shadow:0 4px 16px rgba(5,150,105,.3);z-index:10}
-    .ribbon.ice{background:var(--gradient-orange)} .ribbon.critical{background:var(--gradient-red)} .ribbon.emergency{background:var(--gradient-red)}
-    .card-header{margin-bottom:1.5rem} .card-title{font-size:1.5rem;font-weight:700;color:var(--ink);margin-bottom:.5rem} .card-subtitle{color:var(--slate);font-size:.875rem;line-height:1.5}
-
-    .form-grid{display:grid;gap:1.5rem} .form-grid.two-col{grid-template-columns:1fr 1fr}
-    .form-group{display:flex;flex-direction:column;gap:.5rem} .form-group label{font-weight:600;color:var(--ink);font-size:.875rem}
-    .form-group input,.form-group select,.form-group textarea{padding:.75rem 1rem;border:2px solid var(--border);border-radius:12px;font-size:1rem;transition:.2s;background:#fff}
-    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(211,47,47,.1)}
-    .form-group textarea{resize:vertical;min-height:100px} .form-hint{font-size:.75rem;color:var(--light-slate)}
-    .checkbox-group{display:flex;align-items:center;gap:.75rem} .checkbox-group input[type="checkbox"]{width:20px;height:20px;accent-color:var(--red)}
-
-    .save-button{background:var(--red);color:#fff;border:none;border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer;transition:.2s;margin-top:1rem}
-    .save-button:hover:not(:disabled){background:#B71C1C;transform:translateY(-1px)} .save-button:disabled{background:var(--light-slate);cursor:not-allowed}
-
-    .status-msg{font-size:.875rem;margin-top:.5rem;padding:.5rem;border-radius:8px;display:none}
-    .status-msg.success{background:#DCFCE7;color:var(--green)} .status-msg.error{background:#FEE2E2;color:#DC2626}
-
-    /* Triage */
-    .triage-section{display:flex;align-items:center;gap:1rem;margin-top:1rem;padding:1rem;background:rgba(248,250,252,.5);border-radius:12px;border:1px solid var(--border)}
-    .triage-label{font-weight:600;color:var(--ink)}
-    #triagePill{padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-    #triagePill.green{background:#DCFCE7;color:var(--green)} #triagePill.amber{background:#FEF3C7;color:#D97706} #triagePill.red{background:#FEE2E2;color:#DC2626} #triagePill.black{background:#F1F5F9;color:var(--slate)}
-    #triageOverride{padding:.5rem 1rem;border:1px solid var(--border);border-radius:8px;font-size:.875rem;background:#fff}
-
-    /* Emergency / QR */
-    .emergency-card{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15)}
-
-    /* QR grid: two fixed squares + right column */
-    .qr-section{
-      display:grid;
-      grid-template-columns: 260px 260px 1fr;
-      gap: 28px;
-      align-items: start;
-      justify-items: center;
-      margin-top: 2rem;
-    }
-
-    /* Keep first two columns from stretching */
-    .qr-section > :nth-child(1),
-    .qr-section > :nth-child(2){ width:260px; }
-    #codeUnderQR, #qrStatus{ max-width:260px; box-sizing:border-box; }
-
-    /* Animated outer wrapper for rotating ring */
-    .qr-wrap{
-      position: relative;
-      width: 260px;
-      height: 260px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      isolation: isolate;        /* Safari-safe: separate stacking context */
-    }
-    .qr-wrap::before{
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 28px;
-      padding: 10px; /* ring thickness */
-      background: conic-gradient(
-        from 0deg,
-        transparent 0deg,
-        rgba(220,38,38,.25) 120deg,
-        transparent 240deg,
-        rgba(220,38,38,.25) 360deg
-      );
-      -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      animation: spin 3s linear infinite;
-      pointer-events: none;
-      z-index: 0;                 /* keep ring behind tiles */
-    }
-
-    /* QR tiles (visual container) */
-    #qrSlot, #vcardSlot{
-      position:relative;
-      width:200px;height:200px;
-      background:#fff;border:3px solid rgba(220,38,38,.1);border-radius:20px;
-      display:flex;align-items:center;justify-content:center;
-      box-shadow:0 8px 32px rgba(220,38,38,.1);
-      overflow:hidden; /* keep QR inside rounded box */
-      z-index: 1;      /* above the rotating ring */
-    }
-
-    /* Canvas size matches JS CSS size; Hi-DPI handled in JS
-       IMPORTANT: no border-radius so the 3 finder squares aren't clipped. */
-    #qrCanvas,#vcardCanvas{
-      width:200px;height:200px;display:block;
-      image-rendering:pixelated;background:#fff;border-radius:0;
-    }
-
-    #codeUnderQR{font-family:Monaco,Menlo,monospace;font-size:.875rem;color:var(--slate);text-align:center;margin-top:1rem;font-weight:600;letter-spacing:.1em}
-    #qrStatus{background:rgba(220,38,38,.1);color:var(--red);padding:.75rem 1rem;border-radius:8px;font-size:.875rem;font-weight:500;margin-top:1rem}
-
-    /* Actions column: centered 2×2 grid */
-    .vcard-actions{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(140px,1fr));
-      gap:12px;
-      align-content:start;
-      justify-items:stretch;
-      max-width:360px;
-      width:100%;
-      align-self:center; /* vertically centered next to QRs */
-      justify-self:end;  /* align to the right column edge */
-      transform: translateY(-26px);
-    }
-
-    .vcard-actions .btn-secondary{
-      appearance:none !important; -webkit-appearance:none !important; -moz-appearance:none !important;
-      display:inline-flex; align-items:center; justify-content:center;
-      width:100%;
-      background:#fff !important; color:var(--red) !important;
-      border:2px solid var(--red) !important; border-radius:12px !important;
-      padding:.65rem 1rem !important; font-size:.9rem; font-weight:700;
-      text-transform:uppercase; letter-spacing:.05em; line-height:1;
-      box-shadow:0 6px 18px rgba(220,38,38,.08); cursor:pointer;
-      transition:background .18s ease, color .18s ease, transform .12s ease, box-shadow .18s ease;
-    }
-    .vcard-actions .btn-secondary:hover{
-      background:var(--red) !important; color:#fff !important;
-      transform:translateY(-1px); box-shadow:0 10px 22px rgba(220,38,38,.16);
-    }
-    .vcard-actions .btn-secondary:active{ transform:translateY(0); box-shadow:0 6px 14px rgba(220,38,38,.12) }
-    .vcard-actions .btn-secondary:focus{ outline:2px solid rgba(220,38,38,.35); outline-offset:2px }
-    .vcard-actions .btn-secondary:disabled{
-      opacity:.55; cursor:not-allowed; background:#fff !important; color:var(--light-slate) !important; border-color:var(--border) !important; box-shadow:none;
-    }
-
-    /* ICE */
-    .ice-row{background:rgba(234,88,12,.03);border:1px solid rgba(234,88,12,.1);border-radius:16px;padding:2rem;margin-bottom:1.5rem;transition:.3s;position:relative}
-    .ice-row:hover{background:rgba(234,88,12,.05);border-color:rgba(234,88,12,.2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(234,88,12,.1)}
-    .ice-contact-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
-    .contact-number{background:var(--gradient-orange);color:#fff;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;box-shadow:0 4px 12px rgba(234,88,12,.3)}
-    .ice-actions{display:flex;gap:.75rem;align-items:center}
-    .iceSaveBtn{background:var(--gradient-orange);color:#fff;border:none;border-radius:8px;padding:.5rem 1rem;font-size:.75rem;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
-    .iceDeleteBtn{background:none;border:none;color:#DC2626;cursor:pointer;font-size:1.25rem;padding:.5rem;border-radius:8px;transition:.2s;display:flex;align-items:center;justify-content:center;width:36px;height:36px}
-    .iceDeleteBtn:hover{background:rgba(220,38,38,.1);color:#B91C1C}
-    .ice-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
-    .ice-form-grid .form-group:nth-child(3){grid-column:1/-1}
-    #addIce{background:rgba(234,88,12,.1);color:var(--orange);border:2px dashed rgba(234,88,12,.3);border-radius:16px;padding:1.5rem 2rem;font-weight:600;cursor:pointer;transition:.3s;margin-top:1rem;width:100%;font-size:.875rem;text-transform:uppercase;letter-spacing:.05em}
-    #addIce:hover:not(:disabled){background:rgba(234,88,12,.15);border-color:rgba(234,88,12,.5);transform:translateY(-2px)}
-    #addIce:disabled{opacity:.5;cursor:not-allowed}
-
-    /* Delete / disclaimers / footer */
-    .delete-account{background:linear-gradient(135deg,rgba(220,38,38,.03) 0%,rgba(220,38,38,.08) 100%);border:1px solid rgba(220,38,38,.15);margin-top:3rem}
-    .delete-form{background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.1);border-radius:16px;padding:2rem;margin-top:1.5rem}
-    .delete-button{background:#DC2626;color:#fff;border:none;border-radius:12px;padding:.875rem 2rem;font-weight:600;cursor:pointer;transition:.2s;margin-top:1rem;width:100%}
-    .delete-button:hover:not(:disabled){background:#B71C1C;transform:translateY(-1px)} .delete-button:disabled{background:var(--light-slate);cursor:not-allowed;opacity:.6}
-
-    .disclaimers{max-width:1200px;margin:3rem auto 2rem;padding:0 2rem}
-    .disclaimer-content{background:rgba(148,163,184,.05);border:1px solid rgba(148,163,184,.1);border-radius:16px;padding:2rem;text-align:center}
-    .disclaimer-content p{color:var(--slate);font-size:.875rem;line-height:1.6;margin:0}
-    .disclaimer-content p:first-child{margin-bottom:.75rem;font-weight:500}
-
-    .footer{background:#fff;border-top:1px solid var(--border);padding:2rem;margin-top:4rem}
-    .footer-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
-    .footer-links{display:flex;gap:2rem}
-    .footer-links a{color:var(--slate);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s}
-    .footer-links a:hover{color:var(--red)}
-    .footer-copyright{color:var(--light-slate);font-size:.75rem}
-    .hidden{display:none!important}
-
-    /* Responsive */
-    @media (max-width:1024px){
-      .qr-section{gap:22px}
-    }
-    @media (max-width:768px){
-      header{padding:1rem}
-      .header-content{flex-direction:column;gap:1rem;align-items:stretch}
-      .header-controls{justify-content:space-between}
-      main{padding:1rem;gap:1.5rem}
-      .card{padding:1.5rem 1.5rem 1.5rem 2rem;margin-left:.5rem}
-      .form-grid.two-col{grid-template-columns:1fr}
-      .qr-section{grid-template-columns:1fr;gap:18px;justify-items:center;text-align:center}
-      .qr-wrap{width:260px;height:260px}
-      #qrSlot,#vcardSlot{width:240px;height:240px}
-      .vcard-actions{max-width:460px;width:100%;grid-template-columns:1fr 1fr;justify-self:center;align-self:start;transform:none}
-      .ice-form-grid{grid-template-columns:1fr}
-      .disclaimers{padding:0 1rem} .disclaimer-content{padding:1.5rem}
-      .footer{padding:1.5rem 1rem}
-      .footer-content{flex-direction:column;text-align:center;gap:1.5rem}
-      .footer-links{justify-content:center}
-    }
-
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    button:focus,input:focus,select:focus,textarea:focus{outline:2px solid var(--red);outline-offset:2px}
-    .card.emergency { overflow: visible; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYQER™ Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .triage-green { background-color: #059669; }
+        .triage-amber { background-color: #f59e0b; }
+        .triage-red { background-color: #dc2626; }
+        .triage-black { background-color: #111827; }
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #374151;
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .qr-container {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .qr-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px -4px rgba(0, 0, 0, 0.15), 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+        }
+        .online-qr { 
+            border: 3px solid #059669; 
+            box-shadow: 0 0 20px rgba(5, 150, 105, 0.2);
+        }
+        .offline-qr { 
+            border: 3px solid #dc2626; 
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.2);
+        }
+        .badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge.ready {
+            background-color: #10b981;
+            color: white;
+        }
+        .badge.notready {
+            background-color: #f59e0b;
+            color: white;
+        }
+    </style>
 </head>
-<body>
-  <!-- Loading -->
-  <div id="loadingState">
-    <div class="spinner"></div>
-    <div class="loading-text" data-i18n="loading.dashboard">Loading your dashboard…</div>
-  </div>
-
-  <!-- Error -->
-  <div id="errorBox">
-    <h3 data-i18n="error.title">Something went wrong</h3>
-    <div id="errorMsg"></div>
-    <div class="error-actions">
-      <button class="btn-secondary" onclick="location.reload()" data-i18n="error.retry">Try Again</button>
-    </div>
-  </div>
-
-  <!-- Toasts -->
-  <div id="toastArea" aria-live="polite"></div>
-
-  <!-- Header -->
-  <header>
-    <div class="header-content">
-      <div class="logo">
-        <h1><span class="logo-myq">MYQ</span><span class="logo-er">ER</span><span class="logo-tm">™</span></h1>
-        <span class="logo-hint" data-i18n="logo.hint">pronounced "my care"</span>
-      </div>
-      <div class="header-controls">
-        <div style="position: relative;">
-          <button id="langSelector" aria-haspopup="true" aria-expanded="false">EN</button>
-          <div class="lang-dropdown" id="langDropdown">
-            <button data-lang="en">English</button><button data-lang="es">Español</button><button data-lang="fr">Français</button>
-            <button data-lang="de">Deutsch</button><button data-lang="it">Italiano</button><button data-lang="pt">Português</button>
-            <button data-lang="ro">Română</button><button data-lang="ar">العربية</button><button data-lang="hi">हिन्दी</button><button data-lang="zh">中文</button>
-          </div>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto p-4 space-y-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-600">
+            <h1 class="text-3xl font-bold">
+                <span class="text-black">MYQ</span><span class="text-red-600">ER</span><span class="text-black">™</span>
+                <span class="text-green-600">Dashboard</span>
+            </h1>
+            <p class="text-red-600 mt-2">Emergency Medical Scannable QR Triage Aid ID</p>
         </div>
-        <div id="netStatus" class="online" data-i18n="status.online">Online</div>
-        <button id="btnSignOut" data-i18n="header.logout">Logout</button>
-      </div>
-    </div>
-  </header>
 
-  <!-- Offline banner -->
-  <div id="offlineBanner"><span data-i18n="offline.message">You're offline — QR still works with cached data.</span></div>
-
-  <!-- Main -->
-  <main>
-    <!-- Identity -->
-    <section class="card identity">
-      <div class="ribbon">Identity</div>
-      <div class="card-header">
-        <h2 class="card-title" data-i18n="identity.title">Identity — Personal Information</h2>
-        <p class="card-subtitle" data-i18n="identity.hint">These details help responders confirm who you are.</p>
-      </div>
-      <form class="form-grid two-col">
-        <div class="form-group">
-          <label for="profileFullName" data-i18n="identity.fullName">Full Name</label>
-          <input type="text" id="profileFullName" data-i18n-placeholder="identity.fullNamePlaceholder" placeholder="Enter your full legal name" required>
-        </div>
-        <div class="form-group">
-          <label for="profileDob" data-i18n="identity.dob">Date of Birth</label>
-          <input type="date" id="profileDob" required>
-          <span class="form-hint" data-i18n="identity.dobHint">Format: YYYY-MM-DD</span>
-        </div>
-        <div class="form-group">
-          <label for="profileCountry" data-i18n="identity.country">Country</label>
-          <select id="profileCountry" required>
-            <option value="" data-i18n="identity.selectCountry">Select your country</option>
-            <option value="US">United States</option><option value="CA">Canada</option><option value="GB">United Kingdom</option>
-            <option value="DE">Germany</option><option value="FR">France</option><option value="ES">Spain</option>
-            <option value="IT">Italy</option><option value="PT">Portugal</option><option value="RO">Romania</option>
-            <option value="IN">India</option><option value="CN">China</option><option value="AU">Australia</option>
-            <option value="BR">Brazil</option><option value="MX">Mexico</option><option value="JP">Japan</option>
-            <option value="KR">South Korea</option><option value="OTHER">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="profileHealthId" data-i18n="identity.healthId">National/Health ID (Optional)</label>
-          <input type="text" id="profileHealthId" data-i18n-placeholder="identity.healthIdPlaceholder" placeholder="e.g., NHS number, SSN, etc.">
-          <span class="form-hint" data-i18n="identity.healthIdHint">Only visible to medical professionals</span>
-        </div>
-      </form>
-      <button class="save-button" id="saveProfile" data-i18n="common.saveProfile">Save Profile</button>
-      <div class="status-msg" id="profileMsg"></div>
-    </section>
-
-    <!-- Critical Health -->
-    <section class="card critical">
-      <div class="ribbon critical">Critical</div>
-      <div class="card-header">
-        <h2 class="card-title" data-i18n="critical.title">CRITICAL — Medical & Health Details</h2>
-        <p class="card-subtitle" data-i18n="critical.hint">Keep this current. It appears on your emergency card.</p>
-      </div>
-      <form class="form-grid">
-        <div class="form-group">
-          <label for="hfBloodType" data-i18n="critical.bloodType">Blood Type</label>
-          <select id="hfBloodType">
-            <option value="" data-i18n="critical.selectBloodType">Select blood type</option>
-            <option value="O+">O+</option><option value="O-">O-</option><option value="A+">A+</option><option value="A-">A-</option>
-            <option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option>
-            <option value="Unknown" data-i18n="critical.unknown">Unknown</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="hfAllergies" data-i18n="critical.allergies">Critical Allergies</label>
-          <textarea id="hfAllergies" placeholder="List any life-threatening allergies (medications, foods, etc.)"></textarea>
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="hfDonor">
-          <label for="hfDonor" data-i18n="critical.organDonor">I am an organ donor</label>
-        </div>
-        <div class="form-group">
-          <label for="hfConditions" data-i18n="critical.conditions">Medical Conditions</label>
-          <textarea id="hfConditions" placeholder="Diabetes, heart disease, epilepsy, etc."></textarea>
-        </div>
-        <div class="form-group">
-          <label for="hfMeds" data-i18n="critical.medications">Current Medications</label>
-          <textarea id="hfMeds" placeholder="List all current medications and dosages"></textarea>
-        </div>
-        <div class="form-group">
-          <label for="hfImplants" data-i18n="critical.implants">Implants/Medical Devices</label>
-          <textarea id="hfImplants" placeholder="Pacemaker, insulin pump, metal implants, etc."></textarea>
-        </div>
-      </form>
-
-      <div class="triage-section">
-        <span class="triage-label" data-i18n="triage.label">Triage:</span>
-        <div id="triagePill" class="green">GREEN</div>
-        <select id="triageOverride">
-          <option value="auto" data-i18n="triage.useAuto">Use auto</option>
-          <option value="green" data-i18n="triage.green">Green</option>
-          <option value="amber" data-i18n="triage.amber">Amber</option>
-          <option value="red" data-i18n="triage.red">Red</option>
-          <option value="black" data-i18n="triage.black">Black</option>
-        </select>
-      </div>
-
-      <button class="save-button" id="saveHealth" data-i18n="common.saveHealth">Save Health</button>
-      <div class="status-msg" id="healthMsg"></div>
-    </section>
-
-    <!-- ICE Contacts -->
-    <section class="card ice">
-      <div class="ribbon ice">ICE</div>
-      <div class="card-header">
-        <h2 class="card-title" data-i18n="iceTitle">Emergency Contacts (ICE)</h2>
-        <p class="card-subtitle" data-i18n="iceHint">Add up to 3 trusted contacts.</p>
-      </div>
-
-      <div id="iceContactsList"></div>
-
-      <button id="addIce" data-i18n="ice.addContact">+ Add Emergency Contact</button>
-      <button class="save-button" id="saveIce" data-i18n="common.saveIce">Save ICE Contacts</button>
-      <div class="status-msg" id="iceMsg"></div>
-    </section>
-
-    <!-- Emergency Card & QR -->
-    <section class="card emergency emergency-card">
-      <div class="ribbon emergency">Emergency</div>
-
-      <div class="card-header">
-        <h2 class="card-title" id="qrTitle">Emergency Card & QR</h2>
-        <p class="card-subtitle" id="qrExplain">QR never changes; it always opens your latest info.</p>
-      </div>
-
-      <div class="qr-section">
-        <!-- LEFT: Online QR -->
-        <div>
-          <div class="qr-wrap">
-            <div id="qrSlot">
-              <canvas id="qrCanvas" width="200" height="200" aria-label="QR Code"></canvas>
+        <!-- Identity & ICE Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                Identity & ICE
+                <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full">
+                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                </span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="profileFullName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="John Doe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                    <input type="date" id="profileDob" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <select id="profileCountry" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Country</option>
+                        <option value="AF">Afghanistan</option>
+                        <option value="AL">Albania</option>
+                        <option value="DZ">Algeria</option>
+                        <option value="AR">Argentina</option>
+                        <option value="AU">Australia</option>
+                        <option value="AT">Austria</option>
+                        <option value="BD">Bangladesh</option>
+                        <option value="BE">Belgium</option>
+                        <option value="BR">Brazil</option>
+                        <option value="BG">Bulgaria</option>
+                        <option value="CA">Canada</option>
+                        <option value="CL">Chile</option>
+                        <option value="CN">China</option>
+                        <option value="CO">Colombia</option>
+                        <option value="CR">Costa Rica</option>
+                        <option value="HR">Croatia</option>
+                        <option value="CZ">Czech Republic</option>
+                        <option value="DK">Denmark</option>
+                        <option value="EG">Egypt</option>
+                        <option value="EE">Estonia</option>
+                        <option value="FI">Finland</option>
+                        <option value="FR">France</option>
+                        <option value="DE">Germany</option>
+                        <option value="GH">Ghana</option>
+                        <option value="GR">Greece</option>
+                        <option value="HK">Hong Kong</option>
+                        <option value="HU">Hungary</option>
+                        <option value="IS">Iceland</option>
+                        <option value="IN">India</option>
+                        <option value="ID">Indonesia</option>
+                        <option value="IE">Ireland</option>
+                        <option value="IL">Israel</option>
+                        <option value="IT">Italy</option>
+                        <option value="JP">Japan</option>
+                        <option value="KE">Kenya</option>
+                        <option value="LV">Latvia</option>
+                        <option value="LT">Lithuania</option>
+                        <option value="MY">Malaysia</option>
+                        <option value="MX">Mexico</option>
+                        <option value="NL">Netherlands</option>
+                        <option value="NZ">New Zealand</option>
+                        <option value="NG">Nigeria</option>
+                        <option value="NO">Norway</option>
+                        <option value="PK">Pakistan</option>
+                        <option value="PE">Peru</option>
+                        <option value="PH">Philippines</option>
+                        <option value="PL">Poland</option>
+                        <option value="PT">Portugal</option>
+                        <option value="RO">Romania</option>
+                        <option value="RU">Russia</option>
+                        <option value="SA">Saudi Arabia</option>
+                        <option value="SG">Singapore</option>
+                        <option value="SK">Slovakia</option>
+                        <option value="SI">Slovenia</option>
+                        <option value="ZA">South Africa</option>
+                        <option value="KR">South Korea</option>
+                        <option value="ES">Spain</option>
+                        <option value="LK">Sri Lanka</option>
+                        <option value="SE">Sweden</option>
+                        <option value="CH">Switzerland</option>
+                        <option value="TW">Taiwan</option>
+                        <option value="TH">Thailand</option>
+                        <option value="TR">Turkey</option>
+                        <option value="UA">Ukraine</option>
+                        <option value="AE">United Arab Emirates</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="US">United States</option>
+                        <option value="VE">Venezuela</option>
+                        <option value="VN">Vietnam</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">NHS/Health ID</label>
+                    <input type="text" id="profileHealthId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="NHS Number">
+                </div>
             </div>
-          </div>
-          <p id="codeUnderQR" class="text-mono text-muted"></p>
-          <p id="qrStatus" role="status" aria-live="polite" hidden></p>
+
+            <h3 class="text-lg font-medium text-gray-900 mb-3">In Case of Emergency (ICE)</h3>
+            <!-- The JS will render ICE rows inside this wrapper -->
+            <div id="iceContactsList" class="space-y-3"></div>
+            <div class="mt-3 flex gap-3">
+                <button id="addIce" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">+ Add Emergency Contact</button>
+                <button id="saveIce" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">Save Contacts</button>
+            </div>
         </div>
 
-        <!-- MIDDLE: Offline vCard QR -->
-        <div class="qr-wrap">
-          <div id="vcardSlot">
-            <canvas id="vcardCanvas" width="200" height="200" aria-label="Offline ICE QR"></canvas>
-          </div>
+        <!-- Health & Triage Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900">Health & Triage</h2>
+                <div id="triagePill" class="px-3 py-1 rounded-full text-white text-sm font-medium triage-green">
+                    Low Risk
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
+                    <select id="hfBloodType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Blood Type</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                    </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="hfDonor" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                    <label for="hfDonor" class="ml-2 block text-sm text-gray-900 flex items-center">
+                        ❤️ Organ Donor
+                    </label>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Allergies & Reactions
+                    </label>
+                    <textarea id="hfAllergies" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="List any allergies and reactions..."></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Medical Conditions</label>
+                    <textarea id="hfConditions" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="List medical conditions..."></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Current Medications</label>
+                    <textarea id="hfMeds" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="List current medications..."></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Implants/Devices</label>
+                    <textarea id="hfImplants" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Pacemaker, metal implants, etc..."></textarea>
+                </div>
+
+                <!-- Triage override -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Triage Override</label>
+                    <select id="triageOverride" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="auto">Auto</option>
+                        <option value="green">Green</option>
+                        <option value="amber">Amber</option>
+                        <option value="red">Red</option>
+                        <option value="black">Black</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
-        <!-- RIGHT: 4 buttons in 2×2 grid -->
-        <div class="vcard-actions">
-          <button class="btn-secondary" id="openLink">Open Link</button>
-          <button class="btn-secondary" id="regenVcardBtn" disabled>Regenerate</button>
-          <button class="btn-secondary" id="dlVcardPNG">Download PNG</button>
-          <button class="btn-secondary" id="printVcard">Print</button>
+        <!-- My Care Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-gray-300">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">My Care</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Life Support Preference</label>
+                    <select id="careLifeSupport" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Preference</option>
+                        <option value="yes">Yes, use life support</option>
+                        <option value="no">No life support</option>
+                        <option value="limited">Limited intervention</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Intubation</label>
+                    <select id="careIntubation" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Preference</option>
+                        <option value="yes">Allow intubation</option>
+                        <option value="no">No intubation</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Coma Care</label>
+                    <select id="careComaCare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Preference</option>
+                        <option value="full">Full care</option>
+                        <option value="comfort">Comfort care only</option>
+                        <option value="family">Family decision</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Burial Preference</label>
+                    <select id="careBurial" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">Select Preference</option>
+                        <option value="burial">Burial</option>
+                        <option value="cremation">Cremation</option>
+                        <option value="family">Family decision</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Religion/Beliefs</label>
+                    <input type="text" id="careReligion" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Religious or spiritual preferences">
+                </div>
+            </div>
         </div>
-      </div>
 
-      <p id="vcardHelp" class="help" style="margin-top:10px;">
-        Offline QR is ready. Re-generate and re-print if Country, Blood, Donor, Triage or ICE change.
-      </p>
-    </section>
-    <!-- /Emergency Card & QR -->
+        <!-- Your QR(s) Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-gradient-to-r from-green-500 via-red-500 to-gray-300" style="border-image: linear-gradient(to bottom, #10b981, #ef4444, #d1d5db) 1;">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Your QR(s)</h2>
+            
+            <!-- Hidden URL field for sync -->
+            <input type="hidden" id="cardUrl" value="">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Online QR -->
+                <div class="qr-container online-qr">
+                    <div class="text-center mb-3">
+                        <h3 class="font-medium text-gray-900">Online QR</h3>
+                        <p class="text-sm text-gray-600">When network available</p>
+                    </div>
+                    <canvas id="qrCanvas" class="mx-auto"></canvas>
+                    <div id="codeUnderQR" class="mt-2 text-center text-xs text-gray-500"></div>
+                </div>
 
-    <!-- Delete -->
-    <section class="card delete-account">
-      <div class="ribbon critical">Danger</div>
-      <div class="card-header">
-        <h2 class="card-title" data-i18n="delete.title">Delete Account</h2>
-        <p class="card-subtitle" data-i18n="delete.warning">This action cannot be undone. All your data will be permanently deleted.</p>
-      </div>
-      <div class="delete-form">
-        <div class="form-group">
-          <label for="deletePhrase" data-i18n="delete.confirmLabel">Type "DELETE MY ACCOUNT" to confirm:</label>
-          <input type="text" id="deletePhrase" placeholder="DELETE MY ACCOUNT" autocomplete="off">
-          <span class="form-hint" data-i18n="delete.confirmHint">This phrase must match exactly</span>
+                <!-- Offline QR -->
+                <div class="qr-container offline-qr">
+                    <div class="text-center mb-3">
+                        <h3 class="font-medium text-gray-900 flex items-center justify-center gap-2">
+                            Offline QR
+                            <span id="vcardReadyBadge" class="badge notready">Not ready</span>
+                        </h3>
+                        <p id="vcardHelp" class="text-sm text-gray-600">Needs Country, Blood, Donor and one ICE contact before generating.</p>
+                        <p id="vcardPlaceholder" class="text-xs text-gray-400">Fill the required fields to unlock the offline QR.</p>
+                    </div>
+                    <canvas id="vcardCanvas" class="mx-auto" style="display:none"></canvas>
+                </div>
+            </div>
+
+            <!-- QR Action Buttons -->
+            <div class="flex flex-wrap gap-3 justify-center">
+                <button id="openLink" class="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                    Open Link
+                </button>
+                <button id="regenVcardBtn" class="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors" disabled>
+                    Regenerate
+                </button>
+                <button id="btnSavePrint" class="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors" disabled>
+                    Save & Print
+                </button>
+            </div>
+            
+            <!-- QR Status Message -->
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-500 italic">Your QR codes reflect your latest saved information.</p>
+            </div>
         </div>
-        <button class="delete-button" id="deleteBtn" disabled data-i18n="delete.button">Delete My Account</button>
-        <div class="status-msg" id="deleteMsg"></div>
-      </div>
-    </section>
-  </main>
 
-  <!-- Disclaimers -->
-  <div class="disclaimers">
-    <div class="disclaimer-content">
-      <p data-i18n="disclaimer.medical">Informational only. Clinicians must confirm with official medical documents.</p>
-      <p data-i18n="disclaimer.privacy">Data stays on your device unless you choose to share.</p>
+        <!-- Coming Soon Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-pink-500">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Coming Soon</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-medium text-gray-900 mb-2">Family Dashboard</h3>
+                    <p class="text-sm text-gray-600">Manage emergency contacts for family members</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-medium text-gray-900 mb-2">Document Vault</h3>
+                    <p class="text-sm text-gray-600">Secure storage for medical documents</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="bg-red-50 rounded-lg shadow-sm p-6 border-l-4 border-red-600 border border-red-200">
+            <h2 class="text-xl font-semibold text-red-600 mb-4">⚠️ Danger Zone</h2>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-medium text-red-800">Delete Account</h3>
+                    <p class="text-sm text-red-600 font-medium">This action cannot be undone. All your data will be permanently deleted.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <input id="deletePhrase" type="text" placeholder='Type "DELETE MY ACCOUNT"' class="px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 w-64">
+                    <button id="deleteBtn" class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-medium border-2 border-red-700">
+                        Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="footer-content">
-      <div class="footer-links">
-        <a href="/privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
-        <a href="/terms.html" data-i18n="footer.terms">Terms of Service</a>
-      </div>
-      <div class="footer-copyright">
-        <span data-i18n="footer.copyright">© 2024 MYQER™. All rights reserved.</span>
-      </div>
-    </div>
-  </footer>
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-4xl mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center text-sm text-gray-600">
+                <div class="mb-4 md:mb-0">
+                    <span class="font-medium text-gray-900">MYQER™</span> Emergency Medical Scannable QR Triage Aid ID
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="hover:text-red-600 transition-colors">Terms of Service</a>
+                    <a href="#" class="hover:text-red-600 transition-colors">Privacy Policy</a>
+                    <a href="#" class="hover:text-red-600 transition-colors">Support</a>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-100 text-center text-xs text-gray-500">
+                © 2024 MYQER™. All rights reserved. Your emergency information is encrypted and secure.
+            </div>
+        </div>
+    </footer>
 
-  <!-- Cloudflare snippet (leave as-is) -->
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97984376b004496e',t:'MTc1NjkzNDEzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-
-  <script>document.getElementById('loadingState').style.display='none';</script>
+    <!-- Required script order -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="/public/scripts/app.js"></script>
 </body>
 </html>
