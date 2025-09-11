@@ -245,19 +245,16 @@ function buildVCardPayload(shortUrl) {
 function ensureQrTilesHaveBreathingRoom(){
   const slots = [$('#qrSlot'), $('#vcardSlot')].filter(Boolean);
   slots.forEach(slot=>{
-    // Only *add* padding / un-hide overflow; don't break your layout if you already changed CSS
     if (!slot) return;
-    // if width/height look like 200x200, give them extra padding
-    const cs = getComputedStyle(slot);
-    // Force a comfy interior and no clipping
     slot.style.padding = slot.style.padding || '20px';
     slot.style.overflow = 'visible';
   });
 }
 
-/* ---------- Hi-DPI QR drawing helper (de-zoomed) ---------- */
+/* ---------- Hi-DPI QR drawing helper (MATCH 200x200) ---------- */
 async function drawQRToCanvas(canvas, text, options = {}) {
-  const cssSize = 180;                      // smaller visual size -> room for quiet zone
+  // EXACT match: 200px QR inside a 240px tile (same as black/online one)
+  const cssSize = 200;                                   // ← was 180; now 200
   const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
   const px = cssSize * dpr;
 
@@ -272,7 +269,7 @@ async function drawQRToCanvas(canvas, text, options = {}) {
     window.QRCode.toCanvas(
       canvas,
       text,
-      { width: px, margin: 8, ...options },   // bigger quiet zone = easier scanning
+      { width: px, margin: 2, ...options },               // tight quiet zone like online tile
       err => (err ? reject(err) : resolve())
     )
   );
@@ -362,130 +359,76 @@ function canvasToBlobURL(canvas) {
 }
 
 /* ---------- Popup: scaffold-first + postMessage (iPad-safe) ---------- */
-/* ---------- helpers for the card window (dataURL, sync) ---------- */
-function buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL) {
-  return (
-'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'+
-'<meta name="viewport" content="width=device-width, initial-scale=1">'+
-'<title>MYQER™ Emergency Card</title>'+
-'<style>'+
-' *{box-sizing:border-box;margin:0;padding:0}'+
-' body{font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#f8fafc;padding:40px 20px;min-height:100vh;display:flex;align-items:center;justify-content:center}'+
-' .emergency-card{width:640px;height:400px;border-radius:20px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.1);background:linear-gradient(135deg,#fff 0%,#fef2f2 100%);border:3px solid #dc2626;position:relative}'+
-' .header{height:120px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;border-bottom:4px solid #dc2626;background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#fff}'+
-' .brand-title{font-size:26px;font-weight:700;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.1)}'+
-' .subtitle{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.9);margin-top:8px}'+
-' .body{height:250px;display:flex;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%)}'+
-' .qr-half{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;border:2px solid #fecaca;margin:15px 8px;border-radius:16px;background:#fff}'+
-' .qr-half.online{border-color:#059669;background:linear-gradient(135deg,#fff 0%,#f0fdf4 100%)}'+
-' .qr-half.offline{border-color:#dc2626;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%)}'+
-' .qr-title{font-size:16px;font-weight:800;margin-bottom:6px;letter-spacing:.5px}'+
-' .qr-title.online{color:#059669}.qr-title.offline{color:#dc2626}'+
-' .qr-subtitle{font-size:11px;margin-bottom:18px;text-align:center;font-weight:600;color:#6b7280}'+
-' .qr-box{width:130px;height:130px;border-radius:16px;display:flex;align-items:center;justify-content:center;border:3px solid #fecaca;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08)}'+
-' .qr-box img{width:120px;height:120px;display:block;image-rendering:pixelated}'+
-' .footer{position:absolute;bottom:0;left:0;right:0;background:#f3f4f6;padding:8px 20px;font-size:10px;color:#6b7280;text-align:center;line-height:1.3;border-top:1px solid #e5e7eb}'+
-' @media print{ body{padding:0;background:#fff} .emergency-card{box-shadow:none;border:0} }'+
-'</style></head><body>'+
-'<div class="emergency-card">'+
-' <div class="header"><div class="brand-title">MYQER™ Emergency Card</div><div class="subtitle">Scan either QR in an emergency</div></div>'+
-' <div class="body">'+
-'  <div class="qr-half online"><div class="qr-title online">ONLINE QR</div><div class="qr-subtitle">NETWORK AVAILABLE</div>'+
-'   <div class="qr-box" style="border-color:#059669;background:#f0fdf4;box-shadow:0 4px 12px rgba(5,150,105,.2)"><img id="imgOnline" alt="Online QR"></div>'+
-'  </div>'+
-'  <div class="qr-half offline"><div class="qr-title offline">OFFLINE QR</div><div class="qr-subtitle">NO NETWORK NEEDED</div>'+
-'   <div class="qr-box" style="border-color:#dc2626;background:#fef2f2;box-shadow:0 4px 12px rgba(220,38,38,.2)"><img id="imgOffline" alt="Offline QR"></div>'+
-'  </div>'+
-' </div>'+
-' <div class="footer">This card provides critical information to first responders. Verify details with official records.</div>'+
-'</div>'+
-'<script>document.addEventListener("DOMContentLoaded",function(){'+
-'  document.getElementById("imgOnline").src='+JSON.stringify(onlineDataURL)+';'+
-'  document.getElementById("imgOffline").src='+JSON.stringify(offlineDataURL)+';'+
-'});<\/script>'+
-'</body></html>'
-  );
-}
-
-// Synchronous (gesture-safe) open: gather dataURLs and write immediately
-function openCardNow({ autoPrint=false } = {}) {
-  const o = document.getElementById('qrCanvas');
-  const f = document.getElementById('vcardCanvas');
-  if (!(o && f)) { toast('Generate both QRs first','error'); return; }
-
-  // data: URLs are synchronous – keeps us inside the click gesture
-  const onlineDataURL  = o.toDataURL('image/png');
-  const offlineDataURL = f.toDataURL('image/png');
-
-  const html = buildEmergencyCardHTML_sync(onlineDataURL, offlineDataURL);
-  const w = window.open('', '_blank', 'noopener');        // will not be blocked
+async function openEmergencyCardWindow({ targetWindow, autoPrint = false } = {}) {
+  const w = targetWindow || window.open('about:blank', '_blank', 'noopener');
   if (!w) { toast('Pop-up blocked','error'); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
 
-  if (autoPrint) {
-    const tryPrint = () => {
-      const img1 = w.document.getElementById('imgOnline');
-      const img2 = w.document.getElementById('imgOffline');
-      if (!img1 || !img2) return;
-      let loaded = 0;
-      const done = () => { if (++loaded === 2) { try { w.focus(); } catch(_){} w.print(); } };
-      img1.onload = done; img2.onload = done;
-    };
-    if (w.document.readyState === 'complete') tryPrint();
-    else w.addEventListener('load', tryPrint);
-  }
-}
+  const html = `
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><title>MYQER™ Emergency Card</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#f8fafc;padding:40px 20px;min-height:100vh;display:flex;align-items:center;justify-content:center}
+  .emergency-card{width:640px;height:400px;border-radius:20px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.1);background:linear-gradient(135deg,#fff 0%,#fef2f2 100%);border:3px solid #dc2626;position:relative}
+  .header{height:120px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative;border-bottom:4px solid #dc2626;background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#fff}
+  .brand-title{font-size:26px;font-weight:700;letter-spacing:1px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.1)}
+  .subtitle{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.9);margin-top:8px}
+  .body{height:250px;display:flex;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%)}
+  .qr-half{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;border:2px solid #fecaca;margin:15px 8px;border-radius:16px;background:#fff}
+  .qr-half.online{border-color:#059669;background:linear-gradient(135deg,#fff 0%,#f0fdf4 100%)}
+  .qr-half.offline{border-color:#dc2626;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%)}
+  .qr-title{font-size:16px;font-weight:800;margin-bottom:6px;letter-spacing:.5px}
+  .qr-title.online{color:#059669}.qr-title.offline{color:#dc2626}
+  .qr-subtitle{font-size:11px;margin-bottom:18px;text-align:center;font-weight:600;color:#6b7280}
+  .qr-box{width:130px;height:130px;border-radius:16px;display:flex;align-items:center;justify-content:center;border:3px solid #fecaca;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  .qr-box img{width:120px;height:120px;display:block;image-rendering:pixelated}
+  .footer{position:absolute;bottom:0;left:0;right:0;background:#f3f4f6;padding:8px 20px;font-size:10px;color:#6b7280;text-align:center;line-height:1.3;border-top:1px solid #e5e7eb}
+</style>
+</head>
+<body>
+  <div class="emergency-card">
+    <div class="header">
+      <div class="brand-title">MYQER™ Emergency Card</div>
+      <div class="subtitle">Scan either QR in an emergency</div>
+    </div>
+    <div class="body">
+      <div class="qr-half online">
+        <div class="qr-title online">ONLINE QR</div>
+        <div class="qr-subtitle">NETWORK AVAILABLE</div>
+        <div class="qr-box" style="border-color:#059669;background:#f0fdf4;box-shadow:0 4px 12px rgba(5,150,105,.2)">
+          <img id="imgOnline" alt="Online QR">
+        </div>
+      </div>
+      <div class="qr-half offline">
+        <div class="qr-title offline">OFFLINE QR</div>
+        <div class="qr-subtitle">NO NETWORK NEEDED</div>
+        <div class="qr-box" style="border-color:#dc2626;background:#fef2f2;box-shadow:0 4px 12px rgba(220,38,38,.2)">
+          <img id="imgOffline" alt="Offline QR">
+        </div>
+      </div>
+    </div>
+    <div class="footer">This card provides critical information to first responders. Verify details with official records.</div>
+  </div>
+  <script>
+    window.addEventListener('message', function(ev){
+      try{
+        var d = ev.data || {};
+        var o = document.getElementById('imgOnline');
+        var f = document.getElementById('imgOffline');
+        if (d.online)  o.src = d.online;
+        if (d.offline) f.src = d.offline;
 
-/* ---------- buttons ---------- */
-function wireQRButtons(){
-  // Keep copy link behavior (build short URL if missing)
-  on($('copyLink'),'click',()=>{ 
-    (async () => {
-      const input = $('cardUrl');
-      let url = input?.value || '';
-      if (!url) {
-        const code = await ensureShortCode();
-        let base = (location?.origin || 'https://myqer.com').replace(/\/$/,'').replace('://www.','://');
-        if (String(base).startsWith('file://')) base = 'https://myqer.com';
-        url = `${base}/c/${code}`;
-      }
-      if(!url) return toast('No link to copy','error');
-      navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Copy failed','error'));
-    })();
-  });
-
-  // OPEN LINK -> open the styled card (no print)
-  on($('openLink'),'click', () => {
-    // ensure canvases are drawn once before we export dataURLs
-    Promise.resolve()
-      .then(() => renderUrlQR())
-      .then(() => renderVCardQR())
-      .finally(() => openCardNow({ autoPrint:false }));
-  });
-
-  // PRINT -> open the same card and auto-print
-  on($('printVcard'),'click', () => {
-    Promise.resolve()
-      .then(() => renderUrlQR())
-      .then(() => renderVCardQR())
-      .finally(() => openCardNow({ autoPrint:true }));
-  });
-
-  // (Optional) download online QR only (unchanged)
-  on($('dlVcardPNG'),'click',()=> {
-    const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error');
-    const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); 
-    toast('PNG downloaded','success'); 
-  });
-
-  // Hide legacy buttons if present
-  const killEl = (id)=>{ const el=$(id); if (el) el.style.display='none'; };
-  killEl('dlSVG'); killEl('printQR');
-
-  on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
-}
+        if (d.autoPrint){
+          var loaded = 0;
+          function done(){ if (++loaded === 2) setTimeout(function(){ window.focus(); window.print(); }, 50); }
+          if (o.complete) done(); else o.onload = done;
+          if (f.complete) done(); else f.onload = done;
+        }
+      }catch(_){}
+    }, false);
+  </script>
+</body></html>`;
   w.document.open(); w.document.write(html); w.document.close();
 
   // Ensure canvases exist/drawn
@@ -878,11 +821,11 @@ function wireQRButtons(){
     openEmergencyCardWindow({ targetWindow: w, autoPrint: true });
   });
 
-  // Optional: legacy single-QR PNG download
+  // ✅ Download the OFFLINE (vCard) QR PNG (fixed: used to grab online)
   on($('dlVcardPNG'),'click',()=> {
-    const c=$('qrCanvas'); if(!c) return toast('Generate QR first','error');
-    const a=document.createElement('a'); a.download='myqer-online-qr.png'; a.href=c.toDataURL('image/png'); a.click(); 
-    toast('PNG downloaded','success'); 
+    const c=$('vcardCanvas'); if(!c) return toast('Generate offline QR first','error');
+    const a=document.createElement('a'); a.download='myqer-offline-qr.png'; a.href=c.toDataURL('image/png'); a.click(); 
+    toast('Offline PNG downloaded','success'); 
   });
 
   // Guard: hide legacy URL SVG/Print buttons if present
