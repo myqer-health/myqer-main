@@ -264,7 +264,7 @@
 
   /* ---------- Hi-DPI QR drawing helper (used by both QRs) ---------- */
   async function drawQRToCanvas(canvas, text, options = {}) {
-    const cssSize = 220;                         // final visual size inside 240px tile
+    const cssSize = 200;                         // final visual size inside 240px tile
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     const px = cssSize * dpr;
 
