@@ -518,20 +518,24 @@
     toast('Emergency card downloaded','success');
   }
 
-  function printBranded(){
-    const card = composeEmergencyCardCanvas();
-    const dataUrl = card.toDataURL('image/png');
-    const w = window.open('', '_blank', 'noopener');
+ function printBranded(){
+  const card = composeEmergencyCardCanvas();
+  card.toBlob(blob => {
+    const w = window.open('', '_blank', 'noopener');      // open synchronously
     if (!w) { toast('Pop-up blocked','error'); return; }
+    const url = URL.createObjectURL(blob);
     w.document.write(`
       <html><head><meta charset="utf-8"><title>MYQER Emergency Card</title>
-      <style>html,body{margin:0;padding:0} body{display:flex;align-items:center;justify-content:center}
+      <style>html,body{margin:0} body{display:flex;align-items:center;justify-content:center}
       img{max-width:100%;width:1000px;height:auto;}</style></head>
-      <body><img src="${dataUrl}" alt="MYQER Emergency Card">
-      <script>window.onload = () => setTimeout(() => window.print(), 200);</script></body></html>
+      <body><img id="img" src="${url}" alt="MYQER Emergency Card"></body></html>
     `);
     w.document.close();
-  }
+    w.onload = () => {
+      w.document.getElementById('img').onload = () => { w.focus(); w.print(); URL.revokeObjectURL(url); };
+    };
+  }, 'image/png');
+}
 
   /* ---------- ICE ---------- */
   function renderIceContacts(){
