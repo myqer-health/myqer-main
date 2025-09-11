@@ -1,429 +1,322 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MYQER™ Emergency Card</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .card {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.5s ease-out;
-        }
-        .card.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .triage-pill {
-            transition: all 0.3s ease;
-        }
-        .triage-pill.green {
-            background-color: #059669;
-            color: white;
-        }
-        .triage-pill.amber {
-            background-color: #f59e0b;
-            color: white;
-        }
-        .triage-pill.red {
-            background-color: #dc2626;
-            color: white;
-        }
-        .triage-pill.black {
-            background-color: #111827;
-            color: white;
-        }
-        .emergency-header {
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-            color: white;
-            text-align: center;
-            padding: 20px;
-            border-radius: 12px 12px 0 0;
-        }
-        .info-section {
-            border-left: 4px solid #e5e7eb;
-            padding: 16px;
-            margin: 8px 0;
-            background: #f9fafb;
-            border-radius: 0 8px 8px 0;
-        }
-        .info-section.identity { border-left-color: #10b981; }
-        .info-section.health { border-left-color: #dc2626; }
-        .info-section.care { border-left-color: #6b7280; }
-        .loading-spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid #dc2626;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .hidden { display: none; }
-        .ice-contact {
-            background: white;
-            border: 2px solid #10b981;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 8px 0;
-        }
-        .medical-alert {
-            background: #fef2f2;
-            border: 2px solid #fca5a5;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 8px 0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MYQER™ Emergency Card</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family:'Inter',sans-serif; }
+    .card{ opacity:0; transform:translateY(20px); transition:all .5s ease-out; }
+    .card.show{ opacity:1; transform:translateY(0); }
+    .triage-pill{ transition:all .3s ease; }
+    .triage-pill.green{ background-color:#059669; color:#fff; }
+    .triage-pill.amber{ background-color:#f59e0b; color:#fff; }
+    .triage-pill.red{ background-color:#dc2626; color:#fff; }
+    .triage-pill.black{ background-color:#111827; color:#fff; }
+    .emergency-header{
+      background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%);
+      color:#fff; text-align:center; padding:20px; border-radius:12px 12px 0 0;
+    }
+    .info-section{ border-left:4px solid #e5e7eb; padding:16px; margin:8px 0; background:#f9fafb; border-radius:0 8px 8px 0; }
+    .info-section.identity{ border-left-color:#10b981; }
+    .info-section.health{ border-left-color:#dc2626; }
+    .info-section.care{ border-left-color:#6b7280; }
+    .loading-spinner{ border:3px solid #f3f4f6; border-top:3px solid #dc2626; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto; }
+    @keyframes spin{ 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+    .hidden{ display:none; }
+    .ice-contact{ background:#fff; border:2px solid #10b981; border-radius:8px; padding:12px; margin:8px 0; }
+    .medical-alert{ background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:12px; margin:8px 0; }
+    /* tiny verified badge beside name */
+    .verified-badge{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:1.05em; height:1.05em; margin-left:.35rem;
+      background:#3b82f6; color:#fff; border-radius:999px;
+      font-size:.75em; font-weight:800; line-height:1;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <!-- Supabase (v2) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <div class="max-w-2xl mx-auto p-4">
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-12">
-            <div class="loading-spinner"></div>
-            <p class="text-gray-600 mt-4">Loading emergency card...</p>
-        </div>
-
-        <!-- Error Message -->
-        <div id="msg" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <div class="text-red-600 text-lg font-medium">Card Not Found</div>
-            <p class="text-red-500 mt-2">Please check the code and try again.</p>
-        </div>
-
-        <!-- Emergency Card -->
-        <div id="card" class="card bg-white rounded-lg shadow-lg overflow-hidden show">
-            <!-- Header -->
-            <div class="emergency-header">
-                <h1 class="text-2xl font-bold">🚨 EMERGENCY MEDICAL CARD</h1>
-                <div class="mt-2">
-                    <span class="text-sm opacity-90">MYQER™ Code: </span>
-                    <span id="codePill" class="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-mono">ABC123</span>
-                </div>
-                <div id="triagePill" class="triage-pill green inline-block px-4 py-2 rounded-full text-sm font-bold mt-3">
-                    TRIAGE: GREEN
-                </div>
-            </div>
-
-            <!-- Identity Section -->
-            <div class="info-section identity">
-                <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    👤 Identity
-                    <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full">
-                        <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                        </svg>
-                    </span>
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-700">Name:</span>
-                        <div id="fullName" class="text-gray-900 font-semibold">John Michael Smith</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Date of Birth:</span>
-                        <div id="dob" class="text-gray-900">March 15, 1985</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Country:</span>
-                        <div id="country" class="text-gray-900">United States</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Health ID:</span>
-                        <div id="healthId" class="text-gray-900 font-mono">NHS-123456789</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Health Section -->
-            <div class="info-section health">
-                <h2 class="text-lg font-semibold text-gray-900 mb-3">🩺 Critical Health Information</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                    <div>
-                        <span class="font-medium text-gray-700">Blood Type:</span>
-                        <div id="bloodType" class="text-red-600 font-bold text-lg">O+</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Organ Donor:</span>
-                        <div id="organDonor" class="text-gray-900 font-semibold">❤️ YES</div>
-                    </div>
-                </div>
-
-                <div id="allergiesSection" class="medical-alert">
-                    <h3 class="font-semibold text-red-800 mb-2">⚠️ ALLERGIES & REACTIONS</h3>
-                    <div id="allergies" class="text-red-700">Penicillin (severe reaction), Shellfish (anaphylaxis)</div>
-                </div>
-
-                <div id="conditionsSection" class="mb-4">
-                    <h3 class="font-medium text-gray-700 mb-2">Medical Conditions:</h3>
-                    <div id="conditions" class="text-gray-900">Type 2 Diabetes, Hypertension</div>
-                </div>
-
-                <div id="medicationsSection" class="mb-4">
-                    <h3 class="font-medium text-gray-700 mb-2">Current Medications:</h3>
-                    <div id="medications" class="text-gray-900">Metformin 500mg twice daily, Lisinopril 10mg daily</div>
-                </div>
-
-                <div id="implantsSection" class="mb-4">
-                    <h3 class="font-medium text-gray-700 mb-2">Implants/Devices:</h3>
-                    <div id="implants" class="text-gray-900">Titanium knee replacement (left)</div>
-                </div>
-            </div>
-
-            <!-- ICE Contacts -->
-            <div class="info-section identity">
-                <h2 class="text-lg font-semibold text-gray-900 mb-3">📞 Emergency Contacts</h2>
-                <div id="iceContacts">
-                    <div class="ice-contact">
-                        <div class="font-semibold text-green-800">Sarah Smith</div>
-                        <div class="text-sm text-gray-600">Wife</div>
-                        <div class="font-mono text-green-700 font-medium">+1 (555) 123-4567</div>
-                    </div>
-                    <div class="ice-contact">
-                        <div class="font-semibold text-green-800">Dr. Robert Johnson</div>
-                        <div class="text-sm text-gray-600">Primary Care Physician</div>
-                        <div class="font-mono text-green-700 font-medium">+1 (555) 987-6543</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Care Preferences -->
-            <div class="info-section care">
-                <h2 class="text-lg font-semibold text-gray-900 mb-3">🏥 Care Preferences</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-700">Life Support:</span>
-                        <div id="lifeSupport" class="text-gray-900">Yes, use life support</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Intubation:</span>
-                        <div id="intubation" class="text-gray-900">Allow intubation</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Coma Care:</span>
-                        <div id="comaCare" class="text-gray-900">Full care</div>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">Burial Preference:</span>
-                        <div id="burial" class="text-gray-900">Cremation</div>
-                    </div>
-                    <div class="md:col-span-2">
-                        <span class="font-medium text-gray-700">Religion/Beliefs:</span>
-                        <div id="religion" class="text-gray-900">Christian - Methodist</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="bg-gray-50 p-4 text-center text-xs text-gray-500">
-                <p>MYQER™ Emergency Medical Scannable QR Triage Aid ID</p>
-                <p class="mt-1">For medical emergencies only • Data encrypted & secure</p>
-                <p class="mt-1">Last updated: <span id="lastUpdated">January 15, 2024</span></p>
-            </div>
-        </div>
+  <div class="max-w-2xl mx-auto p-4">
+    <!-- Loading State -->
+    <div id="loading" class="text-center py-12">
+      <div class="loading-spinner"></div>
+      <p class="text-gray-600 mt-4">Loading emergency card...</p>
     </div>
 
-    <script>
-        function $(id) { return document.getElementById(id); }
-        function show(el) { el.classList.remove('hidden'); }
-        function hide(el) { el.classList.add('hidden'); }
-        function setText(id, text) { 
-            const el = $(id);
-            if (el) el.textContent = text || 'Not specified';
-        }
+    <!-- Error Message -->
+    <div id="msg" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+      <div class="text-red-600 text-lg font-medium">Card Not Found</div>
+      <p class="text-red-500 mt-2">Please check the code and try again.</p>
+    </div>
 
-        // Initialize with sample data and show immediately
-        document.addEventListener('DOMContentLoaded', function() {
-            // Hide loading, show card immediately
-            hide($('loading'));
-            show($('card'));
-            $('card').classList.add('show');
+    <!-- Emergency Card -->
+    <div id="card" class="card bg-white rounded-lg shadow-lg overflow-hidden">
+      <!-- Header -->
+      <div class="emergency-header">
+        <h1 class="text-2xl font-bold">🚨 EMERGENCY MEDICAL CARD</h1>
+        <div class="mt-2">
+          <span class="text-sm opacity-90">MYQER™ Code: </span>
+          <span id="codePill" class="bg-white/20 px-3 py-1 rounded-full text-sm font-mono">— — — — — —</span>
+        </div>
+        <div id="triagePill" class="triage-pill green inline-block px-4 py-2 rounded-full text-sm font-bold mt-3">
+          TRIAGE: GREEN
+        </div>
+      </div>
 
-            // Sample data is already in the HTML, but we can also wire Supabase
-            initializeSupabase();
-        });
+      <!-- Identity Section -->
+      <div class="info-section identity">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          👤 Identity
+          <span class="inline-flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full">
+            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="font-medium text-gray-700">Name:</span>
+            <div class="text-gray-900 font-semibold flex items-center">
+              <span id="fullName">—</span>
+              <span id="verifiedBadge" class="verified-badge hidden" aria-label="verified">✓</span>
+            </div>
+          </div>
+          <div>
+            <span class="font-medium text-gray-700">Date of Birth:</span>
+            <div id="dob" class="text-gray-900">—</div>
+          </div>
+          <div>
+            <span class="font-medium text-gray-700">Country:</span>
+            <div id="country" class="text-gray-900">—</div>
+          </div>
+          <div>
+            <span class="font-medium text-gray-700">Health ID:</span>
+            <div id="healthId" class="text-gray-900 font-mono">—</div>
+          </div>
+        </div>
+      </div>
 
-        function initializeSupabase() {
-            const codeFromPath = () => {
-                const seg = location.pathname.replace(/\/+$/,'').split('/').filter(Boolean);
-                const i = seg.findIndex(s => s.toLowerCase()==='c');
-                if (i>=0 && seg[i+1]) return seg[i+1].toUpperCase();
-                const q = new URLSearchParams(location.search).get('code');
-                return (q||'').toUpperCase();
-            };
+      <!-- Health Section -->
+      <div class="info-section health">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">🩺 Critical Health Information</h2>
 
-            const CODE = codeFromPath();
-            if (CODE && /^[A-HJ-NP-Z2-9]{6}$/.test(CODE)) {
-                setText('codePill', CODE);
-                loadFromSupabase(CODE);
-            }
-        }
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+          <div>
+            <span class="font-medium text-gray-700">Blood Type:</span>
+            <div id="bloodType" class="text-red-600 font-bold text-lg">—</div>
+          </div>
+          <div>
+            <span class="font-medium text-gray-700">Organ Donor:</span>
+            <div id="organDonor" class="text-gray-900 font-semibold">—</div>
+          </div>
+        </div>
 
-        async function loadFromSupabase(code) {
-            try {
-                const SB_URL = 'https://dmntmhkncldgynufajei.supabase.co';
-                const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
-                const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        <div id="allergiesSection" class="medical-alert hidden">
+          <h3 class="font-semibold text-red-800 mb-2">⚠️ ALLERGIES & REACTIONS</h3>
+          <div id="allergies" class="text-red-700">—</div>
+        </div>
 
-                // Load profile
-                let r = await supabase.from('profiles').select('*').eq('code', code).maybeSingle();
-                if (r.error) {
-                    console.warn('profiles error', r.error);
-                    return; // Keep sample data
-                }
-                
-                const prof = r.data;
-                if (!prof) return; // Keep sample data
+        <div id="conditionsSection" class="mb-4 hidden">
+          <h3 class="font-medium text-gray-700 mb-2">Medical Conditions:</h3>
+          <div id="conditions" class="text-gray-900">—</div>
+        </div>
 
-                const p = {
-                    user_id: prof.user_id ?? prof.userId,
-                    full_name: prof.full_name ?? prof.fullName ?? '',
-                    dob: prof.date_of_birth ?? prof.dob ?? '',
-                    country: prof.country ?? '',
-                    health_id: prof.national_id ?? prof.healthId ?? ''
-                };
+        <div id="medicationsSection" class="mb-4 hidden">
+          <h3 class="font-medium text-gray-700 mb-2">Current Medications:</h3>
+          <div id="medications" class="text-gray-900">—</div>
+        </div>
 
-                // Load health data
-                r = await supabase.from('health').select('*').eq('user_id', p.user_id).maybeSingle();
-                const health = r.data || {};
+        <div id="implantsSection" class="mb-4 hidden">
+          <h3 class="font-medium text-gray-700 mb-2">Implants/Devices:</h3>
+          <div id="implants" class="text-gray-900">—</div>
+        </div>
+      </div>
 
-                const h = {
-                    blood_type: health.blood_type ?? health.bloodType ?? '',
-                    organ_donor: health.organ_donor ?? health.organDonor ?? false,
-                    allergies: health.allergies ?? '',
-                    conditions: health.conditions ?? '',
-                    medications: health.medications ?? '',
-                    implants: health.implants ?? '',
-                    triage_override: health.triage_override ?? health.triageOverride ?? 'auto'
-                };
+      <!-- ICE Contacts -->
+      <div class="info-section identity">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">📞 Emergency Contacts</h2>
+        <div id="iceContacts"></div>
+      </div>
 
-                // Load care preferences
-                r = await supabase.from('care').select('*').eq('user_id', p.user_id).maybeSingle();
-                const care = r.data || {};
+      <!-- Care Preferences -->
+      <div class="info-section care">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">🏥 Care Preferences</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div><span class="font-medium text-gray-700">Life Support:</span> <div id="lifeSupport" class="text-gray-900">—</div></div>
+          <div><span class="font-medium text-gray-700">Intubation:</span>   <div id="intubation"  class="text-gray-900">—</div></div>
+          <div><span class="font-medium text-gray-700">Coma Care:</span>    <div id="comaCare"   class="text-gray-900">—</div></div>
+          <div><span class="font-medium text-gray-700">Burial Preference:</span> <div id="burial" class="text-gray-900">—</div></div>
+          <div class="md:col-span-2"><span class="font-medium text-gray-700">Religion/Beliefs:</span> <div id="religion" class="text-gray-900">—</div></div>
+        </div>
+      </div>
 
-                const c = {
-                    life_support: care.life_support ?? care.lifeSupport ?? '',
-                    intubation: care.intubation ?? '',
-                    coma_care: care.coma_care ?? care.comaCare ?? '',
-                    burial: care.burial ?? '',
-                    religion: care.religion ?? ''
-                };
+      <!-- Footer -->
+      <div class="bg-gray-50 p-4 text-center text-xs text-gray-500">
+        <p>MYQER™ Emergency Medical Scannable QR Triage Aid ID</p>
+        <p class="mt-1">For medical emergencies only • Data encrypted & secure</p>
+        <p class="mt-1">Last updated: <span id="lastUpdated">—</span></p>
+      </div>
+    </div>
+  </div>
 
-                // Load ICE contacts
-                r = await supabase.from('ice_contacts').select('*').eq('user_id', p.user_id).order('created_at');
-                const iceContacts = r.data || [];
+  <script>
+    /* tiny helpers */
+    const $ = (id) => document.getElementById(id);
+    const show = (el) => el && el.classList.remove('hidden');
+    const hide = (el) => el && el.classList.add('hidden');
+    const setText = (id, v) => { const el=$(id); if (el) el.textContent = v ?? '—'; };
 
-                // Update the display with real data
-                if (p.full_name) setText('fullName', p.full_name);
-                if (p.dob) setText('dob', formatDate(p.dob));
-                if (p.country) setText('country', p.country);
-                if (p.health_id) setText('healthId', p.health_id);
-                if (h.blood_type) setText('bloodType', h.blood_type);
-                setText('organDonor', h.organ_donor ? '❤️ YES' : 'No');
+    /* parse code from /c/{CODE} or ?code= */
+    function codeFromPath(){
+      const seg = location.pathname.replace(/\/+$/,'').split('/').filter(Boolean);
+      const i = seg.findIndex(s => s.toLowerCase()==='c');
+      if (i>=0 && seg[i+1]) return seg[i+1].toUpperCase();
+      const q = new URLSearchParams(location.search).get('code');
+      return (q||'').toUpperCase();
+    }
 
-                // Update sections with real data if available
-                if (h.allergies) {
-                    $('allergies').textContent = h.allergies;
-                    show($('allergiesSection'));
-                }
-                if (h.conditions) {
-                    $('conditions').textContent = h.conditions;
-                    show($('conditionsSection'));
-                }
-                if (h.medications) {
-                    $('medications').textContent = h.medications;
-                    show($('medicationsSection'));
-                }
-                if (h.implants) {
-                    $('implants').textContent = h.implants;
-                    show($('implantsSection'));
-                }
+    /* triage */
+    function computeTriage(allergies, conditions, override){
+      if (override && override !== 'auto') return override;
+      const a=(allergies||'').toLowerCase(), c=(conditions||'').toLowerCase();
+      if (a.includes('anaphylaxis') || a.includes('severe')) return 'red';
+      if (a || c) return 'amber';
+      return 'green';
+    }
+    function paintTriage(level){
+      const pill=$('triagePill');
+      ['green','amber','red','black'].forEach(k=>pill.classList.remove(k));
+      pill.classList.add(level);
+      pill.textContent='TRIAGE: '+level.toUpperCase();
+    }
+    function formatDate(dateStr){
+      if (!dateStr) return '—';
+      const d = new Date(dateStr);
+      return isNaN(+d) ? dateStr : d.toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+    }
 
-                // Update care preferences
-                const careLabels = {
-                    'yes': 'Yes, use life support',
-                    'no': 'No life support',
-                    'limited': 'Limited intervention',
-                    'full': 'Full care',
-                    'comfort': 'Comfort care only',
-                    'family': 'Family decision',
-                    'burial': 'Burial',
-                    'cremation': 'Cremation'
-                };
+    /* ICE list renderer */
+    function renderICE(list){
+      const box = $('iceContacts');
+      if (!box) return;
+      if (!Array.isArray(list) || !list.length){ box.innerHTML = '<div class="text-gray-500">—</div>'; return; }
+      box.innerHTML = list.map((r)=>`
+        <div class="ice-contact">
+          <div class="font-semibold text-green-800">${(r.name||'').toString()}</div>
+          <div class="text-sm text-gray-600">${(r.relationship||'').toString()}</div>
+          <div class="font-mono text-green-700 font-medium">${(r.phone||'').toString()}</div>
+        </div>`).join('');
+    }
 
-                if (c.life_support) setText('lifeSupport', careLabels[c.life_support] || c.life_support);
-                if (c.intubation) setText('intubation', careLabels[c.intubation] || c.intubation);
-                if (c.coma_care) setText('comaCare', careLabels[c.coma_care] || c.coma_care);
-                if (c.burial) setText('burial', careLabels[c.burial] || c.burial);
-                if (c.religion) setText('religion', c.religion);
+    document.addEventListener('DOMContentLoaded', async () => {
+      const CODE = codeFromPath();
+      setText('codePill', CODE || '— — — — — —');
 
-                // Update ICE contacts if available
-                if (iceContacts.length > 0) {
-                    displayICEContacts(iceContacts);
-                }
+      /* show skeleton immediately */
+      hide($('loading'));
+      $('card').classList.add('show');
 
-                // Update triage
-                paintTriage(computeTriage(h.allergies, h.conditions, h.triage_override));
+      if (!CODE || !/^[A-HJ-NP-Z2-9]{6}$/.test(CODE)) {
+        show($('msg'));
+        return;
+      }
 
-                setText('lastUpdated', new Date().toLocaleDateString());
+      /* Supabase client */
+      const SB_URL = 'https://dmntmhkncldgynufajei.supabase.co';
+      const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY';
+      const supabase = window.supabase.createClient(SB_URL, SB_KEY);
 
-            } catch (err) {
-                console.error('Supabase load error:', err);
-                // Keep sample data on error
-            }
-        }
+      try {
+        /* 1) profile by code */
+        const rp = await supabase.from('profiles').select('*').eq('code', CODE).maybeSingle();
+        if (rp.error || !rp.data){ show($('msg')); return; }
+        const prof = rp.data;
 
-        function computeTriage(allergies, conditions, override) {
-            if (override && override !== 'auto') return override;
-            const a = (allergies||'').toLowerCase(), c = (conditions||'').toLowerCase();
-            if (a.includes('anaphylaxis') || a.includes('severe')) return 'red';
-            if (a || c) return 'amber';
-            return 'green';
-        }
+        const user_id   = prof.user_id ?? prof.userId;
+        const full_name = prof.full_name ?? prof.fullName ?? '';
+        const dob       = prof.date_of_birth ?? prof.dob ?? '';
+        const country   = prof.country ?? '';
+        const health_id = prof.national_id ?? prof.healthId ?? '';
 
-        function paintTriage(level) {
-            const pill = $('triagePill');
-            ['green','amber','red','black'].forEach(k => pill.classList.remove(k));
-            pill.classList.add(level);
-            pill.textContent = 'TRIAGE: ' + level.toUpperCase();
-        }
+        /* 2) parallel: health, ice, care_directives */
+        const [rh, ri, rc] = await Promise.allSettled([
+          supabase.from('health_data').select('*').eq('user_id', user_id).maybeSingle(),
+          supabase.from('ice_contacts').select('*').eq('user_id', user_id).order('contact_order', { ascending:true }),
+          supabase.from('care_directives').select('*').eq('user_id', user_id).maybeSingle()
+        ]);
 
-        function formatDate(dateStr) {
-            if (!dateStr) return 'Not specified';
-            try {
-                const date = new Date(dateStr);
-                return date.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                });
-            } catch {
-                return dateStr;
-            }
-        }
+        const rawH = rh.status==='fulfilled' ? (rh.value.data || {}) : {};
+        const rawI = ri.status==='fulfilled' ? (ri.value.data || []) : [];
+        const rawC = rc.status==='fulfilled' ? (rc.value.data || null) : null;
 
-        function displayICEContacts(contacts) {
-            const container = $('iceContacts');
-            if (!contacts || contacts.length === 0) return;
+        const health = {
+          bloodType:      rawH.bloodType      ?? rawH.blood_type      ?? '',
+          organDonor:     rawH.organDonor     ?? rawH.organ_donor     ?? false,
+          allergies:      rawH.allergies      ?? rawH.allergy_list    ?? '',
+          conditions:     rawH.conditions     ?? rawH.medical_conditions ?? '',
+          medications:    rawH.medications    ?? rawH.meds            ?? '',
+          implants:       rawH.implants       ?? rawH.implants_devices ?? '',
+          triageOverride: rawH.triageOverride ?? rawH.triage_override ?? 'auto'
+        };
 
-            container.innerHTML = contacts.map(contact => `
-                <div class="ice-contact">
-                    <div class="font-semibold text-green-800">${contact.name || 'Unnamed Contact'}</div>
-                    <div class="text-sm text-gray-600">${contact.relation || 'Relationship not specified'}</div>
-                    <div class="font-mono text-green-700 font-medium">${contact.phone || 'No phone number'}</div>
-                </div>
-            `).join('');
-        }
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97da90881036ae16',t:'MTc1NzYyOTM1NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+        const care = rawC ? {
+          lifeSupport: rawC.lifeSupport ?? rawC.life_support ?? '',
+          intubation:  rawC.intubation  ?? '',
+          comaCare:    rawC.comaCare    ?? rawC.coma_care ?? '',
+          burial:      rawC.burial      ?? '',
+          religion:    rawC.religion    ?? ''
+        } : {};
+
+        /* 3) paint */
+        setText('fullName', full_name || '—');
+        show($('verifiedBadge')); /* blue check only after load succeeds */
+        setText('dob',      dob ? formatDate(dob) : '—');
+        setText('country',  country || '—');
+        setText('healthId', health_id || '—');
+
+        setText('bloodType', health.bloodType || '—');
+        setText('organDonor', health.organDonor ? '❤️ YES' : 'No');
+
+        if (health.allergies){ $('allergies').textContent = health.allergies; show($('allergiesSection')); }
+        if (health.conditions){ $('conditions').textContent = health.conditions; show($('conditionsSection')); }
+        if (health.medications){ $('medications').textContent = health.medications; show($('medicationsSection')); }
+        if (health.implants){ $('implants').textContent = health.implants; show($('implantsSection')); }
+
+        /* care prefs — show only if present */
+        const careLabels = {
+          yes:'Yes, use life support', no:'No life support', limited:'Limited intervention',
+          full:'Full care', comfort:'Comfort care only', family:'Family decision',
+          burial:'Burial', cremation:'Cremation'
+        };
+        if (care.lifeSupport) setText('lifeSupport', careLabels[care.lifeSupport] || care.lifeSupport);
+        if (care.intubation)  setText('intubation',  careLabels[care.intubation]  || care.intubation);
+        if (care.comaCare)    setText('comaCare',    careLabels[care.comaCare]    || care.comaCare);
+        if (care.burial)      setText('burial',      careLabels[care.burial]      || care.burial);
+        if (care.religion)    setText('religion',    care.religion);
+
+        /* ICE */
+        const ice = rawI.map(r => ({
+          name: r.name || '',
+          relationship: r.relationship || '',
+          phone: r.phone || ''
+        })).filter(x => x.name || x.phone);
+        renderICE(ice);
+
+        /* triage */
+        paintTriage(computeTriage(health.allergies, health.conditions, health.triageOverride));
+
+        setText('lastUpdated', new Date().toLocaleDateString());
+
+      } catch (e){
+        console.error(e);
+        show($('msg'));
+      }
+    });
+  </script>
+</body>
 </html>
