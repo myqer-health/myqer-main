@@ -920,6 +920,30 @@ function composeAndPrintBoth(){
       if(btn.dataset.act==='del'){ iceContacts.splice(idx,1); persistIceLocally(); renderIceContacts(); saveICEToServer().catch(()=>{}); renderVCardQR(); toast('Contact removed','success'); }
       else if(btn.dataset.act==='save'){ saveICE(); }
     });
+    // My Care panel
+const careKV = document.getElementById('careKV');
+const careRow = document.getElementById('careRow');
+if (careKV && careRow) {
+  careKV.innerHTML = '';
+  const entries = [
+    ['Life support', care.lifeSupport],
+    ['Intubation',   care.intubation],
+    ['Coma care',    care.comaCare],
+    ['Burial',       care.burial],
+    ['Religion',     care.religion]
+  ].filter(([,v]) => v && String(v).trim());
+
+  if (entries.length) {
+    for (const [k,v] of entries) {
+      const kEl = document.createElement('div'); kEl.className = 'k'; kEl.textContent = k;
+      const vEl = document.createElement('div'); vEl.className = 'v'; vEl.textContent = v;
+      careKV.appendChild(kEl); careKV.appendChild(vEl);
+    }
+    careRow.style.display = '';
+  } else {
+    careRow.style.display = 'none';
+  }
+}
 
     // triage live
     ['hfAllergies','hfConditions'].forEach(id=> on($(id),'input',()=>{ userData.health[id==='hfAllergies'?'allergies':'conditions']= $(id).value; calculateTriage(); renderVCardQR(); }));
