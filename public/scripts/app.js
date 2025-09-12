@@ -34,7 +34,7 @@
   /* ---------- global state ---------- */
   let supabase, isSupabaseAvailable = false;
   let isOnline = navigator.onLine;
-  let userData = { profile: {}, health: {}, care: {} };
+  let userData = { profile: {}, health: {} };
   let iceContacts = [];
 
   // Allowed chars (no O/0/I/1). We use a 6-character code.
@@ -206,7 +206,6 @@
   function buildVCardPayload(shortUrl) {
     const p   = (window.userData && window.userData.profile) || {};
     const h   = (window.userData && window.userData.health)  || {};
-    const c   = (window.userData && window.userData.care)    || {};
     const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null;
 
     const fullName = (p.full_name ?? p.fullName ?? '').trim();
@@ -223,29 +222,18 @@
       return 'GREEN';
     })();
 
-    // NOTE parts (ordered)
     const noteParts = [
       `Country: ${p.country || '—'}`,
-      `Blood: ${h.bloodType || '—'}`,
+      `Blood type: ${h.bloodType || '—'}`,
       `Donor: ${h.organDonor ? 'Y' : 'N'}`,
       `Triage: ${triageText}`,
       h.allergies   ? `Allergies: ${h.allergies}`     : '',
       h.conditions  ? `Conditions: ${h.conditions}`   : '',
-      h.medications ? `Medications: ${h.medications}` : '',
-      (ice?.name || ice?.relationship || ice?.phone) ? `ICE: ${[ice?.name, ice?.relationship ? '('+ice.relationship+')' : '', ice?.phone].filter(Boolean).join(' ')}` : ''
-    ];
-
-    // Optional compact Care line (kept short)
-    const careBits = [
-      c.lifeSupport ? `life=${c.lifeSupport}` : '',
-      c.intubation  ? `intub=${c.intubation}` : '',
-      c.comaCare    ? `coma=${c.comaCare}`    : '',
-      c.burial      ? `burial=${c.burial}`    : '',
-      c.religion    ? `religion=${c.religion}`: ''
+      h.medications ? `Medication: ${h.medications}`  : '',
+      ice?.phone    ? `ICE: ${ice.phone}`             : ''
     ].filter(Boolean);
-    if (careBits.length) noteParts.push(`Care: ${careBits.join(' | ')}`);
 
-    let note = noteParts.filter(Boolean).join('\n');
+    let note = noteParts.join('\n');
     if (note.length > 400) note = note.slice(0, 397) + '…';
     note = vCardEscape(note);
 
@@ -276,7 +264,7 @@
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
-    const qrCanvas    = $('qrCanvas');        // URL QR canvas (inside 240px tile)
+    const qrCanvas    = $('qrCanvas');        // URL QR canvas (inside #qrSlot 240px)
     const codeUnderQR = $('codeUnderQR');
     const cardUrlInput= $('cardUrl');
     const qrStatus    = $('qrStatus');
@@ -312,7 +300,7 @@
 
   /* ---------- vCard QR (offline ICE) ---------- */
   async function renderVCardQR() {
-    const canvas = $('vcardCanvas');       // offline canvas (inside 240px tile)
+    const canvas = $('vcardCanvas');       // offline canvas (inside #vcardSlot 240px)
     const help   = $('vcardHelp');         // helper text
     const regen  = $('regenVcardBtn');     // regenerate button
     const ph     = $('vcardPlaceholder');  // placeholder message
@@ -556,37 +544,6 @@
       .catch((e) => { if (e && (e.message==='no session' || e.message==='no uid')) return; console.error(e); toast('Error saving health','error'); });
   }
 
-  /* ---------- My Care (save/sync) ---------- */
-  function saveCare() {
-    const care = {
-      lifeSupport: $('careLifeSupport')?.value || '',
-      intubation:  $('careIntubation')?.value  || '',
-      comaCare:    $('careComaCare')?.value    || '',
-      burial:      $('careBurial')?.value      || '',
-      religion:    $('careReligion')?.value    || ''
-    };
-    userData.care = care;
-    localStorage.setItem('myqer_care', JSON.stringify(care));
-
-    // Local-only is fine. If Supabase available + signed in, upsert care_directives.
-    if (!(isSupabaseAvailable && isOnline)) { renderVCardQR(); return; }
-
-    return supabase.auth.getSession().then(r=>{
-      const session=r?.data?.session || null;
-      if (!session) { renderVCardQR(); return; }
-      return getUserId().then(uid=>{
-        if (!uid) { renderVCardQR(); return; }
-
-        const snake = { user_id: uid, life_support: care.lifeSupport, intubation: care.intubation, coma_care: care.comaCare, burial: care.burial, religion: care.religion };
-        const camel = { user_id: uid, lifeSupport:  care.lifeSupport, intubation: care.intubation, comaCare: care.comaCare, burial: care.burial, religion: care.religion };
-
-        return supabase.from('care_directives').upsert(snake, { onConflict: 'user_id' })
-          .then(({ error }) => { if (!error) return; return supabase.from('care_directives').upsert(camel, { onConflict: 'user_id' }).then(({ error:e2 }) => { if (e2) throw e2; }); })
-          .then(()=> { renderVCardQR(); });
-      });
-    }).catch(e=>{ console.warn('saveCare err', e); });
-  }
-
   /* ---------- Load (local-first, server-sync) ---------- */
   function fillFromLocal(){
     try{
@@ -625,18 +582,6 @@
       if ($('hfDonor')) $('hfDonor').checked = !!h.organDonor;
       if ($('triageOverride')) $('triageOverride').value = h.triageOverride || 'auto';
       calculateTriage();
-
-      // care (local)
-      const lc = localStorage.getItem('myqer_care');
-      if (lc) {
-        try { userData.care = JSON.parse(lc) || {}; } catch (_) {}
-      }
-      const c = userData.care || {};
-      set('careLifeSupport', c.lifeSupport);
-      set('careIntubation',  c.intubation);
-      set('careComaCare',    c.comaCare);
-      set('careBurial',      c.burial);
-      set('careReligion',    c.religion);
 
       // ice
       const li=localStorage.getItem('myqer_ice');
@@ -717,31 +662,6 @@
             calculateTriage();
           });
         }).then(()=>{
-          // care_directives
-          return withTimeout(
-            supabase.from('care_directives').select('*').eq('user_id', uid).maybeSingle(),
-            4000,
-            'care_directives.select'
-          ).then((rc)=>{
-            const raw = rc?.data || null; if (!raw) return;
-            const norm = {
-              lifeSupport: raw.lifeSupport != null ? raw.lifeSupport : raw.life_support,
-              intubation:  raw.intubation  != null ? raw.intubation  : raw.intubation,
-              comaCare:    raw.comaCare    != null ? raw.comaCare    : raw.coma_care,
-              burial:      raw.burial      != null ? raw.burial      : raw.burial,
-              religion:    raw.religion    != null ? raw.religion    : raw.religion
-            };
-            userData.care = Object.assign({}, userData.care, norm);
-            localStorage.setItem('myqer_care', JSON.stringify(userData.care));
-
-            const c=userData.care; const set=(id,v)=>{ const el=$(id); if (el) el.value=v||''; };
-            set('careLifeSupport', c.lifeSupport);
-            set('careIntubation',  c.intubation);
-            set('careComaCare',    c.comaCare);
-            set('careBurial',      c.burial);
-            set('careReligion',    c.religion);
-          });
-        }).then(()=>{
           // ice
           return withTimeout(
             supabase.from('ice_contacts').select('*').eq('user_id',uid).order('contact_order',{ascending:true}),
@@ -773,62 +693,52 @@
     // Offline vCard actions
     on($('regenVcardBtn'),'click', ()=> { renderVCardQR(); toast('Offline QR regenerated','success'); });
 
-    // Save & Print both QRs together
+    // NEW: Save & Print both QRs together
     on($('btnSavePrint'), 'click', () => { composeAndPrintBoth(); });
   }
 
   // Compose both QRs on one clean sheet and open print dialog
-function composeAndPrintBoth(){
-  const online  = $('qrCanvas');
-  const offline = $('vcardCanvas');
-  if (!online || !offline) return toast('Generate both QRs first','error');
+  function composeAndPrintBoth(){
+    const online  = $('qrCanvas');
+    const offline = $('vcardCanvas');
+    if (!online || !offline) return toast('Generate both QRs first','error');
 
-  const urlPng = online.toDataURL('image/png');
-  const vcdPng = offline.toDataURL('image/png');
+    const urlPng = online.toDataURL('image/png');
+    const vcdPng = offline.toDataURL('image/png');
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>MYQER™ Emergency QRs</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-      body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
-      h1{color:#dc2626;margin:0 0 10px}
-      .hint{color:#6b7280;margin-bottom:20px}
-      .wrap{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
-      .tile{border:2px solid #e5e7eb;border-radius:12px;padding:16px}
-      .tile.online{border-color:#059669}
-      .tile.offline{border-color:#dc2626}
-      .label{font-weight:600;margin:8px 0 12px}
-      img{width:220px;height:220px;image-rendering:pixelated}
-      @media print {.tile{page-break-inside:avoid}}
-    </style>
-  </head><body>
-    <h1>MYQER™ Emergency QR Codes</h1>
-    <div class="hint">Online (needs network) & Offline (works without network)</div>
-    <div class="wrap">
-      <div class="tile online">
-        <div class="label">Online QR</div>
-        <img alt="Online QR" src="${urlPng}">
+    const w = window.open('', '_blank', 'noopener');
+    if (!w) return toast('Pop-up blocked','error');
+
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>MYQER™ Emergency QRs</title>
+      <style>
+        body{font:14px/1.4 -apple-system,Segoe UI,Roboto,Arial;margin:24px;text-align:center}
+        h1{color:#dc2626;margin:0 0 10px}
+        .hint{color:#6b7280;margin-bottom:20px}
+        .wrap{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+        .tile{border:2px solid #e5e7eb;border-radius:12px;padding:16px}
+        .tile.online{border-color:#059669}
+        .tile.offline{border-color:#dc2626}
+        .label{font-weight:600;margin:8px 0 12px}
+        img{width:220px;height:220px;image-rendering:pixelated}
+        @media print {.tile{page-break-inside:avoid}}
+      </style></head><body>
+      <h1>MYQER™ Emergency QR Codes</h1>
+      <div class="hint">Online (needs network) & Offline (works without network)</div>
+      <div class="wrap">
+        <div class="tile online">
+          <div class="label">Online QR</div>
+          <img alt="Online QR" src="${urlPng}">
+        </div>
+        <div class="tile offline">
+          <div class="label">Offline QR</div>
+          <img alt="Offline QR" src="${vcdPng}">
+        </div>
       </div>
-      <div class="tile offline">
-        <div class="label">Offline QR</div>
-        <img alt="Offline QR" src="${vcdPng}">
-      </div>
-    </div>
-  </body></html>`;
-
-  // Create a blob page and open it (works reliably on iOS Safari)
-  const blob = new Blob([html], { type: 'text/html' });
-  const blobUrl = URL.createObjectURL(blob);
-  const w = window.open(blobUrl, '_blank', 'noopener');
-
-  if (!w) return toast('Pop-up blocked','error');
-
-  // Give the new tab a moment to load images, then print
-  setTimeout(() => { try { w.focus(); w.print(); } catch(_) {} }, 500);
-
-  // Cleanup
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-}
+      <script>window.onload=()=>setTimeout(()=>window.print(),400)</script>
+    </body></html>`);
+    w.document.close();
+  }
 
   /* ---------- delete / logout (clears local 6-char code too) ---------- */
   function deleteAccount(){
@@ -841,7 +751,6 @@ function composeAndPrintBoth(){
         localStorage.removeItem('myqer_shortcode');
         localStorage.removeItem('myqer_profile');
         localStorage.removeItem('myqer_health');
-        localStorage.removeItem('myqer_care');
         localStorage.removeItem('myqer_ice');
         localStorage.clear();
         sessionStorage.clear();
@@ -854,7 +763,6 @@ function composeAndPrintBoth(){
         if (!uid) return;
         return supabase.from('ice_contacts').delete().eq('user_id',uid)
           .then(()=> supabase.from('health_data').delete().eq('user_id',uid))
-          .then(()=> supabase.from('care_directives').delete().eq('user_id',uid))
           .then(()=> supabase.from('profiles').delete().eq('user_id',uid))
           .catch(e => { console.warn('server delete failed', e); });
       }).then(()=> supabase.auth.signOut().catch(()=>{}));
@@ -903,8 +811,6 @@ function composeAndPrintBoth(){
 
     ['profileFullName','profileDob','profileCountry','profileHealthId'].forEach(id=> setupAutoSave(id, saveProfile));
     ['hfBloodType','hfAllergies','hfConditions','hfMeds','hfImplants','hfDonor'].forEach(id=> setupAutoSave(id, saveHealth));
-    // My Care autosave
-    ['careLifeSupport','careIntubation','careComaCare','careBurial','careReligion'].forEach(id=> setupAutoSave(id, saveCare));
 
     wireQRButtons();
 
