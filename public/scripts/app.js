@@ -269,7 +269,7 @@
     if (care.burial)      careBits.push(`burial=${care.burial}`);
     if (care.religion)    careBits.push(`religion=${care.religion}`);
 
-const noteParts = [
+   const noteParts = [
   `Country: ${p.country || '—'}`,
   `Blood: ${h.bloodType || '—'}`,
   `Donor: ${h.organDonor ? 'Y' : 'N'}`,
@@ -277,21 +277,13 @@ const noteParts = [
   h.allergies   ? `Allergies: ${h.allergies}`     : '',
   h.conditions  ? `Conditions: ${h.conditions}`   : '',
   h.medications ? `Medications: ${h.medications}` : ''
+  // ❌ no ICE line in NOTE
+  // ❌ no Care: ... line in NOTE
 ].filter(Boolean);
 
 let note = noteParts.join('\n');
 if (note.length > 380) note = note.slice(0, 377) + '…';
 note = vCardEscape(note);
-
-// Proper ICE fields for contacts apps
-const relatedLines = [];
-if (ice && ice.name) {
-  const relTxt = ice.relationship ? ` (${ice.relationship})` : '';
-  relatedLines.push(`RELATED;TYPE=emergency:${vCardEscape(ice.name + relTxt)}`);
-}
-if (ice && ice.phone) {
-  relatedLines.push(`TEL;TYPE=emergency,voice:${vCardEscape(ice.phone)}`);
-}
 
 return [
   'BEGIN:VCARD',
@@ -299,7 +291,15 @@ return [
   `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
   `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
   p.date_of_birth ? `BDAY:${formatBDAY(p.date_of_birth)}` : '',
-  ...relatedLines,
+
+  // ✅ Proper ICE fields (rendered as a clean “related/emergency” contact)
+  (ice && ice.name)
+    ? `RELATED;TYPE=emergency:${vCardEscape(ice.name)}${ice.relationship ? ` (${vCardEscape(ice.relationship)})` : ''}`
+    : '',
+  (ice && ice.phone)
+    ? `TEL;TYPE=emergency,voice:${vCardEscape(ice.phone)}`
+    : '',
+
   `URL:${vCardEscape(shortUrl)}`,
   `NOTE:${note}`,
   'END:VCARD'
