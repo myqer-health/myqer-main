@@ -243,60 +243,67 @@
   }
 
   function buildVCardPayload(shortUrl) {
-    const p   = userData.profile || {};
-    const h   = userData.health  || {};
-    const ice = Array.isArray(iceContacts) ? iceContacts[0] : null;
+  const p   = (window.userData && window.userData.profile) || {};
+  const h   = (window.userData && window.userData.health)  || {};
+  const ice = Array.isArray(window.iceContacts) ? window.iceContacts[0] : null;
 
-    const fullName = (p.full_name ?? p.fullName ?? '').trim();
-    const parts = fullName.split(/\s+/);
-    const first = parts[0] || '';
-    const last  = parts.length > 1 ? parts[parts.length - 1] : '';
+  const fullName = (p.full_name ?? p.fullName ?? '').trim();
+  const parts = fullName.split(/\s+/);
+  const first = parts[0] || '';
+  const last  = parts.length > 1 ? parts[parts.length - 1] : '';
 
-    const triageText = (()=>{
-      const pill = $('triagePill');
-      if (!pill) return 'GREEN';
-      if (pill.classList.contains('red'))   return 'RED';
-      if (pill.classList.contains('amber')) return 'AMBER';
-      if (pill.classList.contains('black')) return 'BLACK';
-      return 'GREEN';
-    })();
+  const triageText = (() => {
+    const pill = document.getElementById('triagePill');
+    if (!pill) return 'GREEN';
+    if (pill.classList.contains('red'))   return 'RED';
+    if (pill.classList.contains('amber')) return 'AMBER';
+    if (pill.classList.contains('black')) return 'BLACK';
+    return 'GREEN';
+  })();
 
-    const care = userData.care || {};
-    const careBits = [];
-    if (care.lifeSupport) careBits.push(`life support=${care.lifeSupport}`);
-    if (care.intubation)  careBits.push(`intubation=${care.intubation}`);
-    if (care.comaCare)    careBits.push(`coma=${care.comaCare}`);
-    if (care.burial)      careBits.push(`burial=${care.burial}`);
-    if (care.religion)    careBits.push(`religion=${care.religion}`);
+  // Optional: My Care (kept short for QR density)
+  const care = (window.userData && window.userData.care) || {};
+  const careBits = [];
+  if (care.lifeSupport) careBits.push(`life support=${care.lifeSupport}`);
+  if (care.intubation)  careBits.push(`intubation=${care.intubation}`);
+  if (care.comaCare)    careBits.push(`coma=${care.comaCare}`);
+  if (care.burial)      careBits.push(`burial=${care.burial}`);
+  if (care.religion)    careBits.push(`religion=${care.religion}`);
 
-    const noteParts = [
-      `Country: ${p.country || '—'}`,
-      `Blood: ${h.bloodType || '—'}`,
-      `Donor: ${h.organDonor ? 'Y' : 'N'}`,
-      `Triage: ${triageText}`,
-      h.allergies   ? `Allergies: ${h.allergies}`     : '',
-      h.conditions  ? `Conditions: ${h.conditions}`   : '',
-      h.medications ? `Medications: ${h.medications}` : '',
-      ice?.name     ? `ICE: ${ice.name}${ice.relationship?` (${ice.relationship})`:''} ${ice.phone||''}` : '',
-      careBits.length ? `Care: ${careBits.join(' | ')}` : ''
-    ].filter(Boolean);
+  const noteParts = [
+    `Country: ${p.country || '—'}`,
+    `Blood: ${h.bloodType || '—'}`,
+    `Donor: ${h.organDonor ? 'Y' : 'N'}`,
+    `Triage: ${triageText}`,
+    h.allergies   ? `Allergies: ${h.allergies}`     : '',
+    h.conditions  ? `Conditions: ${h.conditions}`   : '',
+    h.medications ? `Medications: ${h.medications}` : '',
+    careBits.length ? `Care: ${careBits.join(' | ')}` : ''
+  ].filter(Boolean);
 
-    let note = noteParts.join('\n');
-    if (note.length > 380) note = note.slice(0, 377) + '…';
-    note = vCardEscape(note);
+  let note = noteParts.join('\n');
+  if (note.length > 380) note = note.slice(0, 377) + '…';
+  note = vCardEscape(note);
 
-    return [
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-      `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
-      `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
-      p.date_of_birth ? `BDAY:${formatBDAY(p.date_of_birth)}` : '',
-      ice?.phone ? `TEL;TYPE=CELL:${vCardEscape(ice.phone)}` : '',
-      `URL:${vCardEscape(shortUrl)}`,
-      `NOTE:${note}`,
-      'END:VCARD'
-    ].filter(Boolean).join('\r\n');
-  }
+  const bday = (p.date_of_birth ?? p.dob ?? '') ? `BDAY:${formatBDAY(p.date_of_birth ?? p.dob)}` : '';
+  const tel  = (ice && ice.phone) ? `TEL;TYPE=CELL,VOICE:${vCardEscape(ice.phone)}` : '';
+  const rel  = (ice && ice.name)
+    ? `RELATED;TYPE=emergency:${vCardEscape(ice.name)}${ice.relationship ? ` (${vCardEscape(ice.relationship)})` : ''}`
+    : '';
+
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
+    `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
+    bday,
+    rel,
+    tel,
+    `URL:${vCardEscape(shortUrl)}`,
+    `NOTE:${note}`,
+    'END:VCARD'
+  ].filter(Boolean).join('\r\n');
+}
 
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
