@@ -341,6 +341,9 @@
     const regen  = $('regenVcardBtn');
     const ph     = $('vcardPlaceholder');
     const ready  = isOfflineReadyNow();
+    // hide/show the amber "NOT READY" badge
+const badge = $('offlineNotReady');
+if (badge) badge.style.display = ready ? 'none' : '';
 
     if (help) {
       help.textContent = ready
@@ -769,73 +772,80 @@
     }).catch(e=>console.warn('Server load failed', e));
   }
 
-  /* ---------- pretty Save & Print (both QRs) ---------- */
-  function composeAndPrintBoth(){
-    const online = $('qrCanvas');
-    const offline = $('vcardCanvas');
-    if (!online || !offline) return toast('Generate both QRs first','error');
+function composeAndPrintBoth(){
+  const online = $('qrCanvas');
+  const offline = $('vcardCanvas');
+  if (!online || !offline) return toast('Generate both QRs first','error');
 
-    const urlPng = online.toDataURL('image/png');
-    const vcdPng = offline.toDataURL('image/png');
+  const urlPng = online.toDataURL('image/png');
+  const vcdPng = offline.toDataURL('image/png');
 
-    const w = window.open('', '_blank', 'noopener');
-    if (!w) return toast('Pop-up blocked','error');
-
-    // polished template
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>MYQER™ Emergency QRs</title>
-    <meta name="color-scheme" content="light only">
-    <style>
-      *{box-sizing:border-box}
-      body{font:16px/1.4 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f7f7fb;color:#0f172a}
-      .wrap{max-width:980px;margin:24px auto;padding:0 20px}
-      .card{background:#fff;border:3px solid #dc2626;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.08);overflow:hidden}
-      .hdr{background:linear-gradient(180deg,#dc2626, #b91c1c);color:#fff;text-align:center;padding:24px 16px}
-      .hdr h1{margin:0;font-size:28px;letter-spacing:.02em}
-      .sub{opacity:.85;margin-top:6px;letter-spacing:.08em}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px}
-      .tile{border:3px solid #e5e7eb;border-radius:18px;padding:18px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.04)}
-      .tile.online{border-color:#059669;background:linear-gradient(180deg,#f2fbf7,#ffffff)}
-      .tile.offline{border-color:#dc2626;background:linear-gradient(180deg,#fff6f6,#ffffff)}
-      .label{font-weight:800;letter-spacing:.04em;margin:12px 0 8px}
-      img{width:220px;height:220px;image-rendering:pixelated;border-radius:12px}
-      .foot{padding:12px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280}
-      @media print {
-        body{background:#fff}
-        .wrap{margin:0;padding:0}
-        .card{border-width:2px;box-shadow:none;border-radius:18px}
-        .grid{gap:20px}
-        .tile{page-break-inside:avoid;box-shadow:none}
-      }
-    </style></head><body>
-      <div class="wrap">
-        <div class="card">
-          <div class="hdr">
-            <h1>MYQER™ Emergency Card</h1>
-            <div class="sub">SCAN EITHER QR IN AN EMERGENCY</div>
-          </div>
-          <div class="grid">
-            <div class="tile online">
-              <div class="label">ONLINE QR</div>
-              <div class="muted">NETWORK AVAILABLE</div>
-              <div style="height:12px"></div>
-              <img alt="Online QR" src="${urlPng}">
-            </div>
-            <div class="tile offline">
-              <div class="label">OFFLINE QR</div>
-              <div class="muted">NO NETWORK NEEDED</div>
-              <div style="height:12px"></div>
-              <img alt="Offline QR" src="${vcdPng}">
-            </div>
-          </div>
-          <div class="foot">This card provides critical information to first responders. Verify details with official records.</div>
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+  <title>MYQER™ Emergency QRs</title>
+  <meta name="color-scheme" content="light only">
+  <style>
+    *{box-sizing:border-box}
+    body{font:16px/1.4 -apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f7f7fb;color:#0f172a}
+    .wrap{max-width:980px;margin:24px auto;padding:0 20px}
+    .card{background:#fff;border:3px solid #dc2626;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,.08);overflow:hidden}
+    .hdr{background:linear-gradient(180deg,#dc2626,#b91c1c);color:#fff;text-align:center;padding:24px 16px}
+    .hdr h1{margin:0;font-size:28px;letter-spacing:.02em}
+    .sub{opacity:.88;margin-top:6px;letter-spacing:.08em}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px}
+    .tile{border:3px solid #e5e7eb;border-radius:18px;padding:18px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.04)}
+    .tile.online{border-color:#059669;background:linear-gradient(180deg,#f2fbf7,#ffffff)}
+    .tile.offline{border-color:#dc2626;background:linear-gradient(180deg,#fff6f6,#ffffff)}
+    .label{font-weight:800;letter-spacing:.04em;margin:12px 0 8px}
+    img{width:220px;height:220px;image-rendering:pixelated;border-radius:12px}
+    .foot{padding:12px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;text-align:center;color:#6b7280}
+    @media print {
+      body{background:#fff}
+      .wrap{margin:0;padding:0}
+      .card{border-width:2px;box-shadow:none;border-radius:18px}
+      .grid{gap:20px}
+      .tile{page-break-inside:avoid;box-shadow:none}
+    }
+  </style></head><body>
+    <div class="wrap">
+      <div class="card">
+        <div class="hdr">
+          <h1>MYQER™ Emergency Card</h1>
+          <div class="sub">SCAN EITHER QR IN AN EMERGENCY</div>
         </div>
+        <div class="grid">
+          <div class="tile online">
+            <div class="label">ONLINE QR</div>
+            <div class="muted">NETWORK AVAILABLE</div>
+            <div style="height:12px"></div>
+            <img alt="Online QR" src="${urlPng}">
+          </div>
+          <div class="tile offline">
+            <div class="label">OFFLINE QR</div>
+            <div class="muted">NO NETWORK NEEDED</div>
+            <div style="height:12px"></div>
+            <img alt="Offline QR" src="${vcdPng}">
+          </div>
+        </div>
+        <div class="foot">This card provides critical information to first responders. Verify details with official records.</div>
       </div>
-      <script>window.onload=()=>setTimeout(()=>window.print(),400)</script>
-    </body></html>`);
-    w.document.close();
+    </div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),400)</script>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const w    = window.open(url, '_blank', 'noopener');
+
+  if (!w) {
+    URL.revokeObjectURL(url);
+    return toast('Pop-up blocked','error');
   }
 
+  // extra safety: revoke after the new page loads/prints
+  const revoke = () => { try{ URL.revokeObjectURL(url); }catch{} };
+  w.addEventListener?.('load', () => setTimeout(revoke, 4000));
+  setTimeout(revoke, 8000);
+}
   /* ---------- QR buttons ---------- */
   function wireQRButtons(){
     on($('openLink'),'click',()=>{ const url=$('cardUrl')?.value||''; if(!url) return toast('No link to open','error'); window.open(url,'_blank','noopener'); });
