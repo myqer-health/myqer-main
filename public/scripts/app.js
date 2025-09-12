@@ -269,42 +269,35 @@
     if (care.burial)      careBits.push(`burial=${care.burial}`);
     if (care.religion)    careBits.push(`religion=${care.religion}`);
 
-   const noteParts = [
-  `Country: ${p.country || '—'}`,
-  `Blood: ${h.bloodType || '—'}`,
-  `Donor: ${h.organDonor ? 'Y' : 'N'}`,
-  `Triage: ${triageText}`,
-  h.allergies   ? `Allergies: ${h.allergies}`     : '',
-  h.conditions  ? `Conditions: ${h.conditions}`   : '',
-  h.medications ? `Medications: ${h.medications}` : ''
-  // ❌ no ICE line in NOTE
-  // ❌ no Care: ... line in NOTE
-].filter(Boolean);
+    const noteParts = [
+      `Country: ${p.country || '—'}`,
+      `Blood: ${h.bloodType || '—'}`,
+      `Donor: ${h.organDonor ? 'Y' : 'N'}`,
+      `Triage: ${triageText}`,
+      h.allergies   ? `Allergies: ${h.allergies}`     : '',
+      h.conditions  ? `Conditions: ${h.conditions}`   : '',
+      h.medications ? `Medications: ${h.medications}` : '',
+      ice?.name     ? `ICE: ${ice.name}${ice.relationship?` (${ice.relationship})`:''} ${ice.phone||''}` : '',
+      careBits.length ? `Care: ${careBits.join(' | ')}` : ''
+    ].filter(Boolean);
 
-let note = noteParts.join('\n');
-if (note.length > 380) note = note.slice(0, 377) + '…';
-note = vCardEscape(note);
+    let note = noteParts.join('\n');
+    if (note.length > 380) note = note.slice(0, 377) + '…';
+    note = vCardEscape(note);
 
-return [
-  'BEGIN:VCARD',
-  'VERSION:3.0',
-  `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
-  `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
-  p.date_of_birth ? `BDAY:${formatBDAY(p.date_of_birth)}` : '',
+    return [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `N:${vCardEscape(last)};${vCardEscape(first)};;;`,
+      `FN:${vCardEscape(fullName || `${first} ${last}`.trim())}`,
+      p.date_of_birth ? `BDAY:${formatBDAY(p.date_of_birth)}` : '',
+      ice?.phone ? `TEL;TYPE=CELL:${vCardEscape(ice.phone)}` : '',
+      `URL:${vCardEscape(shortUrl)}`,
+      `NOTE:${note}`,
+      'END:VCARD'
+    ].filter(Boolean).join('\r\n');
+  }
 
-  // ✅ Proper ICE fields (rendered as a clean “related/emergency” contact)
-  (ice && ice.name)
-    ? `RELATED;TYPE=emergency:${vCardEscape(ice.name)}${ice.relationship ? ` (${vCardEscape(ice.relationship)})` : ''}`
-    : '',
-  (ice && ice.phone)
-    ? `TEL;TYPE=emergency,voice:${vCardEscape(ice.phone)}`
-    : '',
-
-  `URL:${vCardEscape(shortUrl)}`,
-  `NOTE:${note}`,
-  'END:VCARD'
-].filter(Boolean).join('\r\n');
-    
   /* ---------- URL QR (online) ---------- */
   async function renderUrlQR() {
     const qrCanvas    = $('qrCanvas');
