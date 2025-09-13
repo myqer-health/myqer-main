@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MYQER for Clinicians — Clarity When Every Detail Matters</title>
+    <title>MYQER — Smart Health & Emergency QR Tag Aid</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
-        // Initialize Supabase
+        // Initialize Supabase with proper global
         const SUPABASE_URL = "https://dmntmhkncldgynufajei.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbnRtaGtuY2xkZ3ludWZhamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4MzQ2MzUsImV4cCI6MjA3MjQxMDYzNX0.6DzOSb0xu5bp4g2wKy3SNtEEuSQavs_ohscyawvPmrY";
+        // Global is `supabase` with this CDN
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </script>
     <style>
@@ -23,47 +25,23 @@
             background: linear-gradient(135deg, #ffffff 0%, #fef5f5 50%, #ffffff 100%);
             color: black;
             overflow-x: hidden;
-            line-height: 1.6;
+            overflow-y: auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
         }
 
         /* Header */
         .header {
             position: fixed;
             top: 0;
-            left: 0;
             right: 0;
             z-index: 1000;
             padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            text-decoration: none;
-            color: black;
-            cursor: pointer;
-        }
-
-        .myq {
-            color: black;
-        }
-
-        .er {
-            color: #d32f2f;
-        }
-
-        .tm {
-            color: black;
-        }
-
-        .header-controls {
             display: flex;
             gap: 15px;
             align-items: center;
@@ -89,8 +67,8 @@
 
         .menu {
             position: absolute;
-            top: 70px;
-            right: 20px;
+            top: 60px;
+            right: 0;
             background: white;
             border: 1px solid #e0e0e0;
             border-radius: 12px;
@@ -122,364 +100,334 @@
         }
 
         /* Main Content */
-        .main {
-            padding-top: 100px;
-            min-height: 100vh;
-        }
-
         .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        /* Hero Section */
-        .hero {
             text-align: center;
-            padding: 80px 0;
-            margin-bottom: 60px;
+            max-width: 500px;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 200px);
         }
 
-        .hero h1 {
-            font-size: 3.5rem;
+        .hero-text {
+            margin-bottom: 40px;
+        }
+
+        .hero-text h1 {
+            font-size: 2.5rem;
             font-weight: 700;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             background: linear-gradient(135deg, #d32f2f, #666);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            line-height: 1.1;
         }
 
-        .hero .subtitle {
-            font-size: 1.5rem;
-            color: #666;
-            font-weight: 400;
-            margin-bottom: 40px;
-        }
-
-        .hero .tagline {
+        .hero-text .tagline {
             font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: black;
+        }
+
+        .hero-text .description {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .hero-text .pronunciation {
+            font-size: 0.9rem;
             color: #999;
             font-style: italic;
         }
 
-        /* Content Sections */
-        .section {
-            margin-bottom: 100px;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 60px;
-        }
-
-        .section-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: black;
-        }
-
-        .section-subtitle {
-            font-size: 1.3rem;
-            color: #666;
-            font-weight: 400;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* Premium Content Sections */
-        .premium-section {
-            margin: 120px 0;
-            padding: 0 40px;
-        }
-
-        .premium-item {
+        /* 3D Card Container */
+        .card-container {
+            perspective: 1200px;
+            margin: 40px auto;
+            --mx: 50%;
+            --my: 50%;
             display: flex;
+            justify-content: center;
             align-items: center;
-            margin: 80px 0;
-            min-height: 200px;
-            transition: all 0.6s ease;
+            width: 100%;
         }
 
-        .premium-item:nth-child(even) {
-            flex-direction: row-reverse;
+        .card-3d {
+            width: 450px;
+            height: 700px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            margin: 0 auto;
+            animation: autoTwist 12s ease-in-out infinite;
         }
 
-        .premium-item:hover {
-            transform: translateY(-8px);
+        @keyframes autoTwist {
+            0% { transform: rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
+            20% { transform: rotateY(8deg) rotateX(3deg) rotateZ(1deg); }
+            40% { transform: rotateY(-3deg) rotateX(-2deg) rotateZ(-0.5deg); }
+            60% { transform: rotateY(6deg) rotateX(4deg) rotateZ(1.5deg); }
+            80% { transform: rotateY(-8deg) rotateX(-3deg) rotateZ(-1deg); }
+            100% { transform: rotateY(0deg) rotateX(0deg) rotateZ(0deg); }
         }
 
-        .premium-icon {
-            font-size: 5rem;
-            margin: 0 80px;
-            opacity: 0.9;
-            transition: all 0.4s ease;
-            filter: drop-shadow(0 10px 30px rgba(0,0,0,0.1));
+        @media (hover: hover) {
+            .card-3d:hover {
+                transform: rotateY(180deg);
+                animation-play-state: paused;
+            }
         }
 
-        .premium-item:hover .premium-icon {
-            transform: scale(1.1);
-            opacity: 1;
+        .card-3d.is-flipped {
+            transform: rotateY(180deg);
+            animation-play-state: paused;
         }
 
-        .premium-content {
-            flex: 1;
-            padding: 0 40px;
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: 
+                linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 100%),
+                linear-gradient(45deg, rgba(211, 47, 47, 0.05) 0%, transparent 50%, rgba(211, 47, 47, 0.05) 100%);
+            backdrop-filter: blur(20px) saturate(180%);
+            box-shadow: 
+                0 25px 80px rgba(0, 0, 0, 0.15),
+                0 8px 32px rgba(211, 47, 47, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8),
+                inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .premium-title {
+        .face::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.4) 0%, transparent 60%),
+                conic-gradient(from 0deg at 50% 50%, rgba(211, 47, 47, 0.1) 0deg, transparent 60deg, rgba(211, 47, 47, 0.1) 120deg, transparent 180deg, rgba(211, 47, 47, 0.1) 240deg, transparent 300deg, rgba(211, 47, 47, 0.1) 360deg);
+            background-size: 100% 100%, 400% 400%;
+            background-position: center, center;
+            opacity: 0.6;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            animation: holographicShimmer 4s ease-in-out infinite;
+        }
+
+        @keyframes holographicShimmer {
+            0%, 100% { background-position: center, 0% 0%; }
+            50% { background-position: center, 100% 100%; }
+        }
+
+        .face::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, 
+                transparent 30%, 
+                rgba(255, 255, 255, 0.8) 50%, 
+                transparent 70%);
+            background-size: 200% 200%;
+            background-position: -100% -100%;
+            transition: background-position 0.8s ease;
+            pointer-events: none;
+            animation: luxuryGleam 6s ease-in-out infinite;
+        }
+
+        @keyframes luxuryGleam {
+            0%, 100% { background-position: -100% -100%; }
+            50% { background-position: 100% 100%; }
+        }
+
+        .face:hover::after {
+            background-position: 100% 100%;
+            animation-play-state: paused;
+        }
+
+        .face.back {
+            transform: rotateY(180deg);
+        }
+
+        /* Front Face Styles */
+        .front-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+        }
+
+        .hero-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .card-title {
             font-size: 2.2rem;
             font-weight: 700;
-            margin-bottom: 20px;
-            color: black;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #000, #333);
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #d32f2f, #666);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            line-height: 1.2;
         }
 
-        .premium-description {
-            font-size: 1.2rem;
-            color: #666;
-            line-height: 1.7;
-            font-weight: 400;
-            max-width: 500px;
-        }
-
-        /* Patient Card Demo */
-        .patient-card {
-            background: rgba(255, 255, 255, 0.95);
-            border: 2px solid #e0e0e0;
-            border-radius: 20px;
-            padding: 30px;
-            margin: 40px 0;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            backdrop-filter: blur(20px);
-            max-width: 500px;
-            margin: 40px auto;
-        }
-
-        .patient-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-
-        .patient-name {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: black;
-        }
-
-        .priority-badge {
-            background: #ffc107;
-            color: black;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+        .card-tagline {
+            font-size: 1.3rem;
             font-weight: 600;
+            margin-bottom: 12px;
+            color: black;
         }
 
-        .patient-section {
-            margin: 15px 0;
-        }
-
-        .section-label {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: #d32f2f;
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .section-content {
+        .card-description {
             font-size: 1rem;
-            color: #333;
+            color: #666;
+            margin-bottom: 8px;
             line-height: 1.4;
         }
 
-        .audio-controls {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #f0f0f0;
-        }
-
-        .audio-btn {
-            background: #d32f2f;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
+        .card-pronunciation {
             font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: #999;
+            font-style: italic;
+        }        .myqer-brand {
+            display: flex;
+            flex-direction: column;
         }
 
-        .audio-btn:hover {
-            background: #b71c1c;
-            transform: translateY(-2px);
-        }
-
-        /* Feature List */
-        .feature-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 40px;
-            margin-bottom: 60px;
-        }
-
-        .feature-item {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 30px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            transition: all 0.4s ease;
-        }
-
-        .feature-item:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-        }
-
-        .feature-icon {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            display: block;
-        }
-
-        .feature-item h3 {
-            font-size: 1.4rem;
+        .myqer-logo {
+            font-size: 1.2rem;
             font-weight: 700;
-            margin-bottom: 15px;
+            letter-spacing: -0.5px;
+        }
+
+        .myq {
             color: black;
         }
 
-        .feature-item p {
-            font-size: 1.1rem;
+        .er {
+            color: #d32f2f;
+        }
+
+        .tm {
+            color: black;
+        }
+
+        .myqer-hint {
+            font-size: 0.7rem;
             color: #666;
-            line-height: 1.6;
+            font-style: italic;
+            margin-top: 2px;
         }
 
-        /* Workflow Steps */
-        .workflow-steps {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 60px 0;
-            flex-wrap: wrap;
-            gap: 30px;
-        }
-
-        .workflow-step {
-            flex: 1;
-            text-align: center;
-            min-width: 200px;
-        }
-
-        .step-number {
-            width: 60px;
-            height: 60px;
+        .free-badge {
             background: #d32f2f;
             color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0 auto 20px;
-        }
-
-        .step-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: black;
-        }
-
-        .step-description {
-            font-size: 1rem;
-            color: #666;
-            line-height: 1.5;
-        }
-
-        .workflow-arrow {
-            font-size: 2rem;
-            color: #d32f2f;
-            margin: 0 20px;
-        }
-
-        /* Scenario Cards */
-        .scenario-card {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            padding: 40px;
-            margin: 30px 0;
-            border-left: 5px solid #d32f2f;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        }
-
-        .scenario-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #d32f2f;
-            margin-bottom: 15px;
-        }
-
-        .scenario-subtitle {
-            font-size: 1.1rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
             font-weight: 600;
-            color: black;
-            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .scenario-content {
-            font-size: 1rem;
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-
-        /* CTA Section */
-        .cta-section {
-            background: rgba(211, 47, 47, 0.05);
-            border-radius: 32px;
-            padding: 80px 40px;
-            text-align: center;
-            margin: 80px 0;
-        }
-
-        .cta-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: black;
-        }
-
-        .cta-subtitle {
-            font-size: 1.3rem;
-            color: #666;
-            margin-bottom: 40px;
-        }
-
-        .cta-buttons {
+        .medical-sections {
+            flex: 1;
             display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 20px 0;
+            text-align: left;
+            overflow-y: auto;
+            max-height: 450px;
+            padding-right: 8px;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #d32f2f;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(211, 47, 47, 0.2);
+            padding-bottom: 4px;
+        }
+
+        .section-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-row {
+            font-size: 0.75rem;
+            color: black;
+            line-height: 1.3;
+        }
+
+        .info-row .label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-row .value {
+            font-weight: 500;
+            color: black;
+        }
+
+        /* Scrollbar styling for medical sections */
+        .medical-sections::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .medical-sections::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+        }
+
+        .medical-sections::-webkit-scrollbar-thumb {
+            background: rgba(211, 47, 47, 0.3);
+            border-radius: 2px;
+        }
+
+        .medical-sections::-webkit-scrollbar-thumb:hover {
+            background: rgba(211, 47, 47, 0.5);
+        }
+
+        /* Buttons moved inside card */
+        .buttons-inside {
+            display: flex;
+            flex-direction: row;
             gap: 20px;
+            margin: 20px 0;
             justify-content: center;
             align-items: center;
-            flex-wrap: wrap;
         }
 
         .btn {
@@ -492,7 +440,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             display: inline-block;
-            min-width: 160px;
+            min-width: 140px;
             text-align: center;
         }
 
@@ -522,547 +470,419 @@
             box-shadow: 0 8px 25px rgba(211, 47, 47, 0.3);
         }
 
+        .front-controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .triage-pill {
+            background: rgba(211, 47, 47, 0.1);
+            border: 2px solid #d32f2f;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 0.7rem;
+            color: black;
+            font-weight: 600;
+            position: relative;
+        }
+
+        .triage-pill::before {
+            content: '';
+            position: absolute;
+            left: -2px;
+            top: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 20px;
+            background: conic-gradient(from 0deg, #d32f2f, #ff5722, #d32f2f);
+            z-index: -1;
+            animation: rotate 3s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .flip-hint {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: #999;
+            opacity: 0.7;
+        }
+
+        /* Back Face Styles */
+        .back-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .back-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: black;
+            margin-bottom: 8px;
+        }
+
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            border: 2px solid #d32f2f;
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .qr-container::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 20px;
+            border: 2px solid #d32f2f;
+            opacity: 0.5;
+        }
+
+        .qr-info {
+            text-align: center;
+        }
+
+        .qr-code-text {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: black;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .qr-link {
+            font-size: 0.75rem;
+            color: #666;
+            word-break: break-all;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .copy-link {
+            font-size: 0.7rem;
+            color: #d32f2f;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .copy-link:hover {
+            text-decoration: underline;
+        }
+
+        .back-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .action-btn {
+            background: white;
+            color: black;
+            border: 1px solid #d32f2f;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .disclaimer {
+            font-size: 0.65rem;
+            color: #999;
+            line-height: 1.4;
+            text-align: center;
+            margin-top: auto;
+        }
+
         /* Footer */
         .footer {
-            background: rgba(0, 0, 0, 0.05);
-            padding: 60px 0 40px;
-            margin-top: 100px;
+            display: none;
         }
 
         .footer-content {
             display: flex;
-            flex-direction: column;
             align-items: center;
             gap: 20px;
-            text-align: center;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
         }
 
         .footer-brand {
-            font-size: 1.2rem;
             font-weight: 600;
-            color: black;
         }
 
         .footer-links {
             display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 16px;
         }
 
         .footer-link {
-            color: #666;
+            color: black;
             text-decoration: none;
-            font-weight: 400;
         }
 
         .footer-link:hover {
-            color: #d32f2f;
+            text-decoration: underline;
         }
 
         .footer-note {
-            color: #999;
-            font-size: 0.9rem;
+            color: #666;
+            font-size: 0.65rem;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
+        /* Responsive Adjustments */
+        @media (min-width: 768px) {
+            .card-3d {
+                width: 500px;
+                height: 750px;
             }
-
-            .hero .subtitle {
-                font-size: 1.2rem;
-            }
-
-            .section-title {
-                font-size: 2rem;
-            }
-
-            .premium-section {
-                margin: 80px 0;
-                padding: 0 20px;
-            }
-
-            .premium-item {
-                flex-direction: column !important;
-                text-align: center;
-                margin: 60px 0;
-            }
-
-            .premium-icon {
-                margin: 0 0 30px 0;
-                font-size: 4rem;
-            }
-
-            .premium-content {
-                padding: 0;
-            }
-
-            .premium-title {
+            
+            .full-name {
                 font-size: 1.8rem;
             }
 
-            .premium-description {
-                font-size: 1.1rem;
-                max-width: none;
-            }
-
-            .workflow-steps {
-                flex-direction: column;
-            }
-
-            .workflow-arrow {
-                transform: rotate(90deg);
-                margin: 20px 0;
-            }
-
-            .cta-section {
-                padding: 60px 30px;
-            }
-
-            .cta-title {
-                font-size: 2rem;
-            }
-
-            .cta-buttons {
-                flex-direction: column;
-            }
-
-            .footer-links {
-                flex-direction: column;
-                gap: 15px;
+            .card-title {
+                font-size: 2.5rem;
             }
         }
 
-        @media (max-width: 480px) {
-            .container {
-                padding: 0 15px;
+        @media (min-width: 1024px) {
+            .card-3d {
+                width: 550px;
+                height: 800px;
             }
-
-            .hero {
-                padding: 60px 0;
-            }
-
-            .hero h1 {
+            
+            .full-name {
                 font-size: 2rem;
             }
 
-            .section {
-                margin-bottom: 60px;
-            }
-
-            .premium-section {
-                margin: 60px 0;
-                padding: 0 15px;
-            }
-
-            .premium-item {
-                margin: 40px 0;
-            }
-
-            .premium-icon {
-                font-size: 3.5rem;
-                margin-bottom: 20px;
-            }
-
-            .premium-title {
-                font-size: 1.5rem;
-            }
-
-            .premium-description {
-                font-size: 1rem;
-            }
-
-            .patient-card {
-                padding: 20px;
-                margin: 20px 0;
+            .card-title {
+                font-size: 2.8rem;
             }
         }
 
-        /* Modal Styles */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
+        /* Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            .card-3d {
+                transition: none;
+            }
+            
+            .face::after {
+                display: none;
+            }
+            
+            .triage-pill::before {
+                animation: none;
+            }
+        }
+
+        /* QR Code */
+        .qr-container {
+            margin: 30px 0;
+            display: flex;
             justify-content: center;
-            align-items: center;
-            z-index: 3000;
         }
 
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
+        .qr-code {
+            padding: 15px;
             background: white;
-            padding: 40px;
-            border-radius: 16px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .modal-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #d32f2f;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-        }
-
-        .btn-cancel {
-            background: #f5f5f5;
-            color: #666;
-            flex: 1;
-        }
-
-        .btn-submit {
-            background: #d32f2f;
-            color: white;
-            flex: 2;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
     <!-- Header -->
     <div class="header">
-        <a href="index.html" class="logo">
-            <span class="myq">MYQ</span><span class="er">ER</span><span class="tm">™</span>
-        </a>
-        <div class="header-controls">
-            <select class="language-dropdown" onchange="changeLanguage(this.value)">
-                <option value="en">🇬🇧 English</option>
-                <option value="es">🇪🇸 Español</option>
-                <option value="fr">🇫🇷 Français</option>
-                <option value="de">🇩🇪 Deutsch</option>
-                <option value="it">🇮🇹 Italiano</option>
-                <option value="pt">🇵🇹 Português</option>
-                <option value="ro">🇷🇴 Română</option>
-                <option value="ar">🇸🇦 العربية</option>
-                <option value="hi">🇮🇳 हिन्दी</option>
-                <option value="zh">🇨🇳 中文</option>
-            </select>
-            <button class="menu-toggle" onclick="toggleMenu()">☰</button>
-            <div class="menu" id="menu">
-                <a href="index.html" class="menu-item" data-translate="home">Home</a>
-                <a href="about.html" class="menu-item" data-translate="about">About</a>
-                <a href="clinician.html" class="menu-item" data-translate="clinician">Clinician</a>
-                <a href="how-it-works.html" class="menu-item" data-translate="how-it-works">How It Works</a>
-                <a href="privacy.html" class="menu-item" data-translate="privacy">Privacy</a>
-                <a href="terms.html" class="menu-item" data-translate="terms">Terms</a>
-                <a href="contact.html" class="menu-item" data-translate="contact">Contact</a>
-            </div>
+        <select class="language-dropdown" onchange="changeLanguage(this.value)">
+            <option value="en">🇬🇧 English</option>
+            <option value="es">🇪🇸 Español</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="it">🇮🇹 Italiano</option>
+            <option value="pt">🇵🇹 Português</option>
+            <option value="ro">🇷🇴 Română</option>
+            <option value="ar">🇸🇦 العربية</option>
+            <option value="hi">🇮🇳 हिन्दी</option>
+            <option value="zh">🇨🇳 中文</option>
+        </select>
+        <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+        <div class="menu" id="menu">
+            <a href="/about.html" class="menu-item" data-translate="about">About</a>
+            <a href="/clinician.html" class="menu-item" data-translate="clinician">Clinician</a>
+            <a href="/how-it-works.html" class="menu-item" data-translate="how-it-works">How It Works</a>
+            <a href="/privacy.html" class="menu-item" data-translate="privacy">Privacy</a>
+            <a href="/terms.html" class="menu-item" data-translate="terms">Terms</a>
+            <a href="/contact.html" class="menu-item" data-translate="contact">Contact</a>
         </div>
     </div>
 
     <!-- Main Content -->
-    <main class="main">
-        <div class="container">
-            <!-- Hero Section -->
-            <section class="hero">
-                <h1 data-translate="clinician-title">MYQER for Clinicians</h1>
-                <p class="subtitle" data-translate="hero-subtitle">Clarity when every detail matters</p>
-                <p class="tagline" data-translate="hero-description">Clinical care is often delivered with incomplete histories, language barriers, or family members who are uncertain. MYQER turns the unknown into a quick, structured view of what matters most.</p>
-            </section>
-
-            <!-- Patient Card Demo -->
-            <section class="section">
-                <div class="patient-card">
-                    <div class="patient-header">
-                        <div class="patient-name" data-translate="demo-patient-name">Michael Chen, 67</div>
-                        <div class="priority-badge" data-translate="demo-priority">Yellow Priority</div>
-                    </div>
+    <div class="container">
+        <!-- 3D Emergency Card -->
+        <section id="heroCard" aria-live="polite">
+            <div class="card-container">
+                <div class="card-3d" role="button" aria-expanded="false" aria-label="Flip to QR" tabindex="0" onclick="flipCard()" onkeydown="handleCardKeydown(event)" onmousemove="updateCursor(event)">
                     
-                    <div class="patient-section">
-                        <div class="section-label">⚠️ <span data-translate="demo-allergies">ALLERGIES</span></div>
-                        <div class="section-content" data-translate="demo-allergies-content">Penicillin (anaphylaxis), Contrast dye</div>
-                    </div>
-                    
-                    <div class="patient-section">
-                        <div class="section-label" data-translate="demo-conditions">CONDITIONS</div>
-                        <div class="section-content" data-translate="demo-conditions-content">Atrial fibrillation, Type 2 diabetes, Pacemaker (2019)</div>
-                    </div>
-                    
-                    <div class="patient-section">
-                        <div class="section-label" data-translate="demo-medications">MEDICATIONS</div>
-                        <div class="section-content" data-translate="demo-medications-content">Warfarin 5mg, Metformin 1000mg BID</div>
-                    </div>
-                    
-                    <div class="patient-section">
-                        <div class="section-label">📞 <span data-translate="demo-ice-contacts">ICE CONTACTS</span></div>
-                        <div class="section-content" data-translate="demo-ice-content">Linda Chen (Wife) +1-555-0123</div>
-                    </div>
-                    
-                    <div class="patient-section">
-                        <div class="section-label" data-translate="demo-notes">NOTES</div>
-                        <div class="section-content" data-translate="demo-notes-content">Recent cardiac cath 3/2024. DNR on file.</div>
-                    </div>
-                    
-                    <div class="audio-controls">
-                        <button class="audio-btn">🔊 <span data-translate="demo-audio">Audio</span></button>
-                        <button class="audio-btn">🌐 <span data-translate="demo-language">中文</span></button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Essential Information -->
-            <section class="section">
-                <div class="section-header">
-                    <h2 class="section-title" data-translate="essential-info">Essential Information at a Glance</h2>
-                </div>
-
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-icon">⚠️</span>
-                        <h3 data-translate="allergies-contraindications">Allergies & contraindications</h3>
-                        <p data-translate="allergies-description">Critical safety information prominently displayed</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">🫀</span>
-                        <h3 data-translate="critical-conditions">Critical conditions & implanted devices</h3>
-                        <p data-translate="conditions-description">Key medical history that impacts treatment decisions</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">💊</span>
-                        <h3 data-translate="current-medications">Current medications</h3>
-                        <p data-translate="medications-description">Active prescriptions and dosages for drug interactions</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">📞</span>
-                        <h3 data-translate="ice-contacts">In-case-of-emergency contacts</h3>
-                        <p data-translate="ice-description">Immediate family notification and medical history verification</p>
-                    </div>
-                </div>
-
-                <div class="section-header">
-                    <h3 class="premium-title" data-translate="triage-friendly">Triage-Friendly Format</h3>
-                    <p class="section-subtitle" data-translate="triage-description">Designed for the first minutes of assessment when every second counts.</p>
-                </div>
-            </section>
-
-            <!-- Designed for Your Workflow -->
-            <section class="section">
-                <div class="premium-section">
-                    <div class="premium-item">
-                        <div class="premium-icon">📱</div>
-                        <div class="premium-content">
-                            <h3 class="premium-title" data-translate="designed-workflow">Designed for Your Workflow</h3>
-                            <p class="premium-description" data-translate="workflow-description">
-                                MYQER is not another EMR, nor another login. It's a patient-owned record that you scan and view instantly — on any smartphone, with or without connectivity.
-                            </p>
+                    <!-- Front Face (Identity) -->
+                    <div class="face front">
+                        <div class="front-header">
+                            <div class="myqer-brand">
+                                <div class="myqer-logo"><span class="myq">MYQ</span><span class="er">ER</span><span class="tm">™</span></div>
+                                <div class="myqer-hint">(pronounced "My Care")</div>
+                            </div>
+                            <div class="free-badge">FREE</div>
                         </div>
-                    </div>
-
-                    <div class="premium-item">
-                        <div class="premium-icon">🤝</div>
-                        <div class="premium-content">
-                            <h3 class="premium-title" data-translate="complements-not-competes">Complements, Not Competes</h3>
-                            <p class="premium-description" data-translate="complements-description">
-                                It complements, rather than competes with, your existing systems by giving you the one thing they often miss: immediacy at the point of first contact.
-                            </p>
+                        
+                        <div class="hero-section">
+                            <h1 class="card-title" data-translate="title">MYQER™ — Smart Health & Emergency QR Tag Aid</h1>
+                            <div class="card-tagline" data-translate="tagline">One scan. Online or offline. Always ready.</div>
+                            <div class="card-description" data-translate="description">A QR triage code to guide responders — anywhere, anytime.</div>
                         </div>
+                        
+                        <div class="medical-sections">
+                            <div class="section">
+                                <div class="section-title" data-translate="personal-info">PERSONAL INFORMATION</div>
+                                <div class="section-content">
+                                    <div class="info-row"><span class="label" data-translate="name-label">Name:</span> <span class="value" data-translate="patient-name">Jane Doe</span></div>
+                                    <div class="info-row"><span class="label" data-translate="dob-label">Date of Birth:</span> <span class="value" data-translate="patient-dob">January 1, 1990</span></div>
+                                    <div class="info-row"><span class="label" data-translate="blood-type-label">Blood Type:</span> <span class="value" data-translate="patient-blood">O+</span></div>
+                                    <div class="info-row"><span class="label" data-translate="organ-donor-label">Organ Donor:</span> <span class="value" data-translate="patient-donor">Yes</span></div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title" data-translate="medical-allergies">MEDICAL ALLERGIES</div>
+                                <div class="section-content">
+                                    <div class="info-row" data-translate="allergy-penicillin">• Penicillin (severe reaction)</div>
+                                    <div class="info-row" data-translate="allergy-shellfish">• Shellfish (anaphylaxis)</div>
+                                    <div class="info-row" data-translate="allergy-latex">• Latex (contact dermatitis)</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title" data-translate="medical-conditions">MEDICAL CONDITIONS</div>
+                                <div class="section-content">
+                                    <div class="info-row" data-translate="condition-diabetes">• Type 1 Diabetes</div>
+                                    <div class="info-row" data-translate="condition-asthma">• Asthma (mild, exercise-induced)</div>
+                                    <div class="info-row" data-translate="condition-hypertension">• Hypertension (controlled)</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title" data-translate="current-medications">CURRENT MEDICATIONS</div>
+                                <div class="section-content">
+                                    <div class="info-row" data-translate="med-insulin">• Insulin (Humalog) - as needed</div>
+                                    <div class="info-row" data-translate="med-lisinopril">• Lisinopril 10mg - daily</div>
+                                    <div class="info-row" data-translate="med-albuterol">• Albuterol inhaler - as needed</div>
+                                    <div class="info-row" data-translate="med-metformin">• Metformin 500mg - twice daily</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title" data-translate="implants-devices">IMPLANTS & DEVICES</div>
+                                <div class="section-content">
+                                    <div class="info-row" data-translate="device-glucose">• Continuous Glucose Monitor</div>
+                                    <div class="info-row" data-translate="device-pump">• Insulin pump (Medtronic)</div>
+                                </div>
+                            </div>
+
+                            <div class="section">
+                                <div class="section-title" data-translate="emergency-contacts">EMERGENCY CONTACTS</div>
+                                <div class="section-content">
+                                    <div class="info-row"><span class="label" data-translate="primary-label">Primary:</span> <span class="value" data-translate="contact-mother">Sarah Doe (Mother)</span></div>
+                                    <div class="info-row"><span class="label" data-translate="phone-label">Phone:</span> <span class="value">+44 7700 900123</span></div>
+                                    <div class="info-row"><span class="label" data-translate="secondary-label">Secondary:</span> <span class="value" data-translate="contact-father">John Doe (Father)</span></div>
+                                    <div class="info-row"><span class="label" data-translate="phone-label">Phone:</span> <span class="value">+44 7700 900456</span></div>
+                                    <div class="info-row"><span class="label" data-translate="doctor-label">Doctor:</span> <span class="value" data-translate="contact-doctor">Dr. Smith (GP)</span></div>
+                                    <div class="info-row"><span class="label" data-translate="phone-label">Phone:</span> <span class="value">+44 20 7946 0958</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CTA buttons moved inside card -->
+                        <div class="buttons-inside">
+                            <button class="btn btn-primary" onclick="openModal('signup')" data-translate="create-account">Create Account</button>
+                            <button class="btn btn-secondary" onclick="openModal('login')" data-translate="login">Login</button>
+                        </div>
+
+                        <div class="front-controls">
+                            <div class="triage-pill" data-translate="auto-triage">AUTO TRIAGE</div>
+                        </div>
+                        
+                        <div class="flip-hint" data-translate="flip-hint">Tap to see your QR</div>
                     </div>
-                </div>
-            </section>
-
-            <!-- How It Works -->
-            <section class="section">
-                <div class="section-header">
-                    <h2 class="section-title" data-translate="how-it-works">How It Works</h2>
-                </div>
-
-                <div class="workflow-steps">
-                    <div class="workflow-step">
-                        <div class="step-number">1</div>
-                        <h3 class="step-title" data-translate="step1-title">Scan QR Code</h3>
-                        <p class="step-description" data-translate="step1-description">Use any smartphone camera - no app download required</p>
-                    </div>
-                    
-                    <div class="workflow-arrow">→</div>
-                    
-                    <div class="workflow-step">
-                        <div class="step-number">2</div>
-                        <h3 class="step-title" data-translate="step2-title">Instant Access</h3>
-                        <p class="step-description" data-translate="step2-description">View structured medical information in seconds</p>
-                    </div>
-                    
-                    <div class="workflow-arrow">→</div>
-                    
-                    <div class="workflow-step">
-                        <div class="step-number">3</div>
-                        <h3 class="step-title" data-translate="step3-title">Informed Decisions</h3>
-                        <p class="step-description" data-translate="step3-description">Make treatment decisions with critical context</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Key Benefits -->
-            <section class="section">
-                <div class="section-header">
-                    <h2 class="section-title" data-translate="key-benefits">Key Benefits for Clinical Teams</h2>
-                </div>
-
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-icon">⚡</span>
-                        <h3 data-translate="faster-orientation">Faster Initial Orientation</h3>
-                        <p data-translate="orientation-description">Allergies, conditions, and ICE contacts surfaced at once. No hunting through incomplete records or waiting for family to arrive.</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">🌍</span>
-                        <h3 data-translate="universal-comprehension">Universal Comprehension</h3>
-                        <p data-translate="comprehension-description">Multilingual text and voice output bridge gaps with patients and bystanders. Critical information transcends language barriers.</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">📶</span>
-                        <h3 data-translate="offline-reliability">Offline Reliability</h3>
-                        <p data-translate="reliability-description">Data is cached locally, so rural or low-signal environments are no barrier. Critical information when and where you need it most.</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">✋</span>
-                        <h3 data-translate="consent-first">Consent-First</h3>
-                        <p data-translate="consent-description">Patients choose what's visible; you see only what they've agreed to share. Respects privacy while providing essential clinical context.</p>
-                    </div>
-
-                    <div class="feature-item">
-                        <span class="feature-icon">🔄</span>
-                        <h3 data-translate="cleaner-handovers">Cleaner Handovers</h3>
-                        <p data-translate="handovers-description">QR card snapshots help paramedics, ED, and wards align around the same verified essentials. No more "telephone game" with critical patient information.</p>
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin: 60px 0; font-size: 2rem;">
-                    <span style="background: #d32f2f; color: white; padding: 10px 20px; border-radius: 10px; margin: 0 10px;">🚑 <span data-translate="ems">EMS</span></span>
-                    <span style="margin: 0 20px; color: #d32f2f;">→</span>
-                    <span style="background: #d32f2f; color: white; padding: 10px 20px; border-radius: 10px; margin: 0 10px;">🏥 <span data-translate="ed">ED</span></span>
-                    <span style="margin: 0 20px; color: #d32f2f;">→</span>
-                    <span style="background: #d32f2f; color: white; padding: 10px 20px; border-radius: 10px; margin: 0 10px;">🛏️ <span data-translate="ward">Ward</span></span>
-                </div>
-            </section>
-
-            <!-- Real Clinical Scenarios -->
-            <section class="section">
-                <div class="section-header">
-                    <h2 class="section-title" data-translate="clinical-scenarios">Real Clinical Scenarios</h2>
-                </div>
-
-                <div class="scenario-card">
-                    <h3 class="scenario-title" data-translate="scenario1-title">Emergency Department Triage</h3>
-                    <p class="scenario-subtitle" data-translate="scenario1-subtitle">Scenario:</p>
-                    <p class="scenario-content" data-translate="scenario1-scenario">Unconscious patient arrives via ambulance. Family not present, no ID, language barrier with bystander.</p>
-                    <p class="scenario-subtitle" data-translate="scenario1-solution-title">MYQER Solution:</p>
-                    <p class="scenario-content" data-translate="scenario1-solution">Scan QR from phone lock screen → Instant access to allergies (Penicillin anaphylaxis), diabetes status, current medications, and ICE contact. Triage nurse has critical context in 30 seconds.</p>
-                </div>
-
-                <div class="scenario-card">
-                    <h3 class="scenario-title" data-translate="scenario2-title">Pre-Hospital Care</h3>
-                    <p class="scenario-subtitle" data-translate="scenario2-subtitle">Scenario:</p>
-                    <p class="scenario-content" data-translate="scenario2-scenario">Paramedics respond to cardiac event. Patient conscious but distressed, family member present but uncertain about medications.</p>
-                    <p class="scenario-subtitle" data-translate="scenario2-solution-title">MYQER Solution:</p>
-                    <p class="scenario-content" data-translate="scenario2-solution">QR scan reveals pacemaker (2019), Warfarin therapy, recent cardiac catheterization. Paramedics adjust treatment protocol and provide accurate handover to receiving hospital.</p>
-                </div>
-
-                <div class="scenario-card">
-                    <h3 class="scenario-title" data-translate="scenario3-title">International Travel Emergency</h3>
-                    <p class="scenario-subtitle" data-translate="scenario3-subtitle">Scenario:</p>
-                    <p class="scenario-content" data-translate="scenario3-scenario">Tourist collapses in foreign country. Local medical team speaks different language, no access to home medical records.</p>
-                    <p class="scenario-subtitle" data-translate="scenario3-solution-title">MYQER Solution:</p>
-                    <p class="scenario-content" data-translate="scenario3-solution">QR scan provides information in local language with voice playback. Critical allergies, chronic conditions, and emergency contacts immediately available to foreign medical team.</p>
-                </div>
-            </section>
-
-            <!-- MYQER+ for Institutions -->
-            <section class="section">
-                <div class="section-header">
-                    <h2 class="section-title" data-translate="myqer-plus">MYQER+ for Institutions</h2>
-                    <p class="section-subtitle" data-translate="institutions-subtitle">For hospitals, EMS, and health systems, MYQER+ extends the core card into operational tools:</p>
-                </div>
-
-                <div class="premium-section">
-                    <div class="premium-item">
-                        <div class="premium-icon">📊</div>
-                        <div class="premium-content">
-                            <h3 class="premium-title" data-translate="clinician-dashboards">Clinician Dashboards</h3>
-                            <p class="premium-description" data-translate="dashboards-description">
-                                Batch QR lookup for multiple patients, advanced triage workflows, integration with existing EMR systems, and comprehensive analytics for quality improvement initiatives. Streamline your clinical operations while maintaining the speed and simplicity that makes MYQER effective at the point of care.
-                            </p>
+                                        <!-- Back Face (QR + Actions) -->
+                    <div class="face back">
+                        <div class="back-header">
+                            <div class="back-title" data-translate="emergency-qr">Emergency QR</div>
+                        </div>
+                        
+                        <div class="qr-section">
+                            <div class="qr-container">
+                                <canvas id="qrcode" width="120" height="120"></canvas>
+                            </div>
+                            
+                            <div class="qr-info">
+                                <div class="qr-code-text" id="qrCodeText">F7N-8PG2-MQ4</div>
+                                <a href="#" class="copy-link" onclick="copyQRLink()" data-translate="copy-link">Copy Link</a>
+                            </div>
+                        </div>
+                        
+                        <div class="back-actions">
+                            <button class="action-btn" onclick="downloadPNG()" data-translate="download-png">Download PNG</button>
+                            <!-- Print label updated: removed the word "Card" -->
+                            <button class="action-btn" onclick="printCard()" data-translate="print">Print</button>
+                            <button class="action-btn" onclick="shareLink()" data-translate="share-link">Share Link</button>
+                        </div>
+                        
+                        <div class="disclaimer" data-translate="disclaimer">
+                            Info only. Clinicians confirm with official records. Data stays on your device unless you share.
                         </div>
                     </div>
                 </div>
-            </section>
-
-            <!-- CTA Section -->
-            <section class="cta-section">
-                <h2 class="cta-title" data-translate="ready-to-improve">Ready to Improve Patient Care?</h2>
-                <p class="cta-subtitle" data-translate="cta-subtitle">Join healthcare professionals who trust MYQER for critical patient information</p>
-                <div class="cta-buttons">
-                    <button class="btn btn-primary" onclick="openModal('signup')" data-translate="get-started">Get Started</button>
-                    <a href="contact.html" class="btn btn-secondary" data-translate="contact-us">Contact Us</a>
-                </div>
-            </section>
-        </div>
-    </main>
+            </div>
+        </section>
+    </div>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">MYQER™ — <span data-translate="footer-tagline">Emergency Medical Information at Your Fingertips</span></div>
-                <div class="footer-links">
-                    <a href="privacy.html" class="footer-link" data-translate="privacy">Privacy Policy</a>
-                    <a href="terms.html" class="footer-link" data-translate="terms">Terms of Service</a>
-                    <a href="contact.html" class="footer-link" data-translate="contact">Contact</a>
-                    <a href="clinician.html" class="footer-link" data-translate="clinician">For Clinicians</a>
-                </div>
-                <div class="footer-note" data-translate="footer-note">GDPR/HIPAA-minded • Informational only</div>
+    <div class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">MYQER™ — My QR for Emergency Response</div>
+            <div class="footer-links">
+                <a href="/privacy.html" class="footer-link">Privacy Policy</a>
+                <span>•</span>
+                <a href="/terms.html" class="footer-link">Terms of Service</a>
             </div>
+            <div class="footer-note">GDPR/HIPAA-minded • Informational only</div>
         </div>
-    </footer>
+    </div>
 
     <!-- Modals -->
     <div class="modal" id="loginModal">
@@ -1133,742 +953,1253 @@
             </form>
         </div>
     </div>
-
-    <script>
-        // Complete translations for all languages
+        <script>
+        // Complete i18n Translations (updated hero title/tagline + "print")
         const translations = {
             en: {
-                "clinician-title": "MYQER for Clinicians",
-                "hero-subtitle": "Clarity when every detail matters",
-                "hero-description": "Clinical care is often delivered with incomplete histories, language barriers, or family members who are uncertain. MYQER turns the unknown into a quick, structured view of what matters most.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Yellow Priority",
-                "demo-allergies": "ALLERGIES",
-                "demo-allergies-content": "Penicillin (anaphylaxis), Contrast dye",
-                "demo-conditions": "CONDITIONS",
-                "demo-conditions-content": "Atrial fibrillation, Type 2 diabetes, Pacemaker (2019)",
-                "demo-medications": "MEDICATIONS",
-                "demo-medications-content": "Warfarin 5mg, Metformin 1000mg BID",
-                "demo-ice-contacts": "ICE CONTACTS",
-                "demo-ice-content": "Linda Chen (Wife) +1-555-0123",
-                "demo-notes": "NOTES",
-                "demo-notes-content": "Recent cardiac cath 3/2024. DNR on file.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Essential Information at a Glance",
-                "allergies-contraindications": "Allergies & contraindications",
-                "allergies-description": "Critical safety information prominently displayed",
-                "critical-conditions": "Critical conditions & implanted devices",
-                "conditions-description": "Key medical history that impacts treatment decisions",
-                "current-medications": "Current medications",
-                "medications-description": "Active prescriptions and dosages for drug interactions",
-                "ice-contacts": "In-case-of-emergency contacts",
-                "ice-description": "Immediate family notification and medical history verification",
-                "triage-friendly": "Triage-Friendly Format",
-                "triage-description": "Designed for the first minutes of assessment when every second counts.",
-                "designed-workflow": "Designed for Your Workflow",
-                "workflow-description": "MYQER is not another EMR, nor another login. It's a patient-owned record that you scan and view instantly — on any smartphone, with or without connectivity.",
-                "complements-not-competes": "Complements, Not Competes",
-                "complements-description": "It complements, rather than competes with, your existing systems by giving you the one thing they often miss: immediacy at the point of first contact.",
+                title: "MYQER™ — Smart Health & Emergency QR Tag Aid",
+                tagline: "One scan. Online or offline. Always ready.",
+                description: "A QR triage code to guide responders — anywhere, anytime.",
+                pronunciation: "(pronounced \"My Care\")",
+                "emergency-card": "Emergency",
+                "full-name": "Full Name",
+                dob: "DOB",
+                country: "Country",
+                "blood-type": "Blood Type",
+                allergies: "Allergies",
+                "ice-contact": "ICE Contact",
+                "open-app": "Open App",
+                "create-account": "Create Account",
+                login: "Login",
+                about: "About",
+                clinician: "Clinician",
                 "how-it-works": "How It Works",
-                "step1-title": "Scan QR Code",
-                "step1-description": "Use any smartphone camera - no app download required",
-                "step2-title": "Instant Access",
-                "step2-description": "View structured medical information in seconds",
-                "step3-title": "Informed Decisions",
-                "step3-description": "Make treatment decisions with critical context",
-                "key-benefits": "Key Benefits for Clinical Teams",
-                "faster-orientation": "Faster Initial Orientation",
-                "orientation-description": "Allergies, conditions, and ICE contacts surfaced at once. No hunting through incomplete records or waiting for family to arrive.",
-                "universal-comprehension": "Universal Comprehension",
-                "comprehension-description": "Multilingual text and voice output bridge gaps with patients and bystanders. Critical information transcends language barriers.",
-                "offline-reliability": "Offline Reliability",
-                "reliability-description": "Data is cached locally, so rural or low-signal environments are no barrier. Critical information when and where you need it most.",
-                "consent-first": "Consent-First",
-                "consent-description": "Patients choose what's visible; you see only what they've agreed to share. Respects privacy while providing essential clinical context.",
-                "cleaner-handovers": "Cleaner Handovers",
-                "handovers-description": "QR card snapshots help paramedics, ED, and wards align around the same verified essentials. No more \"telephone game\" with critical patient information.",
-                "ems": "EMS",
-                "ed": "ED",
-                "ward": "Ward",
-                "clinical-scenarios": "Real Clinical Scenarios",
-                "scenario1-title": "Emergency Department Triage",
-                "scenario1-subtitle": "Scenario:",
-                "scenario1-scenario": "Unconscious patient arrives via ambulance. Family not present, no ID, language barrier with bystander.",
-                "scenario1-solution-title": "MYQER Solution:",
-                "scenario1-solution": "Scan QR from phone lock screen → Instant access to allergies (Penicillin anaphylaxis), diabetes status, current medications, and ICE contact. Triage nurse has critical context in 30 seconds.",
-                "scenario2-title": "Pre-Hospital Care",
-                "scenario2-subtitle": "Scenario:",
-                "scenario2-scenario": "Paramedics respond to cardiac event. Patient conscious but distressed, family member present but uncertain about medications.",
-                "scenario2-solution-title": "MYQER Solution:",
-                "scenario2-solution": "QR scan reveals pacemaker (2019), Warfarin therapy, recent cardiac catheterization. Paramedics adjust treatment protocol and provide accurate handover to receiving hospital.",
-                "scenario3-title": "International Travel Emergency",
-                "scenario3-subtitle": "Scenario:",
-                "scenario3-scenario": "Tourist collapses in foreign country. Local medical team speaks different language, no access to home medical records.",
-                "scenario3-solution-title": "MYQER Solution:",
-                "scenario3-solution": "QR scan provides information in local language with voice playback. Critical allergies, chronic conditions, and emergency contacts immediately available to foreign medical team.",
-                "myqer-plus": "MYQER+ for Institutions",
-                "institutions-subtitle": "For hospitals, EMS, and health systems, MYQER+ extends the core card into operational tools:",
-                "clinician-dashboards": "Clinician Dashboards",
-                "dashboards-description": "Batch QR lookup for multiple patients, advanced triage workflows, integration with existing EMR systems, and comprehensive analytics for quality improvement initiatives. Streamline your clinical operations while maintaining the speed and simplicity that makes MYQER effective at the point of care.",
-                "ready-to-improve": "Ready to Improve Patient Care?",
-                "cta-subtitle": "Join healthcare professionals who trust MYQER for critical patient information",
-                "get-started": "Get Started",
-                "contact-us": "Contact Us",
-                "footer-tagline": "Emergency Medical Information at Your Fingertips",
-                "home": "Home",
-                "about": "About",
-                "clinician": "Clinician",
-                "how-it-works": "How It Works",
-                "privacy": "Privacy Policy",
-                "terms": "Terms of Service",
-                "contact": "Contact",
-                "footer-note": "GDPR/HIPAA-minded • Informational only",
-                "login": "Login",
-                "email": "Email",
-                "password": "Password",
-                "cancel": "Cancel",
+                privacy: "Privacy",
+                terms: "Terms",
+                contact: "Contact",
+                email: "Email",
+                password: "Password",
+                cancel: "Cancel",
                 "forgot-password": "Forgot Password?",
                 "reset-password": "Reset Password",
-                "full-name": "Full Name",
-                "create-account": "Create Account"
+                "back-to-login": "Back to Login",
+                "check-email": "Check your email for reset instructions",
+                "login-success": "Login successful! Redirecting...",
+                "signup-success": "Account created! Check your email to verify.",
+                "error-occurred": "An error occurred. Please try again.",
+                "loading": "Loading...",
+                "copy-success": "Link copied to clipboard!",
+                "share-title": "My Emergency QR",
+                "share-text": "Access my emergency information",
+                "personal-info": "PERSONAL INFORMATION",
+                "name-label": "Name:",
+                "patient-name": "Jane Doe",
+                "dob-label": "Date of Birth:",
+                "patient-dob": "January 1, 1990",
+                "blood-type-label": "Blood Type:",
+                "patient-blood": "O+",
+                "organ-donor-label": "Organ Donor:",
+                "patient-donor": "Yes",
+                "medical-allergies": "MEDICAL ALLERGIES",
+                "allergy-penicillin": "• Penicillin (severe reaction)",
+                "allergy-shellfish": "• Shellfish (anaphylaxis)",
+                "allergy-latex": "• Latex (contact dermatitis)",
+                "medical-conditions": "MEDICAL CONDITIONS",
+                "condition-diabetes": "• Type 1 Diabetes",
+                "condition-asthma": "• Asthma (mild, exercise-induced)",
+                "condition-hypertension": "• Hypertension (controlled)",
+                "current-medications": "CURRENT MEDICATIONS",
+                "med-insulin": "• Insulin (Humalog) - as needed",
+                "med-lisinopril": "• Lisinopril 10mg - daily",
+                "med-albuterol": "• Albuterol inhaler - as needed",
+                "med-metformin": "• Metformin 500mg - twice daily",
+                "implants-devices": "IMPLANTS & DEVICES",
+                "device-glucose": "• Continuous Glucose Monitor",
+                "device-pump": "• Insulin pump (Medtronic)",
+                "emergency-contacts": "EMERGENCY CONTACTS",
+                "primary-label": "Primary:",
+                "contact-mother": "Sarah Doe (Mother)",
+                "phone-label": "Phone:",
+                "secondary-label": "Secondary:",
+                "contact-father": "John Doe (Father)",
+                "doctor-label": "Doctor:",
+                "contact-doctor": "Dr. Smith (GP)",
+                "auto-triage": "AUTO TRIAGE",
+                "flip-hint": "Tap to see your QR",
+                "emergency-qr": "Emergency QR",
+                "copy-link": "Copy Link",
+                "download-png": "Download PNG",
+                "print": "Print",
+                "share-link": "Share Link",
+                "disclaimer": "Info only. Clinicians confirm with official records. Data stays on your device unless you share."
             },
             es: {
-                "clinician-title": "MYQER para Clínicos",
-                "hero-subtitle": "Claridad cuando cada detalle importa",
-                "hero-description": "La atención clínica a menudo se brinda con historiales incompletos, barreras idiomáticas o familiares que no están seguros. MYQER convierte lo desconocido en una vista rápida y estructurada de lo que más importa.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Prioridad Amarilla",
-                "demo-allergies": "ALERGIAS",
-                "demo-allergies-content": "Penicilina (anafilaxia), Medio de contraste",
-                "demo-conditions": "CONDICIONES",
-                "demo-conditions-content": "Fibrilación auricular, Diabetes tipo 2, Marcapasos (2019)",
-                "demo-medications": "MEDICAMENTOS",
-                "demo-medications-content": "Warfarina 5mg, Metformina 1000mg BID",
-                "demo-ice-contacts": "CONTACTOS DE EMERGENCIA",
-                "demo-ice-content": "Linda Chen (Esposa) +1-555-0123",
-                "demo-notes": "NOTAS",
-                "demo-notes-content": "Cateterismo cardíaco reciente 3/2024. DNR en archivo.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Información Esencial de un Vistazo",
-                "allergies-contraindications": "Alergias y contraindicaciones",
-                "allergies-description": "Información crítica de seguridad mostrada prominentemente",
-                "critical-conditions": "Condiciones críticas y dispositivos implantados",
-                "conditions-description": "Historial médico clave que impacta las decisiones de tratamiento",
-                "current-medications": "Medicamentos actuales",
-                "medications-description": "Prescripciones activas y dosis para interacciones medicamentosas",
-                "ice-contacts": "Contactos de emergencia",
-                "ice-description": "Notificación inmediata a la familia y verificación del historial médico",
-                "triage-friendly": "Formato Amigable para Triaje",
-                "triage-description": "Diseñado para los primeros minutos de evaluación cuando cada segundo cuenta.",
-                "designed-workflow": "Diseñado para tu Flujo de Trabajo",
-                "workflow-description": "MYQER no es otro EMR, ni otro inicio de sesión. Es un registro propiedad del paciente que escaneas y ves instantáneamente — en cualquier smartphone, con o sin conectividad.",
-                "complements-not-competes": "Complementa, No Compite",
-                "complements-description": "Complementa, en lugar de competir con, tus sistemas existentes dándote lo que a menudo les falta: inmediatez en el punto de primer contacto.",
+                title: "MYQER™ — Asistente Inteligente de Salud y Etiqueta QR de Emergencia",
+                tagline: "Un escaneo. En línea o sin conexión. Siempre listo.",
+                description: "Un código QR de triaje para guiar a los socorristas — en cualquier lugar, en cualquier momento.",
+                pronunciation: "(se pronuncia \"My Care\")",
+                "emergency-card": "Emergencia",
+                "full-name": "Nombre Completo",
+                dob: "Fecha de Nacimiento",
+                country: "País",
+                "blood-type": "Tipo de Sangre",
+                allergies: "Alergias",
+                "ice-contact": "Contacto de Emergencia",
+                "open-app": "Abrir App",
+                "create-account": "Crear Cuenta",
+                login: "Iniciar Sesión",
+                about: "Acerca de",
+                clinician: "Clínico",
                 "how-it-works": "Cómo Funciona",
-                "step1-title": "Escanear Código QR",
-                "step1-description": "Usa cualquier cámara de smartphone - no se requiere descarga de app",
-                "step2-title": "Acceso Instantáneo",
-                "step2-description": "Ve información médica estructurada en segundos",
-                "step3-title": "Decisiones Informadas",
-                "step3-description": "Toma decisiones de tratamiento con contexto crítico",
-                "key-benefits": "Beneficios Clave para Equipos Clínicos",
-                "faster-orientation": "Orientación Inicial Más Rápida",
-                "orientation-description": "Alergias, condiciones y contactos de emergencia aparecen de una vez. No más búsqueda en registros incompletos o esperar a que llegue la familia.",
-                "universal-comprehension": "Comprensión Universal",
-                "comprehension-description": "Salida de texto y voz multilingüe cierra brechas con pacientes y espectadores. La información crítica trasciende las barreras del idioma.",
-                "offline-reliability": "Confiabilidad Sin Conexión",
-                "reliability-description": "Los datos se almacenan localmente, por lo que los entornos rurales o de baja señal no son una barrera. Información crítica cuando y donde más la necesitas.",
-                "consent-first": "Consentimiento Primero",
-                "consent-description": "Los pacientes eligen qué es visible; solo ves lo que han acordado compartir. Respeta la privacidad mientras proporciona contexto clínico esencial.",
-                "cleaner-handovers": "Transferencias Más Limpias",
-                "handovers-description": "Las instantáneas de tarjetas QR ayudan a paramédicos, urgencias y salas a alinearse alrededor de los mismos elementos esenciales verificados. No más \"teléfono descompuesto\" con información crítica del paciente.",
-                "ems": "SEM",
-                "ed": "Urgencias",
-                "ward": "Sala",
-                "clinical-scenarios": "Escenarios Clínicos Reales",
-                "scenario1-title": "Triaje de Departamento de Emergencias",
-                "scenario1-subtitle": "Escenario:",
-                "scenario1-scenario": "Paciente inconsciente llega en ambulancia. Familia no presente, sin ID, barrera idiomática con espectador.",
-                "scenario1-solution-title": "Solución MYQER:",
-                "scenario1-solution": "Escanear QR desde pantalla de bloqueo del teléfono → Acceso instantáneo a alergias (anafilaxia por penicilina), estado de diabetes, medicamentos actuales y contacto de emergencia. La enfermera de triaje tiene contexto crítico en 30 segundos.",
-                "scenario2-title": "Atención Pre-Hospitalaria",
-                "scenario2-subtitle": "Escenario:",
-                "scenario2-scenario": "Paramédicos responden a evento cardíaco. Paciente consciente pero angustiado, familiar presente pero incierto sobre medicamentos.",
-                "scenario2-solution-title": "Solución MYQER:",
-                "scenario2-solution": "El escaneo QR revela marcapasos (2019), terapia con Warfarina, cateterismo cardíaco reciente. Los paramédicos ajustan el protocolo de tratamiento y proporcionan transferencia precisa al hospital receptor.",
-                "scenario3-title": "Emergencia de Viaje Internacional",
-                "scenario3-subtitle": "Escenario:",
-                "scenario3-scenario": "Turista colapsa en país extranjero. Equipo médico local habla idioma diferente, sin acceso a registros médicos del hogar.",
-                "scenario3-solution-title": "Solución MYQER:",
-                "scenario3-solution": "El escaneo QR proporciona información en idioma local con reproducción de voz. Alergias críticas, condiciones crónicas y contactos de emergencia inmediatamente disponibles para el equipo médico extranjero.",
-                "myqer-plus": "MYQER+ para Instituciones",
-                "institutions-subtitle": "Para hospitales, SEM y sistemas de salud, MYQER+ extiende la tarjeta central en herramientas operacionales:",
-                "clinician-dashboards": "Paneles de Control para Clínicos",
-                "dashboards-description": "Búsqueda QR por lotes para múltiples pacientes, flujos de trabajo de triaje avanzados, integración con sistemas EMR existentes y análisis integral para iniciativas de mejora de calidad. Optimiza tus operaciones clínicas manteniendo la velocidad y simplicidad que hace efectivo a MYQER en el punto de atención.",
-                "ready-to-improve": "¿Listo para Mejorar la Atención al Paciente?",
-                "cta-subtitle": "Únete a profesionales de la salud que confían en MYQER para información crítica del paciente",
-                "get-started": "Comenzar",
-                "contact-us": "Contáctanos",
-                "footer-tagline": "Información Médica de Emergencia al Alcance de tus Dedos",
-                "home": "Inicio",
-                "about": "Acerca de",
-                "clinician": "Clínico",
-                "how-it-works": "Cómo Funciona",
-                "privacy": "Política de Privacidad",
-                "terms": "Términos de Servicio",
-                "contact": "Contacto",
-                "footer-note": "Consciente de GDPR/HIPAA • Solo informativo",
-                "login": "Iniciar Sesión",
-                "email": "Correo Electrónico",
-                "password": "Contraseña",
-                "cancel": "Cancelar",
+                privacy: "Privacidad",
+                terms: "Términos",
+                contact: "Contacto",
+                email: "Correo Electrónico",
+                password: "Contraseña",
+                cancel: "Cancelar",
                 "forgot-password": "¿Olvidaste tu contraseña?",
                 "reset-password": "Restablecer Contraseña",
-                "full-name": "Nombre Completo",
-                "create-account": "Crear Cuenta"
+                "back-to-login": "Volver al Login",
+                "check-email": "Revisa tu email para instrucciones de restablecimiento",
+                "login-success": "¡Login exitoso! Redirigiendo...",
+                "signup-success": "¡Cuenta creada! Revisa tu email para verificar.",
+                "error-occurred": "Ocurrió un error. Inténtalo de nuevo.",
+                "loading": "Cargando...",
+                "copy-success": "¡Enlace copiado al portapapeles!",
+                "share-title": "Mi QR de Emergencia",
+                "share-text": "Accede a mi información de emergencia",
+                "personal-info": "INFORMACIÓN PERSONAL",
+                "name-label": "Nombre:",
+                "patient-name": "Jane Doe",
+                "dob-label": "Fecha de Nacimiento:",
+                "patient-dob": "1 de enero de 1990",
+                "blood-type-label": "Tipo de Sangre:",
+                "patient-blood": "O+",
+                "organ-donor-label": "Donante de Órganos:",
+                "patient-donor": "Sí",
+                "medical-allergies": "ALERGIAS MÉDICAS",
+                "allergy-penicillin": "• Penicilina (reacción severa)",
+                "allergy-shellfish": "• Mariscos (anafilaxia)",
+                "allergy-latex": "• Látex (dermatitis de contacto)",
+                "medical-conditions": "CONDICIONES MÉDICAS",
+                "condition-diabetes": "• Diabetes Tipo 1",
+                "condition-asthma": "• Asma (leve, inducida por ejercicio)",
+                "condition-hypertension": "• Hipertensión (controlada)",
+                "current-medications": "MEDICAMENTOS ACTUALES",
+                "med-insulin": "• Insulina (Humalog) - según necesidad",
+                "med-lisinopril": "• Lisinopril 10mg - diario",
+                "med-albuterol": "• Inhalador Albuterol - según necesidad",
+                "med-metformin": "• Metformina 500mg - dos veces al día",
+                "implants-devices": "IMPLANTES Y DISPOSITIVOS",
+                "device-glucose": "• Monitor Continuo de Glucosa",
+                "device-pump": "• Bomba de insulina (Medtronic)",
+                "emergency-contacts": "CONTACTOS DE EMERGENCIA",
+                "primary-label": "Primario:",
+                "contact-mother": "Sarah Doe (Madre)",
+                "phone-label": "Teléfono:",
+                "secondary-label": "Secundario:",
+                "contact-father": "John Doe (Padre)",
+                "doctor-label": "Doctor:",
+                "contact-doctor": "Dr. Smith (Médico General)",
+                "auto-triage": "TRIAJE AUTOMÁTICO",
+                "flip-hint": "Toca para ver tu QR",
+                "emergency-qr": "QR de Emergencia",
+                "copy-link": "Copiar Enlace",
+                "download-png": "Descargar PNG",
+                "print": "Imprimir",
+                "share-link": "Compartir Enlace",
+                "disclaimer": "Solo información. Los médicos confirman con registros oficiales. Los datos permanecen en tu dispositivo a menos que los compartas."
             },
             fr: {
-                "clinician-title": "MYQER pour Cliniciens",
-                "hero-subtitle": "Clarté quand chaque détail compte",
-                "hero-description": "Les soins cliniques sont souvent dispensés avec des antécédents incomplets, des barrières linguistiques ou des membres de la famille incertains. MYQER transforme l'inconnu en une vue rapide et structurée de ce qui compte le plus.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Priorité Jaune",
-                "demo-allergies": "ALLERGIES",
-                "demo-allergies-content": "Pénicilline (anaphylaxie), Produit de contraste",
-                "demo-conditions": "CONDITIONS",
-                "demo-conditions-content": "Fibrillation auriculaire, Diabète type 2, Stimulateur cardiaque (2019)",
-                "demo-medications": "MÉDICAMENTS",
-                "demo-medications-content": "Warfarine 5mg, Metformine 1000mg BID",
-                "demo-ice-contacts": "CONTACTS D'URGENCE",
-                "demo-ice-content": "Linda Chen (Épouse) +1-555-0123",
-                "demo-notes": "NOTES",
-                "demo-notes-content": "Cathétérisme cardiaque récent 3/2024. DNR au dossier.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Informations Essentielles en un Coup d'Œil",
-                "allergies-contraindications": "Allergies et contre-indications",
-                "allergies-description": "Informations critiques de sécurité affichées de manière proéminente",
-                "critical-conditions": "Conditions critiques et dispositifs implantés",
-                "conditions-description": "Antécédents médicaux clés qui impactent les décisions de traitement",
-                "current-medications": "Médicaments actuels",
-                "medications-description": "Prescriptions actives et dosages pour les interactions médicamenteuses",
-                "ice-contacts": "Contacts d'urgence",
-                "ice-description": "Notification immédiate de la famille et vérification des antécédents médicaux",
-                "triage-friendly": "Format Convivial pour le Triage",
-                "triage-description": "Conçu pour les premières minutes d'évaluation quand chaque seconde compte.",
-                "designed-workflow": "Conçu pour Votre Flux de Travail",
-                "workflow-description": "MYQER n'est pas un autre DME, ni une autre connexion. C'est un dossier appartenant au patient que vous scannez et visualisez instantanément — sur n'importe quel smartphone, avec ou sans connectivité.",
-                "complements-not-competes": "Complète, Ne Concurrence Pas",
-                "complements-description": "Il complète, plutôt que de concurrencer, vos systèmes existants en vous donnant ce qui leur manque souvent : l'immédiateté au point de premier contact.",
-                "how-it-works": "Comment Ça Marche",
-                "step1-title": "Scanner le Code QR",
-                "step1-description": "Utilisez n'importe quelle caméra de smartphone - aucun téléchargement d'app requis",
-                "step2-title": "Accès Instantané",
-                "step2-description": "Visualisez les informations médicales structurées en secondes",
-                "step3-title": "Décisions Éclairées",
-                "step3-description": "Prenez des décisions de traitement avec un contexte critique",
-                "key-benefits": "Avantages Clés pour les Équipes Cliniques",
-                "faster-orientation": "Orientation Initiale Plus Rapide",
-                "orientation-description": "Allergies, conditions et contacts d'urgence remontés en une fois. Plus de recherche dans des dossiers incomplets ou d'attente de l'arrivée de la famille.",
-                "universal-comprehension": "Compréhension Universelle",
-                "comprehension-description": "La sortie texte et vocale multilingue comble les lacunes avec les patients et les spectateurs. L'information critique transcende les barrières linguistiques.",
-                "offline-reliability": "Fiabilité Hors Ligne",
-                "reliability-description": "Les données sont mises en cache localement, donc les environnements ruraux ou à faible signal ne sont pas un obstacle. Informations critiques quand et où vous en avez le plus besoin.",
-                "consent-first": "Consentement d'Abord",
-                "consent-description": "Les patients choisissent ce qui est visible ; vous ne voyez que ce qu'ils ont accepté de partager. Respecte la vie privée tout en fournissant un contexte clinique essentiel.",
-                "cleaner-handovers": "Transferts Plus Propres",
-                "handovers-description": "Les instantanés de cartes QR aident les ambulanciers, les urgences et les services à s'aligner autour des mêmes éléments essentiels vérifiés. Plus de \"téléphone arabe\" avec les informations critiques du patient.",
-                "ems": "SAMU",
-                "ed": "Urgences",
-                "ward": "Service",
-                "clinical-scenarios": "Scénarios Cliniques Réels",
-                "scenario1-title": "Triage du Service d'Urgence",
-                "scenario1-subtitle": "Scénario :",
-                "scenario1-scenario": "Patient inconscient arrive en ambulance. Famille non présente, pas d'ID, barrière linguistique avec spectateur.",
-                "scenario1-solution-title": "Solution MYQER :",
-                "scenario1-solution": "Scanner QR depuis l'écran de verrouillage du téléphone → Accès instantané aux allergies (anaphylaxie à la pénicilline), statut diabétique, médicaments actuels et contact d'urgence. L'infirmière de triage a un contexte critique en 30 secondes.",
-                "scenario2-title": "Soins Pré-Hospitaliers",
-                "scenario2-subtitle": "Scénario :",
-                "scenario2-scenario": "Les ambulanciers répondent à un événement cardiaque. Patient conscient mais en détresse, membre de la famille présent mais incertain sur les médicaments.",
-                "scenario2-solution-title": "Solution MYQER :",
-                "scenario2-solution": "Le scan QR révèle un stimulateur cardiaque (2019), thérapie Warfarine, cathétérisme cardiaque récent. Les ambulanciers ajustent le protocole de traitement et fournissent un transfert précis à l'hôpital receveur.",
-                "scenario3-title": "Urgence de Voyage International",
-                "scenario3-subtitle": "Scénario :",
-                "scenario3-scenario": "Touriste s'effondre dans un pays étranger. Équipe médicale locale parle une langue différente, pas d'accès aux dossiers médicaux du domicile.",
-                "scenario3-solution-title": "Solution MYQER :",
-                "scenario3-solution": "Le scan QR fournit des informations dans la langue locale avec lecture vocale. Allergies critiques, conditions chroniques et contacts d'urgence immédiatement disponibles pour l'équipe médicale étrangère.",
-                "myqer-plus": "MYQER+ pour Institutions",
-                "institutions-subtitle": "Pour les hôpitaux, SAMU et systèmes de santé, MYQER+ étend la carte centrale en outils opérationnels :",
-                "clinician-dashboards": "Tableaux de Bord Cliniciens",
-                "dashboards-description": "Recherche QR par lots pour plusieurs patients, flux de travail de triage avancés, intégration avec les systèmes DME existants et analyses complètes pour les initiatives d'amélioration de la qualité. Rationalisez vos opérations cliniques tout en maintenant la vitesse et la simplicité qui rendent MYQER efficace au point de soins.",
-                "ready-to-improve": "Prêt à Améliorer les Soins aux Patients ?",
-                "cta-subtitle": "Rejoignez les professionnels de santé qui font confiance à MYQER pour les informations critiques des patients",
-                "get-started": "Commencer",
-                "contact-us": "Nous Contacter",
-                "footer-tagline": "Informations Médicales d'Urgence à Portée de Main",
-                "home": "Accueil",
-                "about": "À Propos",
-                "clinician": "Clinicien",
-                "how-it-works": "Comment Ça Marche",
-                "privacy": "Politique de Confidentialité",
-                "terms": "Conditions de Service",
-                "contact": "Contact",
-                "footer-note": "Conscient GDPR/HIPAA • Informatif seulement",
-                "login": "Se Connecter",
-                "email": "Email",
-                "password": "Mot de Passe",
-                "cancel": "Annuler",
-                "forgot-password": "Mot de passe oublié ?",
-                "reset-password": "Réinitialiser le Mot de Passe",
+                title: "MYQER™ — Assistant Intelligent de Santé & Étiquette QR d'Urgence",
+                tagline: "Un scan. En ligne ou hors ligne. Toujours prêt.",
+                description: "Un code QR de triage pour guider les secours — partout, à tout moment.",
+                pronunciation: "(se prononce \"My Care\")",
+                "emergency-card": "Urgence",
                 "full-name": "Nom Complet",
-                "create-account": "Créer un Compte"
-            },
-            de: {
-                "clinician-title": "MYQER für Kliniker",
-                "hero-subtitle": "Klarheit, wenn jedes Detail zählt",
-                "hero-description": "Klinische Versorgung wird oft mit unvollständigen Anamnesen, Sprachbarrieren oder unsicheren Familienmitgliedern erbracht. MYQER verwandelt das Unbekannte in eine schnelle, strukturierte Sicht auf das, was am wichtigsten ist.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Gelbe Priorität",
-                "demo-allergies": "ALLERGIEN",
-                "demo-allergies-content": "Penicillin (Anaphylaxie), Kontrastmittel",
-                "demo-conditions": "ERKRANKUNGEN",
-                "demo-conditions-content": "Vorhofflimmern, Typ-2-Diabetes, Herzschrittmacher (2019)",
-                "demo-medications": "MEDIKAMENTE",
-                "demo-medications-content": "Warfarin 5mg, Metformin 1000mg BID",
-                "demo-ice-contacts": "NOTFALLKONTAKTE",
-                "demo-ice-content": "Linda Chen (Ehefrau) +1-555-0123",
-                "demo-notes": "NOTIZEN",
-                "demo-notes-content": "Kürzlicher Herzkatheter 3/2024. DNR in Akte.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Wesentliche Informationen auf einen Blick",
-                "allergies-contraindications": "Allergien und Kontraindikationen",
-                "allergies-description": "Kritische Sicherheitsinformationen prominent angezeigt",
-                "critical-conditions": "Kritische Erkrankungen und implantierte Geräte",
-                "conditions-description": "Wichtige Krankengeschichte, die Behandlungsentscheidungen beeinflusst",
-                "current-medications": "Aktuelle Medikamente",
-                "medications-description": "Aktive Verschreibungen und Dosierungen für Arzneimittelwechselwirkungen",
-                "ice-contacts": "Notfallkontakte",
-                "ice-description": "Sofortige Familienbenachrichtigung und Überprüfung der Krankengeschichte",
-                "triage-friendly": "Triage-freundliches Format",
-                "triage-description": "Entwickelt für die ersten Minuten der Bewertung, wenn jede Sekunde zählt.",
-                "designed-workflow": "Für Ihren Arbeitsablauf Entwickelt",
-                "workflow-description": "MYQER ist kein weiteres EMR, noch ein weiterer Login. Es ist eine patienteneigene Akte, die Sie scannen und sofort ansehen — auf jedem Smartphone, mit oder ohne Konnektivität.",
-                "complements-not-competes": "Ergänzt, Konkurriert Nicht",
-                "complements-description": "Es ergänzt, anstatt mit Ihren bestehenden Systemen zu konkurrieren, indem es Ihnen das eine gibt, was ihnen oft fehlt: Unmittelbarkeit am Punkt des ersten Kontakts.",
-                "how-it-works": "Wie Es Funktioniert",
-                "step1-title": "QR-Code Scannen",
-                "step1-description": "Verwenden Sie jede Smartphone-Kamera - kein App-Download erforderlich",
-                "step2-title": "Sofortiger Zugang",
-                "step2-description": "Strukturierte medizinische Informationen in Sekunden anzeigen",
-                "step3-title": "Informierte Entscheidungen",
-                "step3-description": "Behandlungsentscheidungen mit kritischem Kontext treffen",
-                "key-benefits": "Hauptvorteile für Klinische Teams",
-                "faster-orientation": "Schnellere Erstorientierung",
-                "orientation-description": "Allergien, Erkrankungen und Notfallkontakte auf einmal angezeigt. Kein Suchen in unvollständigen Aufzeichnungen oder Warten auf das Eintreffen der Familie.",
-                "universal-comprehension": "Universelles Verständnis",
-                "comprehension-description": "Mehrsprachige Text- und Sprachausgabe überbrückt Lücken mit Patienten und Zuschauern. Kritische Informationen überwinden Sprachbarrieren.",
-                "offline-reliability": "Offline-Zuverlässigkeit",
-                "reliability-description": "Daten werden lokal zwischengespeichert, sodass ländliche oder signalschwache Umgebungen kein Hindernis sind. Kritische Informationen wann und wo Sie sie am meisten brauchen.",
-                "consent-first": "Einverständnis Zuerst",
-                "consent-description": "Patienten wählen, was sichtbar ist; Sie sehen nur, was sie zu teilen vereinbart haben. Respektiert die Privatsphäre und bietet gleichzeitig wesentlichen klinischen Kontext.",
-                "cleaner-handovers": "Sauberere Übergaben",
-                "handovers-description": "QR-Karten-Schnappschüsse helfen Sanitätern, Notaufnahme und Stationen, sich um dieselben verifizierten Grundlagen zu orientieren. Kein \"Stille Post\" mehr mit kritischen Patienteninformationen.",
-                "ems": "Rettungsdienst",
-                "ed": "Notaufnahme",
-                "ward": "Station",
-                "clinical-scenarios": "Echte Klinische Szenarien",
-                "scenario1-title": "Notaufnahme-Triage",
-                "scenario1-subtitle": "Szenario:",
-                "scenario1-scenario": "Bewusstloser Patient kommt per Krankenwagen an. Familie nicht anwesend, kein Ausweis, Sprachbarriere mit Zuschauer.",
-                "scenario1-solution-title": "MYQER-Lösung:",
-                "scenario1-solution": "QR vom Telefon-Sperrbildschirm scannen → Sofortiger Zugang zu Allergien (Penicillin-Anaphylaxie), Diabetes-Status, aktuellen Medikamenten und Notfallkontakt. Triage-Schwester hat kritischen Kontext in 30 Sekunden.",
-                "scenario2-title": "Präklinische Versorgung",
-                "scenario2-subtitle": "Szenario:",
-                "scenario2-scenario": "Sanitäter reagieren auf Herzereignis. Patient bei Bewusstsein aber belastet, Familienmitglied anwesend aber unsicher über Medikamente.",
-                "scenario2-solution-title": "MYQER-Lösung:",
-                "scenario2-solution": "QR-Scan zeigt Herzschrittmacher (2019), Warfarin-Therapie, kürzlichen Herzkatheter. Sanitäter passen Behandlungsprotokoll an und geben genaue Übergabe an aufnehmendes Krankenhaus.",
-                "scenario3-title": "Internationale Reise-Notfall",
-                "scenario3-subtitle": "Szenario:",
-                "scenario3-scenario": "Tourist bricht in fremdem Land zusammen. Lokales medizinisches Team spricht andere Sprache, kein Zugang zu Heimat-Krankenakten.",
-                "scenario3-solution-title": "MYQER-Lösung:",
-                "scenario3-solution": "QR-Scan liefert Informationen in lokaler Sprache mit Sprachausgabe. Kritische Allergien, chronische Erkrankungen und Notfallkontakte sofort für ausländisches medizinisches Team verfügbar.",
-                "myqer-plus": "MYQER+ für Institutionen",
-                "institutions-subtitle": "Für Krankenhäuser, Rettungsdienste und Gesundheitssysteme erweitert MYQER+ die Kernkarte zu operativen Werkzeugen:",
-                "clinician-dashboards": "Kliniker-Dashboards",
-                "dashboards-description": "Batch-QR-Suche für mehrere Patienten, erweiterte Triage-Workflows, Integration mit bestehenden EMR-Systemen und umfassende Analysen für Qualitätsverbesserungsinitiativen. Optimieren Sie Ihre klinischen Abläufe und behalten Sie dabei die Geschwindigkeit und Einfachheit bei, die MYQER am Versorgungsort effektiv macht.",
-                "ready-to-improve": "Bereit, die Patientenversorgung zu Verbessern?",
-                "cta-subtitle": "Schließen Sie sich Gesundheitsfachkräften an, die MYQER für kritische Patienteninformationen vertrauen",
-                "get-started": "Loslegen",
-                "contact-us": "Kontaktieren Sie Uns",
-                "footer-tagline": "Notfall-Medizininformationen Griffbereit",
-                "home": "Startseite",
-                "about": "Über Uns",
-                "clinician": "Kliniker",
-                "how-it-works": "Wie Es Funktioniert",
-                "privacy": "Datenschutzrichtlinie",
-                "terms": "Nutzungsbedingungen",
-                "contact": "Kontakt",
-                "footer-note": "GDPR/HIPAA-bewusst • Nur informativ",
-                "login": "Anmelden",
-                "email": "E-Mail",
-                "password": "Passwort",
-                "cancel": "Abbrechen",
-                "forgot-password": "Passwort vergessen?",
-                "reset-password": "Passwort Zurücksetzen",
-                "full-name": "Vollständiger Name",
-                "create-account": "Konto Erstellen"
-            },
-            it: {
-                "clinician-title": "MYQER per Clinici",
-                "hero-subtitle": "Chiarezza quando ogni dettaglio conta",
-                "hero-description": "L'assistenza clinica è spesso fornita con anamnesi incomplete, barriere linguistiche o familiari incerti. MYQER trasforma l'ignoto in una vista rapida e strutturata di ciò che conta di più.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Priorità Gialla",
-                "demo-allergies": "ALLERGIE",
-                "demo-allergies-content": "Penicillina (anafilassi), Mezzo di contrasto",
-                "demo-conditions": "CONDIZIONI",
-                "demo-conditions-content": "Fibrillazione atriale, Diabete tipo 2, Pacemaker (2019)",
-                "demo-medications": "FARMACI",
-                "demo-medications-content": "Warfarin 5mg, Metformina 1000mg BID",
-                "demo-ice-contacts": "CONTATTI DI EMERGENZA",
-                "demo-ice-content": "Linda Chen (Moglie) +1-555-0123",
-                "demo-notes": "NOTE",
-                "demo-notes-content": "Cateterismo cardiaco recente 3/2024. DNR in archivio.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Informazioni Essenziali a Colpo d'Occhio",
-                "allergies-contraindications": "Allergie e controindicazioni",
-                "allergies-description": "Informazioni critiche di sicurezza visualizzate in modo prominente",
-                "critical-conditions": "Condizioni critiche e dispositivi impiantati",
-                "conditions-description": "Anamnesi medica chiave che impatta le decisioni di trattamento",
-                "current-medications": "Farmaci attuali",
-                "medications-description": "Prescrizioni attive e dosaggi per interazioni farmacologiche",
-                "ice-contacts": "Contatti di emergenza",
-                "ice-description": "Notifica immediata alla famiglia e verifica dell'anamnesi medica",
-                "triage-friendly": "Formato Amichevole per il Triage",
-                "triage-description": "Progettato per i primi minuti di valutazione quando ogni secondo conta.",
-                "designed-workflow": "Progettato per il Tuo Flusso di Lavoro",
-                "workflow-description": "MYQER non è un altro EMR, né un altro login. È un record di proprietà del paziente che scansioni e visualizzi istantaneamente — su qualsiasi smartphone, con o senza connettività.",
-                "complements-not-competes": "Complementa, Non Compete",
-                "complements-description": "Complementa, piuttosto che competere con, i tuoi sistemi esistenti dandoti l'unica cosa che spesso manca loro: immediatezza al punto di primo contatto.",
-                "how-it-works": "Come Funziona",
-                "step1-title": "Scansiona Codice QR",
-                "step1-description": "Usa qualsiasi fotocamera smartphone - nessun download di app richiesto",
-                "step2-title": "Accesso Istantaneo",
-                "step2-description": "Visualizza informazioni mediche strutturate in secondi",
-                "step3-title": "Decisioni Informate",
-                "step3-description": "Prendi decisioni di trattamento con contesto critico",
-                "key-benefits": "Vantaggi Chiave per i Team Clinici",
-                "faster-orientation": "Orientamento Iniziale Più Veloce",
-                "orientation-description": "Allergie, condizioni e contatti di emergenza emersi in una volta. Niente più ricerca in record incompleti o attesa dell'arrivo della famiglia.",
-                "universal-comprehension": "Comprensione Universale",
-                "comprehension-description": "Output di testo e voce multilingue colma le lacune con pazienti e spettatori. Le informazioni critiche trascendono le barriere linguistiche.",
-                "offline-reliability": "Affidabilità Offline",
-                "reliability-description": "I dati sono memorizzati localmente, quindi gli ambienti rurali o a basso segnale non sono un ostacolo. Informazioni critiche quando e dove ne hai più bisogno.",
-                "consent-first": "Consenso Prima",
-                "consent-description": "I pazienti scelgono cosa è visibile; vedi solo quello che hanno accettato di condividere. Rispetta la privacy fornendo contesto clinico essenziale.",
-                "cleaner-handovers": "Passaggi di Consegne Più Puliti",
-                "handovers-description": "Le istantanee delle carte QR aiutano paramedici, pronto soccorso e reparti ad allinearsi attorno agli stessi elementi essenziali verificati. Niente più \"telefono senza fili\" con informazioni critiche del paziente.",
-                "ems": "Emergenza",
-                "ed": "PS",
-                "ward": "Reparto",
-                "clinical-scenarios": "Scenari Clinici Reali",
-                "scenario1-title": "Triage del Pronto Soccorso",
-                "scenario1-subtitle": "Scenario:",
-                "scenario1-scenario": "Paziente incosciente arriva in ambulanza. Famiglia non presente, nessun ID, barriera linguistica con spettatore.",
-                "scenario1-solution-title": "Soluzione MYQER:",
-                "scenario1-solution": "Scansiona QR dalla schermata di blocco del telefono → Accesso istantaneo ad allergie (anafilassi da penicillina), stato diabetico, farmaci attuali e contatto di emergenza. L'infermiere del triage ha contesto critico in 30 secondi.",
-                "scenario2-title": "Assistenza Pre-Ospedaliera",
-                "scenario2-subtitle": "Scenario:",
-                "scenario2-scenario": "I paramedici rispondono a evento cardiaco. Paziente cosciente ma angosciato, familiare presente ma incerto sui farmaci.",
-                "scenario2-solution-title": "Soluzione MYQER:",
-                "scenario2-solution": "La scansione QR rivela pacemaker (2019), terapia con Warfarin, cateterismo cardiaco recente. I paramedici adattano il protocollo di trattamento e forniscono passaggio di consegne accurato all'ospedale ricevente.",
-                "scenario3-title": "Emergenza di Viaggio Internazionale",
-                "scenario3-subtitle": "Scenario:",
-                "scenario3-scenario": "Turista crolla in paese straniero. Team medico locale parla lingua diversa, nessun accesso ai record medici di casa.",
-                "scenario3-solution-title": "Soluzione MYQER:",
-                "scenario3-solution": "La scansione QR fornisce informazioni in lingua locale con riproduzione vocale. Allergie critiche, condizioni croniche e contatti di emergenza immediatamente disponibili per il team medico straniero.",
-                "myqer-plus": "MYQER+ per Istituzioni",
-                "institutions-subtitle": "Per ospedali, servizi di emergenza e sistemi sanitari, MYQER+ estende la carta centrale in strumenti operativi:",
-                "clinician-dashboards": "Dashboard per Clinici",
-                "dashboards-description": "Ricerca QR in batch per più pazienti, flussi di lavoro di triage avanzati, integrazione con sistemi EMR esistenti e analisi complete per iniziative di miglioramento della qualità. Semplifica le tue operazioni cliniche mantenendo la velocità e semplicità che rende MYQER efficace al punto di cura.",
-                "ready-to-improve": "Pronto a Migliorare l'Assistenza ai Pazienti?",
-                "cta-subtitle": "Unisciti ai professionisti sanitari che si fidano di MYQER per informazioni critiche sui pazienti",
-                "get-started": "Inizia",
-                "contact-us": "Contattaci",
-                "footer-tagline": "Informazioni Mediche di Emergenza a Portata di Mano",
-                "home": "Home",
-                "about": "Chi Siamo",
-                "clinician": "Clinico",
-                "how-it-works": "Come Funziona",
-                "privacy": "Politica sulla Privacy",
-                "terms": "Termini di Servizio",
-                "contact": "Contatto",
-                "footer-note": "Attento a GDPR/HIPAA • Solo informativo",
-                "login": "Accedi",
-                "email": "Email",
-                "password": "Password",
-                "cancel": "Annulla",
-                "forgot-password": "Password dimenticata?",
-                "reset-password": "Reimposta Password",
-                "full-name": "Nome Completo",
-                "create-account": "Crea Account"
-            },
-            pt: {
-                "clinician-title": "MYQER para Clínicos",
-                "hero-subtitle": "Clareza quando cada detalhe importa",
-                "hero-description": "O cuidado clínico é frequentemente prestado com históricos incompletos, barreiras linguísticas ou familiares incertos. MYQER transforma o desconhecido em uma visão rápida e estruturada do que mais importa.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Prioridade Amarela",
-                "demo-allergies": "ALERGIAS",
-                "demo-allergies-content": "Penicilina (anafilaxia), Contraste",
-                "demo-conditions": "CONDIÇÕES",
-                "demo-conditions-content": "Fibrilação atrial, Diabetes tipo 2, Marcapasso (2019)",
-                "demo-medications": "MEDICAMENTOS",
-                "demo-medications-content": "Varfarina 5mg, Metformina 1000mg BID",
-                "demo-ice-contacts": "CONTATOS DE EMERGÊNCIA",
-                "demo-ice-content": "Linda Chen (Esposa) +1-555-0123",
-                "demo-notes": "NOTAS",
-                "demo-notes-content": "Cateterismo cardíaco recente 3/2024. DNR em arquivo.",
-                "demo-audio": "Áudio",
-                "demo-language": "中文",
-                "essential-info": "Informações Essenciais de Relance",
-                "allergies-contraindications": "Alergias e contraindicações",
-                "allergies-description": "Informações críticas de segurança exibidas proeminentemente",
-                "critical-conditions": "Condições críticas e dispositivos implantados",
-                "conditions-description": "Histórico médico chave que impacta decisões de tratamento",
-                "current-medications": "Medicamentos atuais",
-                "medications-description": "Prescrições ativas e dosagens para interações medicamentosas",
-                "ice-contacts": "Contatos de emergência",
-                "ice-description": "Notificação imediata da família e verificação do histórico médico",
-                "triage-friendly": "Formato Amigável para Triagem",
-                "triage-description": "Projetado para os primeiros minutos de avaliação quando cada segundo conta.",
-                "designed-workflow": "Projetado para Seu Fluxo de Trabalho",
-                "workflow-description": "MYQER não é outro EMR, nem outro login. É um registro de propriedade do paciente que você escaneia e visualiza instantaneamente — em qualquer smartphone, com ou sem conectividade.",
-                "complements-not-competes": "Complementa, Não Compete",
-                "complements-description": "Complementa, em vez de competir com, seus sistemas existentes dando-lhe a única coisa que frequentemente lhes falta: imediatismo no ponto de primeiro contato.",
-                "how-it-works": "Como Funciona",
-                "step1-title": "Escanear Código QR",
-                "step1-description": "Use qualquer câmera de smartphone - nenhum download de app necessário",
-                "step2-title": "Acesso Instantâneo",
-                "step2-description": "Visualize informações médicas estruturadas em segundos",
-                "step3-title": "Decisões Informadas",
-                "step3-description": "Tome decisões de tratamento com contexto crítico",
-                "key-benefits": "Benefícios Principais para Equipes Clínicas",
-                "faster-orientation": "Orientação Inicial Mais Rápida",
-                "orientation-description": "Alergias, condições e contatos de emergência surgem de uma vez. Sem mais procurar em registros incompletos ou esperar a família chegar.",
-                "universal-comprehension": "Compreensão Universal",
-                "comprehension-description": "Saída de texto e voz multilíngue preenche lacunas com pacientes e espectadores. Informações críticas transcendem barreiras linguísticas.",
-                "offline-reliability": "Confiabilidade Offline",
-                "reliability-description": "Dados são armazenados localmente, então ambientes rurais ou de baixo sinal não são uma barreira. Informações críticas quando e onde você mais precisa.",
-                "consent-first": "Consentimento Primeiro",
-                "consent-description": "Pacientes escolhem o que é visível; você vê apenas o que eles concordaram em compartilhar. Respeita a privacidade enquanto fornece contexto clínico essencial.",
-                "cleaner-handovers": "Passagens Mais Limpas",
-                "handovers-description": "Instantâneos de cartões QR ajudam paramédicos, pronto-socorro e enfermarias a se alinharem em torno dos mesmos elementos essenciais verificados. Chega de \"telefone sem fio\" com informações críticas do paciente.",
-                "ems": "SAMU",
-                "ed": "PS",
-                "ward": "Enfermaria",
-                "clinical-scenarios": "Cenários Clínicos Reais",
-                "scenario1-title": "Triagem do Pronto-Socorro",
-                "scenario1-subtitle": "Cenário:",
-                "scenario1-scenario": "Paciente inconsciente chega de ambulância. Família não presente, sem ID, barreira linguística com espectador.",
-                "scenario1-solution-title": "Solução MYQER:",
-                "scenario1-solution": "Escanear QR da tela de bloqueio do telefone → Acesso instantâneo a alergias (anafilaxia por penicilina), status diabético, medicamentos atuais e contato de emergência. Enfermeiro da triagem tem contexto crítico em 30 segundos.",
-                "scenario2-title": "Cuidado Pré-Hospitalar",
-                "scenario2-subtitle": "Cenário:",
-                "scenario2-scenario": "Paramédicos respondem a evento cardíaco. Paciente consciente mas angustiado, familiar presente mas incerto sobre medicamentos.",
-                "scenario2-solution-title": "Solução MYQER:",
-                "scenario2-solution": "Escaneamento QR revela marcapasso (2019), terapia com Varfarina, cateterismo cardíaco recente. Paramédicos ajustam protocolo de tratamento e fornecem passagem precisa para hospital receptor.",
-                "scenario3-title": "Emergência de Viagem Internacional",
-                "scenario3-subtitle": "Cenário:",
-                "scenario3-scenario": "Turista desmaia em país estrangeiro. Equipe médica local fala idioma diferente, sem acesso a registros médicos domésticos.",
-                "scenario3-solution-title": "Solução MYQER:",
-                "scenario3-solution": "Escaneamento QR fornece informações em idioma local com reprodução de voz. Alergias críticas, condições crônicas e contatos de emergência imediatamente disponíveis para equipe médica estrangeira.",
-                "myqer-plus": "MYQER+ para Instituições",
-                "institutions-subtitle": "Para hospitais, SAMU e sistemas de saúde, MYQER+ estende o cartão central em ferramentas operacionais:",
-                "clinician-dashboards": "Painéis para Clínicos",
-                "dashboards-description": "Pesquisa QR em lote para múltiplos pacientes, fluxos de trabalho de triagem avançados, integração com sistemas EMR existentes e análises abrangentes para iniciativas de melhoria da qualidade. Otimize suas operações clínicas mantendo a velocidade e simplicidade que torna MYQER eficaz no ponto de cuidado.",
-                "ready-to-improve": "Pronto para Melhorar o Cuidado ao Paciente?",
-                "cta-subtitle": "Junte-se a profissionais de saúde que confiam no MYQER para informações críticas do paciente",
-                "get-started": "Começar",
-                "contact-us": "Entre em Contato",
-                "footer-tagline": "Informações Médicas de Emergência ao Seu Alcance",
-                "home": "Início",
-                "about": "Sobre",
-                "clinician": "Clínico",
-                "how-it-works": "Como Funciona",
-                "privacy": "Política de Privacidade",
-                "terms": "Termos de Serviço",
-                "contact": "Contato",
-                "footer-note": "Consciente de GDPR/HIPAA • Apenas informativo",
-                "login": "Entrar",
-                "email": "Email",
-                "password": "Senha",
-                "cancel": "Cancelar",
-                "forgot-password": "Esqueceu a senha?",
-                "reset-password": "Redefinir Senha",
-                "full-name": "Nome Completo",
-                "create-account": "Criar Conta"
-            },
-            ro: {
-                "clinician-title": "MYQER pentru Clinicieni",
-                "hero-subtitle": "Claritate când fiecare detaliu contează",
-                "hero-description": "Îngrijirea clinică este adesea oferită cu istorice incomplete, bariere de limbă sau membri ai familiei care sunt nesiguri. MYQER transformă necunoscutul într-o vedere rapidă și structurată a ceea ce contează cel mai mult.",
-                "demo-patient-name": "Michael Chen, 67",
-                "demo-priority": "Prioritate Galbenă",
-                "demo-allergies": "ALERGII",
-                "demo-allergies-content": "Penicilină (anafilaxie), Substanță de contrast",
-                "demo-conditions": "CONDIȚII",
-                "demo-conditions-content": "Fibrilație atrială, Diabet tip 2, Pacemaker (2019)",
-                "demo-medications": "MEDICAMENTE",
-                "demo-medications-content": "Warfarină 5mg, Metformină 1000mg BID",
-                "demo-ice-contacts": "CONTACTE DE URGENȚĂ",
-                "demo-ice-content": "Linda Chen (Soție) +1-555-0123",
-                "demo-notes": "NOTE",
-                "demo-notes-content": "Cateterism cardiac recent 3/2024. DNR în dosar.",
-                "demo-audio": "Audio",
-                "demo-language": "中文",
-                "essential-info": "Informații Esențiale Dintr-o Privire",
-                "allergies-contraindications": "Alergii și contraindicații",
-                "allergies-description": "Informații critice de siguranță afișate proeminent",
-                "critical-conditions": "Condiții critice și dispozitive implantate",
-                "conditions-description": "Istoric medical cheie care impactează deciziile de tratament",
-                "current-medications": "Medicamente actuale",
-                "medications-description": "Prescripții active și dozaje pentru interacțiuni medicamentoase",
-                "ice-contacts": "Contacte de urgență",
-                "ice-description": "Notificare imediată a familiei și verificarea istoricului medical",
-                "triage-friendly": "Format Prietenos pentru Triaj",
-                "triage-description": "Proiectat pentru primele minute de evaluare când fiecare secundă contează.",
-                "designed-workflow": "Proiectat pentru Fluxul Tău de Lucru",
-                "workflow-description": "MYQER nu este un alt EMR, nici un alt login. Este o înregistrare deținută de pacient pe care o scanezi și o vezi instantaneu — pe orice smartphone, cu sau fără conectivitate.",
-                "complements-not-competes": "Completează, Nu Concurează",
-                "complements-description": "Completează, mai degrabă decât să concureze cu, sistemele tale existente oferindu-ți singurul lucru care le lipsește adesea: imediat la punctul de primul contact.",
-                "how-it-works": "Cum Funcționează",
-                "step1-title": "Scanează Codul QR",
-                "step1-description": "Folosește orice cameră de smartphone - nu este necesară descărcarea aplicației",
-                "step2-title": "Acces Instantaneu",
-                "step2-description": "Vizualizează informații medicale structurate în secunde",
-                "step3-title": "Decizii Informate",
-                "step3-description": "Ia decizii de tratament cu context critic",
-                "key-benefits": "Beneficii Cheie pentru Echipele Clinice",
-                "faster-orientation": "Orientare Inițială Mai Rapidă",
-                "orientation-description": "Alergii, condiții și contacte de urgență apărute deodată. Nu mai căuta prin înregistrări incomplete sau să aștepți să sosească familia.",
-                "universal-comprehension": "Înțelegere Universală",
-                "comprehension-description": "Ieșirea de text și voce multilingvă umple golurile cu pacienții și spectatorii. Informațiile critice transcend barierele de limbă.",
-                "offline-reliability": "Fiabilitate Offline",
-                "reliability-description": "Datele sunt stocate local, deci mediile rurale sau cu semnal slab nu sunt o barieră. Informații critice când și unde ai nevoie cel mai mult.",
-                "consent-first": "Consimțământul Primul",
-                "consent-description": "Pacienții aleg ce este vizibil; vezi doar ceea ce au fost de acord să împărtășească. Respectă intimitatea oferind în același timp context clinic esențial.",
-                "cleaner-handovers": "Transferuri Mai Curate",
-                "handovers-description": "Instantaneele cardurilor QR ajută paramedici, urgențe și saloane să se alinieze în jurul acelorași elemente esențiale verificate. Nu mai există \"telefonul fără fir\" cu informații critice ale pacientului.",
-                "ems": "Ambulanță",
-                "ed": "Urgențe",
-                "ward": "Salon",
-                "clinical-scenarios": "Scenarii Clinice Reale",
-                "scenario1-title": "Triajul Departamentului de Urgență",
-                "scenario1-subtitle": "Scenariu:",
-                "scenario1-scenario": "Pacient inconștient sosește cu ambulanța. Familia nu este prezentă, fără ID, barieră de limbă cu spectatorul.",
-                "scenario1-solution-title": "Soluția MYQER:",
-                "scenario1-solution": "Scanează QR de pe ecranul de blocare al telefonului → Acces instantaneu la alergii (anafilaxie la penicilină), status diabetic, medicamente actuale și contact de urgență. Asistenta de triaj are context critic în 30 de secunde.",
-                "scenario2-title": "Îngrijire Pre-Spitalicească",
-                "scenario2-subtitle": "Scenariu:",
-                "scenario2-scenario": "Paramedici răspund la eveniment cardiac. Pacient conștient dar distres, membru al familiei prezent dar nesigur despre medicamente.",
-                "scenario2-solution-title": "Soluția MYQER:",
-                "scenario2-solution": "Scanarea QR dezvăluie pacemaker (2019), terapie cu Warfarină, cateterism cardiac recent. Paramedici ajustează protocolul de tratament și oferă transfer precis la spitalul receptor.",
-                "scenario3-title": "Urgență de Călătorie Internațională",
-                "scenario3-subtitle": "Scenariu:",
-                "scenario3-scenario": "Turistul se prăbușește în țară străină. Echipa medicală locală vorbește limbă diferită, fără acces la înregistrările medicale de acasă.",
-                "scenario3-solution-title": "Soluția MYQER:",
-                "scenario3-solution": "Scanarea QR oferă informații în limba locală cu redare vocală. Alergii critice, condiții cronice și contacte de urgență imediat disponibile pentru echipa medicală străină.",
-                "myqer-plus": "MYQER+ pentru Instituții",
-                "institutions-subtitle": "Pentru spitale, ambulanțe și sisteme de sănătate, MYQER+ extinde cardul central în instrumente operaționale:",
-                "clinician-dashboards": "Panouri de Control pentru Clinicieni",
-                "dashboards-description": "Căutare QR în lot pentru mai mulți pacienți, fluxuri de lucru de triaj avansate, integrare cu sistemele EMR existente și analize cuprinzătoare pentru inițiative de îmbunătățire a calității. Eficientizează operațiunile tale clinice menținând viteza și simplitatea care fac MYQER eficient la punctul de îngrijire.",
-                "ready-to-improve": "Gata să Îmbunătățești Îngrijirea Pacienților?",
-                "cta-subtitle": "Alătură-te profesioniștilor din sănătate care au încredere în MYQER pentru informații critice ale pacienților",
-                "get-started": "Începe",
-                "contact-us": "Contactează-ne",
-                "footer-tagline": "Informații Medicale de Urgență la Îndemâna Ta",
-                "home": "Acasă",
-                "about": "Despre",
-                "clinician": "Clinician",
-                "how-it-works": "Cum Funcționează",
-                "privacy": "Politica de Confidențialitate",
-                "terms": "Termenii de Serviciu",
-                "contact": "Contact",
-                "footer-note": "Conștient de GDPR/HIPAA • Doar informativ",
-                "login": "Conectare",
-                "email": "Email",
-                "password": "Parolă",
-                "cancel": "Anulează",
-                "forgot-password": "Ai uitat parola?",
-                "reset-password": "Resetează Parola",
-                "full-name": "Nume Complet",
-                "create-account": "Creează Cont"
-            },
-            ar: {
-                "clinician-title": "MYQER للأطباء",
-                "hero-subtitle": "وضوح عندما تهم كل التفاصيل",
-                "hero-description": "الرعاية السريرية غالباً ما تُقدم مع تواريخ طبية غير مكتملة، حواجز لغوية، أو أفراد عائلة غير متأكدين. MYQER يحول المجهول إلى رؤية سريعة ومنظمة لما يهم أكثر.",
-                "demo-patient-name": "مايكل تشين، 67",
-                "demo-priority": "أولوية صفراء",
-                "demo-allergies": "الحساسيات",
-                "demo-allergies-content": "البنسلين (صدمة تحسسية)، صبغة التباين",
-                "demo-conditions": "الحالات",
-                "demo-conditions-content": "رجفان أذيني، سكري النوع 2، منظم ضربات القلب (2019)",
-                "demo-medications": "الأدوية",
-                "demo-medications-content": "وارفارين 5مغ، ميتفورمين 1000مغ مرتين يومياً",
-                "demo-ice-contacts": "جهات الاتصال الطارئة",
-                "demo-ice-content": "ليندا تشين (الزوجة) +1-555-0123",
-                "demo-notes": "ملاحظات",
-                "demo-notes-content": "قسطرة قلبية حديثة 3/2024. DNR في الملف.",
-                "demo-audio": "صوت",
-                "demo-language": "中文",
-                "essential-info": "معلومات أساسية في لمحة",
-                "allergies-contraindications": "الحساسيات وموانع الاستعمال",
-                "allergies-description": "معلومات السلامة الحرجة معروضة بشكل بارز",
-                "critical-conditions": "الحالات الحرجة والأجهزة المزروعة",
-                "conditions-description": "التاريخ الطبي الرئيسي الذي يؤثر على قرارات العلاج",
-                "current-medications": "الأدوية الحالية",
-                "medications-description": "الوصفات النشطة والجرعات لتفاعلات الأدوية",
-                "ice-contacts": "جهات الاتصال الطارئة",
-                "ice-description": "إشعار فوري للعائلة والتحقق من التاريخ الطبي",
-                "triage-friendly": "تنسيق ودود للفرز",
-                "triage-description": "مصمم للدقائق الأولى من التقييم عندما تهم كل ثانية.",
-                "designed-workflow": "مصمم لسير عملك",
-                "workflow-description": "MYQER ليس EMR آخر، ولا تسجيل دخول آخر. إنه سجل مملوك للمريض تقوم بمسحه وعرضه فوراً — على أي هاتف ذكي، مع أو بدون اتصال.",
-                "complements-not-competes": "يكمل، لا ينافس",
-                "complements-description": "يكمل، بدلاً من أن ينافس، أنظمتك الموجودة من خلال إعطائك الشيء الوحيد الذي غالباً ما يفتقدونه: الفورية في نقطة الاتصال الأول.",
-                "how-it-works": "كيف يعمل",
-                "step1-title": "مسح رمز QR",
-                "step1-description": "استخدم أي كاميرا هاتف ذكي - لا حاجة لتحميل تطبيق",
-                "step2-title": "وصول فوري",
-                "step2-description": "عرض معلومات طبية منظمة في ثوانٍ",
-                "step3-title": "قرارات مدروسة",
-                "step3-description": "اتخذ قرارات العلاج مع سياق حرج",
-                "key-benefits": "الفوائد الرئيسية للفرق السريرية",
-                "faster-orientation": "توجه أولي أسرع",
-                "orientation-description": "الحساسيات والحالات وجهات الاتصال الطارئة تظهر دفعة واحدة. لا مزيد من البحث في السجلات غير المكتملة أو انتظار وصول العائلة.",
-                "universal-comprehension": "فهم عالمي",
-                "comprehension-description": "مخرجات النص والصوت متعددة اللغات تسد الفجوات مع المرضى والمتفرجين. المعلومات الحرجة تتجاوز الحواجز اللغوية.",
-                "offline-reliability": "موثوقية بدون اتصال",
-                "reliability-description": "البيانات مخزنة محلياً، لذا البيئات الريفية أو ضعيفة الإشارة ليست عائقاً. معلومات حرجة متى وأين تحتاجها أكثر.",
-                "consent-first": "الموافقة أولاً",
-                "consent-description": "المرضى يختارون ما هو مرئي؛ ترى فقط ما وافقوا على مشاركته. يحترم الخصوصية مع توفير سياق سريري أساسي.",
-                "cleaner-handovers": "تسليمات أنظف",
-                "handovers-description": "لقطات بطاقات QR تساعد المسعفين وقسم الطوارئ والأجنحة على التوافق حول نفس الأساسيات المتحققة. لا مزيد من \"الهاتف المكسور\" مع معلومات المريض الحرجة.",
-                "ems": "الإسعاف",
-                "ed": "الطوارئ",
-                "ward": "الجناح",
-                "clinical-scenarios": "سيناريوهات سريرية حقيقية",
-                "scenario1-title": "فرز قسم الطوارئ",
-                "scenario1-subtitle": "السيناريو:",
-                "scenario1-scenario": "مريض فاقد الوعي يصل بالإسعاف. العائلة غير موجودة، لا هوية، حاجز لغوي مع المتفرج.",
-                "scenario1-solution-title": "حل MYQER:",
-                "scenario1-solution": "مسح QR من شاشة قفل الهاتف ← وصول فوري للحساسيات (صدمة تحسسية للبنسلين)، حالة السكري، الأدوية الحالية، وجهة الاتصال الطارئة. ممرضة الفرز لديها سياق حرج في 30 ثانية.",
-                "scenario2-title": "الرعاية ما قبل المستشفى",
-                "scenario2-subtitle": "السيناريو:",
-                "scenario<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97a504b89575cd39',t:'MTc1NzA2Nzg4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+                dob: "Date de Naissance",
+                country: "Pays",
+                "blood-type": "Groupe Sanguin",
+                allergies: "Allergies",
+                "ice-contact": "Contact d'Urgence",
+                "open-app": "Ouvrir l'App",
+                "create-account": "Créer un Compte",
+                login: "Se Connecter",
+                about: "À Propos",
+                clinician: "Clinicien",
+                "how-it-works": "Comment Ça Marche",
+                privacy: "Confidentialité",
+                terms: "Conditions",
+                contact: "Contact",
+                email: "Email",
+                password: "Mot de Passe",
+                cancel: "Annuler",
+                "forgot-password": "Mot de passe oublié?",
+                "reset-password": "Réinitialiser le Mot de Passe",
+                "back-to-login": "Retour à la Connexion",
+                "check-email": "Vérifiez votre email pour les instructions",
+                "login-success": "Connexion réussie! Redirection...",
+                "signup-success": "Compte créé! Vérifiez votre email.",
+                "error-occurred": "Une erreur s'est produite. Réessayez.",
+                "loading": "Chargement...",
+                "copy-success": "Lien copié dans le presse-papiers!",
+                "share-title": "Mon QR d'Urgence",
+                "share-text": "Accédez à mes informations d'urgence",
+                "personal-info": "INFORMATIONS PERSONNELLES",
+                "name-label": "Nom:",
+                "patient-name": "Jane Doe",
+                "dob-label": "Date de Naissance:",
+                "patient-dob": "1er janvier 1990",
+                "blood-type-label": "Groupe Sanguin:",
+                "patient-blood": "O+",
+                "organ-donor-label": "Donneur d'Organes:",
+                "patient-donor": "Oui",
+                "medical-allergies": "ALLERGIES MÉDICALES",
+                "allergy-penicillin": "• Pénicilline (réaction sévère)",
+                "allergy-shellfish": "• Fruits de mer (anaphylaxie)",
+                "allergy-latex": "• Latex (dermatite de contact)",
+                "medical-conditions": "CONDITIONS MÉDICALES",
+                "condition-diabetes": "• Diabète de Type 1",
+                "condition-asthma": "• Asthme (léger, induit par l'exercice)",
+                "condition-hypertension": "• Hypertension (contrôlée)",
+                "current-medications": "MÉDICAMENTS ACTUELS",
+                "med-insulin": "• Insuline (Humalog) - selon besoin",
+                "med-lisinopril": "• Lisinopril 10mg - quotidien",
+                "med-albuterol": "• Inhalateur Albuterol - selon besoin",
+                "med-metformin": "• Metformine 500mg - deux fois par jour",
+                "implants-devices": "IMPLANTS ET DISPOSITIFS",
+                "device-glucose": "• Moniteur de Glucose Continu",
+                "device-pump": "• Pompe à insuline (Medtronic)",
+                "emergency-contacts": "CONTACTS D'URGENCE",
+                "primary-label": "Primaire:",
+                "contact-mother": "Sarah Doe (Mère)",
+                "phone-label": "Téléphone:",
+                "secondary-label": "Secondaire:",
+                "contact-father": "John Doe (Père)",
+                "doctor-label": "Docteur:",
+                "contact-doctor": "Dr. Smith (Médecin Généraliste)",
+                "auto-triage": "TRIAGE AUTOMATIQUE",
+                "flip-hint": "Touchez pour voir votre QR",
+                "emergency-qr": "QR d'Urgence",
+                "copy-link": "Copier le Lien",
+                "download-png": "Télécharger PNG",
+                "print": "Imprimer",
+                "share-link": "Partager le Lien",
+                "disclaimer": "Information seulement. Les cliniciens confirment avec les dossiers officiels. Les données restent sur votre appareil sauf si vous les partagez."
+            },          
+de: {
+    title: "MYQER™ — Intelligente Gesundheits- & Notfall-QR-Tag-Hilfe",
+    tagline: "Ein Scan. Online oder offline. Immer bereit.",
+    description: "Ein QR-Triage-Code, der Einsatzkräfte leitet — überall, jederzeit.",
+    pronunciation: "(ausgesprochen „My Care“)",
+    "emergency-card": "Notfall",
+    "full-name": "Vollständiger Name",
+    dob: "Geburtsdatum",
+    country: "Land",
+    "blood-type": "Blutgruppe",
+    allergies: "Allergien",
+    "ice-contact": "Notfallkontakt",
+    "open-app": "App öffnen",
+    "create-account": "Konto erstellen",
+    login: "Anmelden",
+    about: "Über",
+    clinician: "Kliniker",
+    "how-it-works": "So funktioniert’s",
+    privacy: "Datenschutz",
+    terms: "Bedingungen",
+    contact: "Kontakt",
+    email: "E-Mail",
+    password: "Passwort",
+    cancel: "Abbrechen",
+    "forgot-password": "Passwort vergessen?",
+    "reset-password": "Passwort zurücksetzen",
+    "back-to-login": "Zurück zur Anmeldung",
+    "check-email": "Prüfen Sie Ihre E-Mail für Anweisungen",
+    "login-success": "Erfolgreich angemeldet! Weiterleiten...",
+    "signup-success": "Konto erstellt! Bitte E-Mail prüfen.",
+    "error-occurred": "Ein Fehler ist aufgetreten. Bitte erneut versuchen.",
+    "loading": "Laden...",
+    "copy-success": "Link in die Zwischenablage kopiert!",
+    "share-title": "Mein Notfall-QR",
+    "share-text": "Greife auf meine Notfallinformationen zu",
+    "personal-info": "PERSÖNLICHE INFORMATIONEN",
+    "name-label": "Name:",
+    "patient-name": "Jane Doe",
+    "dob-label": "Geburtsdatum:",
+    "patient-dob": "1. Januar 1990",
+    "blood-type-label": "Blutgruppe:",
+    "patient-blood": "O+",
+    "organ-donor-label": "Organspender:",
+    "patient-donor": "Ja",
+    "medical-allergies": "MEDIZINISCHE ALLERGIEN",
+    "allergy-penicillin": "• Penicillin (schwere Reaktion)",
+    "allergy-shellfish": "• Meeresfrüchte (Anaphylaxie)",
+    "allergy-latex": "• Latex (Kontaktdermatitis)",
+    "medical-conditions": "MEDIZINISCHE ERKRANKUNGEN",
+    "condition-diabetes": "• Typ-1-Diabetes",
+    "condition-asthma": "• Asthma (leicht, belastungsinduziert)",
+    "condition-hypertension": "• Hypertonie (kontrolliert)",
+    "current-medications": "AKTUELLE MEDIKAMENTE",
+    "med-insulin": "• Insulin (Humalog) – bei Bedarf",
+    "med-lisinopril": "• Lisinopril 10 mg – täglich",
+    "med-albuterol": "• Albuterol-Inhalator – bei Bedarf",
+    "med-metformin": "• Metformin 500 mg – zweimal täglich",
+    "implants-devices": "IMPLANTATE & GERÄTE",
+    "device-glucose": "• Kontinuierlicher Glukosesensor",
+    "device-pump": "• Insulinpumpe (Medtronic)",
+    "emergency-contacts": "NOTFALLKONTAKTE",
+    "primary-label": "Primär:",
+    "contact-mother": "Sarah Doe (Mutter)",
+    "phone-label": "Telefon:",
+    "secondary-label": "Sekundär:",
+    "contact-father": "John Doe (Vater)",
+    "doctor-label": "Arzt:",
+    "contact-doctor": "Dr. Smith (Hausarzt)",
+    "auto-triage": "AUTO-TRIAGE",
+    "flip-hint": "Tippen, um den QR zu sehen",
+    "emergency-qr": "Notfall-QR",
+    "copy-link": "Link kopieren",
+    "download-png": "PNG herunterladen",
+    "print": "Drucken",
+    "share-link": "Link teilen",
+    "disclaimer": "Nur zu Informationszwecken. Kliniker bestätigen mit offiziellen Unterlagen. Daten bleiben auf Ihrem Gerät, sofern Sie sie nicht teilen."
+},
+it: {
+    title: "MYQER™ — Assistenza Intelligente con Tag QR Sanitario & di Emergenza",
+    tagline: "Una scansione. Online o offline. Sempre pronto.",
+    description: "Un codice QR di triage per guidare i soccorritori — ovunque, in qualsiasi momento.",
+    pronunciation: "(si pronuncia \"My Care\")",
+    "emergency-card": "Emergenza",
+    "full-name": "Nome completo",
+    dob: "Data di nascita",
+    country: "Paese",
+    "blood-type": "Gruppo sanguigno",
+    allergies: "Allergie",
+    "ice-contact": "Contatto di emergenza",
+    "open-app": "Apri app",
+    "create-account": "Crea account",
+    login: "Accedi",
+    about: "Informazioni",
+    clinician: "Clinico",
+    "how-it-works": "Come funziona",
+    privacy: "Privacy",
+    terms: "Termini",
+    contact: "Contatti",
+    email: "Email",
+    password: "Password",
+    cancel: "Annulla",
+    "forgot-password": "Password dimenticata?",
+    "reset-password": "Reimposta password",
+    "back-to-login": "Torna al login",
+    "check-email": "Controlla l’email per le istruzioni",
+    "login-success": "Accesso riuscito! Reindirizzamento...",
+    "signup-success": "Account creato! Controlla l’email.",
+    "error-occurred": "Si è verificato un errore. Riprova.",
+    "loading": "Caricamento...",
+    "copy-success": "Link copiato negli appunti!",
+    "share-title": "Il mio QR di emergenza",
+    "share-text": "Accedi alle mie info di emergenza",
+    "personal-info": "INFORMAZIONI PERSONALI",
+    "name-label": "Nome:",
+    "patient-name": "Jane Doe",
+    "dob-label": "Data di nascita:",
+    "patient-dob": "1 gennaio 1990",
+    "blood-type-label": "Gruppo sanguigno:",
+    "patient-blood": "O+",
+    "organ-donor-label": "Donatore di organi:",
+    "patient-donor": "Sì",
+    "medical-allergies": "ALLERGIE MEDICHE",
+    "allergy-penicillin": "• Penicillina (reazione grave)",
+    "allergy-shellfish": "• Crostacei (anafilassi)",
+    "allergy-latex": "• Lattice (dermatite da contatto)",
+    "medical-conditions": "CONDIZIONI MEDICHE",
+    "condition-diabetes": "• Diabete di tipo 1",
+    "condition-asthma": "• Asma (lieve, indotta da esercizio)",
+    "condition-hypertension": "• Ipertensione (controllata)",
+    "current-medications": "FARMACI ATTUALI",
+    "med-insulin": "• Insulina (Humalog) – al bisogno",
+    "med-lisinopril": "• Lisinopril 10 mg – giornaliero",
+    "med-albuterol": "• Inalatore albuterolo – al bisogno",
+    "med-metformin": "• Metformina 500 mg – due volte al giorno",
+    "implants-devices": "IMPIANTI & DISPOSITIVI",
+    "device-glucose": "• Monitoraggio continuo del glucosio",
+    "device-pump": "• Pompa per insulina (Medtronic)",
+    "emergency-contacts": "CONTATTI D’EMERGENZA",
+    "primary-label": "Primario:",
+    "contact-mother": "Sarah Doe (Madre)",
+    "phone-label": "Telefono:",
+    "secondary-label": "Secondario:",
+    "contact-father": "John Doe (Padre)",
+    "doctor-label": "Medico:",
+    "contact-doctor": "Dr. Smith (Medico di base)",
+    "auto-triage": "TRIAGE AUTOMATICO",
+    "flip-hint": "Tocca per vedere il QR",
+    "emergency-qr": "QR di emergenza",
+    "copy-link": "Copia link",
+    "download-png": "Scarica PNG",
+    "print": "Stampa",
+    "share-link": "Condividi link",
+    "disclaimer": "Solo a scopo informativo. I clinici confermano con registri ufficiali. I dati restano sul tuo dispositivo, a meno che tu non li condivida."
+},
+pt: {
+    title: "MYQER™ — Assistente Inteligente de Saúde & Tag QR de Emergência",
+    tagline: "Um scan. Online ou offline. Sempre pronto.",
+    description: "Um código QR de triagem para orientar socorristas — em qualquer lugar, a qualquer hora.",
+    pronunciation: "(pronuncia-se \"My Care\")",
+    "emergency-card": "Emergência",
+    "full-name": "Nome completo",
+    dob: "Data de nascimento",
+    country: "País",
+    "blood-type": "Tipo sanguíneo",
+    allergies: "Alergias",
+    "ice-contact": "Contato de emergência",
+    "open-app": "Abrir app",
+    "create-account": "Criar conta",
+    login: "Entrar",
+    about: "Sobre",
+    clinician: "Clínico",
+    "how-it-works": "Como funciona",
+    privacy: "Privacidade",
+    terms: "Termos",
+    contact: "Contato",
+    email: "Email",
+    password: "Senha",
+    cancel: "Cancelar",
+    "forgot-password": "Esqueceu a senha?",
+    "reset-password": "Redefinir senha",
+    "back-to-login": "Voltar ao login",
+    "check-email": "Verifique seu email para instruções",
+    "login-success": "Login bem-sucedido! Redirecionando...",
+    "signup-success": "Conta criada! Verifique seu email.",
+    "error-occurred": "Ocorreu um erro. Tente novamente.",
+    "loading": "Carregando...",
+    "copy-success": "Link copiado para a área de transferência!",
+    "share-title": "Meu QR de emergência",
+    "share-text": "Acesse minhas informações de emergência",
+    "personal-info": "INFORMAÇÕES PESSOAIS",
+    "name-label": "Nome:",
+    "patient-name": "Jane Doe",
+    "dob-label": "Data de nascimento:",
+    "patient-dob": "1º de janeiro de 1990",
+    "blood-type-label": "Tipo sanguíneo:",
+    "patient-blood": "O+",
+    "organ-donor-label": "Doador de órgãos:",
+    "patient-donor": "Sim",
+    "medical-allergies": "ALERGIAS MÉDICAS",
+    "allergy-penicillin": "• Penicilina (reação grave)",
+    "allergy-shellfish": "• Frutos do mar (anafilaxia)",
+    "allergy-latex": "• Látex (dermatite de contato)",
+    "medical-conditions": "CONDIÇÕES MÉDICAS",
+    "condition-diabetes": "• Diabetes tipo 1",
+    "condition-asthma": "• Asma (leve, induzida por exercício)",
+    "condition-hypertension": "• Hipertensão (controlada)",
+    "current-medications": "MEDICAMENTOS ATUAIS",
+    "med-insulin": "• Insulina (Humalog) – conforme necessário",
+    "med-lisinopril": "• Lisinopril 10 mg – diário",
+    "med-albuterol": "• Inalador de albuterol – conforme necessário",
+    "med-metformin": "• Metformina 500 mg – duas vezes ao dia",
+    "implants-devices": "IMPLANTES & DISPOSITIVOS",
+    "device-glucose": "• Monitor contínuo de glicose",
+    "device-pump": "• Bomba de insulina (Medtronic)",
+    "emergency-contacts": "CONTATOS DE EMERGÊNCIA",
+    "primary-label": "Primário:",
+    "contact-mother": "Sarah Doe (Mãe)",
+    "phone-label": "Telefone:",
+    "secondary-label": "Secundário:",
+    "contact-father": "John Doe (Pai)",
+    "doctor-label": "Médico:",
+    "contact-doctor": "Dr. Smith (Clínico geral)",
+    "auto-triage": "TRIAGEM AUTOMÁTICA",
+    "flip-hint": "Toque para ver o QR",
+    "emergency-qr": "QR de emergência",
+    "copy-link": "Copiar link",
+    "download-png": "Baixar PNG",
+    "print": "Imprimir",
+    "share-link": "Compartilhar link",
+    "disclaimer": "Apenas informativo. Clínicos confirmam com registros oficiais. Os dados permanecem no seu dispositivo, a menos que você os compartilhe."
+},
+ro: {
+    title: "MYQER™ — Asistent Inteligent pentru Sănătate & Tag QR de Urgență",
+    tagline: "O scanare. Online sau offline. Mereu gata.",
+    description: "Un cod QR de triaj care ghidează intervenienții — oriunde, oricând.",
+    pronunciation: "(se pronunță „My Care”)",
+    "emergency-card": "Urgență",
+    "full-name": "Nume complet",
+    dob: "Data nașterii",
+    country: "Țară",
+    "blood-type": "Grupă sanguină",
+    allergies: "Alergii",
+    "ice-contact": "Contact de urgență",
+    "open-app": "Deschide aplicația",
+    "create-account": "Creează cont",
+    login: "Conectare",
+    about: "Despre",
+    clinician: "Clinician",
+    "how-it-works": "Cum funcționează",
+    privacy: "Confidențialitate",
+    terms: "Termeni",
+    contact: "Contact",
+    email: "Email",
+    password: "Parolă",
+    cancel: "Anulează",
+    "forgot-password": "Ai uitat parola?",
+    "reset-password": "Resetează parola",
+    "back-to-login": "Înapoi la autentificare",
+    "check-email": "Verifică emailul pentru instrucțiuni",
+    "login-success": "Autentificare reușită! Redirecționare...",
+    "signup-success": "Cont creat! Verifică emailul.",
+    "error-occurred": "A apărut o eroare. Încearcă din nou.",
+    "loading": "Se încarcă...",
+    "copy-success": "Link copiat în clipboard!",
+    "share-title": "QR-ul meu de urgență",
+    "share-text": "Accesează informațiile mele de urgență",
+    "personal-info": "INFORMAȚII PERSONALE",
+    "name-label": "Nume:",
+    "patient-name": "Jane Doe",
+    "dob-label": "Data nașterii:",
+    "patient-dob": "1 ianuarie 1990",
+    "blood-type-label": "Grupă sanguină:",
+    "patient-blood": "O+",
+    "organ-donor-label": "Donator de organe:",
+    "patient-donor": "Da",
+    "medical-allergies": "ALERGII MEDICALE",
+    "allergy-penicillin": "• Penicilină (reacție severă)",
+    "allergy-shellfish": "• Fructe de mare (anafilaxie)",
+    "allergy-latex": "• Latex (dermatită de contact)",
+    "medical-conditions": "AFECȚIUNI MEDICALE",
+    "condition-diabetes": "• Diabet de tip 1",
+    "condition-asthma": "• Astm (ușor, indus de efort)",
+    "condition-hypertension": "• Hipertensiune (controlată)",
+    "current-medications": "MEDICAȚIE ACTUALĂ",
+    "med-insulin": "• Insulină (Humalog) – la nevoie",
+    "med-lisinopril": "• Lisinopril 10 mg – zilnic",
+    "med-albuterol": "• Inhalator cu albuterol – la nevoie",
+    "med-metformin": "• Metformin 500 mg – de două ori pe zi",
+    "implants-devices": "IMPLANTURI & DISPOZITIVE",
+    "device-glucose": "• Monitor continuu al glucozei",
+    "device-pump": "• Pompă de insulină (Medtronic)",
+    "emergency-contacts": "CONTACTE DE URGENȚĂ",
+    "primary-label": "Primar:",
+    "contact-mother": "Sarah Doe (Mamă)",
+    "phone-label": "Telefon:",
+    "secondary-label": "Secundar:",
+    "contact-father": "John Doe (Tată)",
+    "doctor-label": "Doctor:",
+    "contact-doctor": "Dr. Smith (Medic de familie)",
+    "auto-triage": "TRIAJ AUTOMAT",
+    "flip-hint": "Atinge pentru a vedea QR-ul",
+    "emergency-qr": "QR de urgență",
+    "copy-link": "Copiază linkul",
+    "download-png": "Descarcă PNG",
+    "print": "Printează",
+    "share-link": "Distribuie linkul",
+    "disclaimer": "Doar informativ. Clinicienii confirmă cu evidențe oficiale. Datele rămân pe dispozitivul tău, cu excepția cazului în care le distribui."
+},
+ar: {
+    title: "MYQER™ — مساعد ذكي للصحة وعلامة QR للطوارئ",
+    tagline: "فحص واحد. عبر الإنترنت أو بدون اتصال. دائمًا جاهز.",
+    description: "رمز QR للفرز يوجّه المستجيبين — في أي مكان وأي وقت.",
+    pronunciation: "(تُنطق \"ماي كير\")",
+    "emergency-card": "الطوارئ",
+    "full-name": "الاسم الكامل",
+    dob: "تاريخ الميلاد",
+    country: "الدولة",
+    "blood-type": "فصيلة الدم",
+    allergies: "الحساسية",
+    "ice-contact": "جهة اتصال للطوارئ",
+    "open-app": "افتح التطبيق",
+    "create-account": "إنشاء حساب",
+    login: "تسجيل الدخول",
+    about: "نبذة",
+    clinician: "طبيب",
+    "how-it-works": "كيف يعمل",
+    privacy: "الخصوصية",
+    terms: "الشروط",
+    contact: "اتصال",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    cancel: "إلغاء",
+    "forgot-password": "هل نسيت كلمة المرور؟",
+    "reset-password": "إعادة تعيين كلمة المرور",
+    "back-to-login": "العودة لتسجيل الدخول",
+    "check-email": "تحقق من بريدك للحصول على التعليمات",
+    "login-success": "تم تسجيل الدخول بنجاح! جارٍ التحويل...",
+    "signup-success": "تم إنشاء الحساب! تحقق من بريدك.",
+    "error-occurred": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    "loading": "جارٍ التحميل...",
+    "copy-success": "تم نسخ الرابط!",
+    "share-title": "رمز QR للطوارئ الخاص بي",
+    "share-text": "الوصول إلى معلومات الطوارئ الخاصة بي",
+    "personal-info": "المعلومات الشخصية",
+    "name-label": "الاسم:",
+    "patient-name": "جين دو",
+    "dob-label": "تاريخ الميلاد:",
+    "patient-dob": "1 يناير 1990",
+    "blood-type-label": "فصيلة الدم:",
+    "patient-blood": "O+",
+    "organ-donor-label": "متبرع بالأعضاء:",
+    "patient-donor": "نعم",
+    "medical-allergies": "الحساسية الطبية",
+    "allergy-penicillin": "• البنسلين (تفاعل شديد)",
+    "allergy-shellfish": "• المأكولات البحرية (صدمة تحسسية)",
+    "allergy-latex": "• اللاتكس (التهاب جلد تماسي)",
+    "medical-conditions": "الحالات الطبية",
+    "condition-diabetes": "• السكري من النوع الأول",
+    "condition-asthma": "• الربو (خفيف، يسببه الجهد)",
+    "condition-hypertension": "• ارتفاع ضغط الدم (مسيطر عليه)",
+    "current-medications": "الأدوية الحالية",
+    "med-insulin": "• الإنسولين (هومالوج) — عند الحاجة",
+    "med-lisinopril": "• ليسينوبريل 10 ملغ — يوميًا",
+    "med-albuterol": "• بخاخ ألبوتيرول — عند الحاجة",
+    "med-metformin": "• ميتفورمين 500 ملغ — مرتين يوميًا",
+    "implants-devices": "الزرعات والأجهزة",
+    "device-glucose": "• جهاز مراقبة الجلوكوز المستمر",
+    "device-pump": "• مضخة إنسولين (ميدترونيك)",
+    "emergency-contacts": "جهات اتصال الطوارئ",
+    "primary-label": "أساسي:",
+    "contact-mother": "سارة دو (الأم)",
+    "phone-label": "الهاتف:",
+    "secondary-label": "ثانوي:",
+    "contact-father": "جون دو (الأب)",
+    "doctor-label": "الطبيب:",
+    "contact-doctor": "د. سميث (طبيب عام)",
+    "auto-triage": "فرز تلقائي",
+    "flip-hint": "اضغط لعرض رمز QR",
+    "emergency-qr": "رمز QR للطوارئ",
+    "copy-link": "نسخ الرابط",
+    "download-png": "تنزيل PNG",
+    "print": "طباعة",
+    "share-link": "مشاركة الرابط",
+    "disclaimer": "للمعلومات فقط. يؤكد الأطباء بالمستندات الرسمية. تبقى البيانات على جهازك ما لم تقم بمشاركتها."
+},
+hi: {
+    title: "MYQER™ — स्मार्ट हेल्थ और इमरजेंसी QR टैग सहायता",
+    tagline: "एक स्कैन. ऑनलाइन या ऑफलाइन. हमेशा तैयार.",
+    description: "उत्तरदाताओं का मार्गदर्शन करने के लिए QR ट्राइएज कोड — कहीं भी, कभी भी।",
+    pronunciation: "(उच्चारण \"माय केयर\")",
+    "emergency-card": "आपातकाल",
+    "full-name": "पूरा नाम",
+    dob: "जन्म तिथि",
+    country: "देश",
+    "blood-type": "रक्त समूह",
+    allergies: "एलर्जी",
+    "ice-contact": "आपातकालीन संपर्क",
+    "open-app": "ऐप खोलें",
+    "create-account": "खाता बनाएं",
+    login: "लॉगिन",
+    about: "परिचय",
+    clinician: "चिकित्सक",
+    "how-it-works": "कैसे काम करता है",
+    privacy: "गोपनीयता",
+    terms: "नियम",
+    contact: "संपर्क",
+    email: "ई-मेल",
+    password: "पासवर्ड",
+    cancel: "रद्द करें",
+    "forgot-password": "पासवर्ड भूल गए?",
+    "reset-password": "पासवर्ड रीसेट करें",
+    "back-to-login": "लॉगिन पर वापस",
+    "check-email": "निर्देशों के लिए अपना ई-मेल देखें",
+    "login-success": "लॉगिन सफल! रीडायरेक्ट हो रहा है...",
+    "signup-success": "खाता बन गया! कृपया ई-मेल देखें।",
+    "error-occurred": "त्रुटि हुई। कृपया पुनः प्रयास करें।",
+    "loading": "लोड हो रहा है...",
+    "copy-success": "लिंक कॉपी हो गया!",
+    "share-title": "मेरा आपातकालीन QR",
+    "share-text": "मेरी आपातकालीन जानकारी देखें",
+    "personal-info": "व्यक्तिगत जानकारी",
+    "name-label": "नाम:",
+    "patient-name": "जेन डो",
+    "dob-label": "जन्म तिथि:",
+    "patient-dob": "1 जनवरी 1990",
+    "blood-type-label": "रक्त समूह:",
+    "patient-blood": "O+",
+    "organ-donor-label": "अंग दाता:",
+    "patient-donor": "हाँ",
+    "medical-allergies": "चिकित्सीय एलर्जी",
+    "allergy-penicillin": "• पेनिसिलिन (गंभीर प्रतिक्रिया)",
+    "allergy-shellfish": "• शेलफिश (एनाफिलैक्सिस)",
+    "allergy-latex": "• लेटेक्स (संपर्क त्वचा-शोथ)",
+    "medical-conditions": "चिकित्सीय स्थितियाँ",
+    "condition-diabetes": "• टाइप 1 मधुमेह",
+    "condition-asthma": "• अस्थमा (हल्का, व्यायाम-प्रेरित)",
+    "condition-hypertension": "• उच्च रक्तचाप (नियंत्रित)",
+    "current-medications": "वर्तमान दवाएँ",
+    "med-insulin": "• इंसुलिन (ह्यूमालॉग) – आवश्यकतानुसार",
+    "med-lisinopril": "• लिसिनोप्रिल 10 मि.ग्रा. – दैनिक",
+    "med-albuterol": "• अल्ब्यूटेरॉल इन्हेलर – आवश्यकतानुसार",
+    "med-metformin": "• मेटफॉर्मिन 500 मि.ग्रा. – दिन में दो बार",
+    "implants-devices": "इम्प्लांट्स और डिवाइस",
+    "device-glucose": "• सतत ग्लूकोज मॉनिटर",
+    "device-pump": "• इंसुलिन पंप (मेडट्रॉनिक)",
+    "emergency-contacts": "आपातकालीन संपर्क",
+    "primary-label": "प्राथमिक:",
+    "contact-mother": "सारा डो (माता)",
+    "phone-label": "फोन:",
+    "secondary-label": "द्वितीयक:",
+    "contact-father": "जॉन डो (पिता)",
+    "doctor-label": "डॉक्टर:",
+    "contact-doctor": "डॉ. स्मिथ (सामान्य चिकित्सक)",
+    "auto-triage": "स्वचालित ट्राइएज",
+    "flip-hint": "QR देखने के लिए टैप करें",
+    "emergency-qr": "आपातकालीन QR",
+    "copy-link": "लिंक कॉपी करें",
+    "download-png": "PNG डाउनलोड करें",
+    "print": "प्रिंट",
+    "share-link": "लिंक साझा करें",
+    "disclaimer": "केवल जानकारी के लिए। चिकित्सक आधिकारिक रिकॉर्ड से पुष्टि करते हैं। जब तक आप साझा न करें, डेटा आपके डिवाइस पर रहता है।"
+},
+zh: {
+    title: "MYQER™ — 智能健康与紧急QR标签助手",
+    tagline: "一次扫描。在线/离线，随时就绪。",
+    description: "用于引导救援人员的QR分诊码——随时随地。",
+    pronunciation: "（读作“迈·凯尔”）",
+    "emergency-card": "紧急",
+    "full-name": "全名",
+    dob: "出生日期",
+    country: "国家",
+    "blood-type": "血型",
+    allergies: "过敏",
+    "ice-contact": "紧急联系人",
+    "open-app": "打开应用",
+    "create-account": "创建账户",
+    login: "登录",
+    about: "关于",
+    clinician: "临床",
+    "how-it-works": "工作原理",
+    privacy: "隐私",
+    terms: "条款",
+    contact: "联系",
+    email: "邮箱",
+    password: "密码",
+    cancel: "取消",
+    "forgot-password": "忘记密码？",
+    "reset-password": "重置密码",
+    "back-to-login": "返回登录",
+    "check-email": "请查看邮箱以获取说明",
+    "login-success": "登录成功！正在跳转……",
+    "signup-success": "账户已创建！请查收邮箱。",
+    "error-occurred": "发生错误，请重试。",
+    "loading": "加载中…",
+    "copy-success": "链接已复制！",
+    "share-title": "我的紧急QR",
+    "share-text": "访问我的紧急信息",
+    "personal-info": "个人信息",
+    "name-label": "姓名：",
+    "patient-name": "简·多伊",
+    "dob-label": "出生日期：",
+    "patient-dob": "1990年1月1日",
+    "blood-type-label": "血型：",
+    "patient-blood": "O+",
+    "organ-donor-label": "器官捐献者：",
+    "patient-donor": "是",
+    "medical-allergies": "医疗过敏",
+    "allergy-penicillin": "• 青霉素（严重反应）",
+    "allergy-shellfish": "• 贝类（过敏性休克）",
+    "allergy-latex": "• 乳胶（接触性皮炎）",
+    "medical-conditions": "医疗状况",
+    "condition-diabetes": "• 1型糖尿病",
+    "condition-asthma": "• 哮喘（轻度，运动诱发）",
+    "condition-hypertension": "• 高血压（已控制）",
+    "current-medications": "当前用药",
+    "med-insulin": "• 胰岛素（优泌乐）— 按需",
+    "med-lisinopril": "• 赖诺普利 10 mg — 每日",
+    "med-albuterol": "• 沙丁胺醇吸入器 — 按需",
+    "med-metformin": "• 二甲双胍 500 mg — 每日两次",
+    "implants-devices": "植入物与设备",
+    "device-glucose": "• 连续血糖监测仪",
+    "device-pump": "• 胰岛素泵（美敦力）",
+    "emergency-contacts": "紧急联系人",
+    "primary-label": "主要：",
+    "contact-mother": "莎拉·多伊（母亲）",
+    "phone-label": "电话：",
+    "secondary-label": "次要：",
+    "contact-father": "约翰·多伊（父亲）",
+    "doctor-label": "医生：",
+    "contact-doctor": "史密斯医生（全科）",
+    "auto-triage": "自动分诊",
+    "flip-hint": "点击查看二维码",
+    "emergency-qr": "紧急QR",
+    "copy-link": "复制链接",
+    "download-png": "下载 PNG",
+    "print": "打印",
+    "share-link": "分享链接",
+    "disclaimer": "仅供参考。临床人员需与官方记录核对。除非您分享，数据只保留在您的设备上。"
+}
+};
+
+        let currentLanguage = 'en';
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM loaded, initializing...');
+
+            // Set default language from browser
+            const browserLang = navigator.language.split('-')[0];
+            console.log('Browser language:', browserLang);
+
+            if (translations[browserLang]) {
+                changeLanguage(browserLang);
+                const dd = document.querySelector('.language-dropdown');
+                if (dd) dd.value = browserLang;
+            } else {
+                changeLanguage('en');
+            }
+
+            // Generate QR code after a short delay to ensure canvas is ready
+            setTimeout(() => {
+                generateQRCode();
+            }, 100);
+
+            // Check authentication
+            checkAuth();
+
+            console.log('Initialization complete');
+        });
+
+        // Menu Functions
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            menu.classList.toggle('active');
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function (event) {
+            const menu = document.getElementById('menu');
+            const toggle = document.querySelector('.menu-toggle');
+            if (!menu) return;
+            if (!menu.contains(event.target) && (!toggle || !toggle.contains(event.target))) {
+                menu.classList.remove('active');
+            }
+        });
+
+        // Language Functions
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            const elements = document.querySelectorAll('[data-translate]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    if (element.tagName === 'INPUT' && (element.type === 'submit' || element.type === 'button')) {
+                        element.value = translations[lang][key];
+                    } else if (element.tagName === 'BUTTON') {
+                        element.textContent = translations[lang][key];
+                    } else {
+                        element.textContent = translations[lang][key];
+                    }
+                }
+            });
+
+            // Update placeholders
+            const emailInputs = document.querySelectorAll('input[type="email"]');
+            emailInputs.forEach(input => {
+                input.placeholder = translations[lang]['email'] || 'Email';
+            });
+
+            const passwordInputs = document.querySelectorAll('input[type="password"]');
+            passwordInputs.forEach(input => {
+                input.placeholder = translations[lang]['password'] || 'Password';
+            });
+
+            const nameInputs = document.querySelectorAll('input[type="text"]');
+            nameInputs.forEach(input => {
+                if (input.id === 'signupName') {
+                    input.placeholder = translations[lang]['full-name'] || 'Full Name';
+                }
+            });
+        }
+
+        // 3D Card Interactions
+        function flipCard() {
+            const card = document.querySelector('.card-3d');
+            if (!card) return;
+            const isFlipped = card.classList.contains('is-flipped');
+
+            card.classList.toggle('is-flipped');
+            card.setAttribute('aria-expanded', String(!isFlipped));
+            card.setAttribute('aria-label', isFlipped ? 'Flip to QR' : 'Flip to Identity');
+        }
+
+        function handleCardKeydown(event) {
+            // Don’t flip when focused on interactive controls inside the card
+            if (event.target.closest('button, a, input, textarea, select')) return;
+
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                flipCard();
+            } else if (event.key === 'Escape') {
+                const card = document.querySelector('.card-3d');
+                if (!card) return;
+                card.classList.remove('is-flipped');
+                card.setAttribute('aria-expanded', 'false');
+                card.setAttribute('aria-label', 'Flip to QR');
+            }
+        }
+
+        function updateCursor(event) {
+            const card = event.currentTarget;
+            const rect = card.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+            card.style.setProperty('--mx', x + '%');
+            card.style.setProperty('--my', y + '%');
+        }
+
+        // QR Code Generation
+        function generateQRCode() {
+            const canvas = document.getElementById('qrcode');
+            if (!canvas) return;
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+
+            // Update QR info
+            const txt = document.getElementById('qrCodeText');
+            if (txt) txt.textContent = sampleCode;
+
+            // Generate QR code
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(
+                    canvas,
+                    qrLink,
+                    {
+                        width: 120,
+                        margin: 1,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    },
+                    function (error) {
+                        if (error) console.error('QR Code generation error:', error);
+                    }
+                );
+            } else {
+                // Fallback if QRCode library doesn't load
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, 120, 120);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('QR Code', 60, 60);
+            }
+        }
+
+        // QR Actions
+        function copyQRLink() {
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+            navigator.clipboard.writeText(qrLink).then(() => {
+                showMessage(translations[currentLanguage]['copy-success'], 'success');
+            }).catch(() => {
+                showMessage(translations[currentLanguage]['error-occurred'], 'error');
+            });
+        }
+
+        function downloadPNG() {
+            const canvas = document.getElementById('qrcode');
+            if (!canvas) return;
+            const link = document.createElement('a');
+            link.download = 'myqer-emergency-qr.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function printCard() {
+            window.print();
+        }
+
+        function shareLink() {
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: translations[currentLanguage]['share-title'],
+                    text: translations[currentLanguage]['share-text'],
+                    url: qrLink
+                });
+            } else {
+                copyQRLink();
+            }
+        }
+
+        // Modal Functions
+        function openModal(type) {
+            const modal = document.getElementById(type + 'Modal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeModal() {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => modal.classList.remove('active'));
+        }
+
+        // Auth Functions
+        async function signUp(name, email, password) {
+            try {
+                console.log('Attempting signup with:', { name, email });
+
+                const { data, error } = await sb.auth.signUp({
+                    email: email.trim(),
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: name.trim(),
+                            display_name: name.trim()
+                        }
+                    }
+                });
+
+                console.log('Signup response:', { data, error });
+
+                if (error) {
+                    console.error('Signup error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    showMessage(translations[currentLanguage]['signup-success'], 'success');
+                    closeModal();
+                    // Clear form
+                    const n = document.getElementById('signupName');
+                    const e = document.getElementById('signupEmail');
+                    const p = document.getElementById('signupPassword');
+                    if (n) n.value = '';
+                    if (e) e.value = '';
+                    if (p) p.value = '';
+                }
+            } catch (err) {
+                console.error('Signup catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        async function signIn(email, password) {
+            try {
+                console.log('Attempting login with:', { email });
+
+                const { data, error } = await sb.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+
+                console.log('Login response:', { data, error });
+
+                if (error) {
+                    console.error('Login error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    // Clear form immediately
+                    const e = document.getElementById('loginEmail');
+                    const p = document.getElementById('loginPassword');
+                    if (e) e.value = '';
+                    if (p) p.value = '';
+                    closeModal();
+
+                    // Redirect immediately without delay
+                    window.location.href = "dashboard.html";
+                }
+            } catch (err) {
+                console.error('Login catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        async function resetPassword(email) {
+            try {
+                console.log('Attempting password reset for:', email);
+
+                const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo: window.location.origin + '/reset-password.html'
+                });
+
+                console.log('Reset password response:', { error });
+
+                if (error) {
+                    console.error('Reset password error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    showMessage(translations[currentLanguage]['check-email'], 'success');
+                    closeModal();
+                    const r = document.getElementById('resetEmail');
+                    if (r) r.value = '';
+                }
+            } catch (err) {
+                console.error('Reset password catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        // Check if user is already logged in
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await sb.auth.getSession();
+                console.log('Auth check:', { session, error });
+
+                if (session && session.user) {
+                    console.log('User is logged in, redirecting to dashboard');
+                    window.location.href = "dashboard.html";
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+            }
+        }
+
+        // Message System
+        function showMessage(message, type = 'info') {
+            // Remove existing messages
+            const existingMessage = document.querySelector('.message-toast');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = 'message-toast';
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 24px;
+                border-radius: 12px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                max-width: 400px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                backdrop-filter: blur(10px);
+                animation: slideIn 0.3s ease-out;
+                ${type === 'error' ? 'background: rgba(211, 47, 47, 0.9);' : 'background: rgba(76, 175, 80, 0.9);'}
+            `;
+
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Add slide-in animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Form Handlers
+        function handleLogin(event) {
+            event.preventDefault();
+            console.log('Login form submitted');
+
+            const email = document.getElementById('loginEmail')?.value;
+            const password = document.getElementById('loginPassword')?.value;
+
+            if (!email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            signIn(email, password);
+        }
+
+        function handleSignup(event) {
+            event.preventDefault();
+            console.log('Signup form submitted');
+
+            const name = document.getElementById('signupName')?.value;
+            const email = document.getElementById('signupEmail')?.value;
+            const password = document.getElementById('signupPassword')?.value;
+
+            if (!name || !email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            signUp(name, email, password);
+        }
+
+        function handleReset(event) {
+            event.preventDefault();
+            console.log('Reset form submitted');
+
+            const email = document.getElementById('resetEmail')?.value;
+
+            if (!email) {
+                showMessage('Please enter your email address', 'error');
+                return;
+            }
+
+            resetPassword(email);
+        }
+
+        function openResetModal() {
+            closeModal();
+            setTimeout(() => {
+                openModal('reset');
+            }, 100);
+        }
+
+        // Button Functions
+        function openApp() {
+            window.location.href = '/dashboard.html';
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function (event) {
+            if (event.target.classList && event.target.classList.contains('modal')) {
+                closeModal();
+            }
+        });
+
+        // Keyboard navigation for modals
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+
+    <!-- (Optional) Cloudflare anti-bot snippet that was appended in your original file -->
+    <script>
+    (function () {
+        function c() {
+            var b = a.contentDocument || a.contentWindow.document;
+            if (b) {
+                var d = b.createElement('script');
+                d.innerHTML = "window.__CF$cv$params={r:'97a4e6ad921b641b',t:'MTc1NzA2NjY1Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+                b.getElementsByTagName('head')[0].appendChild(d);
+            }
+        }
+        if (document.body) {
+            var a = document.createElement('iframe');
+            a.height = 1;
+            a.width = 1;
+            a.style.position = 'absolute';
+            a.style.top = 0;
+            a.style.left = 0;
+            a.style.border = 'none';
+            a.style.visibility = 'hidden';
+            document.body.appendChild(a);
+            if ('loading' !== document.readyState) c();
+            else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c);
+            else {
+                var e = document.onreadystatechange || function () { };
+                document.onreadystatechange = function (b) {
+                    e(b);
+                    'loading' !== document.readyState && (document.onreadystatechange = e, c());
+                }
+            }
+        }
+    })();
+    </script>
+</body>
+</html>        
+        
