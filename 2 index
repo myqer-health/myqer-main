@@ -1727,5 +1727,479 @@ zh: {
     "disclaimer": "仅供参考。临床人员需与官方记录核对。除非您分享，数据只保留在您的设备上。"
 }
 };
-            
+
+        let currentLanguage = 'en';
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM loaded, initializing...');
+
+            // Set default language from browser
+            const browserLang = navigator.language.split('-')[0];
+            console.log('Browser language:', browserLang);
+
+            if (translations[browserLang]) {
+                changeLanguage(browserLang);
+                const dd = document.querySelector('.language-dropdown');
+                if (dd) dd.value = browserLang;
+            } else {
+                changeLanguage('en');
+            }
+
+            // Generate QR code after a short delay to ensure canvas is ready
+            setTimeout(() => {
+                generateQRCode();
+            }, 100);
+
+            // Check authentication
+            checkAuth();
+
+            console.log('Initialization complete');
+        });
+
+        // Menu Functions
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            menu.classList.toggle('active');
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function (event) {
+            const menu = document.getElementById('menu');
+            const toggle = document.querySelector('.menu-toggle');
+            if (!menu) return;
+            if (!menu.contains(event.target) && (!toggle || !toggle.contains(event.target))) {
+                menu.classList.remove('active');
+            }
+        });
+
+        // Language Functions
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            const elements = document.querySelectorAll('[data-translate]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    if (element.tagName === 'INPUT' && (element.type === 'submit' || element.type === 'button')) {
+                        element.value = translations[lang][key];
+                    } else if (element.tagName === 'BUTTON') {
+                        element.textContent = translations[lang][key];
+                    } else {
+                        element.textContent = translations[lang][key];
+                    }
+                }
+            });
+
+            // Update placeholders
+            const emailInputs = document.querySelectorAll('input[type="email"]');
+            emailInputs.forEach(input => {
+                input.placeholder = translations[lang]['email'] || 'Email';
+            });
+
+            const passwordInputs = document.querySelectorAll('input[type="password"]');
+            passwordInputs.forEach(input => {
+                input.placeholder = translations[lang]['password'] || 'Password';
+            });
+
+            const nameInputs = document.querySelectorAll('input[type="text"]');
+            nameInputs.forEach(input => {
+                if (input.id === 'signupName') {
+                    input.placeholder = translations[lang]['full-name'] || 'Full Name';
+                }
+            });
+        }
+
+        // 3D Card Interactions
+        function flipCard() {
+            const card = document.querySelector('.card-3d');
+            if (!card) return;
+            const isFlipped = card.classList.contains('is-flipped');
+
+            card.classList.toggle('is-flipped');
+            card.setAttribute('aria-expanded', String(!isFlipped));
+            card.setAttribute('aria-label', isFlipped ? 'Flip to QR' : 'Flip to Identity');
+        }
+
+        function handleCardKeydown(event) {
+            // Don’t flip when focused on interactive controls inside the card
+            if (event.target.closest('button, a, input, textarea, select')) return;
+
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                flipCard();
+            } else if (event.key === 'Escape') {
+                const card = document.querySelector('.card-3d');
+                if (!card) return;
+                card.classList.remove('is-flipped');
+                card.setAttribute('aria-expanded', 'false');
+                card.setAttribute('aria-label', 'Flip to QR');
+            }
+        }
+
+        function updateCursor(event) {
+            const card = event.currentTarget;
+            const rect = card.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+            card.style.setProperty('--mx', x + '%');
+            card.style.setProperty('--my', y + '%');
+        }
+
+        // QR Code Generation
+        function generateQRCode() {
+            const canvas = document.getElementById('qrcode');
+            if (!canvas) return;
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+
+            // Update QR info
+            const txt = document.getElementById('qrCodeText');
+            if (txt) txt.textContent = sampleCode;
+
+            // Generate QR code
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(
+                    canvas,
+                    qrLink,
+                    {
+                        width: 120,
+                        margin: 1,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    },
+                    function (error) {
+                        if (error) console.error('QR Code generation error:', error);
+                    }
+                );
+            } else {
+                // Fallback if QRCode library doesn't load
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, 120, 120);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('QR Code', 60, 60);
+            }
+        }
+
+        // QR Actions
+        function copyQRLink() {
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+            navigator.clipboard.writeText(qrLink).then(() => {
+                showMessage(translations[currentLanguage]['copy-success'], 'success');
+            }).catch(() => {
+                showMessage(translations[currentLanguage]['error-occurred'], 'error');
+            });
+        }
+
+        function downloadPNG() {
+            const canvas = document.getElementById('qrcode');
+            if (!canvas) return;
+            const link = document.createElement('a');
+            link.download = 'myqer-emergency-qr.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function printCard() {
+            window.print();
+        }
+
+        function shareLink() {
+            const sampleCode = 'F7N-8PG2-MQ4';
+            const qrLink = `https://www.myqer.com/functions/v1/card?code=${sampleCode}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: translations[currentLanguage]['share-title'],
+                    text: translations[currentLanguage]['share-text'],
+                    url: qrLink
+                });
+            } else {
+                copyQRLink();
+            }
+        }
+
+        // Modal Functions
+        function openModal(type) {
+            const modal = document.getElementById(type + 'Modal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeModal() {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => modal.classList.remove('active'));
+        }
+
+        // Auth Functions
+        async function signUp(name, email, password) {
+            try {
+                console.log('Attempting signup with:', { name, email });
+
+                const { data, error } = await sb.auth.signUp({
+                    email: email.trim(),
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: name.trim(),
+                            display_name: name.trim()
+                        }
+                    }
+                });
+
+                console.log('Signup response:', { data, error });
+
+                if (error) {
+                    console.error('Signup error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    showMessage(translations[currentLanguage]['signup-success'], 'success');
+                    closeModal();
+                    // Clear form
+                    const n = document.getElementById('signupName');
+                    const e = document.getElementById('signupEmail');
+                    const p = document.getElementById('signupPassword');
+                    if (n) n.value = '';
+                    if (e) e.value = '';
+                    if (p) p.value = '';
+                }
+            } catch (err) {
+                console.error('Signup catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        async function signIn(email, password) {
+            try {
+                console.log('Attempting login with:', { email });
+
+                const { data, error } = await sb.auth.signInWithPassword({
+                    email: email.trim(),
+                    password: password
+                });
+
+                console.log('Login response:', { data, error });
+
+                if (error) {
+                    console.error('Login error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    // Clear form immediately
+                    const e = document.getElementById('loginEmail');
+                    const p = document.getElementById('loginPassword');
+                    if (e) e.value = '';
+                    if (p) p.value = '';
+                    closeModal();
+
+                    // Redirect immediately without delay
+                    window.location.href = "dashboard.html";
+                }
+            } catch (err) {
+                console.error('Login catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        async function resetPassword(email) {
+            try {
+                console.log('Attempting password reset for:', email);
+
+                const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo: window.location.origin + '/reset-password.html'
+                });
+
+                console.log('Reset password response:', { error });
+
+                if (error) {
+                    console.error('Reset password error:', error);
+                    showMessage(translations[currentLanguage]['error-occurred'] + ': ' + error.message, 'error');
+                } else {
+                    showMessage(translations[currentLanguage]['check-email'], 'success');
+                    closeModal();
+                    const r = document.getElementById('resetEmail');
+                    if (r) r.value = '';
+                }
+            } catch (err) {
+                console.error('Reset password catch error:', err);
+                showMessage(translations[currentLanguage]['error-occurred'] + ': ' + err.message, 'error');
+            }
+        }
+
+        // Check if user is already logged in
+        async function checkAuth() {
+            try {
+                const { data: { session }, error } = await sb.auth.getSession();
+                console.log('Auth check:', { session, error });
+
+                if (session && session.user) {
+                    console.log('User is logged in, redirecting to dashboard');
+                    window.location.href = "dashboard.html";
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+            }
+        }
+
+        // Message System
+        function showMessage(message, type = 'info') {
+            // Remove existing messages
+            const existingMessage = document.querySelector('.message-toast');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = 'message-toast';
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 24px;
+                border-radius: 12px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                max-width: 400px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                backdrop-filter: blur(10px);
+                animation: slideIn 0.3s ease-out;
+                ${type === 'error' ? 'background: rgba(211, 47, 47, 0.9);' : 'background: rgba(76, 175, 80, 0.9);'}
+            `;
+
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Add slide-in animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Form Handlers
+        function handleLogin(event) {
+            event.preventDefault();
+            console.log('Login form submitted');
+
+            const email = document.getElementById('loginEmail')?.value;
+            const password = document.getElementById('loginPassword')?.value;
+
+            if (!email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            signIn(email, password);
+        }
+
+        function handleSignup(event) {
+            event.preventDefault();
+            console.log('Signup form submitted');
+
+            const name = document.getElementById('signupName')?.value;
+            const email = document.getElementById('signupEmail')?.value;
+            const password = document.getElementById('signupPassword')?.value;
+
+            if (!name || !email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            signUp(name, email, password);
+        }
+
+        function handleReset(event) {
+            event.preventDefault();
+            console.log('Reset form submitted');
+
+            const email = document.getElementById('resetEmail')?.value;
+
+            if (!email) {
+                showMessage('Please enter your email address', 'error');
+                return;
+            }
+
+            resetPassword(email);
+        }
+
+        function openResetModal() {
+            closeModal();
+            setTimeout(() => {
+                openModal('reset');
+            }, 100);
+        }
+
+        // Button Functions
+        function openApp() {
+            window.location.href = '/dashboard.html';
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function (event) {
+            if (event.target.classList && event.target.classList.contains('modal')) {
+                closeModal();
+            }
+        });
+
+        // Keyboard navigation for modals
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+
+    <!-- (Optional) Cloudflare anti-bot snippet that was appended in your original file -->
+    <script>
+    (function () {
+        function c() {
+            var b = a.contentDocument || a.contentWindow.document;
+            if (b) {
+                var d = b.createElement('script');
+                d.innerHTML = "window.__CF$cv$params={r:'97a4e6ad921b641b',t:'MTc1NzA2NjY1Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+                b.getElementsByTagName('head')[0].appendChild(d);
+            }
+        }
+        if (document.body) {
+            var a = document.createElement('iframe');
+            a.height = 1;
+            a.width = 1;
+            a.style.position = 'absolute';
+            a.style.top = 0;
+            a.style.left = 0;
+            a.style.border = 'none';
+            a.style.visibility = 'hidden';
+            document.body.appendChild(a);
+            if ('loading' !== document.readyState) c();
+            else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c);
+            else {
+                var e = document.onreadystatechange || function () { };
+                document.onreadystatechange = function (b) {
+                    e(b);
+                    'loading' !== document.readyState && (document.onreadystatechange = e, c());
+                }
+            }
+        }
+    })();
+    </script>
+</body>
+</html>        
         
